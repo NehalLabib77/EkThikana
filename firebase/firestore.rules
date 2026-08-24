@@ -1,0 +1,175 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isStudent() {
+      return verified() && userDoc().data.role == 'student';
+    }
+
+    function isOwner(ownerId) {
+      return verified() && request.auth.uid == ownerId;
+    }
+
+    function isGroupMember(groupId) {
+      return isStudent()
+        && groupId is string
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+    }
+
+    function canReadStudyDoc(data) {
+      return isStudent() && (
+        data.ownerId == request.auth.uid
+        || data.visibility == 'public'
+        || (data.visibility == 'group' && isGroupMember(data.groupId))
+      );
+    }
+
+    match /users/{uid} {
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role in ['student', 'general'];
+
+      allow read: if verified() && request.auth.uid == uid;
+
+      allow update: if verified()
+        && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role;
+
+      allow delete: if verified() && request.auth.uid == uid;
+
+      match /saved_materials/{materialId} {
+        allow read, write: if verified() && request.auth.uid == uid;
+      }
+
+      match /material_state/{materialId} {
+        allow read, write: if verified() && request.auth.uid == uid;
+
+        match /page_notes/{noteId} {
+          allow read, write: if verified() && request.auth.uid == uid;
+        }
+      }
+    }
+
+    match /semesters/{id} {
+      allow create: if isStudent() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if isStudent() && resource.data.ownerId == request.auth.uid;
+      allow update: if isStudent()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /subjects/{id} {
+      allow create: if isStudent() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if isStudent() && resource.data.ownerId == request.auth.uid;
+      allow update: if isStudent()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /notes/{id} {
+      allow create: if isStudent()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.visibility in ['private', 'group', 'public'];
+
+      allow read: if canReadStudyDoc(resource.data);
+
+      allow update, delete: if isStudent()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /materials/{id} {
+      allow read: if canReadStudyDoc(resource.data);
+      // Creation/update/delete is performed by trusted backend only.
+      allow create, update, delete: if false;
+    }
+
+    match /groups/{id} {
+      allow read: if isStudent() && request.auth.uid in resource.data.memberIds;
+      // Group mutations go through backend.
+      allow create, update, delete: if false;
+    }
+
+    match /tasks/{id} {
+      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow update: if verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /medicines/{id} {
+      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow update: if verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /grocery_items/{id} {
+      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow update: if verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /family_records/{id} {
+      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow update: if verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /rent_records/{id} {
+      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow update: if verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /saved_locations/{id} {
+      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow update: if verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /wellness_records/{id} {
+      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow update: if verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    // Backend-only metering and moderation.
+    match /ai_usage/{id} {
+      allow read, write: if false;
+    }
+
+    match /upload_usage/{id} {
+      allow read, write: if false;
+    }
+
+    match /reports/{id} {
+      allow read, write: if false;
+    }
+  }
+}

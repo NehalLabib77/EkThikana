@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "412221245002",
+    "project_id": "gochano-a30c8",
+    "storage_bucket": "gochano-a30c8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:412221245002:android:749fe1cbfd73b8927548b3",
+        "android_client_info": {
+          "package_name": "com.ekthikana.ekthikana"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD4mpH8JoJURwz4jVoDheg7pZ93SNtlYqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

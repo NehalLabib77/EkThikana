@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: ekthikana-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_B64
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: ekthikana-files
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.7-flash
+      - key: MAX_UPLOAD_MB
+        value: "15"
+      - key: USER_STORAGE_LIMIT_MB
+        value: "100"
+      - key: UPLOAD_DAILY_LIMIT
+        value: "10"
+      - key: SIGNED_URL_TTL_SECONDS
+        value: "3600"
+      - key: AI_DAILY_LIMIT
+        value: "30"

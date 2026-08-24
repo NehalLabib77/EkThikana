@@ -1,0 +1,28 @@
+# secrets
+.env
+*.json.b64
+service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+android/.gradle/
+ios/Pods/
+firebase_options.local.dart
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
