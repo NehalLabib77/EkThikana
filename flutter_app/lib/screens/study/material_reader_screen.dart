@@ -3,6 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../core/language.dart';
+import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/api_service.dart';
 import '../../services/firestore_service.dart';
@@ -500,9 +502,16 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          title,
-          overflow: TextOverflow.ellipsis,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, overflow: TextOverflow.ellipsis),
+            if (isPdf)
+              Text(
+                EkLanguage.text('Page $currentPage', 'পৃষ্ঠা $currentPage'),
+                style: const TextStyle(fontSize: 10, color: EkColors.muted, fontWeight: FontWeight.w500),
+              ),
+          ],
         ),
         actions: [
           if (isPdf)
@@ -611,6 +620,32 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
                           ),
                         )
                       : _ImageMaterial(url: signedUrl!),
+      bottomNavigationBar: isPdf
+          ? SafeArea(
+              top: false,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: EkColors.line)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _ReaderAction(icon: Icons.search, label: EkLanguage.text('Search', 'খুঁজুন'), onTap: _searchPdf),
+                    _ReaderAction(icon: Icons.note_add_outlined, label: EkLanguage.text('Note', 'নোট'), onTap: _addPageNote),
+                    _ReaderAction(
+                      icon: bookmarks.contains(currentPage) ? Icons.bookmark : Icons.bookmark_border,
+                      label: EkLanguage.text('Bookmark', 'বুকমার্ক'),
+                      onTap: _toggleBookmark,
+                    ),
+                    _ReaderAction(icon: Icons.auto_awesome, label: 'AI', onTap: _askAi),
+                    _ReaderAction(icon: Icons.more_horiz, label: EkLanguage.text('More', 'আরও'), onTap: _showPageNotes),
+                  ],
+                ),
+              ),
+            )
+          : null,
     );
   }
 }
@@ -636,6 +671,33 @@ class _ImageMaterial extends StatelessWidget {
           errorBuilder: (_, __, ___) => const Center(
             child: Text('Could not display this file as an image.'),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _ReaderAction extends StatelessWidget {
+  const _ReaderAction({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 21, color: EkColors.text),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(fontSize: 9, color: EkColors.muted)),
+          ],
         ),
       ),
     );

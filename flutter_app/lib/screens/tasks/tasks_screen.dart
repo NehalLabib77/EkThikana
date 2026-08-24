@@ -2,12 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/language.dart';
+import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 
-class TasksScreen extends StatelessWidget {
+class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
+
+  @override
+  State<TasksScreen> createState() => _TasksScreenState();
+}
+
+class _TasksScreenState extends State<TasksScreen> {
+  int tab = 0;
 
   Future<void> _addTask(BuildContext context) async {
     final title = TextEditingController();
@@ -17,17 +26,19 @@ class TasksScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('New task'),
+          title: Text(EkLanguage.text('New task', 'নতুন কাজ')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: title, decoration: const InputDecoration(labelText: 'Task')),
+              TextField(controller: title, decoration: InputDecoration(labelText: EkLanguage.text('Task', 'কাজ'))),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule),
+                leading: const Icon(Icons.schedule, color: EkColors.purple),
                 title: Text(
-                  due == null ? 'No reminder time' : DateFormat('dd MMM yyyy, h:mm a').format(due!),
+                  due == null
+                      ? EkLanguage.text('No reminder time', 'রিমাইন্ডারের সময় নেই')
+                      : DateFormat('dd MMM yyyy, h:mm a').format(due!),
                 ),
                 trailing: const Icon(Icons.edit_calendar_outlined),
                 onTap: () async {
@@ -43,16 +54,14 @@ class TasksScreen extends StatelessWidget {
                     initialTime: TimeOfDay.fromDateTime(due ?? DateTime.now().add(const Duration(hours: 1))),
                   );
                   if (time == null) return;
-                  setDialogState(() {
-                    due = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                  });
+                  setDialogState(() => due = DateTime(date.year, date.month, date.day, time.hour, time.minute));
                 },
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(EkLanguage.text('Cancel', 'বাতিল'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(EkLanguage.text('Save', 'সংরক্ষণ'))),
           ],
         ),
       ),
@@ -71,11 +80,7 @@ class TasksScreen extends StatelessWidget {
         'keywords': FirestoreService.keywords(title.text),
       });
       if (due != null) {
-        await NotificationService.scheduleTask(
-          taskId: ref.id,
-          title: title.text.trim(),
-          when: due!,
-        );
+        await NotificationService.scheduleTask(taskId: ref.id, title: title.text.trim(), when: due!);
       }
     } catch (e) {
       if (context.mounted) showError(context, e);
@@ -84,79 +89,151 @@ class TasksScreen extends StatelessWidget {
     }
   }
 
+  bool _isToday(DateTime value) {
+    final now = DateTime.now();
+    return value.year == now.year && value.month == now.month && value.day == now.day;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Tasks & reminders')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addTask(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Task'),
-      ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.ownerStream('tasks'),
-        builder: (context, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+    return ValueListenableBuilder<bool>(
+      valueListenable: EkLanguage.bangla,
+      builder: (context, _, __) => Scaffold(
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(EkLanguage.text('My Tasks', 'আমার কাজ')),
+              Text(EkLanguage.text('Stay organized, get more done', 'গুছিয়ে থাকুন, কাজ এগিয়ে নিন'), style: const TextStyle(fontSize: 11, color: EkColors.muted, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          actions: const [Padding(padding: EdgeInsets.only(right: 12), child: LanguageToggle())],
+        ),
+        floatingActionButton: FloatingActionButton(onPressed: () => _addTask(context), child: const Icon(Icons.add)),
+        body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirestoreService.ownerStream('tasks'),
+          builder: (context, snap) {
+            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+            final all = [...snap.data!.docs];
+            all.sort((a, b) {
+              final ad = a.data()['dueAt'] as Timestamp?;
+              final bd = b.data()['dueAt'] as Timestamp?;
+              if (ad == null && bd == null) return 0;
+              if (ad == null) return 1;
+              if (bd == null) return -1;
+              return ad.compareTo(bd);
+            });
 
-          final docs = [...snap.data!.docs];
-          docs.sort((a, b) {
-            final ad = a.data()['dueAt'] as Timestamp?;
-            final bd = b.data()['dueAt'] as Timestamp?;
-            if (ad == null && bd == null) return 0;
-            if (ad == null) return 1;
-            if (bd == null) return -1;
-            return ad.compareTo(bd);
-          });
+            final filtered = all.where((doc) {
+              if (tab == 0) return true;
+              final ts = doc.data()['dueAt'] as Timestamp?;
+              if (ts == null) return false;
+              if (tab == 1) return _isToday(ts.toDate());
+              final tomorrow = DateTime.now().add(const Duration(days: 1));
+              return ts.toDate().isAfter(DateTime(tomorrow.year, tomorrow.month, tomorrow.day));
+            }).toList();
 
-          if (docs.isEmpty) {
-            return const Center(child: Text('No tasks yet.'));
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final doc = docs[i];
-              final data = doc.data();
-              final done = data['done'] == true;
-              final due = data['dueAt'] as Timestamp?;
-              return Card(
-                child: CheckboxListTile(
-                  value: done,
-                  title: Text(
-                    data['title']?.toString() ?? '',
-                    style: TextStyle(decoration: done ? TextDecoration.lineThrough : null),
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(color: const Color(0xFFF0F1F7), borderRadius: BorderRadius.circular(14)),
+                    child: Row(
+                      children: [
+                        _tabButton(0, EkLanguage.text('All', 'সব')),
+                        _tabButton(1, EkLanguage.text('Today', 'আজ')),
+                        _tabButton(2, EkLanguage.text('Upcoming', 'আসছে')),
+                      ],
+                    ),
                   ),
-                  subtitle: due == null
-                      ? null
-                      : Text(DateFormat('dd MMM yyyy, h:mm a').format(due.toDate())),
-                  secondary: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () async {
-                      final ok = await confirmAction(
-                        context,
-                        title: 'Delete task?',
-                        message: 'This task will be permanently removed.',
-                        action: 'Delete',
-                      );
-                      if (!ok) return;
-                      await NotificationService.cancelTask(doc.id);
-                      await doc.reference.delete();
-                    },
-                  ),
-                  onChanged: (value) async {
-                    await doc.reference.update({
-                      'done': value ?? false,
-                      'updatedAt': FieldValue.serverTimestamp(),
-                    });
-                    if (value == true) await NotificationService.cancelTask(doc.id);
-                  },
                 ),
-              );
-            },
-          );
-        },
+                Expanded(
+                  child: filtered.isEmpty
+                      ? Center(child: Text(EkLanguage.text('No tasks here yet.', 'এখানে এখনও কোনো কাজ নেই।')))
+                      : ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+                          children: [
+                            for (final doc in filtered) ...[
+                              _taskCard(context, doc),
+                              const SizedBox(height: 8),
+                            ],
+                          ],
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _tabButton(int value, String label) {
+    final selected = tab == value;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: () => setState(() => tab = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? EkColors.purple : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: selected ? Colors.white : EkColors.muted, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, fontSize: 12)),
+        ),
+      ),
+    );
+  }
+
+  Widget _taskCard(BuildContext context, QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final done = data['done'] == true;
+    final due = data['dueAt'] as Timestamp?;
+    final dueDate = due?.toDate();
+    final time = dueDate == null ? '' : DateFormat('hh:mm a').format(dueDate);
+    final late = dueDate != null && dueDate.isBefore(DateTime.now()) && !done;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          children: [
+            Checkbox(
+              value: done,
+              activeColor: EkColors.green,
+              onChanged: (value) async {
+                await doc.reference.update({'done': value ?? false, 'updatedAt': FieldValue.serverTimestamp()});
+                if (value == true) await NotificationService.cancelTask(doc.id);
+              },
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(data['title']?.toString() ?? '', style: TextStyle(fontWeight: FontWeight.w700, decoration: done ? TextDecoration.lineThrough : null)),
+                  if (dueDate != null)
+                    Text(DateFormat('dd MMM yyyy').format(dueDate), style: const TextStyle(color: EkColors.muted, fontSize: 10)),
+                ],
+              ),
+            ),
+            if (time.isNotEmpty)
+              Text(time, style: TextStyle(color: late ? EkColors.red : EkColors.green, fontWeight: FontWeight.w700, fontSize: 11)),
+            PopupMenuButton<String>(
+              onSelected: (value) async {
+                if (value != 'delete') return;
+                final ok = await confirmAction(context, title: EkLanguage.text('Delete task?', 'কাজ মুছবেন?'), message: EkLanguage.text('This task will be permanently removed.', 'এই কাজটি স্থায়ীভাবে মুছে যাবে।'), action: EkLanguage.text('Delete', 'মুছুন'));
+                if (!ok) return;
+                await NotificationService.cancelTask(doc.id);
+                await doc.reference.delete();
+              },
+              itemBuilder: (_) => [PopupMenuItem(value: 'delete', child: Text(EkLanguage.text('Delete', 'মুছুন')))],
+            ),
+          ],
+        ),
       ),
     );
   }

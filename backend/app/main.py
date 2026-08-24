@@ -1,12 +1,17 @@
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.routers import account, ai, groups, health, materials, me, prescriptions, reports, study
 
+logger = logging.getLogger("ekthikana")
+
 app = FastAPI(
     title="EkThikana API",
-    version="1.0.0",
+    version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -20,6 +25,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Always return JSON instead of Starlette's plain-text 500 body.
+
+    The full exception still goes to Render logs. Flutter receives a stable
+    message and no longer crashes while trying to jsonDecode("Internal Server Error").
+    """
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    detail = "Internal server error"
+    if settings.app_env.lower() != "production":
+        detail = f"{type(exc).__name__}: {exc}"
+    return JSONResponse(status_code=500, content={"detail": detail})
+
 
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(me.router, prefix="/api", tags=["Account"])

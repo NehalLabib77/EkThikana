@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_config.dart';
+import '../../core/language.dart';
+import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/auth_service.dart';
 import 'register_screen.dart';
@@ -37,16 +39,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> reset() async {
     if (email.text.trim().isEmpty) {
-      showError(context, Exception('Enter your email first.'));
+      showError(context, Exception(EkLanguage.text('Enter your email first.', 'আগে আপনার ইমেইল লিখুন।')));
       return;
     }
     try {
       await AuthService.sendPasswordReset(email.text);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset email sent.')),
-        );
-      }
+      if (mounted) showSuccess(context, EkLanguage.text('Password reset email sent.', 'পাসওয়ার্ড রিসেট ইমেইল পাঠানো হয়েছে।'));
     } catch (e) {
       if (mounted) showError(context, e);
     }
@@ -54,59 +52,49 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              shrinkWrap: true,
-              children: [
-                const SizedBox(height: 36),
-                const Icon(Icons.home_work_outlined, size: 72),
-                const SizedBox(height: 16),
-                const Text(
-                  AppConfig.appName,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800),
-                ),
-                const Text(
-                  AppConfig.tagline,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: password,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Password'),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: busy ? null : login,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Text(busy ? 'Signing in…' : 'Sign in'),
+    return ValueListenableBuilder<bool>(
+      valueListenable: EkLanguage.bangla,
+      builder: (context, _, __) => Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                shrinkWrap: true,
+                children: [
+                  Align(alignment: Alignment.centerRight, child: const LanguageToggle()),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: Container(
+                      width: 92,
+                      height: 92,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [EkColors.purple, Color(0xFF23C8D5)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: const [BoxShadow(color: Color(0x245B3DF5), blurRadius: 24, offset: Offset(0, 10))],
+                      ),
+                      child: const Icon(Icons.home_work_rounded, color: Colors.white, size: 48),
+                    ),
                   ),
-                ),
-                TextButton(onPressed: busy ? null : reset, child: const Text('Forgot password?')),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: busy
-                      ? null
-                      : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                          ),
-                  child: const Text('Create account'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  const Text(AppConfig.appName, textAlign: TextAlign.center, style: TextStyle(fontSize: 35, fontWeight: FontWeight.w900, letterSpacing: -.6)),
+                  Text(EkLanguage.text('Everything in One Place', 'আপনার সবকিছুর এক ঠিকানা'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text(EkLanguage.text('Your study. Your life. Organized beautifully.', 'পড়াশোনা আর দৈনন্দিন জীবন—একসাথে গুছানো।'), textAlign: TextAlign.center, style: const TextStyle(color: EkColors.muted, fontSize: 12)),
+                  const SizedBox(height: 28),
+                  TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: EkLanguage.text('Email', 'ইমেইল'), prefixIcon: const Icon(Icons.mail_outline))),
+                  const SizedBox(height: 11),
+                  TextField(controller: password, obscureText: true, decoration: InputDecoration(labelText: EkLanguage.text('Password', 'পাসওয়ার্ড'), prefixIcon: const Icon(Icons.lock_outline))),
+                  Align(alignment: Alignment.centerRight, child: TextButton(onPressed: busy ? null : reset, child: Text(EkLanguage.text('Forgot password?', 'পাসওয়ার্ড ভুলে গেছেন?')))),
+                  FilledButton(onPressed: busy ? null : login, child: Padding(padding: const EdgeInsets.all(4), child: Text(EkLanguage.text(busy ? 'Signing in…' : 'Sign in', busy ? 'সাইন ইন হচ্ছে…' : 'সাইন ইন')))),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: busy ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                    child: Text(EkLanguage.text('Create account', 'অ্যাকাউন্ট তৈরি করুন')),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
