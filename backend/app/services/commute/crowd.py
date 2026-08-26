@@ -6,7 +6,7 @@ from typing import Any
 
 from supabase import create_client
 
-from app.core.config import get_settings
+from app.core.config import get_settings, normalize_supabase_url
 
 
 def percentile(values: list[float], p: float) -> float:
@@ -44,7 +44,7 @@ class CrowdFareRepository:
         settings = get_settings()
         self.enabled = bool(settings.supabase_url and settings.supabase_service_role_key)
         self.client = (
-            create_client(settings.supabase_url, settings.supabase_service_role_key)
+            create_client(normalize_supabase_url(settings.supabase_url), settings.supabase_service_role_key)
             if self.enabled
             else None
         )

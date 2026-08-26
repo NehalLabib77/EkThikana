@@ -77,6 +77,36 @@ for _real_key in [k for k in sys.modules if k == "supabase" or k.startswith("sup
 sys.modules["supabase"] = _supabase_pkg
 
 
+# Firebase Admin — import-time stand-ins; fixtures patch runtime behaviour.
+_firebase_admin = types.ModuleType("firebase_admin")
+_firebase_admin.__path__ = []
+_firebase_admin._apps = []
+_firebase_admin.initialize_app = lambda *a, **k: object()
+
+_firebase_auth = types.ModuleType("firebase_admin.auth")
+_firebase_auth.verify_id_token = lambda *a, **k: {}
+_firebase_auth.delete_user = lambda *a, **k: None
+
+_firebase_credentials = types.ModuleType("firebase_admin.credentials")
+_firebase_credentials.Certificate = lambda info: info
+
+_firebase_firestore = types.ModuleType("firebase_admin.firestore")
+_firebase_firestore.client = lambda: None
+_firebase_firestore.SERVER_TIMESTAMP = object()
+_firebase_firestore.ServerTimestamp = object
+_firebase_firestore.ArrayUnion = lambda values: values
+_firebase_firestore.Increment = lambda value: value
+_firebase_firestore.transactional = lambda func: func
+
+_firebase_admin.auth = _firebase_auth
+_firebase_admin.credentials = _firebase_credentials
+_firebase_admin.firestore = _firebase_firestore
+sys.modules["firebase_admin"] = _firebase_admin
+sys.modules["firebase_admin.auth"] = _firebase_auth
+sys.modules["firebase_admin.credentials"] = _firebase_credentials
+sys.modules["firebase_admin.firestore"] = _firebase_firestore
+
+
 # OCR / image helpers — only used by prescription upload route. We patch the
 # service functions to deterministic no-ops in the route-level tests; the
 # import-only stubs are enough for app.main to load.
@@ -86,9 +116,7 @@ _install_stub(
     attrs={"convert_from_bytes": lambda *a, **k: []},
 )
 
-# PIL — provide the attributes pypdf probes at import time, plus the
-# submodules that ocr_service imports directly. The real Pillow package is
-# *not* required for tests; these stubs keep the import surface minimal.
+# PIL — provide the attributes pypdf probes at import time
 _pil_pkg = types.ModuleType("PIL")
 _pil_pkg.__path__ = []  # mark as package so PIL.Image can live under it
 _pil_pkg.__version__ = "0.0-fake"
@@ -100,10 +128,23 @@ _pil_image.open = lambda *a, **k: None
 _pil_image.new = lambda *a, **k: None
 sys.modules["PIL.Image"] = _pil_image
 _pil_pkg.Image = _pil_image
-for _sub_name in ("ImageEnhance", "ImageFilter", "ImageOps"):
-    _sub = types.ModuleType(f"PIL.{_sub_name}")
-    sys.modules[f"PIL.{_sub_name}"] = _sub
-    setattr(_pil_pkg, _sub_name, _sub)
+
+_pil_enhance = types.ModuleType("PIL.ImageEnhance")
+_pil_enhance.Contrast = lambda image: types.SimpleNamespace(enhance=lambda factor: image)
+sys.modules["PIL.ImageEnhance"] = _pil_enhance
+_pil_pkg.ImageEnhance = _pil_enhance
+
+_pil_filter = types.ModuleType("PIL.ImageFilter")
+_pil_filter.SHARPEN = object()
+sys.modules["PIL.ImageFilter"] = _pil_filter
+_pil_pkg.ImageFilter = _pil_filter
+
+_pil_ops = types.ModuleType("PIL.ImageOps")
+_pil_ops.exif_transpose = lambda image: image
+_pil_ops.grayscale = lambda image: image
+_pil_ops.autocontrast = lambda image, cutoff=0: image
+sys.modules["PIL.ImageOps"] = _pil_ops
+_pil_pkg.ImageOps = _pil_ops
 
 
 # ---------------------------------------------------------------------------

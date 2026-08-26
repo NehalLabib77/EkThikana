@@ -9,8 +9,8 @@ from app.services.commute.ml_fare import MLFarePredictionService
 
 
 class BusFareService:
-    def __init__(self) -> None:
-        self.repo = get_commute_repository()
+    def __init__(self, repo=None) -> None:
+        self.repo = repo or get_commute_repository()
 
     def lookup(self, origin: str, destination: str) -> list[dict[str, Any]]:
         return self.repo.official_bus_fares(origin, destination)
@@ -20,16 +20,16 @@ class BusFareService:
 
 
 class MetroFareService:
-    def __init__(self) -> None:
-        self.repo = get_commute_repository()
+    def __init__(self, repo=None) -> None:
+        self.repo = repo or get_commute_repository()
 
     def lookup(self, origin: str, destination: str) -> dict[str, Any] | None:
         return self.repo.metro_fare(origin, destination)
 
 
 class CNGFareService:
-    def __init__(self) -> None:
-        self.repo = get_commute_repository()
+    def __init__(self, repo=None) -> None:
+        self.repo = repo or get_commute_repository()
         self.crowd = CrowdFareRepository()
 
     def estimate(
@@ -78,8 +78,8 @@ class CNGFareService:
 
 
 class RickshawFareService:
-    def __init__(self) -> None:
-        self.repo = get_commute_repository()
+    def __init__(self, repo=None) -> None:
+        self.repo = repo or get_commute_repository()
         self.crowd = CrowdFareRepository()
 
     def estimate(
@@ -101,11 +101,11 @@ class RickshawFareService:
 
 
 class FareEngine:
-    def __init__(self) -> None:
-        self.bus = BusFareService()
-        self.metro = MetroFareService()
-        self.cng = CNGFareService()
-        self.rickshaw = RickshawFareService()
+    def __init__(self, repo=None) -> None:
+        self.bus = BusFareService(repo=repo)
+        self.metro = MetroFareService(repo=repo)
+        self.cng = CNGFareService(repo=repo)
+        self.rickshaw = RickshawFareService(repo=repo)
         self.ml = MLFarePredictionService()
 
     def options(

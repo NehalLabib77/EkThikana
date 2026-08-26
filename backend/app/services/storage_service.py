@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from supabase import create_client
 
-from app.core.config import get_settings
+from app.core.config import get_settings, normalize_supabase_url
 
 
 @lru_cache
@@ -10,7 +10,7 @@ def _client():
     s = get_settings()
     if not s.supabase_url or not s.supabase_service_role_key:
         raise RuntimeError("Supabase storage credentials are not configured")
-    return create_client(s.supabase_url, s.supabase_service_role_key)
+    return create_client(normalize_supabase_url(s.supabase_url), s.supabase_service_role_key)
 
 
 def upload_bytes(path: str, data: bytes, content_type: str):

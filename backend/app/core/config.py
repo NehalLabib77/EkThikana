@@ -38,23 +38,16 @@ class Settings(BaseSettings):
     )
 
 
+def normalize_supabase_url(value: str) -> str:
+    """Accept either a full Supabase URL or a bare project ref."""
+    raw = (value or "").strip().rstrip("/")
+    if not raw:
+        return ""
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return raw
+    return f"https://{raw}.supabase.co"
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
-
-def normalize_supabase_url(url: str) -> str:
-    """Trim whitespace/trailing slashes from a Supabase project URL.
-
-    The Supabase Python SDK raises if the URL has a trailing path segment,
-    so accept either a bare project URL or one already prefixed with
-    ``/rest/v1`` and normalize it back to the canonical bare form.
-    """
-    if not url:
-        return url
-    cleaned = url.strip().rstrip("/")
-    for suffix in ("/rest/v1", "/auth/v1", "/storage/v1"):
-        if cleaned.endswith(suffix):
-            cleaned = cleaned[: -len(suffix)]
-            break
-    return cleaned

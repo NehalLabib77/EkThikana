@@ -34,32 +34,6 @@ class ReportRequest(BaseModel):
     details: str = Field(default="", max_length=1000)
 
 
-class CommutePlaceInput(BaseModel):
-    """One endpoint of a route request.
-
-    All coordinates are optional when a ``place_id`` is supplied — the
-    service resolves them from the canonical dataset (or, failing that,
-    from the configured geocoder). At least one of ``place_id`` or
-    ``name`` must be present.
-    """
-
-    name: str | None = Field(default=None, min_length=1, max_length=160)
-    lat: float | None = Field(default=None, ge=-90, le=90)
-    lon: float | None = Field(default=None, ge=-180, le=180)
-    place_id: str | None = Field(default=None, max_length=80)
-
-    def model_post_init(self, __context) -> None:
-        if not self.place_id and not self.name:
-            raise ValueError("CommutePlaceInput requires either place_id or name")
-
-
-class CommuteRoutesRequest(BaseModel):
-    origin: CommutePlaceInput
-    destination: CommutePlaceInput
-    max_options: int | None = Field(default=None, ge=1, le=20)
-
-
-# Keep the legacy single-request alias used by older callers.
 class CommuteRouteRequest(BaseModel):
     origin_name: str = Field(min_length=1, max_length=160)
     origin_lat: float = Field(ge=-90, le=90)
@@ -89,3 +63,15 @@ class CommuteFareReportRequest(BaseModel):
     bus_name_user_entered: str | None = Field(default=None, max_length=120)
     route_id_if_known: str | None = Field(default=None, max_length=80)
     device_location_verified: bool = False
+
+
+class CommutePlaceInput(BaseModel):
+    place_id: str | None = Field(default=None, max_length=80)
+    name: str | None = Field(default=None, max_length=180)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+
+
+class CommuteRoutesRequest(BaseModel):
+    origin: CommutePlaceInput
+    destination: CommutePlaceInput

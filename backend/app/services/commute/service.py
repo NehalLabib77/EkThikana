@@ -19,9 +19,7 @@ class CommuteService:
     ) -> None:
         self.repo = repo or CommuteSupabaseRepository()
         self.routing = routing_provider or get_routing_provider()
-        # FareEngine has no repo constructor; the engine looks up fare data
-        # through the dataset hooks wired in its services.
-        self.fare_engine = FareEngine()
+        self.fare_engine = FareEngine(repo=self.repo)
 
     def data_status(self) -> dict[str, Any]:
         return self.repo.data_status()

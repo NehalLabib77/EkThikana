@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from supabase import create_client
 
 from app.core.auth import CurrentUser, get_current_user
-from app.core.config import get_settings
-from app.schemas import CommuteFareReportRequest, CommuteRouteRequest
+from app.core.config import get_settings, normalize_supabase_url
+from app.schemas import CommuteFareReportRequest, CommuteRouteRequest, CommuteRoutesRequest
 from app.services.commute.data_repository import get_commute_repository
 from app.services.commute.fare_engine import FareEngine
 from app.services.commute.routing import Coordinate, get_routing_provider
@@ -32,20 +32,6 @@ async def search_places(
         # Local dataset search remains useful during geocoder/network outage.
         pass
     return {"local": local, "geocoded": external}
-
-
-@router.get("/places/search")
-async def search_commute_places(
-    q: str = Query(min_length=2, max_length=120),
-    user: CurrentUser = Depends(get_current_user),
-):
-    """Supabase-backed place search used by the CommuteBD screen.
-
-    Delegates to :class:`CommuteService` so the route stays aligned with the
-    service's own dataset status checks. Auth is enforced via the standard
-    dependency; unauthenticated requests receive 401.
-    """
-    return get_commute_service().search_places(q)
 
 
 @router.post("/route")
@@ -103,7 +89,7 @@ def _supabase():
             status_code=503,
             detail="Fare reporting storage is not configured",
         )
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+    return create_client(normalize_supabase_url(settings.supabase_url), settings.supabase_service_role_key)
 
 
 @router.post("/fare-report")
@@ -176,3 +162,62 @@ def report_fare(
         "moderationStatus": "pending",
         "message": "Thank you. The report is pending moderation and is not published as truth yet.",
     }
+
+
+@router.get("/data-status")
+def data_status():
+    try:
+        return get_commute_service().data_status()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="CommuteBD data source is unavailable")
+
+
+@router.get("/places/search")
+def search_places_supabase(
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=15, ge=1, le=20),
+    user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        return get_commute_service().search_places(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="CommuteBD place search is unavailable")
+
+
+@router.get("/nearby-stops")
+def nearby_stops(
+    lat: float = Query(ge=-90, le=90),
+    lng: float = Query(ge=-180, le=180),
+    radius_m: int = Query(default=1500, ge=100, le=10000),
+    user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        return get_commute_service().nearby_stops(lat, lng, radius_m)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="CommuteBD nearby-stop lookup is unavailable")
+
+
+@router.post("/routes")
+async def routes_supabase(
+    body: CommuteRoutesRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        return await get_commute_service().routes(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        message = str(exc)
+        if "No route" in message:
+            raise HTTPException(status_code=404, detail=message)
+        raise HTTPException(status_code=503, detail=message)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=503, detail="CommuteBD route calculation is unavailable")
