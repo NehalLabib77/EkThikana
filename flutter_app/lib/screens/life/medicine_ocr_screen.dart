@@ -126,7 +126,7 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
+      builder: (context, _, _) => Scaffold(
         appBar: AppBar(
           title: Text(EkLanguage.text('Scan Prescription', 'প্রেসক্রিপশন স্ক্যান')),
           actions: const [

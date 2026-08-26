@@ -340,7 +340,7 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
 
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
+      builder: (context, _, _) => Scaffold(
         appBar: AppBar(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -828,7 +828,7 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
                     )
                   : ListView.separated(
                       itemCount: results.length,
-                      separatorBuilder: (_, __) => const Divider(),
+                      separatorBuilder: (_, _) => const Divider(),
                       itemBuilder: (context, i) {
                         final place = results[i];
                         return ListTile(

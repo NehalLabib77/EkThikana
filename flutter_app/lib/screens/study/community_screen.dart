@@ -308,7 +308,7 @@ class _PublicMaterialsState extends State<_PublicMaterials> {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       itemCount: docs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final doc = docs[i];
                         final d = doc.data();
@@ -420,7 +420,7 @@ class _PublicNotesState extends State<_PublicNotes> {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                       itemCount: docs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final doc = docs[i];
                         final d = doc.data();

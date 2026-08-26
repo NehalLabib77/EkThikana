@@ -39,7 +39,7 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
+      builder: (context, _, _) => Scaffold(
         appBar: AppBar(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +429,7 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
                   : ListView.separated(
                       padding: const EdgeInsets.all(14),
                       itemCount: items.length,
-                      separatorBuilder: (_, __) => const Divider(),
+                      separatorBuilder: (_, _) => const Divider(),
                       itemBuilder: (context, i) {
                         final item = items[i];
                         return ListTile(

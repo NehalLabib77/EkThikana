@@ -216,7 +216,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
     final editing = widget.medicineId != null;
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
+      builder: (context, _, _) => Scaffold(
         appBar: AppBar(
           title: Text(
             editing

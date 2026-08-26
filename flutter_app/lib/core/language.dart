@@ -86,7 +86,7 @@ class LocalizedText extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (_, isBn, __) => Text(
+      builder: (_, isBn, _) => Text(
         isBn ? bn : en,
         style: style,
         maxLines: maxLines,

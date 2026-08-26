@@ -16,7 +16,7 @@ class LifeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final modules = [
           _LifeModule(
             title: EkLanguage.text('Medicine', 'ওষুধ'),

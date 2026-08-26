@@ -236,7 +236,7 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
                           : ListView.separated(
                               padding: const EdgeInsets.all(12),
                               itemCount: docs.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(height: 8),
                               itemBuilder: (_, i) {
                                 final doc = docs[i];
@@ -668,7 +668,7 @@ class _ImageMaterial extends StatelessWidget {
             if (progress == null) return child;
             return const Center(child: CircularProgressIndicator());
           },
-          errorBuilder: (_, __, ___) => const Center(
+          errorBuilder: (_, _, _) => const Center(
             child: Text('Could not display this file as an image.'),
           ),
         ),

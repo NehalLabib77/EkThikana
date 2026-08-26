@@ -214,7 +214,7 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         return Scaffold(
           appBar: AppBar(
             title: Column(
@@ -286,7 +286,7 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: categories.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 9),
+                      separatorBuilder: (_, _) => const SizedBox(width: 9),
                       itemBuilder: (context, index) {
                         final c = categories[index];
                         return InkWell(

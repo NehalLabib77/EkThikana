@@ -202,7 +202,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
+      builder: (context, _, _) => Scaffold(
         appBar: AppBar(
           title: Text(EkLanguage.text('Search Gochano', 'গোছানোতে খুঁজুন')),
         ),
@@ -248,7 +248,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
                       : ListView.separated(
                           padding: const EdgeInsets.all(16),
                           itemCount: results.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               const SizedBox(height: 8),
                           itemBuilder: (context, i) {
                             final r = results[i];

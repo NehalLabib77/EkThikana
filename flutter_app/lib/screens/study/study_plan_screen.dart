@@ -31,7 +31,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
+      builder: (context, _, _) => Scaffold(
         appBar: AppBar(
           title: Text(EkLanguage.text('Study Plan', 'স্টাডি প্ল্যান')),
           actions: const [Padding(padding: EdgeInsets.only(right: 12), child: LanguageToggle())],

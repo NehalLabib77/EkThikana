@@ -14,7 +14,7 @@ class AiAssistantScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final actions = <_AiAction>[
           _AiAction(Icons.summarize_outlined, const Color(0xFF6751F5), 'Summarize Note', 'নোট সংক্ষেপ করুন', 'Open a note and use AI tools', 'নোট খুলে AI টুল ব্যবহার করুন', () => _go(context, const NotesScreen())),
           _AiAction(Icons.psychology_alt_outlined, const Color(0xFF2585FF), 'Explain This Topic', 'বিষয় সহজভাবে ব্যাখ্যা করুন', 'Understand study content clearly', 'পড়ার বিষয় সহজে বুঝুন', () => _go(context, const NotesScreen())),

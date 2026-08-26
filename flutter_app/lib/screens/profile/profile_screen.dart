@@ -130,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
+      builder: (context, _, _) => Scaffold(
         appBar: AppBar(
           title: Text(EkLanguage.text('Profile', 'প্রোফাইল')),
           actions: const [
