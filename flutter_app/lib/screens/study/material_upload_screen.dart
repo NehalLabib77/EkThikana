@@ -49,7 +49,7 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
   Future<void> pick() async {
     final selected = await FilePicker.pickFile(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+      allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx'],
     );
     if (selected == null) return;
     final data = await selected.readAsBytes();
@@ -102,7 +102,7 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
           OutlinedButton.icon(
             onPressed: busy ? null : pick,
             icon: const Icon(Icons.attach_file),
-            label: Text(file == null ? 'Choose PDF or image' : file!.name),
+            label: Text(file == null ? 'Choose PDF, image or Office doc' : file!.name),
           ),
           const SizedBox(height: 12),
           TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
@@ -112,10 +112,10 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
           DropdownButtonFormField<String>(
             initialValue: visibility,
             decoration: const InputDecoration(labelText: 'Visibility'),
+            // PART 3: 'public' removed — only Private + Group Shared Box.
             items: const [
               DropdownMenuItem(value: 'private', child: Text('Private')),
               DropdownMenuItem(value: 'group', child: Text('Group Shared Box')),
-              DropdownMenuItem(value: 'public', child: Text('Public Student Community')),
             ],
             onChanged: busy ? null : (v) => setState(() => visibility = v ?? 'private'),
           ),

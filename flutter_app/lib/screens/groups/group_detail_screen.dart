@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../services/firestore_service.dart';
 import '../study/materials_screen.dart';
 import '../study/notes_screen.dart';
+import 'group_chat_screen.dart';
 
 class GroupDetailScreen extends StatefulWidget {
   const GroupDetailScreen({
@@ -30,15 +31,21 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     group = {...widget.group};
   }
 
-  bool get isAdmin =>
-      (group['adminIds'] as List?)?.contains(FirestoreService.uid) == true;
+  bool get _isAdmin {
+    final raw = group['adminIds'];
+    if (raw is List && raw.contains(FirestoreService.uid)) return true;
+    return group['adminId']?.toString() == FirestoreService.uid;
+  }
+
+  bool get _chatEnabled => group['chatEnabled'] == true;
 
   Future<void> leave() async {
     final ok = await confirmAction(
       context,
       title: 'Leave this study group?',
       message:
-          'You will lose access to its Shared Box and group notes. Materials you saved to your private library remain saved references while still accessible.',
+          'You will lose access to its Shared Box, group notes and chat. '
+          'Materials you saved to your private library remain saved references while still accessible.',
       action: 'Leave',
     );
     if (!ok) return;
@@ -88,6 +95,29 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     }
   }
 
+  Future<void> toggleChat(bool enabled) async {
+    final previous = _chatEnabled;
+    setState(() {
+      group['chatEnabled'] = enabled;
+      busy = true;
+    });
+    try {
+      await ApiService.setGroupChatEnabled(widget.groupId, enabled);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(enabled ? 'Group chat enabled.' : 'Group chat disabled.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => group['chatEnabled'] = previous);
+      showError(context, e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = group['name']?.toString() ?? 'Study group';
@@ -111,7 +141,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               }
             },
             itemBuilder: (_) => [
-              if (isAdmin)
+              if (_isAdmin)
                 const PopupMenuItem(
                   value: 'reset',
                   child: Text('Reset invite code'),
@@ -161,6 +191,31 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               ),
             ),
           ),
+          if (_isAdmin) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 8,
+                ),
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Group chat',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    _chatEnabled
+                        ? 'Members can post text and attachments in the chat.'
+                        : 'Chat is disabled. Enable it to let members post messages.',
+                  ),
+                  value: _chatEnabled,
+                  onChanged: busy ? null : toggleChat,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Card(
             child: ListTile(
@@ -176,7 +231,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: const Text(
-                'PDFs and images shared by group members. No chat.',
+                'PDFs, images and Office docs shared by group members.',
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
@@ -219,6 +274,37 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               ),
             ),
           ),
+          if (_chatEnabled) ...[
+            const SizedBox(height: 10),
+            Card(
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                leading: const CircleAvatar(
+                  child: Icon(Icons.chat_bubble_outline),
+                ),
+                title: const Text(
+                  'Group chat',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Text and attachments shared with the group.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => GroupChatScreen(
+                      groupId: widget.groupId,
+                      groupName: name,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

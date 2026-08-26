@@ -7,7 +7,10 @@ import '../../core/ui.dart';
 import '../../services/firestore_service.dart';
 import '../groups/groups_screen.dart';
 import 'academic_structure_screen.dart';
-import 'community_screen.dart';
+// community_screen.dart removed in PART 3 (correction 4: no public runtime).
+import 'focus_timer_screen.dart';
+import 'monthly_money_screen.dart';
+import 'study_stats_screen.dart';
 import 'note_editor_screen.dart';
 import 'notes_screen.dart';
 import 'saved_materials_screen.dart';
@@ -36,8 +39,7 @@ class StudyScreen extends StatelessWidget {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
           children: [
-            // Community Library remains available from the compact Library quick action.
-            // Do not add a separate 'Community Library / Browse Resources' promo block here.
+            // Community Library removed in PART 3 (correction 4: no public runtime).
             Row(
               children: [
                 Expanded(child: _quick(context, Icons.school_outlined, const Color(0xFF5B3DF5), 'Semesters', 'সেমিস্টার', const AcademicStructureScreen())),
@@ -46,7 +48,7 @@ class StudyScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(child: _quick(context, Icons.groups_outlined, const Color(0xFFFF9500), 'Groups', 'গ্রুপ', const GroupsScreen())),
                 const SizedBox(width: 8),
-                Expanded(child: _quick(context, Icons.local_library_outlined, const Color(0xFF2885F6), 'Library', 'লাইব্রেরি', const CommunityScreen())),
+                Expanded(child: _quick(context, Icons.timer_outlined, const Color(0xFFE0388A), 'Focus', 'ফোকাস', const FocusTimerScreen())),
               ],
             ),
             const SizedBox(height: 22),
@@ -141,10 +143,18 @@ class StudyScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _quick(context, Icons.insights_outlined, const Color(0xFF16A56D), 'Stats', 'পরিসংখ্যান', const StudyStatsScreen())),
+                const SizedBox(width: 8),
+                Expanded(child: _quick(context, Icons.account_balance_wallet_outlined, const Color(0xFFE0388A), 'Money', 'টাকা', const MonthlyMoneyScreen())),
+              ],
+            ),
+            const SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: () => _go(context, const SavedMaterialsScreen()),
               icon: const Icon(Icons.bookmark_outline),
-              label: Text(EkLanguage.text('Open Saved Library', 'সংরক্ষিত লাইব্রেরি খুলুন')),
+              label: Text(EkLanguage.text('Open Saved Library', 'সংরক্�িত লাইব্রেরি খুলুন')),
             ),
           ],
         ),

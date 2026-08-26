@@ -1,0 +1,13 @@
+{
+  "denied_paths_count": 12,
+  "intended_state_branch": "main",
+  "intended_state_hash": "134103be2f59db4b75c2088982498319ade195d8",
+  "remote_pushed": false,
+  "rollback_command": "git checkout main",
+  "snapshot_branch": "pre-audit-cleanup",
+  "snapshot_branch_hash": "7f62f9350bd4e9173ef952d1a925fad1b30a7ee7",
+  "snapshot_tag": "pre-audit-snapshot",
+  "snapshot_tag_hash": "7f62f9350bd4e9173ef952d1a925fad1b30a7ee7",
+  "staged_allow_paths_count": 25,
+  "working_branch_hash": "7f62f9350bd4e9173ef952d1a925fad1b30a7ee7"
+}

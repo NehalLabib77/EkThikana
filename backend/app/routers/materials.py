@@ -79,6 +79,11 @@ async def upload_material(
 ):
     if visibility not in {"private", "group", "public"}:
         raise HTTPException(status_code=400, detail="Invalid visibility")
+    if visibility == "public":
+        raise HTTPException(
+            status_code=400,
+            detail="Public materials are not supported in this build.",
+        )
     if not title.strip() or len(title.strip()) > 200:
         raise HTTPException(status_code=400, detail="Title must be 1–200 characters")
 

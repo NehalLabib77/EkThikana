@@ -47,17 +47,6 @@ service cloud.firestore {
         && request.resource.data.ownerId == resource.data.ownerId;
     }
 
-    // -------- PART 3 helpers --------
-    function isGroupAdmin(groupId) {
-      return isStudent()
-        && groupId is string
-        && request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.adminId;
-    }
-
-    function groupHasChatEnabled(groupId) {
-      return get(/databases/$(database)/documents/groups/$(groupId)).data.chatEnabled == true;
-    }
-
     match /users/{uid} {
       allow create: if signedIn()
         && request.auth.uid == uid
@@ -81,21 +70,6 @@ service cloud.firestore {
         match /page_notes/{noteId} {
           allow read, write: if verified() && request.auth.uid == uid;
         }
-      }
-
-      // PART 3: monthly budget per user per monthKey (YYYY-MM)
-      match /monthly_budget/{monthKey} {
-        allow read, write: if verified() && request.auth.uid == uid;
-      }
-
-      // PART 3: focus / pomodoro sessions per user
-      match /focus_sessions/{focusId} {
-        allow read, write: if verified() && request.auth.uid == uid;
-      }
-
-      // PART 3: locally-downloaded materials per user
-      match /offline_materials/{materialId} {
-        allow read, write: if verified() && request.auth.uid == uid;
       }
     }
 
@@ -142,29 +116,7 @@ service cloud.firestore {
     match /tasks/{id} {
       allow create: if ownedCreate();
       allow read, delete: if ownedReadDelete();
-      // PART 3: owner can flip `completed` and `completedAt` without rewriting
-      // ownerId (ownedUpdate already enforces ownerId immutability).
       allow update: if ownedUpdate();
-    }
-
-    // PART 3: group chat messages. Membership is mandatory; chatEnabled is a
-    // write gate controlled by the group admin via the trusted backend.
-    match /group_messages/{msgId} {
-      allow read: if isGroupMember(resource.data.groupId);
-
-      allow create: if isStudent()
-        && request.resource.data.senderId == request.auth.uid
-        && request.resource.data.groupId is string
-        && isGroupMember(request.resource.data.groupId)
-        && groupHasChatEnabled(request.resource.data.groupId);
-
-      // Author can delete their own message; admin can delete any in their group.
-      allow delete: if isStudent()
-        && (resource.data.senderId == request.auth.uid
-            || isGroupAdmin(resource.data.groupId));
-
-      // Edits are not part of the product surface.
-      allow update: if false;
     }
 
     match /medicines/{id} {
@@ -247,3 +199,4 @@ service cloud.firestore {
     // stores) intentionally have no match rules and are therefore denied.
   }
 }
+

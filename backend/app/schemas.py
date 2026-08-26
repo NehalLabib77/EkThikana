@@ -1,6 +1,15 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class _CamelModel(BaseModel):
+    """Accept camelCase JSON keys while keeping snake_case Python attributes."""
+
+    model_config = ConfigDict(
+        alias_generator=lambda s: s if "_" not in s else s.split("_", 1)[0] + "".join(w.capitalize() for w in s.split("_")[1:]),
+        populate_by_name=True,
+    )
 
 
 class GroupCreate(BaseModel):
@@ -75,3 +84,42 @@ class CommutePlaceInput(BaseModel):
 class CommuteRoutesRequest(BaseModel):
     origin: CommutePlaceInput
     destination: CommutePlaceInput
+
+
+# ============================================================
+# PART 3 — group chat, monthly money, focus/productivity, offline
+# ============================================================
+class GroupChatToggleRequest(_CamelModel):
+    chat_enabled: bool
+
+
+class GroupChatMessageRequest(_CamelModel):
+    text: str = Field(default="", max_length=4000)
+    attachment_url: str | None = Field(default=None, max_length=600)
+    attachment_filename: str | None = Field(default=None, max_length=200)
+    attachment_mime: str | None = Field(default=None, max_length=120)
+    attachment_size: int | None = Field(default=None, ge=0, le=50_000_000)
+
+
+class OfflineRegisterRequest(_CamelModel):
+    material_id: str = Field(min_length=1, max_length=120)
+    title: str = Field(default="", max_length=200)
+    size: int = Field(default=0, ge=0, le=500_000_000)
+    local_path: str = Field(min_length=1, max_length=400)
+    file_type: str = Field(default="application/pdf", max_length=120)
+    original_filename: str = Field(default="", max_length=200)
+
+
+class MonthlyBudgetRequest(_CamelModel):
+    month_key: str = Field(min_length=7, max_length=7, pattern=r"^\d{4}-\d{2}$")
+    available_amount: float = Field(ge=0, le=10_000_000)
+
+
+class FocusStartRequest(_CamelModel):
+    label: str = Field(default="", max_length=200)
+    planned_minutes: int = Field(default=25, ge=1, le=480)
+    note: str = Field(default="", max_length=200)
+
+
+class FocusPatchRequest(_CamelModel):
+    action: Literal["pause", "resume", "complete", "cancel"]

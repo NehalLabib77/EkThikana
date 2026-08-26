@@ -33,4 +33,11 @@ def detect_supported_file_type(data: bytes) -> tuple[str, str]:
         return "image/png", ".png"
     if data[:3] == b"\xff\xd8\xff":
         return "image/jpeg", ".jpg"
-    raise ValueError("Only PDF, PNG and JPEG files are allowed")
+    # DOCX is a ZIP container: starts with "PK\x03\x04". We accept the signature
+    # at the byte-stream level; downstream rendering is the caller's responsibility.
+    if data.startswith(b"PK\x03\x04"):
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"
+    # Classic DOC: OLE Compound File header "D0 CF 11 E0".
+    if data.startswith(b"\xd0\xcf\x11\xe0"):
+        return "application/msword", ".doc"
+    raise ValueError("Only PDF, PNG, JPEG, DOC and DOCX files are allowed")

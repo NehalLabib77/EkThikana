@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import 'app.dart';
+import 'core/app_config.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   pdfrxFlutterInitialize();
+
+  try {
+    AppConfig.validateRelease();
+  } on StateError catch (e) {
+    runApp(_SetupRequiredApp(error: e));
+    return;
+  }
 
   try {
     await Firebase.initializeApp(
@@ -44,13 +52,13 @@ class _SetupRequiredApp extends StatelessWidget {
                     const Icon(Icons.home_work_outlined, size: 72),
                     const SizedBox(height: 16),
                     const Text(
-                      'Gochano needs Firebase configuration',
+                      'Gochano needs configuration',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Run flutterfire configure as described in docs/START_HERE.md.',
+                      'Run flutterfire configure or rebuild with the correct --dart-define flags as described in docs/START_HERE.md.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),

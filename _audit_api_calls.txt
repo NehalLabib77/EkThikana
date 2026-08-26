@@ -120,12 +120,6 @@ class ApiService {
         .timeout(const Duration(seconds: 120)));
   }
 
-  static Future<http.Response> _delete(String path, {bool auth = true}) {
-    return _guard(() async => http
-        .delete(_uri(path), headers: auth ? await _headers() : {'Accept': 'application/json'})
-        .timeout(const Duration(seconds: 100)));
-  }
-
   static Future<Map<String, dynamic>> health() async => _decode(await _get('/api/health', auth: false));
 
   static Future<Map<String, dynamic>> createGroup(String name, String description) async =>
@@ -236,116 +230,6 @@ class ApiService {
 
   static Future<Map<String, dynamic>> exportAccount() async =>
       _decode(await _get('/api/account/export'));
-
-
-  // ---------------- Group chat (member-only, chatEnabled gate) ----------------
-  static Future<Map<String, dynamic>> getGroupChat(String groupId, {int limit = 100}) async =>
-      _decode(await _get('/api/groups/$groupId/chat', query: {'limit': '$limit'}));
-
-  static Future<Map<String, dynamic>> setGroupChatEnabled(String groupId, bool enabled) async =>
-      _decode(await _post('/api/groups/$groupId/chat/toggle', body: {'chatEnabled': enabled}));
-
-  static Future<Map<String, dynamic>> postGroupMessage({
-    required String groupId,
-    required String text,
-    Uint8List? attachmentBytes,
-    String? attachmentFilename,
-    String? attachmentMime,
-  }) async {
-    String? attachmentUrl;
-    int? attachmentSize;
-    if (attachmentBytes != null) {
-      attachmentFilename = (attachmentFilename ?? 'attachment.bin').trim();
-      if (attachmentFilename.isEmpty) attachmentFilename = 'attachment.bin';
-      attachmentMime = (attachmentMime ?? 'application/octet-stream').trim();
-      attachmentSize = attachmentBytes.length;
-      // Re-use existing storage pipeline (correction 5). Upload as a
-      // group-scoped material so the storage layer stays consistent, then
-      // post the message with the resulting URL.
-      attachmentUrl = await uploadMaterial(
-        bytes: attachmentBytes,
-        fileName: attachmentFilename,
-        title: attachmentFilename,
-        visibility: 'group',
-        groupId: groupId,
-      );
-      // materialUrl returns the public URL; for chat we need the signed
-      // download URL so the recipient can fetch it.
-      attachmentUrl = await materialUrl(attachmentUrl, download: false);
-    }
-    final body = <String, dynamic>{
-      'text': text,
-      if (attachmentUrl != null) 'attachment_url': attachmentUrl,
-      if (attachmentFilename != null) 'attachment_filename': attachmentFilename,
-      if (attachmentMime != null) 'attachment_mime': attachmentMime,
-      if (attachmentSize != null) 'attachment_size': attachmentSize,
-    };
-    return _decode(await _post('/api/groups/$groupId/chat', body: body));
-  }
-
-  // ---------------- Monthly money (reads central ledger) ----------------
-  static String _monthKey(DateTime when) {
-    final m = when.month.toString().padLeft(2, '0');
-    return '${when.year}-$m';
-  }
-
-  static Future<Map<String, dynamic>> setMonthlyBudget(DateTime month, double amount) async =>
-      _decode(await _post('/api/budget/monthly', body: {
-        'month_key': _monthKey(month),
-        'available_amount': amount,
-      }));
-
-  static Future<Map<String, dynamic>> getMonthlyBudget(DateTime month) async =>
-      _decode(await _get('/api/budget/monthly', query: {'month_key': _monthKey(month)}));
-
-  static Future<Map<String, dynamic>> getRemaining(DateTime month) async =>
-      _decode(await _get('/api/budget/remaining', query: {'month_key': _monthKey(month)}));
-
-  // ---------------- Focus / study stats ----------------
-  static Future<Map<String, dynamic>> startFocus({
-    String label = '',
-    int plannedMinutes = 25,
-    String note = '',
-  }) async =>
-      _decode(await _post('/api/study/focus/start', body: {
-        'label': label,
-        'planned_minutes': plannedMinutes,
-        'note': note,
-      }));
-
-  static Future<Map<String, dynamic>> patchFocus(String focusId, String action) async =>
-      _decode(await _post('/api/study/focus/$focusId', body: {'action': action}));
-
-  static Future<List<dynamic>> listFocus({int limit = 100}) async =>
-      _decode(await _get('/api/study/focus/list', query: {'limit': '$limit'}))['items'] as List<dynamic>;
-
-  static Future<Map<String, dynamic>> getStudyStats() async =>
-      _decode(await _get('/api/study/stats'));
-
-  // ---------------- Offline materials (metadata; device-local file is SoT) ----------------
-  static Future<Map<String, dynamic>> registerOffline({
-    required String materialId,
-    required String title,
-    required int size,
-    required String localPath,
-    required String fileType,
-    String originalFilename = '',
-  }) async =>
-      _decode(await _post('/api/offline/register', body: {
-        'material_id': materialId,
-        'title': title,
-        'size': size,
-        'local_path': localPath,
-        'file_type': fileType,
-        'original_filename': originalFilename,
-      }));
-
-  static Future<List<dynamic>> listOffline() async =>
-      _decode(await _get('/api/offline/list'))['items'] as List<dynamic>;
-
-  static Future<void> removeOffline(String materialId) async {
-    _decode(await _delete('/api/offline/remove/$materialId'));
-  }
 
 
   static Future<Map<String, dynamic>> commuteSearch(String query) async {

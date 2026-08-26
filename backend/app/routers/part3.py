@@ -1,0 +1,471 @@
+"""PART 3 — Monthly Available Money + Focus sessions + Study stats.
+
+These features are scoped to the FINAL-scope student user. Rules are enforced
+in firestore.rules as well; this router is the privileged-read/write surface.
+
+Idempotency contract:
+- Complete-a-focus-session is idempotent: completedAtIso set once; subsequent
+  marks are no-ops (returns the original completion timestamp).
+- Task completion computes a deterministic id from (uid, taskId) and merges
+  completed=true exactly once; re-complete is a no-op (no double increment).
+"""
+from __future__ import annotations
+
+import re
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException
+from firebase_admin import firestore
+
+from app.core.auth import CurrentUser, require_student
+from app.core.firebase import get_firestore
+from app.schemas import (
+    FocusPatchRequest,
+    FocusStartRequest,
+    MonthlyBudgetRequest,
+    OfflineRegisterRequest,
+)
+
+router = APIRouter()
+
+_FOCUS_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,80}$")
+
+
+def _day_key(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _month_key(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m")
+
+
+def _parse_iso(s: str | None) -> datetime | None:
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+# ============================================================
+# OFFLINE MATERIALS
+# ============================================================
+@router.post("/offline/register")
+def register_offline(
+    body: OfflineRegisterRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    db = get_firestore()
+    ref = (
+        db.collection("users")
+        .document(user.uid)
+        .collection("offline_materials")
+        .document(body.material_id)
+    )
+    ref.set(
+        {
+            "materialId": body.material_id,
+            "title": body.title,
+            "size": body.size,
+            "localPath": body.local_path,
+            "fileType": body.file_type,
+            "originalFilename": body.original_filename,
+            "downloadedAt": firestore.SERVER_TIMESTAMP,
+            "downloadedAtIso": datetime.now(timezone.utc).isoformat(),
+        },
+        merge=True,
+    )
+    return {
+        "registered": True,
+        "materialId": body.material_id,
+        "localPath": body.local_path,
+    }
+
+
+@router.get("/offline/list")
+def list_offline(
+    user: CurrentUser = Depends(require_student),
+):
+    rows = (
+        get_firestore()
+        .collection("users")
+        .document(user.uid)
+        .collection("offline_materials")
+        .stream()
+    )
+    out = []
+    for r in rows:
+        d = r.to_dict() or {}
+        out.append(
+            {
+                "materialId": d.get("materialId", r.id),
+                "title": d.get("title", ""),
+                "size": int(d.get("size", 0)),
+                "localPath": d.get("localPath", ""),
+                "fileType": d.get("fileType", ""),
+                "originalFilename": d.get("originalFilename", ""),
+                "downloadedAtIso": d.get("downloadedAtIso"),
+            }
+        )
+    return {"items": out}
+
+
+@router.delete("/offline/remove/{material_id}")
+def remove_offline(
+    material_id: str,
+    user: CurrentUser = Depends(require_student),
+):
+    ref = (
+        get_firestore()
+        .collection("users")
+        .document(user.uid)
+        .collection("offline_materials")
+        .document(material_id)
+    )
+    snap = ref.get()
+    if not snap.exists:
+        raise HTTPException(status_code=404, detail="Offline copy not found")
+    ref.delete()
+    return {"removed": True, "materialId": material_id}
+
+
+# ============================================================
+# MONTHLY AVAILABLE MONEY
+# ============================================================
+@router.post("/budget/monthly")
+def set_monthly_available(
+    body: MonthlyBudgetRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    ref = (
+        get_firestore()
+        .collection("users")
+        .document(user.uid)
+        .collection("monthly_budget")
+        .document(body.month_key)
+    )
+    ref.set(
+        {
+            "monthKey": body.month_key,
+            "availableAmount": float(body.available_amount),
+            "currency": "BDT",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+            "updatedAtIso": datetime.now(timezone.utc).isoformat(),
+        },
+        merge=True,
+    )
+    return {"monthKey": body.month_key, "availableAmount": float(body.available_amount)}
+
+
+@router.get("/budget/monthly")
+def get_monthly_available(
+    month_key: str,
+    user: CurrentUser = Depends(require_student),
+):
+    if not re.fullmatch(r"\d{4}-\d{2}", month_key or ""):
+        raise HTTPException(status_code=400, detail="month_key must be YYYY-MM")
+    snap = (
+        get_firestore()
+        .collection("users")
+        .document(user.uid)
+        .collection("monthly_budget")
+        .document(month_key)
+        .get()
+    )
+    available = float((snap.to_dict() or {}).get("availableAmount", 0.0)) if snap.exists else 0.0
+    return {"monthKey": month_key, "availableAmount": available}
+
+
+@router.get("/budget/remaining")
+def get_remaining(
+    month_key: str,
+    user: CurrentUser = Depends(require_student),
+):
+    """actualConfirmedSpending aggregates ONLY rows whose sourceRecordId
+    exists in the corresponding source collection (Daily expense,
+    Bazar purchased, Medicine Taken, Confirmed Commute fare).
+    Estimated commute, pending/skipped/missed medicine, unpurchased bazar
+    NEVER contribute.
+    """
+    if not re.fullmatch(r"\d{4}-\d{2}", month_key or ""):
+        raise HTTPException(status_code=400, detail="month_key must be YYYY-MM")
+
+    db = get_firestore()
+    budget_snap = (
+        db.collection("users")
+        .document(user.uid)
+        .collection("monthly_budget")
+        .document(month_key)
+        .get()
+    )
+    available = float((budget_snap.to_dict() or {}).get("availableAmount", 0.0)) if budget_snap.exists else 0.0
+
+    start = datetime.fromisoformat(month_key + "-01T00:00:00+00:00")
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
+    else:
+        end = start.replace(month=start.month + 1)
+
+    # Fetch all rows for the user in window — we filter status="confirmed"
+    # in Python because Firestore composite indexes aren't always present in
+    # production. `status="estimated"` rows (estimated commute, pending
+    # medicine, unpurchased bazar) are NEVER counted toward `remaining`.
+    all_rows = (
+        db.collection("financial_transactions")
+        .where("ownerId", "==", user.uid)
+        .where("createdAtIso", ">=", start.isoformat())
+        .where("createdAtIso", "<", end.isoformat())
+        .stream()
+    )
+
+    confirmed_by_source: dict[str, float] = defaultdict(float)
+    total_confirmed = 0.0
+    total_estimated = 0.0
+    for s in all_rows:
+        d = s.to_dict() or {}
+        amt = float(d.get("amount") or 0.0)
+        status = (d.get("status") or "confirmed").lower()
+        src = (d.get("source") or "other").lower()
+        if status == "confirmed":
+            confirmed_by_source[src] += amt
+            total_confirmed += amt
+        elif status == "estimated":
+            total_estimated += amt
+
+    remaining = round(available - total_confirmed, 2)
+    return {
+        "monthKey": month_key,
+        "available": available,
+        "confirmedSpending": round(total_confirmed, 2),
+        "estimatedSpending": round(total_estimated, 2),
+        "remaining": remaining,
+        "bySource": {k: round(v, 2) for k, v in confirmed_by_source.items()},
+    }
+
+
+# ============================================================
+# FOCUS / STUDY PRODUCTIVITY
+# ============================================================
+def _focus_ref(db, uid: str, focus_id: str):
+    return (
+        db.collection("users")
+        .document(uid)
+        .collection("focus_sessions")
+        .document(focus_id)
+    )
+
+
+@router.post("/study/focus/start")
+def focus_start(
+    body: FocusStartRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    db = get_firestore()
+    now = datetime.now(timezone.utc)
+    doc_id = f"focus_{int(now.timestamp() * 1000)}"
+    ref = _focus_ref(db, user.uid, doc_id)
+    ref.set(
+        {
+            "id": doc_id,
+            "ownerId": user.uid,
+            "status": "running",
+            "label": body.label,
+            "plannedMinutes": int(body.planned_minutes),
+            "accumulatedSeconds": 0,
+            "lastResumedAtIso": now.isoformat(),
+            "startedAt": firestore.SERVER_TIMESTAMP,
+            "startedAtIso": now.isoformat(),
+            "note": body.note,
+            "dayKey": _day_key(now),
+        }
+    )
+    return {
+        "id": doc_id,
+        "status": "running",
+        "label": body.label,
+        "plannedMinutes": int(body.planned_minutes),
+        "startedAtIso": now.isoformat(),
+    }
+
+
+@router.patch("/study/focus/{focus_id}")
+def focus_patch(
+    focus_id: str,
+    body: FocusPatchRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    if not _FOCUS_ID_RE.fullmatch(focus_id or ""):
+        raise HTTPException(status_code=400, detail="Invalid focus id")
+    db = get_firestore()
+    ref = _focus_ref(db, user.uid, focus_id)
+    snap = ref.get()
+    if not snap.exists:
+        raise HTTPException(status_code=404, detail="Focus session not found")
+    d = snap.to_dict() or {}
+    status = d.get("status")
+    action = body.action
+    now = datetime.now(timezone.utc)
+
+    if action == "complete":
+        if status == "completed":
+            return {
+                "id": focus_id,
+                "status": "completed",
+                "completedAtIso": d.get("completedAtIso"),
+                "accumulatedSeconds": d.get("accumulatedSeconds", 0),
+                "idempotent": True,
+            }
+        last_resumed = _parse_iso(d.get("lastResumedAtIso"))
+        accumulated = int(d.get("accumulatedSeconds", 0))
+        if status == "running" and last_resumed is not None:
+            accumulated += int((now - last_resumed).total_seconds())
+            accumulated = max(accumulated, 0)
+        ref.update(
+            {
+                "status": "completed",
+                "completedAt": firestore.SERVER_TIMESTAMP,
+                "completedAtIso": now.isoformat(),
+                "dayKey": _day_key(now),
+                "lastResumedAtIso": None,
+                "accumulatedSeconds": accumulated,
+            }
+        )
+        return {
+            "id": focus_id,
+            "status": "completed",
+            "completedAtIso": now.isoformat(),
+            "accumulatedSeconds": accumulated,
+        }
+
+    if action == "cancel":
+        ref.update({"status": "cancelled", "cancelledAtIso": now.isoformat(), "lastResumedAtIso": None})
+        return {"id": focus_id, "status": "cancelled"}
+
+    if action == "pause":
+        if status != "running":
+            raise HTTPException(status_code=409, detail=f"Cannot pause from status={status}")
+        last_resumed = _parse_iso(d.get("lastResumedAtIso"))
+        accumulated = int(d.get("accumulatedSeconds", 0))
+        if last_resumed is not None:
+            accumulated += int((now - last_resumed).total_seconds())
+            accumulated = max(accumulated, 0)
+        ref.update(
+            {
+                "status": "paused",
+                "accumulatedSeconds": accumulated,
+                "lastResumedAtIso": None,
+            }
+        )
+        return {"id": focus_id, "status": "paused", "accumulatedSeconds": accumulated}
+
+    if action == "resume":
+        if status != "paused":
+            raise HTTPException(status_code=409, detail=f"Cannot resume from status={status}")
+        ref.update({"status": "running", "lastResumedAtIso": now.isoformat()})
+        return {"id": focus_id, "status": "running"}
+
+    raise HTTPException(status_code=400, detail="Unknown action")
+
+
+@router.get("/study/focus/list")
+def focus_list(
+    days: int = 30,
+    user: CurrentUser = Depends(require_student),
+):
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=400, detail="days must be 1..365")
+    db = get_firestore()
+    rows = list(
+        db.collection("users")
+        .document(user.uid)
+        .collection("focus_sessions")
+        .order_by("startedAtIso", direction=firestore.Query.DESCENDING)
+        .limit(500)
+        .stream()
+    )
+    out = []
+    for r in rows:
+        d = r.to_dict() or {}
+        out.append(
+            {
+                "id": d.get("id", r.id),
+                "status": d.get("status"),
+                "label": d.get("label", ""),
+                "plannedMinutes": d.get("plannedMinutes"),
+                "accumulatedSeconds": int(d.get("accumulatedSeconds", 0)),
+                "startedAtIso": d.get("startedAtIso"),
+                "completedAtIso": d.get("completedAtIso"),
+                "dayKey": d.get("dayKey"),
+                "note": d.get("note", ""),
+            }
+        )
+    return {"sessions": out[:200], "count": len(out[:200])}
+
+
+@router.get("/study/stats")
+def study_stats(
+    user: CurrentUser = Depends(require_student),
+):
+    db = get_firestore()
+    rows = list(
+        db.collection("users")
+        .document(user.uid)
+        .collection("focus_sessions")
+        .stream()
+    )
+    daily_seconds = defaultdict(int)
+    monthly_seconds = defaultdict(int)
+    completed_days: set[str] = set()
+    for r in rows:
+        d = r.to_dict() or {}
+        if d.get("status") != "completed":
+            continue
+        day = d.get("dayKey")
+        secs = int(d.get("accumulatedSeconds", 0) or 0)
+        if day:
+            daily_seconds[day] += secs
+            completed_days.add(day)
+            month = day[:7]
+            monthly_seconds[month] += secs
+
+    streak = _calc_streak(completed_days)
+
+    task_rows = list(
+        db.collection("tasks")
+        .where("ownerId", "==", user.uid)
+        .stream()
+    )
+    completed_count = 0
+    total_count = 0
+    for t in task_rows:
+        td = t.to_dict() or {}
+        total_count += 1
+        if td.get("done") is True or td.get("completedAt") is not None:
+            completed_count += 1
+
+    today = _day_key(datetime.now(timezone.utc))
+    this_month = _month_key(datetime.now(timezone.utc))
+    return {
+        "todaySeconds": daily_seconds.get(today, 0),
+        "todayMinutes": daily_seconds.get(today, 0) // 60,
+        "monthSeconds": monthly_seconds.get(this_month, 0),
+        "monthMinutes": monthly_seconds.get(this_month, 0) // 60,
+        "streakDays": streak,
+        "completedTaskCount": completed_count,
+        "totalTaskCount": total_count,
+        "dailySeconds": [{"day": k, "seconds": v} for k, v in sorted(daily_seconds.items())],
+    }
+
+
+def _calc_streak(completed_days: set[str]) -> int:
+    if not completed_days:
+        return 0
+    today = datetime.now(timezone.utc).date()
+    streak = 0
+    cursor = today
+    while _day_key(datetime(cursor.year, cursor.month, cursor.day, tzinfo=timezone.utc)) in completed_days:
+        streak += 1
+        cursor = cursor - timedelta(days=1)
+    return streak

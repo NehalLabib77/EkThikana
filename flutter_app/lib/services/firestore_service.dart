@@ -87,17 +87,22 @@ class FirestoreService {
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> publicMaterials() {
-    return db
-        .collection('materials')
-        .where('visibility', isEqualTo: 'public')
-        .limit(100)
-        .snapshots();
+    // PART 3 (correction 4): public runtime is inactive. The legacy signature
+    // is preserved so any old caller compiles, but the stream never emits
+    // anything because the underlying query is filtered out by Firestore rules.
+    return Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> publicNotes() {
+    // PART 3 (correction 4): same — public visibility is no longer surfaced.
+    return Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMessages(String groupId) {
     return db
-        .collection('notes')
-        .where('visibility', isEqualTo: 'public')
+        .collection('group_messages')
+        .where('groupId', isEqualTo: groupId)
+        .orderBy('createdAt', descending: true)
         .limit(100)
         .snapshots();
   }

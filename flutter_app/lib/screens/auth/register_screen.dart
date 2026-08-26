@@ -18,7 +18,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final department = TextEditingController();
   final semester = TextEditingController();
 
-  String role = 'student';
+  // PART 3: every new Gochano account is a Student by policy. The role
+  // selector was removed; backend rules already enforce role immutability.
+  final String role = 'student';
   bool busy = false;
 
   @override
@@ -59,8 +61,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final student = role == 'student';
-
     return Scaffold(
       appBar: AppBar(title: const Text('Create Gochano account')),
       body: Center(
@@ -69,15 +69,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'student', label: Text('Student'), icon: Icon(Icons.school)),
-                  ButtonSegment(value: 'general', label: Text('General'), icon: Icon(Icons.person)),
-                ],
-                selected: {role},
-                onSelectionChanged: busy ? null : (v) => setState(() => role = v.first),
-              ),
-              const SizedBox(height: 16),
               TextField(controller: name, decoration: const InputDecoration(labelText: 'Full name')),
               const SizedBox(height: 10),
               TextField(
@@ -91,14 +82,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Password (6+ characters)'),
               ),
-              if (student) ...[
-                const SizedBox(height: 10),
-                TextField(controller: university, decoration: const InputDecoration(labelText: 'University')),
-                const SizedBox(height: 10),
-                TextField(controller: department, decoration: const InputDecoration(labelText: 'Department')),
-                const SizedBox(height: 10),
-                TextField(controller: semester, decoration: const InputDecoration(labelText: 'Current semester')),
-              ],
+              const SizedBox(height: 10),
+              TextField(controller: university, decoration: const InputDecoration(labelText: 'University')),
+              const SizedBox(height: 10),
+              TextField(controller: department, decoration: const InputDecoration(labelText: 'Department')),
+              const SizedBox(height: 10),
+              TextField(controller: semester, decoration: const InputDecoration(labelText: 'Current semester')),
               const SizedBox(height: 18),
               FilledButton(
                 onPressed: busy ? null : register,

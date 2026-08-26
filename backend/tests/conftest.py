@@ -97,6 +97,7 @@ _firebase_firestore.ServerTimestamp = object
 _firebase_firestore.ArrayUnion = lambda values: values
 _firebase_firestore.Increment = lambda value: value
 _firebase_firestore.transactional = lambda func: func
+_firebase_firestore.Query = types.SimpleNamespace(DESCENDING="DESCENDING", ASCENDING="ASCENDING")
 
 _firebase_admin.auth = _firebase_auth
 _firebase_admin.credentials = _firebase_credentials
@@ -176,8 +177,24 @@ class _FakeQuery:
     def limit(self, n: int):
         return _FakeQuery(self._docs[:n])
 
+    def order_by(self, field: str, direction=None):
+        # direction is ignored — DESCENDING is just reverse-sort on field.
+        sorted_docs = sorted(
+            self._docs,
+            key=lambda d: (d.get("data") or {}).get(field) or "",
+            reverse=True,
+        )
+        return _FakeQuery(sorted_docs)
+
     def stream(self):
         for doc in self._docs:
+            data = doc["data"] or {}
+            if self._op == "==" and self._field is not None:
+                if data.get(self._field) != self._value:
+                    continue
+            if self._op == "array_contains" and self._field is not None:
+                if self._value not in (data.get(self._field) or []):
+                    continue
             yield doc["snap"]
 
     def get(self, transaction=None):  # pragma: no cover - transactional path
@@ -285,13 +302,42 @@ class _FakeCollection:
 
     def where(self, field: str, op: str = "==", value: Any = None):
         bucket = self._db._collections.setdefault(self._path, {})
-        docs = [{"snap": _Snap(_FakeDocRef(self._db, self._path, k), v), "data": v} for k, v in bucket.items()]
-        return _FakeQuery(docs, field, op, value)
+        matched = []
+        for k, v in bucket.items():
+            if op == "==":
+                if v.get(field) != value:
+                    continue
+            elif op == "array_contains":
+                if value not in (v.get(field) or []):
+                    continue
+            matched.append({"snap": _Snap(_FakeDocRef(self._db, self._path, k), v), "data": v})
+        return _FakeQuery(matched, field, op, value)
 
     def stream(self):
         bucket = self._db._collections.setdefault(self._path, {})
         for k, v in bucket.items():
             yield _Snap(_FakeDocRef(self._db, self._path, k), v)
+
+    def order_by(self, field: str, direction=None):
+        bucket = self._db._collections.setdefault(self._path, {})
+        sorted_items = sorted(
+            bucket.items(),
+            key=lambda kv: (kv[1].get(field) or ""),
+            reverse=True,
+        )
+        new_q = _FakeQuery([
+            {"snap": _Snap(_FakeDocRef(self._db, self._path, k), v), "data": v}
+            for k, v in sorted_items
+        ])
+        return new_q
+
+    def limit(self, n: int):
+        bucket = self._db._collections.setdefault(self._path, {})
+        items = list(bucket.items())[:n]
+        return _FakeQuery([
+            {"snap": _Snap(_FakeDocRef(self._db, self._path, k), v), "data": v}
+            for k, v in items
+        ])
 
 
 class FakeFirestore:
@@ -471,13 +517,14 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     from app.routers import materials as mat_router_mod
     from app.routers import account as account_router_mod
     from app.routers import groups as groups_router_mod
+    from app.routers import part3 as part3_router_mod
 
     monkeypatch.setattr(mat_router_mod, "_consume_upload_quota", lambda uid: None)
 
     # Routers that call ``from app.core.firebase import _ensure_firebase,
     # get_firestore`` need their own module-bound copies patched too — the
     # `from X import Y` form captures the name at import time.
-    for _r_mod in (account_router_mod, groups_router_mod, mat_router_mod):
+    for _r_mod in (account_router_mod, groups_router_mod, mat_router_mod, part3_router_mod):
         if hasattr(_r_mod, "_ensure_firebase"):
             monkeypatch.setattr(_r_mod, "_ensure_firebase", lambda: None)
         if hasattr(_r_mod, "get_firestore"):

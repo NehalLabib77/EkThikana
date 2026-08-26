@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../core/language.dart';
@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/api_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/offline_service.dart';
 
 class MaterialReaderScreen extends StatefulWidget {
   const MaterialReaderScreen({
@@ -142,13 +143,18 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
         download: true,
       );
       final bytes = await ApiService.downloadBytes(url);
-      await FilePicker.saveFile(
+      await OfflineService.register(
+        materialId: widget.materialId,
+        title: widget.material['title']?.toString() ??
+            widget.material['fileName']?.toString() ??
+            widget.materialId,
         fileName: widget.material['fileName']?.toString() ?? 'material',
         bytes: bytes,
+        mimeType: widget.material['mimeType']?.toString() ?? '',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Save dialog completed.')),
+          const SnackBar(content: Text('Saved for offline reading.')),
         );
       }
     } catch (e) {
@@ -619,7 +625,13 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
                             ),
                           ),
                         )
-                      : _ImageMaterial(url: signedUrl!),
+                      : _ExternalFileOpener(
+                          materialId: widget.materialId,
+                          url: signedUrl!,
+                          fileName:
+                              widget.material['fileName']?.toString() ?? '',
+                          mimeType: widget.material['mimeType']?.toString() ?? '',
+                        ),
       bottomNavigationBar: isPdf
           ? SafeArea(
               top: false,
@@ -650,28 +662,121 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
   }
 }
 
-class _ImageMaterial extends StatelessWidget {
-  const _ImageMaterial({required this.url});
+class _ExternalFileOpener extends StatefulWidget {
+  const _ExternalFileOpener({
+    required this.materialId,
+    required this.url,
+    required this.fileName,
+    required this.mimeType,
+  });
 
+  final String materialId;
   final String url;
+  final String fileName;
+  final String mimeType;
+
+  @override
+  State<_ExternalFileOpener> createState() => _ExternalFileOpenerState();
+}
+
+class _ExternalFileOpenerState extends State<_ExternalFileOpener> {
+  bool _busy = false;
+  String? _error;
+
+  bool get _isImage {
+    final m = widget.mimeType.toLowerCase();
+    if (m.startsWith('image/')) return true;
+    final n = widget.fileName.toLowerCase();
+    return n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png');
+  }
+
+  Future<void> _openExternally() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final bytes = await ApiService.downloadBytes(widget.url);
+      final tmp = await OfflineService.writeTemp(
+        materialId: widget.materialId,
+        bytes: bytes,
+        mimeType: widget.mimeType,
+        fileName: widget.fileName,
+      );
+      final result = await OpenFilex.open(tmp.path);
+      if (result.type != ResultType.done && mounted) {
+        setState(() => _error = 'No app available to open this file.');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InteractiveViewer(
-      minScale: .5,
-      maxScale: 5,
-      child: Center(
-        child: Image.network(
-          url,
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return const Center(child: CircularProgressIndicator());
-          },
-          errorBuilder: (_, _, _) => const Center(
-            child: Text('Could not display this file as an image.'),
+    if (_isImage) {
+      return InteractiveViewer(
+        minScale: .5,
+        maxScale: 5,
+        child: Center(
+          child: Image.network(
+            widget.url,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return const Center(child: CircularProgressIndicator());
+            },
+            errorBuilder: (_, _, _) => const Center(
+              child: Text('Could not display this image.'),
+            ),
           ),
         ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.description_outlined, size: 64, color: Colors.black45),
+          const SizedBox(height: 12),
+          Text(
+            widget.fileName.isEmpty ? 'Document' : widget.fileName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'In-app preview is not available for this file type.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 16),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          FilledButton.icon(
+            onPressed: _busy ? null : _openExternally,
+            icon: _busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.open_in_new),
+            label: const Text('Open in external app'),
+          ),
+        ],
       ),
     );
   }

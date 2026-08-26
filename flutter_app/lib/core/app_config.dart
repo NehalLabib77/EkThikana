@@ -11,4 +11,37 @@ class AppConfig {
   );
 
   static const bangladeshTimeZone = 'Asia/Dhaka';
+
+  /// True when the API base URL points at a loopback address (localhost /
+  /// 127.0.0.1 / 0.0.0.0 / ::1). On a physical Android device these URLs
+  /// resolve to the device itself and will silently fail every request.
+  static bool get isLoopback {
+    final raw = apiBaseUrl.trim().toLowerCase();
+    if (raw.isEmpty) return false;
+    final hosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
+    for (final h in hosts) {
+      if (raw.startsWith('$h:') || raw.startsWith('$h/') || raw == h) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Throws StateError when the build is a release flavor and the API base
+  /// URL resolves to a loopback host. Should be called before runApp().
+  static void validateRelease({bool? isRelease}) {
+    final release = isRelease ?? bool.fromEnvironment('dart.vm.product');
+    if (release && apiBaseUrl.isEmpty) {
+      throw StateError(
+        'API_BASE_URL is not set. Build with --dart-define=API_BASE_URL=https://...',
+      );
+    }
+    if (release && isLoopback) {
+      throw StateError(
+        'API_BASE_URL points at a loopback host ($apiBaseUrl). '
+        'Physical devices cannot reach the developer machine. '
+        'Use the Render HTTPS URL instead.',
+      );
+    }
+  }
 }

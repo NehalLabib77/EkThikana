@@ -32,7 +32,7 @@ class GroupsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              'Gochano groups have no chat. They are only for organized shared study materials.',
+              'Group chat is optional — the admin can enable it from inside the group.',
             ),
           ],
         ),
