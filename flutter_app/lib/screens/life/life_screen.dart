@@ -2,136 +2,200 @@ import 'package:flutter/material.dart';
 
 import '../../core/language.dart';
 import '../../core/theme.dart';
-import '../../core/ui.dart';
+import '../../models/financial_transaction.dart';
+import '../../services/financial_service.dart';
 import 'bazar_buddy_screen.dart';
+import 'commute_bd_screen.dart';
+import 'daily_expenses_screen.dart';
 import 'medicine_screen.dart';
-import 'record_module_screen.dart';
 
 class LifeScreen extends StatelessWidget {
   const LifeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final modules = <_LifeModule>[
-      _LifeModule('Medicine', 'ওষুধ', Icons.medication_liquid_outlined, const Color(0xFFE7FBF8), EkColors.teal, const MedicineScreen()),
-      _LifeModule(
-        'BazarBuddy', 'বাজারবাডি', Icons.shopping_cart_outlined, const Color(0xFFEDFAEA), const Color(0xFF45AF4B),
-        const BazarBuddyScreen(),
-      ),
-      _LifeModule(
-        'FamilyHub', 'ফ্যামিলিহাব', Icons.groups_2_outlined, const Color(0xFFFFEEEE), const Color(0xFFFF5A55),
-        const RecordModuleScreen(title: 'FamilyHub', collection: 'family_records', itemLabel: 'Record title', detailsLabel: 'Details'),
-      ),
-      _LifeModule(
-        'RentMate', 'রেন্টমেট', Icons.home_outlined, const Color(0xFFFFECEF), const Color(0xFFF24A5C),
-        const RecordModuleScreen(title: 'RentMate', collection: 'rent_records', itemLabel: 'Rent record', detailsLabel: 'Amount / due date / note'),
-      ),
-      _LifeModule(
-        'CommuteBD', 'যাতায়াত', Icons.directions_bus_outlined, const Color(0xFFFFF5DC), const Color(0xFFFFA621),
-        const RecordModuleScreen(title: 'CommuteBD', collection: 'saved_locations', itemLabel: 'Place / route', detailsLabel: 'Location / transport note'),
-      ),
-      _LifeModule(
-        'Wellness', 'সুস্থতা', Icons.favorite_outline, const Color(0xFFEFF1FF), const Color(0xFF5369E8),
-        const RecordModuleScreen(title: 'Wellness', collection: 'wellness_records', itemLabel: 'Entry', detailsLabel: 'Sleep / water / activity / note'),
-      ),
-    ];
-
     return ValueListenableBuilder<bool>(
       valueListenable: EkLanguage.bangla,
-      builder: (context, _, __) => Scaffold(
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(EkLanguage.text('Life Hub', 'লাইফ হাব')),
-              Text(EkLanguage.text('Manage life, stress-free', 'পরিকল্পিত থাকুন, জীবনের জন্য'), style: const TextStyle(fontSize: 11, color: EkColors.muted, fontWeight: FontWeight.w500)),
+      builder: (context, _, __) {
+        final modules = [
+          _LifeModule(
+            title: EkLanguage.text('Medicine', 'ওষুধ'),
+            subtitle: EkLanguage.text('Reminders & dose cost', 'রিমাইন্ডার ও ডোজ খরচ'),
+            emoji: '💊',
+            color: const Color(0xFFE6F8F5),
+            page: const MedicineScreen(),
+          ),
+          _LifeModule(
+            title: 'BazarBuddy',
+            subtitle: EkLanguage.text('Smart shopping list', 'স্মার্ট বাজার তালিকা'),
+            emoji: '🛒',
+            color: const Color(0xFFEAF7E6),
+            page: const BazarBuddyScreen(),
+          ),
+          _LifeModule(
+            title: EkLanguage.text('Daily Expenses', 'দৈনিক খরচ'),
+            subtitle: EkLanguage.text('Daily spending tracker', 'দৈনিক খরচ ট্র্যাকার'),
+            emoji: '🍽️',
+            color: const Color(0xFFFFF3D9),
+            page: const DailyExpensesScreen(),
+          ),
+          _LifeModule(
+            title: 'CommuteBD',
+            subtitle: EkLanguage.text('Routes & real fare tracking', 'রুট ও বাস্তব ভাড়া ট্র্যাকিং'),
+            emoji: '🚌',
+            color: const Color(0xFFE8F1FF),
+            page: const CommuteBDScreen(),
+          ),
+        ];
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(EkLanguage.text('Life Hub', 'লাইফ হাব')),
+                Text(
+                  EkLanguage.text(
+                    'Organize life and spending in one place',
+                    'জীবন ও খরচ এক জায়গায় গুছিয়ে রাখুন',
+                  ),
+                  style: const TextStyle(fontSize: 11, color: EkColors.muted),
+                ),
+              ],
+            ),
+            actions: const [
+              Padding(
+                padding: EdgeInsets.only(right: 12),
+                child: LanguageToggle(),
+              ),
             ],
           ),
-          actions: const [Padding(padding: EdgeInsets.only(right: 12), child: LanguageToggle())],
-        ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-          children: [
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: .92,
-                crossAxisSpacing: 9,
-                mainAxisSpacing: 9,
-              ),
-              itemCount: modules.length,
-              itemBuilder: (context, i) {
-                final m = modules[i];
-                return InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => m.page)),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
-                    decoration: BoxDecoration(
-                      color: m.background,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.white),
+          body: StreamBuilder<List<FinancialTransactionModel>>(
+            stream: FinancialService.monthStream(DateTime.now()),
+            builder: (context, snap) {
+              final summary = FinancialService.summary(snap.data ?? const []);
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                children: [
+                  GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    itemCount: modules.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisExtent: 156,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: .78), shape: BoxShape.circle),
-                          child: Icon(m.icon, color: m.color, size: 25),
+                    itemBuilder: (context, i) {
+                      final module = modules[i];
+                      return InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => module.page),
                         ),
-                        const SizedBox(height: 8),
-                        Text(EkLanguage.text(m.en, m.bn), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                        borderRadius: BorderRadius.circular(22),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: module.color,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: Colors.black.withValues(alpha: .04),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(module.emoji, style: const TextStyle(fontSize: 42)),
+                              const Spacer(),
+                              Text(
+                                module.title,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                module.subtitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: EkColors.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF5FCEB), Color(0xFFFFFAEA)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE4EBCD)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('💰', style: TextStyle(fontSize: 38)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                EkLanguage.text(
+                                  'This Month',
+                                  'এই মাস',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: EkColors.muted,
+                                ),
+                              ),
+                              Text(
+                                '${EkLanguage.text('Spending', 'খরচ')}: ৳${summary.totalSpending.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right),
                       ],
                     ),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 22),
-            SectionHeader(title: Text(EkLanguage.text("Today's Reminders", 'আজকের রিমাইন্ডার'))),
-            const SizedBox(height: 8),
-            Card(
-              child: Column(
-                children: [
-                  _reminder(Icons.medication_outlined, EkColors.red, EkLanguage.text('Medicine', 'ওষুধ'), EkLanguage.text('Open Medicine to see confirmed schedule', 'নিশ্চিত সময় দেখতে Medicine খুলুন')),
-                  const Divider(height: 1, indent: 62),
-                  _reminder(Icons.shopping_basket_outlined, EkColors.green, EkLanguage.text('Shopping', 'বাজার'), EkLanguage.text('Keep your grocery items in BazarBuddy', 'BazarBuddy-তে বাজারের তালিকা রাখুন')),
-                  const Divider(height: 1, indent: 62),
-                  _reminder(Icons.home_outlined, EkColors.blue, EkLanguage.text('Rent', 'ভাড়া'), EkLanguage.text('Keep rent notes and due information together', 'ভাড়ার নোট ও সময় একসাথে রাখুন')),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _reminder(IconData icon, Color color, String title, String subtitle) {
-    return ListTile(
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(11)),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)),
-      trailing: const Icon(Icons.chevron_right, size: 18, color: EkColors.muted),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
 
 class _LifeModule {
-  _LifeModule(this.en, this.bn, this.icon, this.background, this.color, this.page);
-  final String en;
-  final String bn;
-  final IconData icon;
-  final Color background;
+  const _LifeModule({
+    required this.title,
+    required this.subtitle,
+    required this.emoji,
+    required this.color,
+    required this.page,
+  });
+
+  final String title;
+  final String subtitle;
+  final String emoji;
   final Color color;
   final Widget page;
 }

@@ -1,5 +1,5 @@
 """
-Shared test harness for EkThikana backend tests.
+Shared test harness for Gochano backend tests.
 
 These tests run against the real FastAPI app via ``TestClient``, but every
 external dependency (Firebase Admin, Supabase storage, Tesseract OCR,
@@ -86,7 +86,9 @@ _install_stub(
     attrs={"convert_from_bytes": lambda *a, **k: []},
 )
 
-# PIL — provide the attributes pypdf probes at import time
+# PIL — provide the attributes pypdf probes at import time, plus the
+# submodules that ocr_service imports directly. The real Pillow package is
+# *not* required for tests; these stubs keep the import surface minimal.
 _pil_pkg = types.ModuleType("PIL")
 _pil_pkg.__path__ = []  # mark as package so PIL.Image can live under it
 _pil_pkg.__version__ = "0.0-fake"
@@ -98,6 +100,10 @@ _pil_image.open = lambda *a, **k: None
 _pil_image.new = lambda *a, **k: None
 sys.modules["PIL.Image"] = _pil_image
 _pil_pkg.Image = _pil_image
+for _sub_name in ("ImageEnhance", "ImageFilter", "ImageOps"):
+    _sub = types.ModuleType(f"PIL.{_sub_name}")
+    sys.modules[f"PIL.{_sub_name}"] = _sub
+    setattr(_pil_pkg, _sub_name, _sub)
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +254,7 @@ class _FakeCollection:
 
 
 class FakeFirestore:
-    """Minimal Firestore stand-in covering the operations EkThikana uses."""
+    """Minimal Firestore stand-in covering the operations Gochano uses."""
 
     def __init__(self):
         self._collections: dict[str, dict[str, dict]] = {}

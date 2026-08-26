@@ -1,4 +1,4 @@
-# What EkThikana needs from you
+# What Gochano needs from you
 
 The source code is prepared, but no assistant can create your private production accounts, billing decisions, credentials, signing key, privacy policy identity, or Play Console ownership for you.
 
@@ -67,7 +67,7 @@ GEMINI_API_KEY
 GEMINI_MODEL=gemini-3.7-flash
 ```
 
-Without this key, normal EkThikana features still work but AI note/PDF actions return “AI is not configured.”
+Without this key, normal Gochano features still work but AI note/PDF actions return “AI is not configured.”
 
 ## 5. Render account
 

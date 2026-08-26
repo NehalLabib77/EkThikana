@@ -1,0 +1,17 @@
+﻿dataset,purpose,primary_key,production_ready
+places.csv,Canonical BRTA place/stop list; geocode these first.,place_id,partly - coordinates pending
+bus_services.csv,Community bus operator/service route variants.,service_id,no - validate current service
+bus_service_stops.csv,Ordered stops for each community bus service.,service_id + stop_sequence,no - validate aliases/current operation
+stop_aliases.csv,Maps community spellings to canonical BRTA places.,raw_stop_name,manual review required for unmatched rows
+brta_routes.csv,Official BRTA route definitions.,route_id,yes with periodic verification
+brta_route_stops.csv,Ordered official stops with cumulative distance.,route_id + stop_sequence,yes
+brta_graph_edges.csv,Consecutive-stop graph edges for route planning.,route_id + from_place_id + to_place_id,yes
+brta_fare_segments.csv,Precomputed directed fare/distance between all stop pairs on each BRTA route.,route_id + from_place_id + to_place_id,yes under Tk2.45/km + Tk10 minimum rule
+service_route_matches.csv,Suggested mapping of old community bus services to official BRTA route codes.,service_id,no - algorithmic only
+geocoding_queue.csv,Places/stops needing lat/lon.,entity_type + entity_id,work queue
+metro_stations.csv,MRT Line-6 station list and operational status.,station_id,yes; coordinates pending
+metro_fares.csv,Directed station-to-station metro fare table.,from_station_id + to_station_id,yes; Kamalapur rows disabled for live routing
+fare_rules.csv,Fare policies by transport mode.,fare_rule_id,bus/metro yes; CNG/taxi historical verification needed
+transit_network_plan.csv,Future MRT network reference; do not route on future lines.,line_name,reference only
+user_fare_reports_template.csv,Schema for crowdsourced fare reports.,report_id,template
+crowd_fare_aggregate_template.csv,Schema for robust aggregated fare estimates.,origin + destination + mode + service,template

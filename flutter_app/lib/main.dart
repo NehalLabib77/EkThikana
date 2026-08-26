@@ -19,7 +19,7 @@ Future<void> main() async {
     } catch (_) {
       // The app remains usable if OS notification setup is incomplete.
     }
-    runApp(const EkThikanaApp());
+    runApp(const GochanoApp());
   } catch (e) {
     runApp(_SetupRequiredApp(error: e));
   }
@@ -44,7 +44,7 @@ class _SetupRequiredApp extends StatelessWidget {
                     const Icon(Icons.home_work_outlined, size: 72),
                     const SizedBox(height: 16),
                     const Text(
-                      'EkThikana needs Firebase configuration',
+                      'Gochano needs Firebase configuration',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),

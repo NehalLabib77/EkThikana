@@ -23,7 +23,7 @@ Fix every Android item marked with a red X before continuing.
 
 ## Stage 2 — Create Firebase
 
-Create **one** Firebase project named something like `ekthikana-prod`.
+Use your existing Firebase project. The current checked-in FlutterFire config points to `gochano-a30c8`; do not create another project just because the app was renamed.
 
 Enable:
 
@@ -51,7 +51,7 @@ dart pub global activate flutterfire_cli
 Open PowerShell in:
 
 ```text
-EkThikana_Full_Production_Starter\flutter_app
+Gochano_Full_Production_Starter\flutter_app
 ```
 
 Run:
@@ -209,7 +209,7 @@ Test in this order:
 14. Login with another Student and test Community.
 15. Create a General account and confirm Study/Groups are not visible.
 16. Create a task/reminder.
-17. Test Medicine/Bazar/Family/Rent/Commute/Wellness.
+17. Test Medicine, BazarBuddy, Daily Expenses and CommuteBD, including central expense sync.
 
 ## Stage 10 — Deploy backend to Render
 

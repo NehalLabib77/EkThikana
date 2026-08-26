@@ -26,3 +26,33 @@ firebase_options.local.dart
 # OS
 .DS_Store
 Thumbs.db
+
+flutter_app/android/key.properties
+flutter_app/android/upload-keystore.jks
+*.jks
+*.keystore
+.puku/
+backend_backup/
+flutter_app/android/.kotlin/
+flutter_app/flutter_run.log
+flutter_run.log
+backend/scripts/_tmp_counts.py
+*.log
+
+# Local/editor files
+.puku/
+backend_backup/
+
+# Generated archives - do not commit
+/flutter_app.zip
+/backend.zip
+/backend (2).zip
+/flutter_app/lib.zip
+
+# Build/runtime files
+flutter_app/android/.kotlin/
+*.log
+.venv/
+backend/.venv/
+__pycache__/
+.pytest_cache/

@@ -1,275 +1,155 @@
-# EkThikana — Production Build Specification
+# Gochano — Final Production Specification
 
-**Source of truth.** Every implementation, audit finding, and final-audit entry traces back to a bullet here. If code and this spec disagree, this spec wins and the code must be reconciled.
+This file is the source of truth for the current build.
 
-> Status: Working spec. Updates only via explicit revision notes appended at the end.
+## 1. Brand and compatibility
 
----
+User-facing app name: **Gochano**.
 
-## 1. Stack (fixed)
+Keep these existing infrastructure identifiers unless intentionally migrating them:
 
-- Flutter + Dart + Material 3
-- Android first
-- Firebase Authentication
-- Cloud Firestore
-- Supabase private Storage (PDFs/images)
-- FastAPI backend
-- Firebase Admin SDK
-- Render deployment
-- Gemini API through backend only
-- Tesseract OCR for prescriptions
-- Local Android notifications
+- Android application id: `com.ekthikana.ekthikana`
+- Existing Supabase bucket may remain `ekthikana-files`
+- Existing Render service name/URL may remain unchanged
 
-**Android package id (fixed, never change after first internal release):**
+Changing those identifiers is **not required** for the Gochano brand and can break existing Firebase/Render/Supabase integrations.
 
-```
-com.ekthikana.ekthikana
-```
+## 2. Roles
 
----
+- **Student** — all Study + LifeHub features.
+- **General** — LifeHub/tasks/profile only.
 
-## 2. Users and roles
+General users must not see or access Study, Groups, Community Library, academic materials or Study AI. Enforce in Flutter and backend/Firestore rules.
 
-Two fixed roles.
+## 3. Study
 
-**Student** — every feature.
+Structure:
 
-**General** — daily-life features only.
-
-**Hard rule.** General users must not see or access Study, Groups, Community Library, academic materials, or Study AI. Enforce in **both** UI and backend/Firestore rules.
-
----
-
-## 3. Student features
-
-### 3.1 Study structure
-
-```
-Semester → Subject → Notes / Materials
+```text
+Study
+├── Semesters -> Subjects -> Notes / Materials
+├── My Notes
+├── My Materials
+├── Saved Library
+├── Community Library
+├── Study Groups / Shared Box
+└── Study Planner
 ```
 
-### 3.2 Study feature list
+The Study dashboard must **not** contain a separate `Community Library / Browse Resources` promotional section. A compact Library entry is allowed so the Student-only Community Library remains reachable.
 
-- Notes
-- PDF/image upload
-- Built-in PDF reader
-- PDF search / text selection
-- Last-page resume
-- Page bookmarks
-- Page-linked notes
-- AI note cleanup
-- AI summary
-- AI explanation
-- Key-topic extraction
-- PDF Q&A
-- Study planner
-- Community Library
-- Saved Library
-- Student Groups
-- Shared Box
+Notes/material visibility: `private | group | public`.
 
-### 3.3 Explicitly excluded (forbidden)
+Required PDF features: open, page navigation, text selection/search, zoom, resume last page, bookmarks, page-linked notes, loading/error states.
 
-- MCQ generation
+AI: note cleanup, summarize, explain, key topics, PDF Q&A, Study Planner assistance. No MCQ/question/quiz generation.
+
+Groups: material sharing only; no chat, messages, DMs or comment threads.
+
+## 4. Final LifeHub
+
+Only:
+
+```text
+Medicine
+BazarBuddy
+Daily Expenses
+CommuteBD
+```
+
+RentMate, FamilyHub and Wellness are removed from active UI/routes/search and denied as legacy collections.
+
+## 5. Central expense tracker — spending only
+
+Gochano does **not** implement cash flow, income, savings, net difference, profit/loss or remaining balance.
+
+Central collection:
+
+```text
+financial_transactions/{deterministicSourceId}
+ownerId
+userId
+type = expense
+source = daily | bazar | medicine | commute
+sourceRecordId
+category
+title
+amount
+date
+dateKey
+monthKey
+createdAt
+updatedAt
+```
+
+Rules:
+
+```text
+Daily expense entered      -> one expense
+Bazar item purchased       -> one expense
+Bazar item unpurchased     -> linked expense removed
+Medicine Taken             -> actual quantity * unit-price snapshot -> one expense
+Medicine pending/skipped/missed -> no expense
+Commute estimated fare     -> no expense
+Commute confirmed actual fare -> one expense
+```
+
+All source update/delete operations must update/delete the linked deterministic expense record. Retry/repeated taps must not duplicate charges.
+
+## 6. Medicine
+
+Available to Student and General.
+
+Entry methods: Add Manually or Scan Prescription.
+
+OCR flow:
+
+```text
+Image/PDF -> OCR -> suggestions -> user reviews/edits -> user confirms -> quantity + price + schedule -> save
+```
+
+OCR must never auto-activate medicine name, dose, price, quantity, schedule or reminders. Show a medical-safety warning.
+
+Support unit or pack/strip/bottle pricing; store unit-price snapshots on Taken doses. Dose status: pending/taken/skipped/missed. Only Taken creates an expense. Support pause/resume/stop/history.
+
+## 7. BazarBuddy
+
+Visual categories plus custom items. Item fields: name, quantity, unit, price, purchased. Support add/edit/delete/purchased toggle, session/day/month history. Only purchased items create central expenses.
+
+## 8. Daily Expenses
+
+Categories: Breakfast/Nasta, Lunch, Snacks, Dinner, Other. Multiple entries per category with title, amount, optional note, date/time. Daily/monthly totals come from central expenses.
+
+## 9. CommuteBD
+
+Use a real interactive map and routing-provider abstraction. Support GPS, origin/destination search, route polyline, distance, ETA, recenter, loading/offline/GPS-denied/no-route states.
+
+Use supplied dataset. Official BRTA bus and Metro fares are deterministic. Crowd/ML is only for uncertain market fares such as Rickshaw/CNG and must show source/confidence. Do not fabricate live transport data.
+
+Estimated fare never becomes an expense. Only a user-confirmed actual fare creates the commute expense.
+
+## 10. Security
+
+- Firebase ID token on protected backend routes
+- verified email required
+- role loaded from trusted Firestore profile
+- no client-side role trust
+- private Supabase bucket; service key backend-only
+- short-lived signed URLs
+- file-signature validation
+- no secrets in Flutter/Git
+- Render filesystem is ephemeral
+
+## 11. Explicitly forbidden
+
+- Automatic MCQ generation
 - Automatic question generation
 - Quiz generation
+- Group chat
+- Direct messaging
+- Comment/chat threads
+- Fake/live transport claims without a provider
 
-Any endpoint, screen, prompt, or service that performs these is a violation and must be removed.
+## 12. Production acceptance
 
----
-
-## 4. Sharing
-
-Academic content visibility:
-
-```
-Private | Group | Public
-```
-
-- **Private** — owner only.
-- **Group** — selected group members only.
-- **Public** — authenticated Student Community (verified-Student only).
-
-Public and group materials can be viewed, saved, downloaded, and reported. **Saving does not transfer ownership.**
-
----
-
-## 5. Groups
-
-Students can:
-
-- Create group
-- Join by invite code
-- Leave group
-- Reset invite code (admin only)
-- Share PDFs / images / notes
-
-A group contains:
-
-- owner
-- admins
-- members
-- invite code
-- Shared Box
-- shared notes
-
-**Hard rule.** There must be **NO group chat, comments, messages, or direct messaging** anywhere in the app, backend, or Firestore data model.
-
----
-
-## 6. Community Library
-
-Student-only.
-
-Must support:
-
-- Public notes
-- Public PDFs/images
-- Search
-- University filter
-- Department filter
-- Semester filter
-- Subject filter
-- Material-type filter
-- Newest sort
-- Most-saved sort
-- Preview
-- Save
-- Download
-- Report
-
----
-
-## 7. Daily-life features
-
-Available to **both** Student and General:
-
-- Tasks
-- Reminders
-- Medicine
-- Prescription OCR
-- BazarBuddy
-- FamilyHub
-- RentMate
-- CommuteBD
-- Wellness
-- Universal Search
-- Profile
-- Data export
-- Account deletion
-
-### 7.1 Prescription flow (mandatory)
-
-```
-Upload → OCR → show extracted text → user manually verifies medicine/dose/schedule → save
-```
-
-**Never automatically trust prescription OCR.** The OCR endpoint must not write to the medicines collection. A `confirmedByUser: true` flag is required on every saved medicine record derived from OCR.
-
----
-
-## 8. Security requirements
-
-Hard requirements (non-negotiable):
-
-1. Verify Firebase ID token on every protected backend route.
-2. Require a verified email before data access.
-3. Never trust the role supplied by the Flutter client — load role from the trusted user profile in Firestore (`users/{uid}.role`).
-4. Prevent `ownerId` changes on owned documents via Firestore rules.
-5. Private content → owner only.
-6. Group content → group members only.
-7. Public academic content → verified Student users only.
-8. Supabase bucket must be private; service-role key only on the backend.
-9. AI key only on the backend.
-10. Use short-lived signed URLs for download/view.
-11. Validate actual file signatures (PDF/PNG/JPEG); do not trust MIME from the client.
-12. Sanitize filenames; randomize storage paths.
-13. No permanent Render filesystem storage for user files.
-
-### Configurable defaults
-
-```
-15 MB / file
-100 MB / user
-10 uploads / day
-30 AI requests / day
-```
-
-Values must be configurable via environment variables on the backend (never hard-coded in clients).
-
----
-
-## 9. Required backend APIs
-
-Every endpoint below is required. Each is implemented as a FastAPI route under `/api` and protected per §8.
-
-```
-GET    /api/health
-GET    /api/me
-POST   /api/groups
-POST   /api/groups/join
-POST   /api/groups/{id}/leave
-POST   /api/groups/{id}/invite/reset
-POST   /api/materials/upload
-GET    /api/materials/{id}/url
-POST   /api/materials/{id}/save
-DELETE /api/materials/{id}
-POST   /api/ai/note
-POST   /api/ai/pdf-question
-POST   /api/study/plan
-POST   /api/prescriptions/extract
-POST   /api/reports
-DELETE /api/account
-```
-
----
-
-## 10. Required repository layout
-
-```
-flutter_app/
-backend/
-firebase/
-docs/
-tool/
-README.md
-PROJECT_SPEC.md
-TODO.md
-firebase.json
-.gitignore
-.env.example   (placeholders only — never real credentials)
-```
-
----
-
-## 11. Working rules
-
-- First save this specification as `PROJECT_SPEC.md`.
-- Create `TODO.md` containing every required feature and implementation phase.
-- For every phase:
-  1. Read `PROJECT_SPEC.md`, `TODO.md`, and existing code first.
-  2. Preserve working code and architecture.
-  3. Implement real code, not pseudocode.
-  4. Do not leave placeholder important functions.
-  5. Run available tests / static analysis.
-  6. Fix errors caused by the phase.
-  7. Update `TODO.md`.
-  8. Report exactly what was completed and what still requires external credentials.
-- Do not ask for secret keys. Use environment-variable placeholders.
-- Do not declare the project production-ready until the final audit passes every requirement in this spec.
-
----
-
-## 12. Excluded features (do not implement)
-
-- Automatic question generation
-- MCQ generation
-- Quiz generation
-- Group chat / comments / direct messaging
-- Any feature that bypasses email verification, role checks, or owner checks
-
----
-
-## Revision log
-
-- v1 — initial specification authored from the user request.
+Before release: `flutter analyze`, `flutter test`, backend tests, real device test, Student/General role test, Firestore rules/index deployment, Supabase/Render/Gemini integration test, OCR confirmation test, duplicate-expense test, and signed release AAB build.

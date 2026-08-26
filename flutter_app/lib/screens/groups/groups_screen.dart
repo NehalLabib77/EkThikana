@@ -32,7 +32,7 @@ class GroupsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              'EkThikana groups have no chat. They are only for organized shared study materials.',
+              'Gochano groups have no chat. They are only for organized shared study materials.',
             ),
           ],
         ),

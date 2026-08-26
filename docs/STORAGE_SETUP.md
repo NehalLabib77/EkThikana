@@ -1,6 +1,6 @@
 # Storage setup
 
-EkThikana uses Supabase Storage as a private object bucket. All user-uploaded files (notes, materials, prescriptions, group shared box) live in this bucket. The bucket is **private** — direct reads are denied. Every read is mediated by the FastAPI backend, which mints short-lived signed URLs.
+Gochano uses Supabase Storage as a private object bucket. All user-uploaded files (notes, materials, prescriptions, group shared box) live in this bucket. The bucket is **private** — direct reads are denied. Every read is mediated by the FastAPI backend, which mints short-lived signed URLs.
 
 ## Why Supabase
 

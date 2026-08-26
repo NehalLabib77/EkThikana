@@ -6,6 +6,7 @@ import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/firestore_service.dart';
+import '../../services/financial_service.dart';
 import '../search/universal_search_screen.dart';
 import '../tasks/tasks_screen.dart';
 
@@ -231,10 +232,44 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(child: _countCard('medicines', Icons.medication_outlined, EkLanguage.text('Medicine', 'ওষুধ'), EkColors.green)),
             const SizedBox(width: 8),
-            Expanded(child: _countCard('rent_records', Icons.home_outlined, EkLanguage.text('Rent', 'ভাড়া'), EkColors.red)),
+            Expanded(child: _monthlySpendingCard()),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _monthlySpendingCard() {
+    return StreamBuilder(
+      stream: FinancialService.monthStream(DateTime.now()),
+      builder: (context, snap) {
+        final transactions = snap.data ?? const [];
+        final summary = FinancialService.summary(transactions);
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+            child: Column(
+              children: [
+                const Icon(Icons.account_balance_wallet_outlined, color: EkColors.orange, size: 22),
+                const SizedBox(height: 7),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '৳${summary.totalSpending.toStringAsFixed(0)}',
+                    style: const TextStyle(color: EkColors.orange, fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Text(
+                  EkLanguage.text('This month', 'এই মাস'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: EkColors.muted, fontSize: 9),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

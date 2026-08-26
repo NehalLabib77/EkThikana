@@ -1,0 +1,7 @@
+﻿line_name,total_length_km,elevated_km,underground_km,total_stations,elevated_stations,underground_stations,routing_status,source_id
+MRT Line-6,21.26,21.26,0,17,17,0,partly operational; live service Uttara North-Motijheel,SRC_DMTCL_STATIONS
+MRT Line-1,31.241,11.369,19.872,21,7,14,future network reference only,SRC_DMTCL_STATIONS
+MRT Line-5 Northern Route,20.0,6.5,13.5,14,5,9,future network reference only,SRC_DMTCL_STATIONS
+MRT Line-5 Southern Route,17.2,4.1,13.1,15,4,11,future network reference only,SRC_DMTCL_STATIONS
+MRT Line-2,35.0,,,,,,future; details to be finalized,SRC_DMTCL_STATIONS
+MRT Line-4,16.0,,,,,,future; details to be finalized,SRC_DMTCL_STATIONS

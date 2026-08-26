@@ -62,7 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final student = role == 'student';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create EkThikana account')),
+      appBar: AppBar(title: const Text('Create Gochano account')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -109,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 10),
               const Text(
-                'A verification email will be sent before the account can access EkThikana data.',
+                'A verification email will be sent before the account can access Gochano data.',
                 textAlign: TextAlign.center,
               ),
             ],

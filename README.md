@@ -1,96 +1,63 @@
-# EkThikana — One Place for Everything
+# Gochano — One Place for Everything
 
-EkThikana is a role-based Flutter + FastAPI application.
+Gochano is an Android-first Flutter + FastAPI application with two roles.
 
-## User roles
+## Roles
 
-- **Student**: Study workspace + groups/shared box + community library + AI study tools + all daily-life modules.
-- **General**: Daily-life modules only. Study, groups, community and study AI are not available.
+- **Student** — Study workspace, groups/shared box, Community Library, Study AI, tasks, and all LifeHub features.
+- **General** — Tasks and LifeHub only. Study, Groups, Community Library and Study AI are hidden and denied by backend/Firestore rules.
 
-## Documentation
+## Final LifeHub
 
-Read these in order:
+LifeHub contains only:
 
-1. `docs/START_HERE.md` — the step-by-step first run.
-2. `docs/ARCHITECTURE.md` — module map, data ownership, and failure modes.
-3. `docs/FIREBASE_SETUP.md`, `docs/STORAGE_SETUP.md`, `docs/ANDROID_SETUP.md` — provider setup.
-4. `docs/API_REFERENCE.md`, `docs/DATA_MODEL.md` — runtime contracts.
-5. `docs/RENDER_DEPLOY.md`, `docs/PRODUCTION_CHECKLIST.md` — go-live.
-6. `docs/TROUBLESHOOTING.md`, `docs/SECURITY_PRIVACY.md`, `docs/BUILD_VALIDATION.md` — when things go wrong.
+- Medicine
+- BazarBuddy
+- Daily Expenses
+- CommuteBD
 
-## Architecture
+RentMate, FamilyHub and Wellness are obsolete and are not part of the current UI.
+
+## Expense tracking — spending only
+
+Gochano is **not a cash-flow/accounting app**. It does not track income, savings, profit/loss or remaining balance.
+
+One idempotent expense ledger combines:
 
 ```text
-Flutter Android App
-├── Firebase Authentication
-├── Cloud Firestore
-├── Local notifications
-└── FastAPI API on Render Free
-    ├── Firebase Admin token verification
-    ├── Group/invite operations
-    ├── Material upload/download authorization
-    ├── Supabase private file storage (free-stack default)
-    ├── Gemini study AI
-    ├── PDF text extraction / Q&A
-    └── Prescription OCR (no AI required)
+Daily Expense entered    -> Expense
+Bazar item purchased     -> Expense
+Medicine dose Taken      -> Expense
+Pending/Skipped/Missed   -> No expense
+Commute estimate         -> No expense
+Actual commute fare      -> Expense
 ```
 
-### Why Supabase Storage is the default here
+Daily, monthly, calendar, category and yearly totals come from `financial_transactions` expense records.
 
-As of August 2026, Cloud Storage for Firebase requires a Blaze billing plan. To keep the first EkThikana deployment possible without enabling Firebase billing, this source uses **Firebase Auth + Firestore** and a **private Supabase Storage bucket** for PDFs/images. If you later enable Firebase Blaze, the storage adapter can be replaced without changing the app's data model.
+## Study
 
-## Included features
+Student Study includes semesters, subjects, notes, materials/PDF reader, Saved Library, Community Library, groups/shared box, AI study tools and Study Planner. The Study dashboard intentionally has **no standalone `Community Library / Browse Resources` promotional block**; Community Library remains available through its compact Library entry.
 
-### Student
-- Email/password registration and email verification
-- Student/general role selection
-- Semester and subject management
-- Notes with private/group/public visibility
-- PDF/image upload
-- Built-in PDF reader
-- PDF search
-- Resume from last PDF page
-- PDF page bookmarks
-- Page-linked notes
-- Public Community Library
-- Save public/group materials to My Library
-- Download files offline
-- Student groups with invite codes
-- Shared Box (no chat)
-- Community content reporting/moderation queue
-- AI note cleanup, summary, explanation and key topics
-- PDF Q&A
-- Study-plan endpoint
-- Universal keyword search
-- Tasks and reminders
+Automatic MCQ/question/quiz generation and all chat/messaging are excluded.
 
-### Student + General
-- Tasks and reminders
-- Medicine records
-- Prescription OCR + mandatory user confirmation
-- BazarBuddy
-- FamilyHub
-- RentMate
-- CommuteBD
-- Wellness
-- Profile/logout
-- Permanent in-app account deletion
+## Stack
 
-### Explicitly excluded
-- Automatic question generation
-- MCQ generation
-- Group chat / direct messaging
+- Flutter / Dart / Material 3
+- Firebase Authentication + Cloud Firestore
+- FastAPI + Firebase Admin on Render
+- Supabase private Storage
+- Gemini through backend only
+- Tesseract OCR for prescriptions
+- OpenStreetMap-compatible map/routing stack for CommuteBD
+- Android local notifications
 
-## Folders
+## Setup order
 
-- `flutter_app/` — Flutter mobile application source
-- `backend/` — FastAPI service for Render
-- `firebase/` — Firestore rules and indexes
-- `docs/` — exact setup and deployment instructions
-- `tool/` — Windows bootstrap helpers
+1. `docs/START_HERE.md`
+2. `docs/FIREBASE_SETUP.md`
+3. `docs/STORAGE_SETUP.md`
+4. `docs/RENDER_DEPLOY.md`
+5. `docs/PRODUCTION_CHECKLIST.md`
 
-## Important
-
-This repository contains **no secret keys**. You must create your own Firebase, Supabase and Gemini credentials and store backend secrets only in Render environment variables.
-
-Start with `docs/START_HERE.md`, then follow `docs/WHAT_I_NEED_FROM_YOU.md`.
+No server secrets belong in Flutter or Git.

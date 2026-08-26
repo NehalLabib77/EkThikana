@@ -1,0 +1,7075 @@
+[
+  {
+    "place_id": "PLC0001",
+    "name_en": "Abdullahpur",
+    "name_bn": "আব্দুল্লাহপুর",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_243_NO",
+      "BRTA_A_245_NO",
+      "BRTA_A_257_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_271_NO",
+      "BRTA_A_292_NO",
+      "BRTA_A_301_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_346_NO",
+      "BRTA_A_354_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0002",
+    "name_en": "Abdullahpur (Jail)",
+    "name_bn": "আব্দুল্লাহপুর (জেলখানা)",
+    "brta_route_ids": [
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0012",
+      "SVC0013",
+      "SVC0016",
+      "SVC0017",
+      "SVC0022",
+      "SVC0024",
+      "SVC0027",
+      "SVC0031",
+      "SVC0032",
+      "SVC0037",
+      "SVC0042",
+      "SVC0044",
+      "SVC0053",
+      "SVC0066",
+      "SVC0068",
+      "SVC0069",
+      "SVC0076",
+      "SVC0086",
+      "SVC0104",
+      "SVC0105",
+      "SVC0107",
+      "SVC0108",
+      "SVC0109",
+      "SVC0120",
+      "SVC0125",
+      "SVC0130",
+      "SVC0131",
+      "SVC0133",
+      "SVC0138",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0003",
+    "name_en": "Abul Hotel",
+    "name_bn": "আবুল হোটেল",
+    "brta_route_ids": [
+      "BRTA_A_173_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0004",
+    "name_en": "Agargaon",
+    "name_bn": "আগারগাঁও",
+    "brta_route_ids": [
+      "BRTA_A_103_NO",
+      "BRTA_A_122_NO",
+      "BRTA_A_141_NO",
+      "BRTA_A_292_NO",
+      "BRTA_A_294_NO",
+      "BRTA_A_301_NO",
+      "BRTA_A_302_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0010",
+      "SVC0011",
+      "SVC0012",
+      "SVC0014",
+      "SVC0019",
+      "SVC0021",
+      "SVC0026",
+      "SVC0027",
+      "SVC0028",
+      "SVC0029",
+      "SVC0030",
+      "SVC0060",
+      "SVC0061",
+      "SVC0071",
+      "SVC0073",
+      "SVC0076",
+      "SVC0080",
+      "SVC0084",
+      "SVC0091",
+      "SVC0093",
+      "SVC0095",
+      "SVC0118",
+      "SVC0119",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0138"
+    ]
+  },
+  {
+    "place_id": "PLC0005",
+    "name_en": "Airport",
+    "name_bn": "এয়ারপোর্ট",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO",
+      "BRTA_A_222_NO",
+      "BRTA_A_225_NO",
+      "BRTA_A_240_NO",
+      "BRTA_A_257_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_271_NO",
+      "BRTA_A_292_NO",
+      "BRTA_A_294_NO",
+      "BRTA_A_299_NO",
+      "BRTA_A_301_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_317_NO",
+      "BRTA_A_341_NO",
+      "BRTA_A_346_NO",
+      "BRTA_A_354_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_430_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0012",
+      "SVC0013",
+      "SVC0016",
+      "SVC0017",
+      "SVC0022",
+      "SVC0024",
+      "SVC0025",
+      "SVC0027",
+      "SVC0031",
+      "SVC0032",
+      "SVC0035",
+      "SVC0037",
+      "SVC0042",
+      "SVC0044",
+      "SVC0053",
+      "SVC0066",
+      "SVC0068",
+      "SVC0069",
+      "SVC0076",
+      "SVC0086",
+      "SVC0103",
+      "SVC0104",
+      "SVC0105",
+      "SVC0107",
+      "SVC0108",
+      "SVC0109",
+      "SVC0111",
+      "SVC0120",
+      "SVC0125",
+      "SVC0130",
+      "SVC0131",
+      "SVC0133",
+      "SVC0138",
+      "SVC0147",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0006",
+    "name_en": "Amin Bazar",
+    "name_bn": "আমিন বাজার",
+    "brta_route_ids": [
+      "BRTA_A_302_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0008",
+      "SVC0014",
+      "SVC0021",
+      "SVC0036",
+      "SVC0038",
+      "SVC0046",
+      "SVC0050",
+      "SVC0051",
+      "SVC0075",
+      "SVC0082",
+      "SVC0083",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0110",
+      "SVC0121",
+      "SVC0128",
+      "SVC0129",
+      "SVC0134",
+      "SVC0139",
+      "SVC0140",
+      "SVC0150"
+    ]
+  },
+  {
+    "place_id": "PLC0007",
+    "name_en": "Amulia Staff Quarter",
+    "name_bn": "আমুলিয়া স্টাফ কোয়ার্টার",
+    "brta_route_ids": [
+      "BRTA_A_202_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0008",
+    "name_en": "Ansar Camp",
+    "name_bn": "আনসারক্যাম্প",
+    "brta_route_ids": [
+      "BRTA_A_110_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_264_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0015",
+      "SVC0020",
+      "SVC0046",
+      "SVC0048",
+      "SVC0059",
+      "SVC0063",
+      "SVC0067",
+      "SVC0075",
+      "SVC0090",
+      "SVC0095",
+      "SVC0101",
+      "SVC0104",
+      "SVC0105",
+      "SVC0108",
+      "SVC0110",
+      "SVC0114",
+      "SVC0116",
+      "SVC0117",
+      "SVC0135",
+      "SVC0136",
+      "SVC0142"
+    ]
+  },
+  {
+    "place_id": "PLC0009",
+    "name_en": "Apla Bazar",
+    "name_bn": "আপলা বাজার",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0010",
+    "name_en": "Arambagh",
+    "name_bn": "আরামবাগ",
+    "brta_route_ids": [
+      "BRTA_A_310_NO"
+    ],
+    "community_service_ids": [
+      "SVC0020",
+      "SVC0052",
+      "SVC0057",
+      "SVC0065",
+      "SVC0089",
+      "SVC0097",
+      "SVC0124"
+    ]
+  },
+  {
+    "place_id": "PLC0011",
+    "name_en": "Asad Avenue",
+    "name_bn": "আসাদ এভিনিউ",
+    "brta_route_ids": [
+      "BRTA_A_270_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_366_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0012",
+    "name_en": "Asad Gate",
+    "name_bn": "আসাদগেট",
+    "brta_route_ids": [
+      "BRTA_A_110_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_127_NO",
+      "BRTA_A_129_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_160_NO",
+      "BRTA_A_166_NO",
+      "BRTA_A_224_NO",
+      "BRTA_A_260_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_329_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_422_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_431_NO",
+      "BRTA_A_453_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0015",
+      "SVC0018",
+      "SVC0020",
+      "SVC0023",
+      "SVC0030",
+      "SVC0036",
+      "SVC0038",
+      "SVC0039",
+      "SVC0050",
+      "SVC0051",
+      "SVC0059",
+      "SVC0082",
+      "SVC0083",
+      "SVC0088",
+      "SVC0090",
+      "SVC0094",
+      "SVC0098",
+      "SVC0099",
+      "SVC0101",
+      "SVC0102",
+      "SVC0105",
+      "SVC0108",
+      "SVC0115",
+      "SVC0121",
+      "SVC0122",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0013",
+    "name_en": "Ashika Morh",
+    "name_bn": "এশিকা মোড়",
+    "brta_route_ids": [
+      "BRTA_A_365_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0014",
+    "name_en": "Ashulia",
+    "name_bn": "আশুলিয়া",
+    "brta_route_ids": [
+      "BRTA_A_292_NO",
+      "BRTA_A_333_NO",
+      "BRTA_A_354_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0015",
+    "name_en": "Ashulia (Fantasy Kingdom)",
+    "name_bn": "আশুলিয়া (ফ্যান্টাসি কিংডম)",
+    "brta_route_ids": [
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": [
+      "SVC0009",
+      "SVC0081",
+      "SVC0096",
+      "SVC0130"
+    ]
+  },
+  {
+    "place_id": "PLC0016",
+    "name_en": "Ati Bazar",
+    "name_bn": "আতি বাজার",
+    "brta_route_ids": [
+      "BRTA_A_285_NO",
+      "BRTA_A_299_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0017",
+    "name_en": "Azampur",
+    "name_bn": "আজমপুর",
+    "brta_route_ids": [
+      "BRTA_A_207_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0012",
+      "SVC0013",
+      "SVC0016",
+      "SVC0017",
+      "SVC0022",
+      "SVC0024",
+      "SVC0025",
+      "SVC0027",
+      "SVC0032",
+      "SVC0037",
+      "SVC0042",
+      "SVC0044",
+      "SVC0053",
+      "SVC0066",
+      "SVC0068",
+      "SVC0069",
+      "SVC0079",
+      "SVC0086",
+      "SVC0104",
+      "SVC0107",
+      "SVC0109",
+      "SVC0111",
+      "SVC0120",
+      "SVC0125",
+      "SVC0130",
+      "SVC0131",
+      "SVC0133",
+      "SVC0147",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0018",
+    "name_en": "Azimpur",
+    "name_bn": "আজিমপুর",
+    "brta_route_ids": [
+      "BRTA_A_122_NO",
+      "BRTA_A_127_NO",
+      "BRTA_A_132_NO",
+      "BRTA_A_161_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_234_NO",
+      "BRTA_A_260_NO",
+      "BRTA_A_329_NO",
+      "BRTA_A_341_NO",
+      "BRTA_A_354_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_431_NO",
+      "BRTA_A_441_NO",
+      "BRTA_A_459",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0019",
+    "name_en": "Azimpur (Dhakeswari)",
+    "name_bn": "আজিমপুর (ঢাকেশ্বরী)",
+    "brta_route_ids": [
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": [
+      "SVC0015",
+      "SVC0025",
+      "SVC0030",
+      "SVC0031",
+      "SVC0032",
+      "SVC0050",
+      "SVC0054",
+      "SVC0058",
+      "SVC0078",
+      "SVC0090",
+      "SVC0091",
+      "SVC0098",
+      "SVC0102",
+      "SVC0118",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140",
+      "SVC0149",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0020",
+    "name_en": "Babu Bazar",
+    "name_bn": "বাবু বাজার",
+    "brta_route_ids": [
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": [
+      "SVC0005",
+      "SVC0023",
+      "SVC0059",
+      "SVC0106",
+      "SVC0107",
+      "SVC0123"
+    ]
+  },
+  {
+    "place_id": "PLC0021",
+    "name_en": "Babu Bazar Bridge",
+    "name_bn": "বাবু বাজার ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_295_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0022",
+    "name_en": "Babubazar Bridge",
+    "name_bn": "বাবুবাজার ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0023",
+    "name_en": "Badda",
+    "name_bn": "বাড্ডা",
+    "brta_route_ids": [
+      "BRTA_A_317_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0005",
+      "SVC0013",
+      "SVC0017",
+      "SVC0033",
+      "SVC0042",
+      "SVC0053",
+      "SVC0054",
+      "SVC0068",
+      "SVC0069",
+      "SVC0072",
+      "SVC0100",
+      "SVC0107",
+      "SVC0111",
+      "SVC0114",
+      "SVC0120",
+      "SVC0130",
+      "SVC0133",
+      "SVC0147",
+      "SVC0148",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0024",
+    "name_en": "Badda Link Road",
+    "name_bn": "বাড্ডা লিংক রোড",
+    "brta_route_ids": [
+      "BRTA_A_278_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0010",
+      "SVC0011",
+      "SVC0014",
+      "SVC0021",
+      "SVC0039",
+      "SVC0040",
+      "SVC0054",
+      "SVC0095",
+      "SVC0116",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0025",
+    "name_en": "Badda Link Road/Madhy Badda",
+    "name_bn": "বাড্ডা লিংক রোড/মধ্য বাড্ডা",
+    "brta_route_ids": [
+      "BRTA_A_273_NO",
+      "BRTA_A_377_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0026",
+    "name_en": "Bagher Bazar",
+    "name_bn": "বাঘের বাজার",
+    "brta_route_ids": [
+      "BRTA_A_220_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0027",
+    "name_en": "Bagmara",
+    "name_bn": "বাগমারা",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0028",
+    "name_en": "Baikali Hotel",
+    "name_bn": "বৈকালী হোটেল",
+    "brta_route_ids": [
+      "BRTA_A_102_NO",
+      "BRTA_A_103_NO",
+      "BRTA_A_111_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0029",
+    "name_en": "Baipail",
+    "name_bn": "বাইপাইল",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_182_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0016",
+      "SVC0038",
+      "SVC0083",
+      "SVC0098",
+      "SVC0110",
+      "SVC0121",
+      "SVC0128",
+      "SVC0130",
+      "SVC0139",
+      "SVC0140",
+      "SVC0150"
+    ]
+  },
+  {
+    "place_id": "PLC0030",
+    "name_en": "Bakshibazar",
+    "name_bn": "বকশিবাজার",
+    "brta_route_ids": [
+      "BRTA_A_441_NO"
+    ],
+    "community_service_ids": [
+      "SVC0032",
+      "SVC0050",
+      "SVC0078",
+      "SVC0098",
+      "SVC0102",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140"
+    ]
+  },
+  {
+    "place_id": "PLC0031",
+    "name_en": "Balughat",
+    "name_bn": "বালুঘাট",
+    "brta_route_ids": [
+      "BRTA_A_137_NO"
+    ],
+    "community_service_ids": [
+      "SVC0045",
+      "SVC0152"
+    ]
+  },
+  {
+    "place_id": "PLC0032",
+    "name_en": "Banani",
+    "name_bn": "বনানী",
+    "brta_route_ids": [
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO",
+      "BRTA_A_278_NO",
+      "BRTA_A_292_NO",
+      "BRTA_A_341_NO",
+      "BRTA_A_354_NO",
+      "BRTA_A_380_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0007",
+      "SVC0012",
+      "SVC0016",
+      "SVC0022",
+      "SVC0025",
+      "SVC0027",
+      "SVC0031",
+      "SVC0032",
+      "SVC0037",
+      "SVC0047",
+      "SVC0056",
+      "SVC0066",
+      "SVC0070",
+      "SVC0086",
+      "SVC0103",
+      "SVC0109",
+      "SVC0116",
+      "SVC0125",
+      "SVC0131",
+      "SVC0143",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0033",
+    "name_en": "Bandura",
+    "name_bn": "বান্দুরা",
+    "brta_route_ids": [
+      "BRTA_A_249_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0034",
+    "name_en": "Bangabandhu Avenue",
+    "name_bn": "বঙ্গবন্ধু এভিনিউ",
+    "brta_route_ids": [
+      "BRTA_A_138_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0035",
+    "name_en": "Bangabandhu College",
+    "name_bn": "বঙ্গবন্ধু কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_319_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0036",
+    "name_en": "Bangla College",
+    "name_bn": "বাংলা কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_129_NO"
+    ],
+    "community_service_ids": [
+      "SVC0020",
+      "SVC0090",
+      "SVC0105",
+      "SVC0108"
+    ]
+  },
+  {
+    "place_id": "PLC0037",
+    "name_en": "Bangla Motor",
+    "name_bn": "বাংলা মোটর",
+    "brta_route_ids": [
+      "BRTA_A_142_NO",
+      "BRTA_A_192_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0008",
+      "SVC0019",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0045",
+      "SVC0051",
+      "SVC0054",
+      "SVC0059",
+      "SVC0060",
+      "SVC0061",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0082",
+      "SVC0083",
+      "SVC0084",
+      "SVC0088",
+      "SVC0093",
+      "SVC0094",
+      "SVC0101",
+      "SVC0103",
+      "SVC0119",
+      "SVC0122",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0144",
+      "SVC0145",
+      "SVC0150",
+      "SVC0152",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0038",
+    "name_en": "Bangladesh Bank",
+    "name_bn": "বাংলাদেশ ব্যাংক",
+    "brta_route_ids": [
+      "BRTA_A_115_NO",
+      "BRTA_A_137_NO",
+      "BRTA_A_142_NO",
+      "BRTA_A_160_NO",
+      "BRTA_A_190_NO"
+    ],
+    "community_service_ids": [
+      "SVC0074"
+    ]
+  },
+  {
+    "place_id": "PLC0039",
+    "name_en": "Banglamotor",
+    "name_bn": "বাংলামটর",
+    "brta_route_ids": [
+      "BRTA_A_331_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_429_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0040",
+    "name_en": "Bangonagar",
+    "name_bn": "বঙ্গনগর",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0041",
+    "name_en": "Baniajuri",
+    "name_bn": "বানিয়াজুরি",
+    "brta_route_ids": [
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0042",
+    "name_en": "Barpa",
+    "name_bn": "বরপা",
+    "brta_route_ids": [
+      "BRTA_A_381_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0043",
+    "name_en": "Baruakhali",
+    "name_bn": "বারুয়াখালী",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0044",
+    "name_en": "Basabo",
+    "name_bn": "বাসাবো",
+    "brta_route_ids": [
+      "BRTA_A_129_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": [
+      "SVC0013",
+      "SVC0020",
+      "SVC0053",
+      "SVC0068",
+      "SVC0082",
+      "SVC0089",
+      "SVC0094",
+      "SVC0111",
+      "SVC0120",
+      "SVC0135"
+    ]
+  },
+  {
+    "place_id": "PLC0045",
+    "name_en": "Bashundhara",
+    "name_bn": "বসুন্ধরা",
+    "brta_route_ids": [
+      "BRTA_A_166_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0005",
+      "SVC0006",
+      "SVC0013",
+      "SVC0017",
+      "SVC0039",
+      "SVC0040",
+      "SVC0041",
+      "SVC0042",
+      "SVC0053",
+      "SVC0054",
+      "SVC0068",
+      "SVC0069",
+      "SVC0100",
+      "SVC0107",
+      "SVC0111",
+      "SVC0114",
+      "SVC0120",
+      "SVC0130",
+      "SVC0133",
+      "SVC0147",
+      "SVC0148",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0046",
+    "name_en": "Basila",
+    "name_bn": "বসিলা",
+    "brta_route_ids": [
+      "BRTA_A_270_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_329_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_439_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2",
+      "BRTA_PILOTING_ROUTE_3"
+    ],
+    "community_service_ids": [
+      "SVC0049",
+      "SVC0105",
+      "SVC0108",
+      "SVC0112",
+      "SVC0122"
+    ]
+  },
+  {
+    "place_id": "PLC0047",
+    "name_en": "Basila Bridge",
+    "name_bn": "বসিলা ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_414_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0048",
+    "name_en": "Basila CNG Stand",
+    "name_bn": "বসিলা সিএনজি স্ট্যান্ড",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0049",
+    "name_en": "Beraid",
+    "name_bn": "বেরাইদ",
+    "brta_route_ids": [
+      "BRTA_A_278_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0050",
+    "name_en": "Beribadh",
+    "name_bn": "বেড়িবাঁধ",
+    "brta_route_ids": [
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": [
+      "SVC0009",
+      "SVC0096",
+      "SVC0130"
+    ]
+  },
+  {
+    "place_id": "PLC0051",
+    "name_en": "Bezgaon Chourasta",
+    "name_bn": "বেজগাঁও চৌরাস্তা",
+    "brta_route_ids": [
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0052",
+    "name_en": "Bhabantek",
+    "name_bn": "ভাবানটেক",
+    "brta_route_ids": [
+      "BRTA_A_367_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0053",
+    "name_en": "Bhawal Vita (South Keraniganj)",
+    "name_bn": "ভাওয়াল ভিটা (দক্ষিণ কেরানীগঞ্জ)",
+    "brta_route_ids": [
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0054",
+    "name_en": "Bhulta",
+    "name_bn": "ভুলতা",
+    "brta_route_ids": [
+      "BRTA_A_252_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0055",
+    "name_en": "Bhulta (Gausia)",
+    "name_bn": "ভুলতা (গাউছিয়া)",
+    "brta_route_ids": [
+      "BRTA_A_381_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0056",
+    "name_en": "Bigatla",
+    "name_bn": "বিগাতলা",
+    "brta_route_ids": [
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0057",
+    "name_en": "Bijay Smarani",
+    "name_bn": "বিজয় স্মরণী",
+    "brta_route_ids": [
+      "BRTA_A_458_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0003",
+      "SVC0010",
+      "SVC0011",
+      "SVC0012",
+      "SVC0014",
+      "SVC0021",
+      "SVC0027",
+      "SVC0029",
+      "SVC0045",
+      "SVC0071",
+      "SVC0084",
+      "SVC0095",
+      "SVC0119",
+      "SVC0126",
+      "SVC0127",
+      "SVC0152",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0058",
+    "name_en": "Bijoy Nagar",
+    "name_bn": "বিজয় নগর",
+    "brta_route_ids": [
+      "BRTA_A_380_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0059",
+    "name_en": "Bijoy Smriti",
+    "name_bn": "বিজয় স্মরণী",
+    "brta_route_ids": [
+      "BRTA_A_295_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0060",
+    "name_en": "Bishwo Road",
+    "name_bn": "বিশ্বরোড",
+    "brta_route_ids": [
+      "BRTA_A_132_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0061",
+    "name_en": "Board Bazar",
+    "name_bn": "বোর্ড বাজার",
+    "brta_route_ids": [
+      "BRTA_A_225_NO",
+      "BRTA_A_257_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0013",
+      "SVC0022",
+      "SVC0024",
+      "SVC0044",
+      "SVC0066",
+      "SVC0068",
+      "SVC0109",
+      "SVC0120",
+      "SVC0131",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0062",
+    "name_en": "Bomi",
+    "name_bn": "বমী",
+    "brta_route_ids": [
+      "BRTA_A_220_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0063",
+    "name_en": "Bonoshri",
+    "name_bn": "বনশ্রী",
+    "brta_route_ids": [
+      "BRTA_A_141_NO",
+      "BRTA_A_157_NO",
+      "BRTA_A_202_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0064",
+    "name_en": "Bonsree",
+    "name_bn": "বনশ্রী",
+    "brta_route_ids": [
+      "BRTA_A_314_NO",
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0065",
+    "name_en": "Bonsree (Meradia)",
+    "name_bn": "বনশ্রী (মেরাদিয়া)",
+    "brta_route_ids": [
+      "BRTA_A_302_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0066",
+    "name_en": "Borongail",
+    "name_bn": "বরংগাইল",
+    "brta_route_ids": [
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0067",
+    "name_en": "BUET",
+    "name_bn": "বুয়েট",
+    "brta_route_ids": [
+      "BRTA_A_110_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0068",
+    "name_en": "Cantonment Signal Gate",
+    "name_bn": "ক্যান্টনমেন্ট সিগন্যাল গেট",
+    "brta_route_ids": [
+      "BRTA_A_280_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0069",
+    "name_en": "Chancharpul",
+    "name_bn": "চাঁনখারপুল",
+    "brta_route_ids": [
+      "BRTA_A_256_NO",
+      "BRTA_A_260_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0070",
+    "name_en": "Chandra",
+    "name_bn": "চন্দ্রা",
+    "brta_route_ids": [
+      "BRTA_A_182_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0038",
+      "SVC0075",
+      "SVC0098",
+      "SVC0110",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140"
+    ]
+  },
+  {
+    "place_id": "PLC0071",
+    "name_en": "Chankharpul",
+    "name_bn": "চানখারপুল",
+    "brta_route_ids": [
+      "BRTA_A_329_NO",
+      "BRTA_A_431_NO",
+      "BRTA_A_441_NO",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": [
+      "SVC0032",
+      "SVC0050",
+      "SVC0078",
+      "SVC0098",
+      "SVC0102",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140"
+    ]
+  },
+  {
+    "place_id": "PLC0072",
+    "name_en": "Chasara Bus Stand",
+    "name_bn": "চাষাঢ়া বাসস্ট্যান্ড",
+    "brta_route_ids": [
+      "BRTA_A_288_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0073",
+    "name_en": "Cherag Ali",
+    "name_bn": "চেরাগআলী",
+    "brta_route_ids": [
+      "BRTA_A_225_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0074",
+    "name_en": "Chourasta",
+    "name_bn": "চৌরাস্তা",
+    "brta_route_ids": [
+      "BRTA_A_225_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0075",
+    "name_en": "Chun Kutia",
+    "name_bn": "চুন কুটিয়া",
+    "brta_route_ids": [
+      "BRTA_A_285_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0076",
+    "name_en": "Chunkutia Bazar",
+    "name_bn": "চুনকুটিয়া বাজার",
+    "brta_route_ids": [
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0077",
+    "name_en": "City College",
+    "name_bn": "সিটি কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_207_NO"
+    ],
+    "community_service_ids": [
+      "SVC0015",
+      "SVC0025",
+      "SVC0030",
+      "SVC0031",
+      "SVC0032",
+      "SVC0043",
+      "SVC0049",
+      "SVC0050",
+      "SVC0052",
+      "SVC0054",
+      "SVC0057",
+      "SVC0058",
+      "SVC0064",
+      "SVC0065",
+      "SVC0078",
+      "SVC0085",
+      "SVC0089",
+      "SVC0090",
+      "SVC0091",
+      "SVC0097",
+      "SVC0098",
+      "SVC0099",
+      "SVC0102",
+      "SVC0112",
+      "SVC0115",
+      "SVC0118",
+      "SVC0124",
+      "SVC0128",
+      "SVC0137",
+      "SVC0139",
+      "SVC0140",
+      "SVC0149",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0078",
+    "name_en": "College Gate",
+    "name_bn": "কলেজগেট",
+    "brta_route_ids": [
+      "BRTA_A_114_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_122_NO",
+      "BRTA_A_190_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0015",
+      "SVC0023",
+      "SVC0030",
+      "SVC0036",
+      "SVC0038",
+      "SVC0050",
+      "SVC0051",
+      "SVC0059",
+      "SVC0082",
+      "SVC0083",
+      "SVC0090",
+      "SVC0094",
+      "SVC0098",
+      "SVC0101",
+      "SVC0102",
+      "SVC0105",
+      "SVC0108",
+      "SVC0115",
+      "SVC0121",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0079",
+    "name_en": "Daily Bangla",
+    "name_bn": "দৈনিক বাংলা",
+    "brta_route_ids": [
+      "BRTA_A_310_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0080",
+    "name_en": "Darussalam",
+    "name_bn": "দারুসসালাম",
+    "brta_route_ids": [
+      "BRTA_A_114_NO",
+      "BRTA_A_131_NO"
+    ],
+    "community_service_ids": [
+      "SVC0020",
+      "SVC0050",
+      "SVC0090",
+      "SVC0098",
+      "SVC0102",
+      "SVC0105",
+      "SVC0108",
+      "SVC0121",
+      "SVC0128",
+      "SVC0129",
+      "SVC0139",
+      "SVC0140"
+    ]
+  },
+  {
+    "place_id": "PLC0081",
+    "name_en": "Dayaganj Road",
+    "name_bn": "দয়াগঞ্জ রোড",
+    "brta_route_ids": [
+      "BRTA_A_160_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0082",
+    "name_en": "Demra",
+    "name_bn": "ডেমরা",
+    "brta_route_ids": [
+      "BRTA_A_381_NO",
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0083",
+    "name_en": "Demra Bridge",
+    "name_bn": "ডেমরা ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_373_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0084",
+    "name_en": "Demra Staff Quarter",
+    "name_bn": "ডেমরা স্টাফ কোয়ার্টার",
+    "brta_route_ids": [
+      "BRTA_A_368_NO",
+      "BRTA_A_373_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0014",
+      "SVC0017",
+      "SVC0095",
+      "SVC0114",
+      "SVC0115",
+      "SVC0122"
+    ]
+  },
+  {
+    "place_id": "PLC0085",
+    "name_en": "Dhaka City College",
+    "name_bn": "ঢাকা সিটি কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_161_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0086",
+    "name_en": "Dhaka College",
+    "name_bn": "ঢাকা কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_161_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0087",
+    "name_en": "Dhakeshwari Etimkhana",
+    "name_bn": "ঢাকেশ্বরী এতিমখানা",
+    "brta_route_ids": [
+      "BRTA_A_207_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0088",
+    "name_en": "Dhakeswari Mandir",
+    "name_bn": "ঢাকেশ্বরী মন্দির",
+    "brta_route_ids": [
+      "BRTA_A_103_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0089",
+    "name_en": "Dhaleswar",
+    "name_bn": "ধলেশ্বর",
+    "brta_route_ids": [
+      "BRTA_A_243_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0090",
+    "name_en": "Dhamrai",
+    "name_bn": "ধামরাই",
+    "brta_route_ids": [
+      "BRTA_A_260_NO"
+    ],
+    "community_service_ids": [
+      "SVC0050",
+      "SVC0051"
+    ]
+  },
+  {
+    "place_id": "PLC0091",
+    "name_en": "Dhanmondi",
+    "name_bn": "ধানমন্ডি",
+    "brta_route_ids": [
+      "BRTA_A_406_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0092",
+    "name_en": "Dhanmondi-15",
+    "name_bn": "ধানমন্ডি-১৫",
+    "brta_route_ids": [
+      "BRTA_A_161_NO",
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": [
+      "SVC0043",
+      "SVC0049",
+      "SVC0052",
+      "SVC0057",
+      "SVC0065",
+      "SVC0078",
+      "SVC0085",
+      "SVC0089",
+      "SVC0097",
+      "SVC0112",
+      "SVC0113",
+      "SVC0115",
+      "SVC0137"
+    ]
+  },
+  {
+    "place_id": "PLC0093",
+    "name_en": "Dhaur",
+    "name_bn": "ধউর",
+    "brta_route_ids": [
+      "BRTA_A_292_NO",
+      "BRTA_A_294_NO",
+      "BRTA_A_299_NO",
+      "BRTA_A_301_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_333_NO",
+      "BRTA_A_341_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0094",
+    "name_en": "Dhaur Morh",
+    "name_bn": "ধউর মোড়",
+    "brta_route_ids": [
+      "BRTA_A_422_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0095",
+    "name_en": "Dhowr",
+    "name_bn": "ধওর",
+    "brta_route_ids": [
+      "BRTA_A_182_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0096",
+    "name_en": "Dhowr Bridge",
+    "name_bn": "ধওর ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_173_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0097",
+    "name_en": "Dhupkhola",
+    "name_bn": "ধোপখোলা",
+    "brta_route_ids": [
+      "BRTA_A_161_NO"
+    ],
+    "community_service_ids": [
+      "SVC0085"
+    ]
+  },
+  {
+    "place_id": "PLC0098",
+    "name_en": "Diabari",
+    "name_bn": "দিয়াবাড়ী",
+    "brta_route_ids": [
+      "BRTA_A_330_NO",
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0099",
+    "name_en": "Diabari (Beribadh)",
+    "name_bn": "দিয়াবাড়ী (বেড়িবাঁধ)",
+    "brta_route_ids": [
+      "BRTA_A_422_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0100",
+    "name_en": "Diabari Chourasta",
+    "name_bn": "দিয়াবাড়ী চৌরাস্তা",
+    "brta_route_ids": [
+      "BRTA_A_317_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0101",
+    "name_en": "Diabari Morh",
+    "name_bn": "দিয়াবাড়ী মোড়",
+    "brta_route_ids": [
+      "BRTA_A_414_NO"
+    ],
+    "community_service_ids": [
+      "SVC0025",
+      "SVC0111",
+      "SVC0147"
+    ]
+  },
+  {
+    "place_id": "PLC0102",
+    "name_en": "Duyaripara",
+    "name_bn": "দুয়ারীপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_103_NO",
+      "BRTA_A_110_NO"
+    ],
+    "community_service_ids": [
+      "SVC0015",
+      "SVC0028"
+    ]
+  },
+  {
+    "place_id": "PLC0103",
+    "name_en": "Eastern Housing",
+    "name_bn": "ইস্টার্ন হাউজিং",
+    "brta_route_ids": [
+      "BRTA_A_182_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0104",
+    "name_en": "ECB Chattar",
+    "name_bn": "ইসিবি চত্বর",
+    "brta_route_ids": [
+      "BRTA_A_273_NO",
+      "BRTA_A_280_NO",
+      "BRTA_A_301_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0105",
+    "name_en": "ECB Morh",
+    "name_bn": "ইসিবি মোড়",
+    "brta_route_ids": [
+      "BRTA_A_122_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0106",
+    "name_en": "Eden College",
+    "name_bn": "ইডেন কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_259_NO"
+    ],
+    "community_service_ids": [
+      "SVC0054",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0107",
+    "name_en": "Ekuria",
+    "name_bn": "ইকুরিয়া",
+    "brta_route_ids": [
+      "BRTA_A_344_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0108",
+    "name_en": "EPZ",
+    "name_bn": "ইপিজেড",
+    "brta_route_ids": [
+      "BRTA_A_182_NO",
+      "BRTA_A_190_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_307_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_333_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0109",
+    "name_en": "Fakirapool",
+    "name_bn": "ফকিরাপুল",
+    "brta_route_ids": [
+      "BRTA_A_160_NO",
+      "BRTA_A_378_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0110",
+    "name_en": "Fantasy",
+    "name_bn": "ফ্যান্টাসী",
+    "brta_route_ids": [
+      "BRTA_A_182_NO",
+      "BRTA_A_333_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0111",
+    "name_en": "Fantasy Kingdom",
+    "name_bn": "ফ্যান্টাসী কিংডম",
+    "brta_route_ids": [
+      "BRTA_A_380_NO"
+    ],
+    "community_service_ids": [
+      "SVC0009",
+      "SVC0016",
+      "SVC0096",
+      "SVC0130"
+    ]
+  },
+  {
+    "place_id": "PLC0112",
+    "name_en": "Farmgate",
+    "name_bn": "ফার্মগেট",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_102_NO",
+      "BRTA_A_111_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_132_NO",
+      "BRTA_A_137_NO",
+      "BRTA_A_142_NO",
+      "BRTA_A_166_NO",
+      "BRTA_A_190_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_207_NO",
+      "BRTA_A_264_NO",
+      "BRTA_A_280_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_295_NO",
+      "BRTA_A_299_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_327_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_453_NO",
+      "BRTA_A_458_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0008",
+      "SVC0019",
+      "SVC0023",
+      "SVC0025",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0031",
+      "SVC0032",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0039",
+      "SVC0040",
+      "SVC0045",
+      "SVC0051",
+      "SVC0054",
+      "SVC0059",
+      "SVC0060",
+      "SVC0061",
+      "SVC0071",
+      "SVC0080",
+      "SVC0082",
+      "SVC0083",
+      "SVC0084",
+      "SVC0088",
+      "SVC0092",
+      "SVC0093",
+      "SVC0094",
+      "SVC0101",
+      "SVC0103",
+      "SVC0119",
+      "SVC0122",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0132",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0144",
+      "SVC0145",
+      "SVC0146",
+      "SVC0150",
+      "SVC0152",
+      "SVC0153",
+      "SVC0154",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0113",
+    "name_en": "Fulbaria",
+    "name_bn": "ফুলবাড়িয়া",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO",
+      "BRTA_A_222_NO",
+      "BRTA_A_224_NO",
+      "BRTA_A_249_NO",
+      "BRTA_A_260_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0050",
+      "SVC0109",
+      "SVC0129"
+    ]
+  },
+  {
+    "place_id": "PLC0114",
+    "name_en": "Gabtoli",
+    "name_bn": "গাবতলী",
+    "brta_route_ids": [
+      "BRTA_A_181_NO",
+      "BRTA_A_190_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_202_NO",
+      "BRTA_A_224_NO",
+      "BRTA_A_260_NO",
+      "BRTA_A_302_NO",
+      "BRTA_A_307_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_426_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_441_NO",
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0002",
+      "SVC0008",
+      "SVC0014",
+      "SVC0021",
+      "SVC0023",
+      "SVC0024",
+      "SVC0035",
+      "SVC0036",
+      "SVC0038",
+      "SVC0044",
+      "SVC0046",
+      "SVC0048",
+      "SVC0050",
+      "SVC0051",
+      "SVC0063",
+      "SVC0067",
+      "SVC0075",
+      "SVC0077",
+      "SVC0082",
+      "SVC0083",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0104",
+      "SVC0106",
+      "SVC0110",
+      "SVC0114",
+      "SVC0115",
+      "SVC0116",
+      "SVC0117",
+      "SVC0121",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0132",
+      "SVC0134",
+      "SVC0139",
+      "SVC0140",
+      "SVC0141",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0115",
+    "name_en": "Gabtoli Bridge Par",
+    "name_bn": "গাবতলী ব্রীজ পাড়",
+    "brta_route_ids": [
+      "BRTA_A_271_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_377_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0116",
+    "name_en": "Gausia/Chandnichok",
+    "name_bn": "গাউসিয়া/চাঁদনীচক",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_3"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0117",
+    "name_en": "Gazipur",
+    "name_bn": "গাজীপুর",
+    "brta_route_ids": [
+      "BRTA_A_222_NO",
+      "BRTA_A_225_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_271_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0118",
+    "name_en": "Gazipur Crossroad",
+    "name_bn": "গাজীপুর চৌরাস্তা",
+    "brta_route_ids": [
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO",
+      "BRTA_A_222_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0119",
+    "name_en": "Ghatarchar",
+    "name_bn": "ঘাটারচর",
+    "brta_route_ids": [
+      "BRTA_A_161_NO"
+    ],
+    "community_service_ids": [
+      "SVC0049",
+      "SVC0078",
+      "SVC0112"
+    ]
+  },
+  {
+    "place_id": "PLC0120",
+    "name_en": "Ghatarchor",
+    "name_bn": "ঘাটেরচর",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0121",
+    "name_en": "Ghater Char",
+    "name_bn": "ঘাটের চর",
+    "brta_route_ids": [
+      "BRTA_A_406_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0122",
+    "name_en": "Golapshah Mazar",
+    "name_bn": "গোলাপশাহ মাজার",
+    "brta_route_ids": [
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0123",
+    "name_en": "Golapshah Mazar (Fulbaria)",
+    "name_bn": "গোলাপশাহ মাজার (ফুলবাড়ীয়া)",
+    "brta_route_ids": [
+      "BRTA_A_264_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0023",
+      "SVC0028",
+      "SVC0059",
+      "SVC0060",
+      "SVC0061",
+      "SVC0093",
+      "SVC0107",
+      "SVC0109",
+      "SVC0121",
+      "SVC0123",
+      "SVC0129",
+      "SVC0131",
+      "SVC0133",
+      "SVC0134",
+      "SVC0136",
+      "SVC0147",
+      "SVC0148",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0124",
+    "name_en": "GPO",
+    "name_bn": "জিপিও",
+    "brta_route_ids": [
+      "BRTA_A_288_NO",
+      "BRTA_A_331_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0007",
+      "SVC0008",
+      "SVC0018",
+      "SVC0023",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0033",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0042",
+      "SVC0043",
+      "SVC0049",
+      "SVC0059",
+      "SVC0061",
+      "SVC0064",
+      "SVC0069",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0083",
+      "SVC0085",
+      "SVC0086",
+      "SVC0087",
+      "SVC0093",
+      "SVC0097",
+      "SVC0099",
+      "SVC0107",
+      "SVC0109",
+      "SVC0112",
+      "SVC0113",
+      "SVC0121",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0129",
+      "SVC0131",
+      "SVC0133",
+      "SVC0134",
+      "SVC0136",
+      "SVC0142",
+      "SVC0147",
+      "SVC0148",
+      "SVC0150",
+      "SVC0153",
+      "SVC0154",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0125",
+    "name_en": "Gulistan",
+    "name_bn": "গুলিস্তান",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_110_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_234_NO",
+      "BRTA_A_252_NO",
+      "BRTA_A_256_NO",
+      "BRTA_A_259_NO",
+      "BRTA_A_280_NO",
+      "BRTA_A_295_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_327_NO",
+      "BRTA_A_381_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_439_NO",
+      "BRTA_A_458_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0126",
+    "name_en": "Gulistan (Fulbaria)",
+    "name_bn": "গুলিস্তান (ফুলবাড়িয়া)",
+    "brta_route_ids": [
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0127",
+    "name_en": "Gulistan (Hanif Flyover)",
+    "name_bn": "গুলিস্তান (হানিফ ফ্লাইওভার)",
+    "brta_route_ids": [
+      "BRTA_A_380_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0128",
+    "name_en": "Gulistan Morh",
+    "name_bn": "গুলিস্তান মোড়",
+    "brta_route_ids": [
+      "BRTA_A_115_NO"
+    ],
+    "community_service_ids": [
+      "SVC0007",
+      "SVC0008",
+      "SVC0018",
+      "SVC0026",
+      "SVC0029",
+      "SVC0032",
+      "SVC0033",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0042",
+      "SVC0043",
+      "SVC0045",
+      "SVC0049",
+      "SVC0052",
+      "SVC0057",
+      "SVC0062",
+      "SVC0064",
+      "SVC0065",
+      "SVC0069",
+      "SVC0071",
+      "SVC0073",
+      "SVC0078",
+      "SVC0080",
+      "SVC0083",
+      "SVC0085",
+      "SVC0086",
+      "SVC0087",
+      "SVC0089",
+      "SVC0097",
+      "SVC0098",
+      "SVC0099",
+      "SVC0102",
+      "SVC0112",
+      "SVC0113",
+      "SVC0126",
+      "SVC0127",
+      "SVC0128",
+      "SVC0132",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0150",
+      "SVC0152",
+      "SVC0153",
+      "SVC0154",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0129",
+    "name_en": "Gulshan-1",
+    "name_bn": "গুলশান-১",
+    "brta_route_ids": [
+      "BRTA_A_142_NO",
+      "BRTA_A_166_NO",
+      "BRTA_A_181_NO",
+      "BRTA_A_202_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_278_NO",
+      "BRTA_A_302_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0010",
+      "SVC0011",
+      "SVC0014",
+      "SVC0021",
+      "SVC0039",
+      "SVC0040",
+      "SVC0054",
+      "SVC0055",
+      "SVC0058",
+      "SVC0072",
+      "SVC0095",
+      "SVC0116",
+      "SVC0151",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0130",
+    "name_en": "Gulshan-2",
+    "name_bn": "গুলশান-২",
+    "brta_route_ids": [
+      "BRTA_A_142_NO"
+    ],
+    "community_service_ids": [
+      "SVC0055",
+      "SVC0056",
+      "SVC0070",
+      "SVC0116",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0131",
+    "name_en": "Hanif Flyover",
+    "name_bn": "হানিফ ফ্লাইওভার",
+    "brta_route_ids": [
+      "BRTA_A_406_NO",
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0132",
+    "name_en": "Hemayetpur",
+    "name_bn": "হেমায়েতপুর",
+    "brta_route_ids": [
+      "BRTA_A_181_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0008",
+      "SVC0014",
+      "SVC0021",
+      "SVC0036",
+      "SVC0038",
+      "SVC0046",
+      "SVC0050",
+      "SVC0075",
+      "SVC0082",
+      "SVC0083",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0110",
+      "SVC0114",
+      "SVC0121",
+      "SVC0128",
+      "SVC0129",
+      "SVC0134",
+      "SVC0139",
+      "SVC0140",
+      "SVC0150"
+    ]
+  },
+  {
+    "place_id": "PLC0133",
+    "name_en": "High Court",
+    "name_bn": "হাইকোর্ট",
+    "brta_route_ids": [
+      "BRTA_A_224_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0008",
+      "SVC0018",
+      "SVC0020",
+      "SVC0023",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0043",
+      "SVC0049",
+      "SVC0051",
+      "SVC0057",
+      "SVC0059",
+      "SVC0061",
+      "SVC0064",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0083",
+      "SVC0084",
+      "SVC0085",
+      "SVC0087",
+      "SVC0089",
+      "SVC0093",
+      "SVC0097",
+      "SVC0099",
+      "SVC0101",
+      "SVC0103",
+      "SVC0112",
+      "SVC0113",
+      "SVC0121",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0129",
+      "SVC0134",
+      "SVC0136",
+      "SVC0142",
+      "SVC0145",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0134",
+    "name_en": "Hota Para",
+    "name_bn": "হোতা পাড়া",
+    "brta_route_ids": [
+      "BRTA_A_220_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0135",
+    "name_en": "House Building",
+    "name_bn": "হাউজ বিল্ডিং",
+    "brta_route_ids": [
+      "BRTA_A_166_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0012",
+      "SVC0013",
+      "SVC0016",
+      "SVC0017",
+      "SVC0022",
+      "SVC0024",
+      "SVC0025",
+      "SVC0027",
+      "SVC0032",
+      "SVC0037",
+      "SVC0042",
+      "SVC0044",
+      "SVC0053",
+      "SVC0066",
+      "SVC0068",
+      "SVC0069",
+      "SVC0079",
+      "SVC0086",
+      "SVC0104",
+      "SVC0105",
+      "SVC0107",
+      "SVC0108",
+      "SVC0109",
+      "SVC0111",
+      "SVC0120",
+      "SVC0125",
+      "SVC0130",
+      "SVC0131",
+      "SVC0133",
+      "SVC0138",
+      "SVC0147",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0136",
+    "name_en": "Intefak",
+    "name_bn": "ইন্তেফাক",
+    "brta_route_ids": [
+      "BRTA_A_114_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0137",
+    "name_en": "Islampur",
+    "name_bn": "ইসলামপুর",
+    "brta_route_ids": [
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0138",
+    "name_en": "Jagannath University",
+    "name_bn": "জগন্নাথ বিশ্ববিদ্যালয়",
+    "brta_route_ids": [
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0139",
+    "name_en": "Jamuna Future Park",
+    "name_bn": "যমুনা ফিউচার পার্ক",
+    "brta_route_ids": [
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0005",
+      "SVC0006",
+      "SVC0013",
+      "SVC0017",
+      "SVC0039",
+      "SVC0040",
+      "SVC0042",
+      "SVC0053",
+      "SVC0054",
+      "SVC0068",
+      "SVC0069",
+      "SVC0100",
+      "SVC0107",
+      "SVC0111",
+      "SVC0114",
+      "SVC0120",
+      "SVC0130",
+      "SVC0133",
+      "SVC0147",
+      "SVC0148",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0140",
+    "name_en": "Japan Garden City",
+    "name_bn": "জাপান গার্ডেন সিটি",
+    "brta_route_ids": [
+      "BRTA_A_294_NO",
+      "BRTA_A_301_NO"
+    ],
+    "community_service_ids": [
+      "SVC0010",
+      "SVC0012",
+      "SVC0027",
+      "SVC0138"
+    ]
+  },
+  {
+    "place_id": "PLC0141",
+    "name_en": "Jasim Uddin",
+    "name_bn": "জসীমউদ্দিন",
+    "brta_route_ids": [
+      "BRTA_A_304_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0142",
+    "name_en": "Jasimuddin",
+    "name_bn": "জসমউদ্দিন",
+    "brta_route_ids": [
+      "BRTA_A_270_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0012",
+      "SVC0013",
+      "SVC0016",
+      "SVC0017",
+      "SVC0022",
+      "SVC0024",
+      "SVC0025",
+      "SVC0027",
+      "SVC0032",
+      "SVC0037",
+      "SVC0042",
+      "SVC0044",
+      "SVC0053",
+      "SVC0066",
+      "SVC0068",
+      "SVC0069",
+      "SVC0076",
+      "SVC0086",
+      "SVC0104",
+      "SVC0105",
+      "SVC0107",
+      "SVC0108",
+      "SVC0109",
+      "SVC0111",
+      "SVC0120",
+      "SVC0125",
+      "SVC0130",
+      "SVC0131",
+      "SVC0133",
+      "SVC0138",
+      "SVC0147",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0143",
+    "name_en": "Jatrabari",
+    "name_bn": "যাত্রাবাড়ী",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_228_NO",
+      "BRTA_A_236_NO",
+      "BRTA_A_243_NO",
+      "BRTA_A_252_NO",
+      "BRTA_A_256_NO",
+      "BRTA_A_259_NO",
+      "BRTA_A_317_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_424_NO"
+    ],
+    "community_service_ids": [
+      "SVC0013",
+      "SVC0026",
+      "SVC0032",
+      "SVC0036",
+      "SVC0049",
+      "SVC0053",
+      "SVC0064",
+      "SVC0068",
+      "SVC0073",
+      "SVC0074",
+      "SVC0078",
+      "SVC0080",
+      "SVC0082",
+      "SVC0086",
+      "SVC0087",
+      "SVC0088",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0111",
+      "SVC0113",
+      "SVC0120",
+      "SVC0126",
+      "SVC0127",
+      "SVC0128",
+      "SVC0135",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0144",
+    "name_en": "Jigatola",
+    "name_bn": "জিগাতলা",
+    "brta_route_ids": [
+      "BRTA_A_157_NO",
+      "BRTA_A_161_NO",
+      "BRTA_A_406_NO"
+    ],
+    "community_service_ids": [
+      "SVC0043",
+      "SVC0049",
+      "SVC0052",
+      "SVC0057",
+      "SVC0064",
+      "SVC0065",
+      "SVC0078",
+      "SVC0085",
+      "SVC0089",
+      "SVC0097",
+      "SVC0112",
+      "SVC0113",
+      "SVC0115",
+      "SVC0137"
+    ]
+  },
+  {
+    "place_id": "PLC0145",
+    "name_en": "Jinjira",
+    "name_bn": "জিঞ্জিরা",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0146",
+    "name_en": "Jirabo",
+    "name_bn": "জিরাবো",
+    "brta_route_ids": [
+      "BRTA_A_422_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0147",
+    "name_en": "Jirani Bazar",
+    "name_bn": "জিরানী বাজার",
+    "brta_route_ids": [
+      "BRTA_A_441_NO"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0038",
+      "SVC0075",
+      "SVC0083",
+      "SVC0098",
+      "SVC0110",
+      "SVC0121",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140",
+      "SVC0150"
+    ]
+  },
+  {
+    "place_id": "PLC0148",
+    "name_en": "Jonopoth",
+    "name_bn": "জনপথ",
+    "brta_route_ids": [
+      "BRTA_A_192_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0149",
+    "name_en": "Jonopoth Mor",
+    "name_bn": "জনপথ মোড়",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0150",
+    "name_en": "Jurain",
+    "name_bn": "জুরাইন",
+    "brta_route_ids": [
+      "BRTA_A_228_NO"
+    ],
+    "community_service_ids": [
+      "SVC0112",
+      "SVC0124",
+      "SVC0140"
+    ]
+  },
+  {
+    "place_id": "PLC0151",
+    "name_en": "Kadamtoli",
+    "name_bn": "কদমতলী",
+    "brta_route_ids": [
+      "BRTA_A_430_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": [
+      "SVC0005",
+      "SVC0123"
+    ]
+  },
+  {
+    "place_id": "PLC0152",
+    "name_en": "Kajla",
+    "name_bn": "কাজলা",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0153",
+    "name_en": "Kajli",
+    "name_bn": "কাজলি",
+    "brta_route_ids": [
+      "BRTA_A_222_NO",
+      "BRTA_A_245_NO",
+      "BRTA_A_294_NO",
+      "BRTA_A_299_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0154",
+    "name_en": "Kakoli",
+    "name_bn": "কাকলি",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_346_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_378_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0155",
+    "name_en": "Kakrail",
+    "name_bn": "কাকরাইল",
+    "brta_route_ids": [
+      "BRTA_A_138_NO",
+      "BRTA_A_142_NO",
+      "BRTA_A_157_NO",
+      "BRTA_A_160_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_346_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_378_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_430_NO",
+      "BRTA_A_436_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0005",
+      "SVC0007",
+      "SVC0033",
+      "SVC0042",
+      "SVC0066",
+      "SVC0069",
+      "SVC0086",
+      "SVC0107",
+      "SVC0109",
+      "SVC0115",
+      "SVC0124",
+      "SVC0125",
+      "SVC0131",
+      "SVC0133",
+      "SVC0137",
+      "SVC0147",
+      "SVC0148",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0156",
+    "name_en": "Kalabagan",
+    "name_bn": "কলাবাগান",
+    "brta_route_ids": [
+      "BRTA_A_115_NO",
+      "BRTA_A_127_NO",
+      "BRTA_A_129_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_224_NO",
+      "BRTA_A_252_NO",
+      "BRTA_A_341_NO",
+      "BRTA_A_354_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_426_NO",
+      "BRTA_A_432_NO",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": [
+      "SVC0015",
+      "SVC0025",
+      "SVC0030",
+      "SVC0031",
+      "SVC0032",
+      "SVC0050",
+      "SVC0058",
+      "SVC0087",
+      "SVC0090",
+      "SVC0098",
+      "SVC0099",
+      "SVC0102",
+      "SVC0118",
+      "SVC0121",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0149",
+      "SVC0151",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0157",
+    "name_en": "Kalampur",
+    "name_bn": "কালামপুর",
+    "brta_route_ids": [
+      "BRTA_A_387_NO",
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": [
+      "SVC0051"
+    ]
+  },
+  {
+    "place_id": "PLC0158",
+    "name_en": "Kalapani",
+    "name_bn": "কালাপানি",
+    "brta_route_ids": [
+      "BRTA_A_319_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0159",
+    "name_en": "Kalashi Mor",
+    "name_bn": "কালাশি মোড়",
+    "brta_route_ids": [
+      "BRTA_A_280_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0160",
+    "name_en": "Kalshi",
+    "name_bn": "কালশী",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_301_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0161",
+    "name_en": "Kalshi Morh",
+    "name_bn": "কালশিমোড়",
+    "brta_route_ids": [
+      "BRTA_A_314_NO",
+      "BRTA_A_378_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0007",
+      "SVC0024",
+      "SVC0044",
+      "SVC0076",
+      "SVC0077",
+      "SVC0079",
+      "SVC0100",
+      "SVC0104",
+      "SVC0105",
+      "SVC0108",
+      "SVC0114",
+      "SVC0116",
+      "SVC0138",
+      "SVC0145",
+      "SVC0146"
+    ]
+  },
+  {
+    "place_id": "PLC0162",
+    "name_en": "Kalshir Mor",
+    "name_bn": "কালশীর মোড়",
+    "brta_route_ids": [
+      "BRTA_A_271_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0163",
+    "name_en": "Kalyanpur",
+    "name_bn": "কল্যাণপুর",
+    "brta_route_ids": [
+      "BRTA_A_114_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_190_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_302_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_421_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0008",
+      "SVC0014",
+      "SVC0015",
+      "SVC0020",
+      "SVC0021",
+      "SVC0023",
+      "SVC0036",
+      "SVC0038",
+      "SVC0050",
+      "SVC0051",
+      "SVC0059",
+      "SVC0082",
+      "SVC0083",
+      "SVC0090",
+      "SVC0094",
+      "SVC0095",
+      "SVC0098",
+      "SVC0101",
+      "SVC0102",
+      "SVC0105",
+      "SVC0108",
+      "SVC0115",
+      "SVC0121",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0164",
+    "name_en": "Kamalapur",
+    "name_bn": "কমলাপুর",
+    "brta_route_ids": [
+      "BRTA_A_129_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0165",
+    "name_en": "Kamalapur (Pirjangi Mazar)",
+    "name_bn": "কমলাপুর (পীরজঙ্গী মাজার)",
+    "brta_route_ids": [
+      "BRTA_A_378_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0166",
+    "name_en": "Kamalapur Station",
+    "name_bn": "কমলাপুর স্টেশন",
+    "brta_route_ids": [
+      "BRTA_A_142_NO"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0019",
+      "SVC0020",
+      "SVC0022",
+      "SVC0040",
+      "SVC0089",
+      "SVC0119",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0167",
+    "name_en": "Kamar Para",
+    "name_bn": "কামার পাড়া",
+    "brta_route_ids": [
+      "BRTA_A_346_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0168",
+    "name_en": "Kamarpada",
+    "name_bn": "কামারপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_270_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0169",
+    "name_en": "Kamarpara",
+    "name_bn": "কামারপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_424_NO"
+    ],
+    "community_service_ids": [
+      "SVC0016",
+      "SVC0031",
+      "SVC0032",
+      "SVC0053",
+      "SVC0104",
+      "SVC0108",
+      "SVC0125",
+      "SVC0130"
+    ]
+  },
+  {
+    "place_id": "PLC0170",
+    "name_en": "Kamrangirchar (Beribadh)",
+    "name_bn": "কামারঙ্গীরচর (বেড়িবাঁধ)",
+    "brta_route_ids": [
+      "BRTA_A_422_NO"
+    ],
+    "community_service_ids": [
+      "SVC0106"
+    ]
+  },
+  {
+    "place_id": "PLC0171",
+    "name_en": "Kanchpur",
+    "name_bn": "কাঁচপুর",
+    "brta_route_ids": [
+      "BRTA_A_240_NO",
+      "BRTA_A_256_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": [
+      "SVC0036",
+      "SVC0087"
+    ]
+  },
+  {
+    "place_id": "PLC0172",
+    "name_en": "Kanchpur Bridge",
+    "name_bn": "কাঁচপুরব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_257_NO",
+      "BRTA_A_319_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0173",
+    "name_en": "Kapasia",
+    "name_bn": "কাপাসিয়া",
+    "brta_route_ids": [
+      "BRTA_A_219_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0174",
+    "name_en": "Karwan Bazar",
+    "name_bn": "কারওয়ান বাজার",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0175",
+    "name_en": "Kasempur",
+    "name_bn": "কাশেমপুর",
+    "brta_route_ids": [
+      "BRTA_A_422_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0176",
+    "name_en": "Kashi",
+    "name_bn": "কাশী",
+    "brta_route_ids": [
+      "BRTA_A_270_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0177",
+    "name_en": "Katabon",
+    "name_bn": "কাটাবন",
+    "brta_route_ids": [
+      "BRTA_A_115_NO"
+    ],
+    "community_service_ids": [
+      "SVC0018",
+      "SVC0020",
+      "SVC0054",
+      "SVC0087",
+      "SVC0124",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0178",
+    "name_en": "Kawran Bazar",
+    "name_bn": "কাওরানবাজার",
+    "brta_route_ids": [
+      "BRTA_A_114_NO",
+      "BRTA_A_327_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0008",
+      "SVC0019",
+      "SVC0023",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0051",
+      "SVC0054",
+      "SVC0058",
+      "SVC0059",
+      "SVC0061",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0082",
+      "SVC0083",
+      "SVC0084",
+      "SVC0093",
+      "SVC0094",
+      "SVC0101",
+      "SVC0103",
+      "SVC0122",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0144",
+      "SVC0145",
+      "SVC0146",
+      "SVC0150",
+      "SVC0151",
+      "SVC0153",
+      "SVC0154",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0179",
+    "name_en": "Kazipara",
+    "name_bn": "কাজীপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_102_NO",
+      "BRTA_A_103_NO",
+      "BRTA_A_111_NO",
+      "BRTA_A_122_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_458_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": [
+      "SVC0005",
+      "SVC0011",
+      "SVC0013",
+      "SVC0019",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0030",
+      "SVC0033",
+      "SVC0042",
+      "SVC0060",
+      "SVC0061",
+      "SVC0068",
+      "SVC0069",
+      "SVC0071",
+      "SVC0072",
+      "SVC0073",
+      "SVC0076",
+      "SVC0080",
+      "SVC0084",
+      "SVC0093",
+      "SVC0100",
+      "SVC0107",
+      "SVC0115",
+      "SVC0118",
+      "SVC0119",
+      "SVC0122",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0133",
+      "SVC0137",
+      "SVC0138",
+      "SVC0147",
+      "SVC0148"
+    ]
+  },
+  {
+    "place_id": "PLC0180",
+    "name_en": "Kazlail",
+    "name_bn": "কাজলাইল",
+    "brta_route_ids": [
+      "BRTA_A_222_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0181",
+    "name_en": "Keraniganj",
+    "name_bn": "কেরানীগঞ্জ",
+    "brta_route_ids": [
+      "BRTA_A_264_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0182",
+    "name_en": "Keraniganj (New Jail)",
+    "name_bn": "কেরানীগঞ্জ (নতুন জেলখানা)",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_285_NO"
+    ],
+    "community_service_ids": [
+      "SVC0005",
+      "SVC0023",
+      "SVC0059",
+      "SVC0062",
+      "SVC0107",
+      "SVC0123"
+    ]
+  },
+  {
+    "place_id": "PLC0183",
+    "name_en": "Khaisakhali Beribadh",
+    "name_bn": "খাইস্যাখালী বেড়িবাঁধ",
+    "brta_route_ids": [
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0184",
+    "name_en": "Khamarbari",
+    "name_bn": "খামারবাড়ী",
+    "brta_route_ids": [
+      "BRTA_A_341_NO"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0019",
+      "SVC0023",
+      "SVC0025",
+      "SVC0026",
+      "SVC0028",
+      "SVC0031",
+      "SVC0032",
+      "SVC0036",
+      "SVC0038",
+      "SVC0039",
+      "SVC0059",
+      "SVC0061",
+      "SVC0080",
+      "SVC0082",
+      "SVC0083",
+      "SVC0088",
+      "SVC0091",
+      "SVC0092",
+      "SVC0093",
+      "SVC0094",
+      "SVC0101",
+      "SVC0118",
+      "SVC0122",
+      "SVC0123",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0150",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0185",
+    "name_en": "Khamrai",
+    "name_bn": "খামরাই",
+    "brta_route_ids": [
+      "BRTA_A_387_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0186",
+    "name_en": "Khanmondol",
+    "name_bn": "খানমন্ডল",
+    "brta_route_ids": [
+      "BRTA_A_103_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0187",
+    "name_en": "Kharshur",
+    "name_bn": "খারশুর",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0188",
+    "name_en": "Khasiakhali Beribadh",
+    "name_bn": "খাসিয়াখালী বেড়িবাঁধ",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0189",
+    "name_en": "Khilgaon Flyover",
+    "name_bn": "খিলগাঁও ফ্লাইওভার",
+    "brta_route_ids": [
+      "BRTA_A_317_NO",
+      "BRTA_A_421_NO"
+    ],
+    "community_service_ids": [
+      "SVC0082",
+      "SVC0094",
+      "SVC0135"
+    ]
+  },
+  {
+    "place_id": "PLC0190",
+    "name_en": "Khilgaon Khidma Hospital",
+    "name_bn": "খিলগাঁও খিদমা হাসপাতাল",
+    "brta_route_ids": [
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": [
+      "SVC0072"
+    ]
+  },
+  {
+    "place_id": "PLC0191",
+    "name_en": "Khilgaon Rail Gate",
+    "name_bn": "খিলগাঁও রেলগেট",
+    "brta_route_ids": [
+      "BRTA_A_129_NO",
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0192",
+    "name_en": "Khilgaon Taltala",
+    "name_bn": "খিলগাঁও তালতলা",
+    "brta_route_ids": [
+      "BRTA_A_129_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0193",
+    "name_en": "Khilkhet",
+    "name_bn": "খিলক্ষেত",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_166_NO",
+      "BRTA_A_271_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0012",
+      "SVC0013",
+      "SVC0016",
+      "SVC0017",
+      "SVC0022",
+      "SVC0024",
+      "SVC0025",
+      "SVC0027",
+      "SVC0031",
+      "SVC0032",
+      "SVC0035",
+      "SVC0037",
+      "SVC0042",
+      "SVC0044",
+      "SVC0053",
+      "SVC0066",
+      "SVC0068",
+      "SVC0069",
+      "SVC0079",
+      "SVC0086",
+      "SVC0103",
+      "SVC0104",
+      "SVC0105",
+      "SVC0107",
+      "SVC0108",
+      "SVC0109",
+      "SVC0111",
+      "SVC0120",
+      "SVC0125",
+      "SVC0130",
+      "SVC0131",
+      "SVC0133",
+      "SVC0147",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0194",
+    "name_en": "Kochukhet",
+    "name_bn": "কচুক্ষেত",
+    "brta_route_ids": [
+      "BRTA_A_327_NO"
+    ],
+    "community_service_ids": [
+      "SVC0047",
+      "SVC0143",
+      "SVC0144"
+    ]
+  },
+  {
+    "place_id": "PLC0195",
+    "name_en": "Kochukshet",
+    "name_bn": "কচুক্ষেত",
+    "brta_route_ids": [
+      "BRTA_A_278_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0196",
+    "name_en": "Komorgonj",
+    "name_bn": "কোমরগঞ্জ",
+    "brta_route_ids": [
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0197",
+    "name_en": "Konabari",
+    "name_bn": "কোনাবাড়ী",
+    "brta_route_ids": [
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_422_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0009",
+      "SVC0081",
+      "SVC0096"
+    ]
+  },
+  {
+    "place_id": "PLC0198",
+    "name_en": "Konakhola",
+    "name_bn": "কোনাখোলা",
+    "brta_route_ids": [
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0199",
+    "name_en": "Konapara",
+    "name_bn": "কোনাপাড়া",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0200",
+    "name_en": "Koshailya Bazar",
+    "name_bn": "কোশাইল্যা বাজার",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0201",
+    "name_en": "Kumitola General Hospital",
+    "name_bn": "কুমিটোলা জেনারেল হাসপাতাল",
+    "brta_route_ids": [
+      "BRTA_A_354_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0202",
+    "name_en": "Kuril",
+    "name_bn": "কুড়িল",
+    "brta_route_ids": [
+      "BRTA_A_362_NO",
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0203",
+    "name_en": "Kuril Bishwa Road",
+    "name_bn": "কুড়িল বিশ্বরোড",
+    "brta_route_ids": [
+      "BRTA_A_166_NO",
+      "BRTA_A_173_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0006",
+      "SVC0012",
+      "SVC0013",
+      "SVC0016",
+      "SVC0017",
+      "SVC0022",
+      "SVC0024",
+      "SVC0025",
+      "SVC0027",
+      "SVC0031",
+      "SVC0032",
+      "SVC0037",
+      "SVC0039",
+      "SVC0040",
+      "SVC0041",
+      "SVC0042",
+      "SVC0044",
+      "SVC0053",
+      "SVC0054",
+      "SVC0058",
+      "SVC0066",
+      "SVC0068",
+      "SVC0069",
+      "SVC0076",
+      "SVC0079",
+      "SVC0086",
+      "SVC0100",
+      "SVC0103",
+      "SVC0104",
+      "SVC0105",
+      "SVC0107",
+      "SVC0108",
+      "SVC0109",
+      "SVC0111",
+      "SVC0114",
+      "SVC0120",
+      "SVC0125",
+      "SVC0130",
+      "SVC0131",
+      "SVC0133",
+      "SVC0138",
+      "SVC0147",
+      "SVC0148",
+      "SVC0149",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0204",
+    "name_en": "Kuril Biswa Road",
+    "name_bn": "কুড়িল বিশ্বরোড",
+    "brta_route_ids": [
+      "BRTA_A_314_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_430_NO",
+      "BRTA_A_432_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0205",
+    "name_en": "Kuril Flyover",
+    "name_bn": "কুড়িল ফ্লাইওভার",
+    "brta_route_ids": [
+      "BRTA_A_317_NO",
+      "BRTA_A_320_NO"
+    ],
+    "community_service_ids": [
+      "SVC0077"
+    ]
+  },
+  {
+    "place_id": "PLC0206",
+    "name_en": "Kurmitola General Hospital",
+    "name_bn": "কুর্মিটোলা জেনারেল হাসপাতাল",
+    "brta_route_ids": [
+      "BRTA_A_356_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0207",
+    "name_en": "Link Road",
+    "name_bn": "লিংক রোড",
+    "brta_route_ids": [
+      "BRTA_A_190_NO",
+      "BRTA_A_236_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0208",
+    "name_en": "Madanganj",
+    "name_bn": "মদনগঞ্জ",
+    "brta_route_ids": [
+      "BRTA_A_234_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0209",
+    "name_en": "Madanpur",
+    "name_bn": "মদনপুর",
+    "brta_route_ids": [
+      "BRTA_A_245_NO",
+      "BRTA_A_256_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_406_NO"
+    ],
+    "community_service_ids": [
+      "SVC0017",
+      "SVC0036",
+      "SVC0074"
+    ]
+  },
+  {
+    "place_id": "PLC0210",
+    "name_en": "Magbazar",
+    "name_bn": "মগবাজার",
+    "brta_route_ids": [
+      "BRTA_A_142_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO",
+      "BRTA_A_222_NO",
+      "BRTA_A_245_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_346_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_378_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_421_NO"
+    ],
+    "community_service_ids": [
+      "SVC0007",
+      "SVC0019",
+      "SVC0022",
+      "SVC0066",
+      "SVC0082",
+      "SVC0086",
+      "SVC0094",
+      "SVC0109",
+      "SVC0119",
+      "SVC0122",
+      "SVC0125",
+      "SVC0135",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0211",
+    "name_en": "Majhir Kanda",
+    "name_bn": "মাঝির কান্দা",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0212",
+    "name_en": "Malibagh",
+    "name_bn": "মালিবাগ",
+    "brta_route_ids": [
+      "BRTA_A_138_NO",
+      "BRTA_A_142_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_225_NO",
+      "BRTA_A_240_NO",
+      "BRTA_A_243_NO",
+      "BRTA_A_245_NO",
+      "BRTA_A_257_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_378_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_430_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0005",
+      "SVC0007",
+      "SVC0019",
+      "SVC0022",
+      "SVC0033",
+      "SVC0042",
+      "SVC0053",
+      "SVC0066",
+      "SVC0069",
+      "SVC0082",
+      "SVC0086",
+      "SVC0094",
+      "SVC0107",
+      "SVC0109",
+      "SVC0115",
+      "SVC0119",
+      "SVC0125",
+      "SVC0131",
+      "SVC0133",
+      "SVC0135",
+      "SVC0137",
+      "SVC0147",
+      "SVC0148",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0213",
+    "name_en": "Malibagh Choudhurypara",
+    "name_bn": "মালিবাগ চৌধুরীপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_320_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0214",
+    "name_en": "Manda Crossroad",
+    "name_bn": "মান্ডা চৌরাস্তা",
+    "brta_route_ids": [
+      "BRTA_A_220_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0215",
+    "name_en": "Manik Mia",
+    "name_bn": "মানিক মিয়া",
+    "brta_route_ids": [
+      "BRTA_A_207_NO",
+      "BRTA_A_329_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0216",
+    "name_en": "Manik Mia Avenue",
+    "name_bn": "মানিক মিয়া এভিনিউ",
+    "brta_route_ids": [
+      "BRTA_A_354_NO"
+    ],
+    "community_service_ids": [
+      "SVC0023"
+    ]
+  },
+  {
+    "place_id": "PLC0217",
+    "name_en": "Manikdi (ECB Mor)",
+    "name_bn": "মানিকদি (ইসিবি মোড়)",
+    "brta_route_ids": [
+      "BRTA_A_459"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0218",
+    "name_en": "Manikganj",
+    "name_bn": "মানিকগঞ্জ",
+    "brta_route_ids": [
+      "BRTA_A_224_NO",
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": [
+      "SVC0102",
+      "SVC0129"
+    ]
+  },
+  {
+    "place_id": "PLC0219",
+    "name_en": "Manikmia Avenue",
+    "name_bn": "মানিকমিয়া এভিনিউ",
+    "brta_route_ids": [
+      "BRTA_A_122_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0220",
+    "name_en": "Maniknagar",
+    "name_bn": "মানিকনগর",
+    "brta_route_ids": [
+      "BRTA_A_424_NO"
+    ],
+    "community_service_ids": [
+      "SVC0022",
+      "SVC0082",
+      "SVC0094",
+      "SVC0135"
+    ]
+  },
+  {
+    "place_id": "PLC0221",
+    "name_en": "Mast Plaza",
+    "name_bn": "মাস্ট প্লাজা",
+    "brta_route_ids": [
+      "BRTA_A_317_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0222",
+    "name_en": "Matsya Bhaban",
+    "name_bn": "মৎসভবন",
+    "brta_route_ids": [
+      "BRTA_A_224_NO",
+      "BRTA_A_429_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0018",
+      "SVC0023",
+      "SVC0026",
+      "SVC0029",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0043",
+      "SVC0049",
+      "SVC0051",
+      "SVC0052",
+      "SVC0057",
+      "SVC0059",
+      "SVC0061",
+      "SVC0064",
+      "SVC0065",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0084",
+      "SVC0085",
+      "SVC0087",
+      "SVC0088",
+      "SVC0089",
+      "SVC0093",
+      "SVC0097",
+      "SVC0099",
+      "SVC0103",
+      "SVC0115",
+      "SVC0121",
+      "SVC0124",
+      "SVC0126",
+      "SVC0127",
+      "SVC0129",
+      "SVC0137",
+      "SVC0142",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0223",
+    "name_en": "Mawa Ferryghat",
+    "name_bn": "মাওয়া ফেরীঘাট",
+    "brta_route_ids": [
+      "BRTA_A_295_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0224",
+    "name_en": "Mawa Ghat",
+    "name_bn": "মাওয়াঘাট",
+    "brta_route_ids": [
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0225",
+    "name_en": "Mayor Mohammad Hanif Flyover",
+    "name_bn": "মেয়র মোহাম্মদ হানিফ ফ্লাইওভার",
+    "brta_route_ids": [
+      "BRTA_A_288_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0226",
+    "name_en": "Mazar Road",
+    "name_bn": "মাজার রোড",
+    "brta_route_ids": [
+      "BRTA_A_414_NO"
+    ],
+    "community_service_ids": [
+      "SVC0009",
+      "SVC0096"
+    ]
+  },
+  {
+    "place_id": "PLC0227",
+    "name_en": "Md. Zillur Rahman Flyover",
+    "name_bn": "মোঃ জিল্লুর রহমান ফ্লাইওভার",
+    "brta_route_ids": [
+      "BRTA_A_320_NO",
+      "BRTA_A_378_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0228",
+    "name_en": "Meghna Ghat",
+    "name_bn": "মেঘনা ঘাট",
+    "brta_route_ids": [
+      "BRTA_A_256_NO"
+    ],
+    "community_service_ids": [
+      "SVC0034"
+    ]
+  },
+  {
+    "place_id": "PLC0229",
+    "name_en": "Meghnaghat",
+    "name_bn": "মেঘনাঘাট",
+    "brta_route_ids": [
+      "BRTA_A_259_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0230",
+    "name_en": "Meradia (New Road)",
+    "name_bn": "মেরাদিয়া (নতুন রাস্তা)",
+    "brta_route_ids": [
+      "BRTA_A_373_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0231",
+    "name_en": "Meradia Bazar",
+    "name_bn": "মেরাদিয়া বাজার",
+    "brta_route_ids": [
+      "BRTA_A_273_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0232",
+    "name_en": "Middle Badda",
+    "name_bn": "মধ্য বাড্ডা",
+    "brta_route_ids": [
+      "BRTA_A_166_NO",
+      "BRTA_A_173_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0233",
+    "name_en": "Mirpur (Zoo)",
+    "name_bn": "মিরপুর (চিড়িয়াখানা)",
+    "brta_route_ids": [
+      "BRTA_A_264_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0234",
+    "name_en": "Mirpur DOHS",
+    "name_bn": "মিরপুর ডিওএইচ এস",
+    "brta_route_ids": [
+      "BRTA_A_280_NO"
+    ],
+    "community_service_ids": [
+      "SVC0145",
+      "SVC0146"
+    ]
+  },
+  {
+    "place_id": "PLC0235",
+    "name_en": "Mirpur Mazar Road",
+    "name_bn": "মিরপুর মাজার রোড",
+    "brta_route_ids": [
+      "BRTA_A_127_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0236",
+    "name_en": "Mirpur Rupnagar",
+    "name_bn": "মিরপুর রূপনগর",
+    "brta_route_ids": [
+      "BRTA_A_310_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0237",
+    "name_en": "Mirpur Sade 11",
+    "name_bn": "মিরপুর সাড়ে ১১",
+    "brta_route_ids": [
+      "BRTA_A_103_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0238",
+    "name_en": "Mirpur Thana",
+    "name_bn": "মিরপুর থানা",
+    "brta_route_ids": [
+      "BRTA_A_110_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0239",
+    "name_en": "Mirpur-1",
+    "name_bn": "মিরপুর-১",
+    "brta_route_ids": [
+      "BRTA_A_110_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_127_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_182_NO",
+      "BRTA_A_202_NO",
+      "BRTA_A_264_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_271_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_278_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_307_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_333_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_422_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0007",
+      "SVC0009",
+      "SVC0011",
+      "SVC0015",
+      "SVC0020",
+      "SVC0024",
+      "SVC0029",
+      "SVC0035",
+      "SVC0044",
+      "SVC0046",
+      "SVC0048",
+      "SVC0059",
+      "SVC0062",
+      "SVC0063",
+      "SVC0067",
+      "SVC0077",
+      "SVC0079",
+      "SVC0081",
+      "SVC0084",
+      "SVC0090",
+      "SVC0092",
+      "SVC0095",
+      "SVC0096",
+      "SVC0101",
+      "SVC0104",
+      "SVC0105",
+      "SVC0108",
+      "SVC0110",
+      "SVC0114",
+      "SVC0116",
+      "SVC0117",
+      "SVC0119",
+      "SVC0135",
+      "SVC0136",
+      "SVC0141",
+      "SVC0142",
+      "SVC0143",
+      "SVC0144"
+    ]
+  },
+  {
+    "place_id": "PLC0240",
+    "name_en": "Mirpur-10",
+    "name_bn": "মিরপুর-১০",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_102_NO",
+      "BRTA_A_103_NO",
+      "BRTA_A_111_NO",
+      "BRTA_A_122_NO",
+      "BRTA_A_182_NO",
+      "BRTA_A_202_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_271_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_295_NO",
+      "BRTA_A_301_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_307_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_333_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_458_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0007",
+      "SVC0009",
+      "SVC0011",
+      "SVC0019",
+      "SVC0020",
+      "SVC0024",
+      "SVC0026",
+      "SVC0028",
+      "SVC0030",
+      "SVC0035",
+      "SVC0044",
+      "SVC0046",
+      "SVC0048",
+      "SVC0060",
+      "SVC0061",
+      "SVC0063",
+      "SVC0067",
+      "SVC0071",
+      "SVC0072",
+      "SVC0073",
+      "SVC0075",
+      "SVC0076",
+      "SVC0077",
+      "SVC0079",
+      "SVC0080",
+      "SVC0091",
+      "SVC0093",
+      "SVC0096",
+      "SVC0100",
+      "SVC0104",
+      "SVC0105",
+      "SVC0110",
+      "SVC0114",
+      "SVC0116",
+      "SVC0117",
+      "SVC0118",
+      "SVC0119",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0138",
+      "SVC0143",
+      "SVC0144"
+    ]
+  },
+  {
+    "place_id": "PLC0241",
+    "name_en": "Mirpur-11",
+    "name_bn": "মিরপুর-১১",
+    "brta_route_ids": [
+      "BRTA_A_102_NO",
+      "BRTA_A_103_NO",
+      "BRTA_A_111_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_458_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0024",
+      "SVC0028",
+      "SVC0029",
+      "SVC0030",
+      "SVC0035",
+      "SVC0044",
+      "SVC0061",
+      "SVC0073",
+      "SVC0076",
+      "SVC0079",
+      "SVC0080",
+      "SVC0084",
+      "SVC0091",
+      "SVC0093",
+      "SVC0100",
+      "SVC0104",
+      "SVC0105",
+      "SVC0108",
+      "SVC0114",
+      "SVC0118",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0138"
+    ]
+  },
+  {
+    "place_id": "PLC0242",
+    "name_en": "Mirpur-11 1/2",
+    "name_bn": "মিরপুর-১১ ১/২",
+    "brta_route_ids": [
+      "BRTA_A_102_NO",
+      "BRTA_A_111_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0243",
+    "name_en": "Mirpur-12",
+    "name_bn": "মিরপুর-১২",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_103_NO",
+      "BRTA_A_122_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_295_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_458_NO"
+    ],
+    "community_service_ids": [
+      "SVC0029",
+      "SVC0030",
+      "SVC0060",
+      "SVC0061",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0084",
+      "SVC0093",
+      "SVC0118",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127"
+    ]
+  },
+  {
+    "place_id": "PLC0244",
+    "name_en": "Mirpur-14",
+    "name_bn": "মিরপুর-১৪",
+    "brta_route_ids": [
+      "BRTA_A_182_NO",
+      "BRTA_A_307_NO",
+      "BRTA_A_327_NO",
+      "BRTA_A_333_NO",
+      "BRTA_A_367_NO"
+    ],
+    "community_service_ids": [
+      "SVC0009",
+      "SVC0020",
+      "SVC0046",
+      "SVC0047",
+      "SVC0048",
+      "SVC0063",
+      "SVC0067",
+      "SVC0075",
+      "SVC0096",
+      "SVC0110",
+      "SVC0117",
+      "SVC0143",
+      "SVC0144"
+    ]
+  },
+  {
+    "place_id": "PLC0245",
+    "name_en": "Mirpur-2",
+    "name_bn": "মিরপুর-২",
+    "brta_route_ids": [
+      "BRTA_A_270_NO",
+      "BRTA_A_271_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_278_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_307_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_377_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0007",
+      "SVC0009",
+      "SVC0011",
+      "SVC0015",
+      "SVC0019",
+      "SVC0020",
+      "SVC0024",
+      "SVC0044",
+      "SVC0046",
+      "SVC0048",
+      "SVC0062",
+      "SVC0063",
+      "SVC0067",
+      "SVC0075",
+      "SVC0079",
+      "SVC0095",
+      "SVC0096",
+      "SVC0100",
+      "SVC0104",
+      "SVC0105",
+      "SVC0110",
+      "SVC0114",
+      "SVC0116",
+      "SVC0117",
+      "SVC0119"
+    ]
+  },
+  {
+    "place_id": "PLC0246",
+    "name_en": "Mirpur-6",
+    "name_bn": "মিরপুর-৬",
+    "brta_route_ids": [
+      "BRTA_A_314_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0247",
+    "name_en": "Mirpur(1)",
+    "name_bn": "মিরপুর(১)",
+    "brta_route_ids": [
+      "BRTA_A_129_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0248",
+    "name_en": "Mirpur(10)",
+    "name_bn": "মিরপুর(১০)",
+    "brta_route_ids": [
+      "BRTA_A_129_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0249",
+    "name_en": "Mirpur(14)",
+    "name_bn": "মিরপুর(১৪)",
+    "brta_route_ids": [
+      "BRTA_A_129_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0250",
+    "name_en": "Mohakhali",
+    "name_bn": "মহাখালী",
+    "brta_route_ids": [
+      "BRTA_A_132_NO",
+      "BRTA_A_141_NO",
+      "BRTA_A_142_NO",
+      "BRTA_A_166_NO",
+      "BRTA_A_181_NO",
+      "BRTA_A_202_NO",
+      "BRTA_A_207_NO",
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO",
+      "BRTA_A_222_NO",
+      "BRTA_A_225_NO",
+      "BRTA_A_245_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_292_NO",
+      "BRTA_A_294_NO",
+      "BRTA_A_302_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_346_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_378_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0003",
+      "SVC0004",
+      "SVC0007",
+      "SVC0010",
+      "SVC0011",
+      "SVC0012",
+      "SVC0014",
+      "SVC0016",
+      "SVC0021",
+      "SVC0022",
+      "SVC0025",
+      "SVC0027",
+      "SVC0031",
+      "SVC0032",
+      "SVC0037",
+      "SVC0039",
+      "SVC0040",
+      "SVC0047",
+      "SVC0054",
+      "SVC0066",
+      "SVC0072",
+      "SVC0086",
+      "SVC0095",
+      "SVC0103",
+      "SVC0109",
+      "SVC0125",
+      "SVC0131",
+      "SVC0151",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0251",
+    "name_en": "Mohakhali Amtali",
+    "name_bn": "মহাখালী আমতলী",
+    "brta_route_ids": [
+      "BRTA_A_278_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0252",
+    "name_en": "Mohakhali Amtoli",
+    "name_bn": "মহাখালী আমতলী",
+    "brta_route_ids": [
+      "BRTA_A_273_NO",
+      "BRTA_A_377_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0253",
+    "name_en": "Mohammadpur",
+    "name_bn": "মোঃপুর",
+    "brta_route_ids": [
+      "BRTA_A_161_NO",
+      "BRTA_A_166_NO",
+      "BRTA_A_299_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_422_NO",
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0254",
+    "name_en": "Mohammadpur (Asad Avenue)",
+    "name_bn": "মোহাম্মদপুর (আসাদ এভিনিউ)",
+    "brta_route_ids": [
+      "BRTA_A_157_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0255",
+    "name_en": "Mohammadpur (Basila Road)",
+    "name_bn": "মোহাম্মদপুর (বসিলা রোড)",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0256",
+    "name_en": "Mohammadpur (Japan Garden City)",
+    "name_bn": "মোহাম্মদপুর (জাপান গার্ডেন সিটি)",
+    "brta_route_ids": [
+      "BRTA_A_160_NO"
+    ],
+    "community_service_ids": [
+      "SVC0039",
+      "SVC0043",
+      "SVC0049",
+      "SVC0064",
+      "SVC0065",
+      "SVC0078",
+      "SVC0085",
+      "SVC0088",
+      "SVC0089",
+      "SVC0097",
+      "SVC0099",
+      "SVC0105",
+      "SVC0108",
+      "SVC0112",
+      "SVC0113",
+      "SVC0115",
+      "SVC0122"
+    ]
+  },
+  {
+    "place_id": "PLC0257",
+    "name_en": "Mohammadpur Bus Stand",
+    "name_bn": "মোহাম্মদপুর বাস স্ট্যান্ড",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": [
+      "SVC0018",
+      "SVC0137"
+    ]
+  },
+  {
+    "place_id": "PLC0258",
+    "name_en": "Mohammadpur Shia Mosque",
+    "name_bn": "মোহাম্মদপুর শিয়া মসজিদ",
+    "brta_route_ids": [
+      "BRTA_A_141_NO",
+      "BRTA_A_292_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0259",
+    "name_en": "Mohammadpur Town Hall",
+    "name_bn": "মোহাম্মদপুর টাউন হল",
+    "brta_route_ids": [
+      "BRTA_A_329_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0260",
+    "name_en": "Motijheel",
+    "name_bn": "মতিঝিল",
+    "brta_route_ids": [
+      "BRTA_A_245_NO",
+      "BRTA_A_257_NO",
+      "BRTA_A_280_NO",
+      "BRTA_A_327_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_439_NO",
+      "BRTA_A_458_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0261",
+    "name_en": "Motijheel (Hirjheel)",
+    "name_bn": "মতিঝিল (হীরঝিল)",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0262",
+    "name_en": "Motijheel (Notre Dame College)",
+    "name_bn": "মতিঝিল (নটরডেম কলেজ)",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0263",
+    "name_en": "Motijheel (Shapla Chattar)",
+    "name_bn": "মতিঝিল (শাপলা চত্বর)",
+    "brta_route_ids": [
+      "BRTA_A_154_NO",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": [
+      "SVC0007",
+      "SVC0008",
+      "SVC0020",
+      "SVC0026",
+      "SVC0029",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0042",
+      "SVC0043",
+      "SVC0045",
+      "SVC0051",
+      "SVC0052",
+      "SVC0057",
+      "SVC0065",
+      "SVC0066",
+      "SVC0069",
+      "SVC0071",
+      "SVC0083",
+      "SVC0084",
+      "SVC0088",
+      "SVC0089",
+      "SVC0092",
+      "SVC0097",
+      "SVC0099",
+      "SVC0101",
+      "SVC0103",
+      "SVC0124",
+      "SVC0125",
+      "SVC0142",
+      "SVC0145",
+      "SVC0150",
+      "SVC0152",
+      "SVC0153",
+      "SVC0154",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0264",
+    "name_en": "Mouchak",
+    "name_bn": "মৌচাক",
+    "brta_route_ids": [
+      "BRTA_A_157_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0265",
+    "name_en": "Mouchak (Flyover)",
+    "name_bn": "মৌচাক (ফ্লাইওভার)",
+    "brta_route_ids": [
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0005",
+      "SVC0007",
+      "SVC0019",
+      "SVC0022",
+      "SVC0033",
+      "SVC0042",
+      "SVC0066",
+      "SVC0069",
+      "SVC0082",
+      "SVC0086",
+      "SVC0094",
+      "SVC0107",
+      "SVC0115",
+      "SVC0122",
+      "SVC0125",
+      "SVC0131",
+      "SVC0133",
+      "SVC0135",
+      "SVC0137",
+      "SVC0147",
+      "SVC0148",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0266",
+    "name_en": "Mugda",
+    "name_bn": "মুগদা",
+    "brta_route_ids": [
+      "BRTA_A_320_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_439_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0267",
+    "name_en": "Nabinagar",
+    "name_bn": "নবীনগর",
+    "brta_route_ids": [
+      "BRTA_A_307_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_426_NO",
+      "BRTA_A_441_NO",
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0268",
+    "name_en": "Nabisco",
+    "name_bn": "নাবিস্কো",
+    "brta_route_ids": [
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0007",
+      "SVC0016",
+      "SVC0022",
+      "SVC0058",
+      "SVC0066",
+      "SVC0086",
+      "SVC0109",
+      "SVC0125",
+      "SVC0131",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0269",
+    "name_en": "Nandan Park",
+    "name_bn": "নন্দনপার্ক",
+    "brta_route_ids": [
+      "BRTA_A_182_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_333_NO",
+      "BRTA_A_354_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_441_NO"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0009",
+      "SVC0075",
+      "SVC0083",
+      "SVC0098",
+      "SVC0110",
+      "SVC0121",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140",
+      "SVC0150"
+    ]
+  },
+  {
+    "place_id": "PLC0270",
+    "name_en": "Narayanganj",
+    "name_bn": "নারায়ণগঞ্জ",
+    "brta_route_ids": [
+      "BRTA_A_228_NO",
+      "BRTA_A_236_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_330_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0271",
+    "name_en": "Narayanganj Chasara",
+    "name_bn": "নারায়ণগঞ্জ চাষাঢ়া",
+    "brta_route_ids": [
+      "BRTA_A_441_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0272",
+    "name_en": "Narayanganj Link Road",
+    "name_bn": "নারাংগঞ্জ লিংক রোড",
+    "brta_route_ids": [
+      "BRTA_A_192_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0273",
+    "name_en": "Narsinghpur",
+    "name_bn": "নরসিংহপুর",
+    "brta_route_ids": [
+      "BRTA_A_422_NO"
+    ],
+    "community_service_ids": [
+      "SVC0081"
+    ]
+  },
+  {
+    "place_id": "PLC0274",
+    "name_en": "Natun Bazar",
+    "name_bn": "নতুন বাজার",
+    "brta_route_ids": [
+      "BRTA_A_138_NO",
+      "BRTA_A_142_NO",
+      "BRTA_A_166_NO",
+      "BRTA_A_173_NO",
+      "BRTA_A_181_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0275",
+    "name_en": "Nawabganj",
+    "name_bn": "নবাবগঞ্জ",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": [
+      "SVC0106"
+    ]
+  },
+  {
+    "place_id": "PLC0276",
+    "name_en": "Nayabazar",
+    "name_bn": "নয়াবাজার",
+    "brta_route_ids": [
+      "BRTA_A_249_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0277",
+    "name_en": "Nayabazar (No. 2 Buriganga Bridge)",
+    "name_bn": "নয়াবাজার (২নং বুড়িগঙ্গা সেতু)",
+    "brta_route_ids": [
+      "BRTA_A_264_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0005",
+      "SVC0023",
+      "SVC0028",
+      "SVC0059",
+      "SVC0093",
+      "SVC0107",
+      "SVC0123",
+      "SVC0131",
+      "SVC0134",
+      "SVC0136",
+      "SVC0147",
+      "SVC0148",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0278",
+    "name_en": "New Airport",
+    "name_bn": "নিউ এয়ারপোর্ট",
+    "brta_route_ids": [
+      "BRTA_A_166_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0279",
+    "name_en": "New Market",
+    "name_bn": "নিউমার্কেট",
+    "brta_route_ids": [
+      "BRTA_A_127_NO",
+      "BRTA_A_161_NO",
+      "BRTA_A_329_NO",
+      "BRTA_A_341_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_432_NO",
+      "BRTA_A_441_NO",
+      "BRTA_A_459",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": [
+      "SVC0015",
+      "SVC0025",
+      "SVC0030",
+      "SVC0031",
+      "SVC0032",
+      "SVC0050",
+      "SVC0054",
+      "SVC0078",
+      "SVC0090",
+      "SVC0098",
+      "SVC0102",
+      "SVC0118",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140",
+      "SVC0149",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0280",
+    "name_en": "Nilkhet",
+    "name_bn": "নীলক্ষেত",
+    "brta_route_ids": [
+      "BRTA_A_127_NO",
+      "BRTA_A_161_NO",
+      "BRTA_A_207_NO",
+      "BRTA_A_234_NO",
+      "BRTA_A_354_NO"
+    ],
+    "community_service_ids": [
+      "SVC0015",
+      "SVC0025",
+      "SVC0030",
+      "SVC0031",
+      "SVC0032",
+      "SVC0050",
+      "SVC0054",
+      "SVC0078",
+      "SVC0090",
+      "SVC0098",
+      "SVC0102",
+      "SVC0118",
+      "SVC0128",
+      "SVC0139",
+      "SVC0140",
+      "SVC0149",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0281",
+    "name_en": "Nobinagar (Savar)",
+    "name_bn": "নবীনগর (সাভার)",
+    "brta_route_ids": [
+      "BRTA_A_292_NO"
+    ],
+    "community_service_ids": [
+      "SVC0008",
+      "SVC0016",
+      "SVC0051",
+      "SVC0083",
+      "SVC0102",
+      "SVC0128",
+      "SVC0130",
+      "SVC0132",
+      "SVC0150"
+    ]
+  },
+  {
+    "place_id": "PLC0282",
+    "name_en": "Norda",
+    "name_bn": "নর্দা",
+    "brta_route_ids": [
+      "BRTA_A_166_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0283",
+    "name_en": "Notre Dame College",
+    "name_bn": "নটরড্যাম কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_111_NO",
+      "BRTA_A_346_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0284",
+    "name_en": "Notun Bazar",
+    "name_bn": "নতুন বাজার",
+    "brta_route_ids": [
+      "BRTA_A_240_NO",
+      "BRTA_A_278_NO",
+      "BRTA_A_317_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_430_NO",
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0002",
+      "SVC0005",
+      "SVC0006",
+      "SVC0013",
+      "SVC0017",
+      "SVC0021",
+      "SVC0033",
+      "SVC0039",
+      "SVC0040",
+      "SVC0042",
+      "SVC0053",
+      "SVC0054",
+      "SVC0056",
+      "SVC0068",
+      "SVC0069",
+      "SVC0070",
+      "SVC0077",
+      "SVC0100",
+      "SVC0107",
+      "SVC0111",
+      "SVC0114",
+      "SVC0120",
+      "SVC0130",
+      "SVC0133",
+      "SVC0147",
+      "SVC0148",
+      "SVC0151",
+      "SVC0153",
+      "SVC0154"
+    ]
+  },
+  {
+    "place_id": "PLC0285",
+    "name_en": "Original Das",
+    "name_bn": "অরিজিনাল দশ",
+    "brta_route_ids": [
+      "BRTA_A_356_NO",
+      "BRTA_A_378_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0286",
+    "name_en": "Original-10",
+    "name_bn": "অরিজিনাল-১০",
+    "brta_route_ids": [
+      "BRTA_A_365_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0287",
+    "name_en": "Pagla Bazar",
+    "name_bn": "পাগলাবাজার",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0288",
+    "name_en": "Palashi",
+    "name_bn": "পলাশী",
+    "brta_route_ids": [
+      "BRTA_A_259_NO",
+      "BRTA_A_426_NO",
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": [
+      "SVC0034"
+    ]
+  },
+  {
+    "place_id": "PLC0289",
+    "name_en": "Pallabi (Ceramic)",
+    "name_bn": "পল্লবী (সিরামিক)",
+    "brta_route_ids": [
+      "BRTA_A_111_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0290",
+    "name_en": "Pallabi (Mirpur-12)",
+    "name_bn": "পল্লবী (মিরপুর-১২)",
+    "brta_route_ids": [
+      "BRTA_A_102_NO"
+    ],
+    "community_service_ids": [
+      "SVC0028",
+      "SVC0029",
+      "SVC0030",
+      "SVC0060",
+      "SVC0061",
+      "SVC0071",
+      "SVC0076",
+      "SVC0080",
+      "SVC0084",
+      "SVC0093",
+      "SVC0118",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0138"
+    ]
+  },
+  {
+    "place_id": "PLC0291",
+    "name_en": "Paltan",
+    "name_bn": "পল্টন",
+    "brta_route_ids": [
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_346_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0005",
+      "SVC0007",
+      "SVC0008",
+      "SVC0018",
+      "SVC0020",
+      "SVC0023",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0033",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0042",
+      "SVC0043",
+      "SVC0045",
+      "SVC0049",
+      "SVC0051",
+      "SVC0052",
+      "SVC0057",
+      "SVC0059",
+      "SVC0061",
+      "SVC0064",
+      "SVC0065",
+      "SVC0066",
+      "SVC0069",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0083",
+      "SVC0084",
+      "SVC0085",
+      "SVC0086",
+      "SVC0087",
+      "SVC0088",
+      "SVC0089",
+      "SVC0093",
+      "SVC0097",
+      "SVC0099",
+      "SVC0101",
+      "SVC0103",
+      "SVC0107",
+      "SVC0109",
+      "SVC0112",
+      "SVC0113",
+      "SVC0121",
+      "SVC0123",
+      "SVC0125",
+      "SVC0126",
+      "SVC0127",
+      "SVC0129",
+      "SVC0131",
+      "SVC0133",
+      "SVC0134",
+      "SVC0136",
+      "SVC0145",
+      "SVC0147",
+      "SVC0148",
+      "SVC0150",
+      "SVC0152",
+      "SVC0153",
+      "SVC0154",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0292",
+    "name_en": "Palton",
+    "name_bn": "পল্টন",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_111_NO",
+      "BRTA_A_142_NO",
+      "BRTA_A_173_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0293",
+    "name_en": "Paturia",
+    "name_bn": "পাটুরিয়া",
+    "brta_route_ids": [
+      "BRTA_A_224_NO",
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": [
+      "SVC0102"
+    ]
+  },
+  {
+    "place_id": "PLC0294",
+    "name_en": "Pirjangi Mazar",
+    "name_bn": "পীরজঙ্গী মাজার",
+    "brta_route_ids": [
+      "BRTA_A_142_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0295",
+    "name_en": "Postgola",
+    "name_bn": "পোস্তগোলা",
+    "brta_route_ids": [
+      "BRTA_A_160_NO",
+      "BRTA_A_228_NO",
+      "BRTA_A_317_NO",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": [
+      "SVC0053",
+      "SVC0111",
+      "SVC0112",
+      "SVC0120",
+      "SVC0124",
+      "SVC0140"
+    ]
+  },
+  {
+    "place_id": "PLC0296",
+    "name_en": "Postgola Bridge",
+    "name_bn": "পোস্তগোলা ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_344_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0297",
+    "name_en": "Prashika",
+    "name_bn": "প্রশিকা",
+    "brta_route_ids": [
+      "BRTA_A_110_NO"
+    ],
+    "community_service_ids": [
+      "SVC0015"
+    ]
+  },
+  {
+    "place_id": "PLC0298",
+    "name_en": "Press Club",
+    "name_bn": "প্রেসক্লাব",
+    "brta_route_ids": [
+      "BRTA_A_102_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_129_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_132_NO",
+      "BRTA_A_137_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_234_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_458_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0008",
+      "SVC0018",
+      "SVC0020",
+      "SVC0023",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0043",
+      "SVC0049",
+      "SVC0051",
+      "SVC0057",
+      "SVC0059",
+      "SVC0061",
+      "SVC0064",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0083",
+      "SVC0084",
+      "SVC0085",
+      "SVC0087",
+      "SVC0089",
+      "SVC0092",
+      "SVC0093",
+      "SVC0097",
+      "SVC0099",
+      "SVC0101",
+      "SVC0103",
+      "SVC0112",
+      "SVC0113",
+      "SVC0121",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0129",
+      "SVC0134",
+      "SVC0136",
+      "SVC0145",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0299",
+    "name_en": "Priyangan Gate",
+    "name_bn": "প্রিয়ঙ্গন গেট",
+    "brta_route_ids": [
+      "BRTA_A_182_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0300",
+    "name_en": "Progati Sarani",
+    "name_bn": "প্রগতি সরণী",
+    "brta_route_ids": [
+      "BRTA_A_243_NO",
+      "BRTA_A_257_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0301",
+    "name_en": "Purabi",
+    "name_bn": "পূরবী",
+    "brta_route_ids": [
+      "BRTA_A_270_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0302",
+    "name_en": "Purbi",
+    "name_bn": "পুরবী",
+    "brta_route_ids": [
+      "BRTA_A_273_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_378_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0007",
+      "SVC0024",
+      "SVC0028",
+      "SVC0029",
+      "SVC0030",
+      "SVC0044",
+      "SVC0061",
+      "SVC0071",
+      "SVC0076",
+      "SVC0079",
+      "SVC0080",
+      "SVC0084",
+      "SVC0091",
+      "SVC0093",
+      "SVC0100",
+      "SVC0104",
+      "SVC0105",
+      "SVC0108",
+      "SVC0114",
+      "SVC0116",
+      "SVC0118",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0138"
+    ]
+  },
+  {
+    "place_id": "PLC0303",
+    "name_en": "Rainbow",
+    "name_bn": "রেইনবো",
+    "brta_route_ids": [
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0304",
+    "name_en": "Rajabari",
+    "name_bn": "রাজাবাড়ী",
+    "brta_route_ids": [
+      "BRTA_A_219_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0305",
+    "name_en": "Rajarbagh",
+    "name_bn": "রাজারবাগ",
+    "brta_route_ids": [
+      "BRTA_A_421_NO"
+    ],
+    "community_service_ids": [
+      "SVC0019",
+      "SVC0082",
+      "SVC0094",
+      "SVC0135"
+    ]
+  },
+  {
+    "place_id": "PLC0306",
+    "name_en": "Rajendrapur",
+    "name_bn": "রাজেন্দ্রপুর",
+    "brta_route_ids": [
+      "BRTA_A_219_NO"
+    ],
+    "community_service_ids": [
+      "SVC0123",
+      "SVC0140"
+    ]
+  },
+  {
+    "place_id": "PLC0307",
+    "name_en": "Rajendrapur Bazar",
+    "name_bn": "রাজেন্দ্রপুর বাজার",
+    "brta_route_ids": [
+      "BRTA_A_219_NO",
+      "BRTA_A_430_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0308",
+    "name_en": "Rajendrapur Crossroad",
+    "name_bn": "রাজেন্দ্রপুর চৌরাস্তা",
+    "brta_route_ids": [
+      "BRTA_A_220_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0309",
+    "name_en": "Rajlaxmi",
+    "name_bn": "রাজলক্ষ্মী",
+    "brta_route_ids": [
+      "BRTA_A_166_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0310",
+    "name_en": "Rajmoni",
+    "name_bn": "রাজমনি",
+    "brta_route_ids": [
+      "BRTA_A_173_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0311",
+    "name_en": "Ramer Kanda",
+    "name_bn": "রামের কান্দা",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0312",
+    "name_en": "Rampura",
+    "name_bn": "রামপুরা",
+    "brta_route_ids": [
+      "BRTA_A_141_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_317_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_368_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_430_NO",
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0313",
+    "name_en": "Rampura (Bonsree)",
+    "name_bn": "রামপুরা (বনশ্রী)",
+    "brta_route_ids": [
+      "BRTA_A_373_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0314",
+    "name_en": "Rampura Bridge",
+    "name_bn": "রামপুরা ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_302_NO",
+      "BRTA_A_362_NO",
+      "BRTA_A_386_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0005",
+      "SVC0010",
+      "SVC0011",
+      "SVC0013",
+      "SVC0014",
+      "SVC0017",
+      "SVC0033",
+      "SVC0042",
+      "SVC0053",
+      "SVC0068",
+      "SVC0069",
+      "SVC0072",
+      "SVC0095",
+      "SVC0100",
+      "SVC0107",
+      "SVC0111",
+      "SVC0114",
+      "SVC0115",
+      "SVC0116",
+      "SVC0120",
+      "SVC0122",
+      "SVC0130",
+      "SVC0133",
+      "SVC0137",
+      "SVC0147",
+      "SVC0148"
+    ]
+  },
+  {
+    "place_id": "PLC0315",
+    "name_en": "Rampura TV Center",
+    "name_bn": "রামপুরা টিভি সেন্টার",
+    "brta_route_ids": [
+      "BRTA_A_138_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0316",
+    "name_en": "Rayerbag",
+    "name_bn": "রায়েরবাগ",
+    "brta_route_ids": [
+      "BRTA_A_236_NO",
+      "BRTA_A_406_NO"
+    ],
+    "community_service_ids": [
+      "SVC0032",
+      "SVC0036",
+      "SVC0049",
+      "SVC0064",
+      "SVC0068",
+      "SVC0073",
+      "SVC0078",
+      "SVC0082",
+      "SVC0086",
+      "SVC0088",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0113",
+      "SVC0128",
+      "SVC0135",
+      "SVC0139"
+    ]
+  },
+  {
+    "place_id": "PLC0317",
+    "name_en": "Raysaheb Bazar",
+    "name_bn": "রায়সাহেব বাজার",
+    "brta_route_ids": [
+      "BRTA_A_102_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0028",
+      "SVC0093",
+      "SVC0131",
+      "SVC0133",
+      "SVC0134",
+      "SVC0136",
+      "SVC0147",
+      "SVC0148",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0318",
+    "name_en": "Ruhitpur",
+    "name_bn": "রুহিতপুর",
+    "brta_route_ids": [
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0319",
+    "name_en": "Rupshi",
+    "name_bn": "রূপসী",
+    "brta_route_ids": [
+      "BRTA_A_381_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0320",
+    "name_en": "Russell Square",
+    "name_bn": "রাসেল স্কয়ার",
+    "brta_route_ids": [
+      "BRTA_A_127_NO",
+      "BRTA_A_354_NO",
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0321",
+    "name_en": "Sadarghat",
+    "name_bn": "সদরঘাট",
+    "brta_route_ids": [
+      "BRTA_A_309_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0028",
+      "SVC0093",
+      "SVC0121",
+      "SVC0131",
+      "SVC0133",
+      "SVC0134",
+      "SVC0136",
+      "SVC0147",
+      "SVC0148",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0322",
+    "name_en": "Sadarghat Victoria Park",
+    "name_bn": "সদরঘাট ভিক্টোরিয়া পার্ক",
+    "brta_route_ids": [
+      "BRTA_A_436_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0323",
+    "name_en": "Safipur",
+    "name_bn": "সফিপুর",
+    "brta_route_ids": [
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0324",
+    "name_en": "Sainik Club",
+    "name_bn": "সৈনিক ক্লাব",
+    "brta_route_ids": [
+      "BRTA_A_278_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0012",
+      "SVC0025",
+      "SVC0027",
+      "SVC0031",
+      "SVC0032",
+      "SVC0047",
+      "SVC0066",
+      "SVC0103",
+      "SVC0131",
+      "SVC0143"
+    ]
+  },
+  {
+    "place_id": "PLC0325",
+    "name_en": "Satrasta",
+    "name_bn": "সাতরাস্তা",
+    "brta_route_ids": [
+      "BRTA_A_225_NO",
+      "BRTA_A_378_NO",
+      "BRTA_A_380_NO"
+    ],
+    "community_service_ids": [
+      "SVC0016",
+      "SVC0022",
+      "SVC0086",
+      "SVC0109",
+      "SVC0125"
+    ]
+  },
+  {
+    "place_id": "PLC0326",
+    "name_en": "Savar",
+    "name_bn": "সাভার",
+    "brta_route_ids": [
+      "BRTA_A_181_NO",
+      "BRTA_A_192_NO",
+      "BRTA_A_202_NO",
+      "BRTA_A_302_NO",
+      "BRTA_A_307_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_365_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_386_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_426_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_441_NO",
+      "BRTA_A_453_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0008",
+      "SVC0021",
+      "SVC0036",
+      "SVC0046",
+      "SVC0050",
+      "SVC0075",
+      "SVC0082",
+      "SVC0083",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0110",
+      "SVC0121",
+      "SVC0128",
+      "SVC0132",
+      "SVC0134",
+      "SVC0139",
+      "SVC0140",
+      "SVC0141",
+      "SVC0150"
+    ]
+  },
+  {
+    "place_id": "PLC0327",
+    "name_en": "Sayedabad",
+    "name_bn": "সায়দাবাদ",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_137_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_190_NO",
+      "BRTA_A_225_NO",
+      "BRTA_A_228_NO",
+      "BRTA_A_234_NO",
+      "BRTA_A_236_NO",
+      "BRTA_A_240_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_317_NO",
+      "BRTA_A_319_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_424_NO"
+    ],
+    "community_service_ids": [
+      "SVC0013",
+      "SVC0022",
+      "SVC0026",
+      "SVC0032",
+      "SVC0036",
+      "SVC0049",
+      "SVC0053",
+      "SVC0064",
+      "SVC0068",
+      "SVC0078",
+      "SVC0080",
+      "SVC0082",
+      "SVC0086",
+      "SVC0087",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0111",
+      "SVC0113",
+      "SVC0120",
+      "SVC0127",
+      "SVC0128",
+      "SVC0135",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0328",
+    "name_en": "Sayedpur",
+    "name_bn": "সৈয়দপুর",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0329",
+    "name_en": "Science Lab",
+    "name_bn": "সায়েন্সল্যাব",
+    "brta_route_ids": [
+      "BRTA_A_110_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_127_NO",
+      "BRTA_A_129_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_157_NO",
+      "BRTA_A_160_NO",
+      "BRTA_A_161_NO",
+      "BRTA_A_224_NO",
+      "BRTA_A_252_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_431_NO",
+      "BRTA_A_439_NO",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": [
+      "SVC0018",
+      "SVC0020",
+      "SVC0043",
+      "SVC0049",
+      "SVC0052",
+      "SVC0054",
+      "SVC0057",
+      "SVC0064",
+      "SVC0065",
+      "SVC0078",
+      "SVC0085",
+      "SVC0087",
+      "SVC0089",
+      "SVC0090",
+      "SVC0097",
+      "SVC0099",
+      "SVC0112",
+      "SVC0113",
+      "SVC0115",
+      "SVC0121",
+      "SVC0124",
+      "SVC0129",
+      "SVC0137",
+      "SVC0142",
+      "SVC0151",
+      "SVC0155"
+    ]
+  },
+  {
+    "place_id": "PLC0330",
+    "name_en": "Shah Ali Mazar",
+    "name_bn": "শাহআলী মাজার",
+    "brta_route_ids": [
+      "BRTA_A_422_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0331",
+    "name_en": "Shahbag",
+    "name_bn": "শাহবাগ",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_129_NO",
+      "BRTA_A_132_NO",
+      "BRTA_A_137_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_157_NO",
+      "BRTA_A_160_NO",
+      "BRTA_A_224_NO",
+      "BRTA_A_234_NO",
+      "BRTA_A_252_NO",
+      "BRTA_A_259_NO",
+      "BRTA_A_280_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_309_NO",
+      "BRTA_A_327_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_355_NO",
+      "BRTA_A_373_NO",
+      "BRTA_A_387_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_439_NO",
+      "BRTA_A_453_NO",
+      "BRTA_A_458_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0008",
+      "SVC0018",
+      "SVC0020",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0036",
+      "SVC0037",
+      "SVC0038",
+      "SVC0040",
+      "SVC0043",
+      "SVC0045",
+      "SVC0049",
+      "SVC0051",
+      "SVC0052",
+      "SVC0054",
+      "SVC0057",
+      "SVC0059",
+      "SVC0060",
+      "SVC0061",
+      "SVC0064",
+      "SVC0065",
+      "SVC0071",
+      "SVC0073",
+      "SVC0080",
+      "SVC0083",
+      "SVC0084",
+      "SVC0085",
+      "SVC0087",
+      "SVC0088",
+      "SVC0089",
+      "SVC0093",
+      "SVC0097",
+      "SVC0099",
+      "SVC0101",
+      "SVC0103",
+      "SVC0112",
+      "SVC0113",
+      "SVC0115",
+      "SVC0121",
+      "SVC0123",
+      "SVC0124",
+      "SVC0126",
+      "SVC0127",
+      "SVC0129",
+      "SVC0132",
+      "SVC0134",
+      "SVC0136",
+      "SVC0137",
+      "SVC0142",
+      "SVC0144",
+      "SVC0145",
+      "SVC0150",
+      "SVC0152",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0332",
+    "name_en": "Shanir Akhra",
+    "name_bn": "শনির আখড়া",
+    "brta_route_ids": [
+      "BRTA_A_154_NO",
+      "BRTA_A_236_NO",
+      "BRTA_A_259_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_329_NO",
+      "BRTA_A_330_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_429_NO"
+    ],
+    "community_service_ids": [
+      "SVC0013",
+      "SVC0032",
+      "SVC0036",
+      "SVC0049",
+      "SVC0064",
+      "SVC0068",
+      "SVC0073",
+      "SVC0078",
+      "SVC0082",
+      "SVC0086",
+      "SVC0087",
+      "SVC0088",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0113",
+      "SVC0128",
+      "SVC0135",
+      "SVC0139"
+    ]
+  },
+  {
+    "place_id": "PLC0333",
+    "name_en": "Shankar",
+    "name_bn": "শঙ্কর",
+    "brta_route_ids": [
+      "BRTA_A_161_NO",
+      "BRTA_A_406_NO"
+    ],
+    "community_service_ids": [
+      "SVC0043",
+      "SVC0049",
+      "SVC0052",
+      "SVC0057",
+      "SVC0064",
+      "SVC0065",
+      "SVC0078",
+      "SVC0085",
+      "SVC0089",
+      "SVC0097",
+      "SVC0112",
+      "SVC0113",
+      "SVC0115",
+      "SVC0137"
+    ]
+  },
+  {
+    "place_id": "PLC0334",
+    "name_en": "Shaora Bazar",
+    "name_bn": "শাওড়া বাজার",
+    "brta_route_ids": [
+      "BRTA_A_365_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0335",
+    "name_en": "Shapla Chattar",
+    "name_bn": "শাপলা চত্বর",
+    "brta_route_ids": [
+      "BRTA_A_129_NO",
+      "BRTA_A_310_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0336",
+    "name_en": "Sheora",
+    "name_bn": "শেওড়া",
+    "brta_route_ids": [
+      "BRTA_A_380_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0337",
+    "name_en": "Sheora Bazar",
+    "name_bn": "শেওড়া বাজার",
+    "brta_route_ids": [
+      "BRTA_A_270_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_366_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0338",
+    "name_en": "Sheora Para",
+    "name_bn": "শেওড়া পাড়া",
+    "brta_route_ids": [
+      "BRTA_A_301_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0339",
+    "name_en": "Sheorapara",
+    "name_bn": "শেওড়াপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_288_NO",
+      "BRTA_A_310_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_458_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0340",
+    "name_en": "Shewrapara",
+    "name_bn": "শেওড়াপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_103_NO",
+      "BRTA_A_122_NO"
+    ],
+    "community_service_ids": [
+      "SVC0011",
+      "SVC0019",
+      "SVC0026",
+      "SVC0028",
+      "SVC0029",
+      "SVC0030",
+      "SVC0060",
+      "SVC0061",
+      "SVC0071",
+      "SVC0072",
+      "SVC0073",
+      "SVC0076",
+      "SVC0080",
+      "SVC0084",
+      "SVC0093",
+      "SVC0118",
+      "SVC0119",
+      "SVC0123",
+      "SVC0126",
+      "SVC0127",
+      "SVC0138"
+    ]
+  },
+  {
+    "place_id": "PLC0341",
+    "name_en": "Shia Masjid",
+    "name_bn": "শিয়া মসজিদ",
+    "brta_route_ids": [
+      "BRTA_A_329_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0342",
+    "name_en": "Shialbari",
+    "name_bn": "শিয়ালবাড়ী",
+    "brta_route_ids": [
+      "BRTA_A_378_NO"
+    ],
+    "community_service_ids": [
+      "SVC0015"
+    ]
+  },
+  {
+    "place_id": "PLC0343",
+    "name_en": "Shishumela",
+    "name_bn": "শিশুমেলা",
+    "brta_route_ids": [
+      "BRTA_A_122_NO",
+      "BRTA_A_292_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0008",
+      "SVC0010",
+      "SVC0012",
+      "SVC0014",
+      "SVC0015",
+      "SVC0021",
+      "SVC0023",
+      "SVC0027",
+      "SVC0030",
+      "SVC0036",
+      "SVC0038",
+      "SVC0050",
+      "SVC0051",
+      "SVC0059",
+      "SVC0082",
+      "SVC0083",
+      "SVC0090",
+      "SVC0094",
+      "SVC0095",
+      "SVC0098",
+      "SVC0101",
+      "SVC0102",
+      "SVC0115",
+      "SVC0121",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0138",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0344",
+    "name_en": "Shukrabad",
+    "name_bn": "শুক্রাবাদ",
+    "brta_route_ids": [
+      "BRTA_A_103_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_129_NO",
+      "BRTA_A_329_NO",
+      "BRTA_A_459"
+    ],
+    "community_service_ids": [
+      "SVC0015",
+      "SVC0018",
+      "SVC0099",
+      "SVC0124"
+    ]
+  },
+  {
+    "place_id": "PLC0345",
+    "name_en": "Shurganj",
+    "name_bn": "শুরগঞ্জ",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0346",
+    "name_en": "Shyamoli",
+    "name_bn": "শ্যামলী",
+    "brta_route_ids": [
+      "BRTA_A_114_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_127_NO",
+      "BRTA_A_129_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_160_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_292_NO",
+      "BRTA_A_294_NO",
+      "BRTA_A_302_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_406_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_426_NO",
+      "BRTA_A_429_NO"
+    ],
+    "community_service_ids": [
+      "SVC0002",
+      "SVC0008",
+      "SVC0010",
+      "SVC0012",
+      "SVC0014",
+      "SVC0015",
+      "SVC0020",
+      "SVC0021",
+      "SVC0023",
+      "SVC0027",
+      "SVC0030",
+      "SVC0036",
+      "SVC0038",
+      "SVC0050",
+      "SVC0051",
+      "SVC0059",
+      "SVC0082",
+      "SVC0083",
+      "SVC0090",
+      "SVC0094",
+      "SVC0095",
+      "SVC0098",
+      "SVC0101",
+      "SVC0102",
+      "SVC0105",
+      "SVC0108",
+      "SVC0115",
+      "SVC0121",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0132",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0347",
+    "name_en": "Shyamoli Ring Road",
+    "name_bn": "শ্যামলী রিং রোড",
+    "brta_route_ids": [
+      "BRTA_A_141_NO",
+      "BRTA_A_301_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0348",
+    "name_en": "Signboard",
+    "name_bn": "সাইনবোর্ড",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_288_NO",
+      "BRTA_A_329_NO",
+      "BRTA_A_331_NO",
+      "BRTA_A_380_NO",
+      "BRTA_A_421_NO",
+      "BRTA_A_424_NO",
+      "BRTA_A_429_NO",
+      "BRTA_A_441_NO"
+    ],
+    "community_service_ids": [
+      "SVC0013",
+      "SVC0032",
+      "SVC0036",
+      "SVC0049",
+      "SVC0064",
+      "SVC0068",
+      "SVC0073",
+      "SVC0078",
+      "SVC0082",
+      "SVC0086",
+      "SVC0087",
+      "SVC0088",
+      "SVC0094",
+      "SVC0098",
+      "SVC0102",
+      "SVC0113",
+      "SVC0128",
+      "SVC0135",
+      "SVC0139"
+    ]
+  },
+  {
+    "place_id": "PLC0349",
+    "name_en": "Sobhanbag",
+    "name_bn": "সোবহানবাগ",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0350",
+    "name_en": "Sonargaon",
+    "name_bn": "সোনারগাঁও",
+    "brta_route_ids": [
+      "BRTA_A_406_NO",
+      "BRTA_A_432_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0351",
+    "name_en": "Sonargaon Mogra Para",
+    "name_bn": "সোনারগাঁও মোগড়া পাড়া",
+    "brta_route_ids": [
+      "BRTA_A_256_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0352",
+    "name_en": "Soni Cinema Hall",
+    "name_bn": "সনি সিনেমা হল",
+    "brta_route_ids": [
+      "BRTA_A_320_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0006",
+      "SVC0009",
+      "SVC0019",
+      "SVC0024",
+      "SVC0044",
+      "SVC0046",
+      "SVC0048",
+      "SVC0063",
+      "SVC0067",
+      "SVC0079",
+      "SVC0081",
+      "SVC0095",
+      "SVC0096",
+      "SVC0100",
+      "SVC0104",
+      "SVC0110",
+      "SVC0114",
+      "SVC0117",
+      "SVC0119"
+    ]
+  },
+  {
+    "place_id": "PLC0353",
+    "name_en": "Sreepur",
+    "name_bn": "শ্রীপুর",
+    "brta_route_ids": [
+      "BRTA_A_220_NO"
+    ],
+    "community_service_ids": [
+      "SVC0109"
+    ]
+  },
+  {
+    "place_id": "PLC0354",
+    "name_en": "Stadium",
+    "name_bn": "স্টেডিয়াম",
+    "brta_route_ids": [
+      "BRTA_A_111_NO",
+      "BRTA_A_114_NO",
+      "BRTA_A_142_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0355",
+    "name_en": "Staff Quarter",
+    "name_bn": "স্টাফ কোয়ার্টার",
+    "brta_route_ids": [
+      "BRTA_A_314_NO",
+      "BRTA_A_362_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0356",
+    "name_en": "Staff Road",
+    "name_bn": "স্টাফরোড",
+    "brta_route_ids": [
+      "BRTA_A_132_NO"
+    ],
+    "community_service_ids": [
+      "SVC0003",
+      "SVC0004",
+      "SVC0012",
+      "SVC0022",
+      "SVC0025",
+      "SVC0027",
+      "SVC0032",
+      "SVC0037",
+      "SVC0066",
+      "SVC0086",
+      "SVC0103",
+      "SVC0109",
+      "SVC0131"
+    ]
+  },
+  {
+    "place_id": "PLC0357",
+    "name_en": "Sultana Kamal Bridge",
+    "name_bn": "সুলতানা কামাল ব্রীজ",
+    "brta_route_ids": [
+      "BRTA_A_362_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0358",
+    "name_en": "T&T",
+    "name_bn": "টিএন্ডটি",
+    "brta_route_ids": [
+      "BRTA_A_102_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0359",
+    "name_en": "T&T Para",
+    "name_bn": "টিটিপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_317_NO"
+    ],
+    "community_service_ids": [
+      "SVC0022"
+    ]
+  },
+  {
+    "place_id": "PLC0360",
+    "name_en": "Tankarpur",
+    "name_bn": "টঙ্করপুর",
+    "brta_route_ids": [
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0361",
+    "name_en": "Tarabo Biswa Road",
+    "name_bn": "তারাবো বিশ্বরোড",
+    "brta_route_ids": [
+      "BRTA_A_362_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0362",
+    "name_en": "Technical",
+    "name_bn": "টেকনিক্যাল",
+    "brta_route_ids": [
+      "BRTA_A_110_NO",
+      "BRTA_A_115_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_181_NO",
+      "BRTA_A_224_NO",
+      "BRTA_A_260_NO",
+      "BRTA_A_270_NO",
+      "BRTA_A_273_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_304_NO",
+      "BRTA_A_314_NO",
+      "BRTA_A_356_NO",
+      "BRTA_A_366_NO",
+      "BRTA_A_367_NO",
+      "BRTA_A_377_NO",
+      "BRTA_A_414_NO",
+      "BRTA_A_422_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0002",
+      "SVC0008",
+      "SVC0014",
+      "SVC0015",
+      "SVC0020",
+      "SVC0021",
+      "SVC0023",
+      "SVC0036",
+      "SVC0038",
+      "SVC0046",
+      "SVC0048",
+      "SVC0050",
+      "SVC0051",
+      "SVC0059",
+      "SVC0063",
+      "SVC0067",
+      "SVC0075",
+      "SVC0082",
+      "SVC0083",
+      "SVC0090",
+      "SVC0094",
+      "SVC0095",
+      "SVC0098",
+      "SVC0101",
+      "SVC0102",
+      "SVC0104",
+      "SVC0105",
+      "SVC0108",
+      "SVC0110",
+      "SVC0114",
+      "SVC0115",
+      "SVC0116",
+      "SVC0117",
+      "SVC0121",
+      "SVC0124",
+      "SVC0128",
+      "SVC0129",
+      "SVC0134",
+      "SVC0135",
+      "SVC0136",
+      "SVC0139",
+      "SVC0140",
+      "SVC0142",
+      "SVC0150",
+      "SVC0155",
+      "SVC0156"
+    ]
+  },
+  {
+    "place_id": "PLC0363",
+    "name_en": "Tikarpur",
+    "name_bn": "টিকরপুর",
+    "brta_route_ids": [
+      "BRTA_A_249_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0364",
+    "name_en": "Tikatapara",
+    "name_bn": "টিকটাপাড়া",
+    "brta_route_ids": [
+      "BRTA_A_154_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0365",
+    "name_en": "Tikatuli",
+    "name_bn": "টিকাটুলি",
+    "brta_route_ids": [
+      "BRTA_A_101_NO",
+      "BRTA_A_331_NO",
+      "BRTA_PILOTING_ROUTE_1"
+    ],
+    "community_service_ids": [
+      "SVC0124"
+    ]
+  },
+  {
+    "place_id": "PLC0366",
+    "name_en": "Titumir College",
+    "name_bn": "তিতুমীর কলেজ",
+    "brta_route_ids": [
+      "BRTA_A_166_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0367",
+    "name_en": "Tongi",
+    "name_bn": "টঙ্গী",
+    "brta_route_ids": [
+      "BRTA_A_207_NO",
+      "BRTA_A_219_NO",
+      "BRTA_A_220_NO",
+      "BRTA_A_222_NO",
+      "BRTA_A_240_NO",
+      "BRTA_A_265_NO",
+      "BRTA_A_266_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0368",
+    "name_en": "Tongi (Bastuhara)",
+    "name_bn": "টঙ্গী (বাস্তহারা)",
+    "brta_route_ids": [
+      "BRTA_A_243_NO"
+    ],
+    "community_service_ids": [
+      "SVC0004",
+      "SVC0005",
+      "SVC0013",
+      "SVC0022",
+      "SVC0024",
+      "SVC0035",
+      "SVC0037",
+      "SVC0044",
+      "SVC0066",
+      "SVC0068",
+      "SVC0074",
+      "SVC0109",
+      "SVC0120",
+      "SVC0131",
+      "SVC0133",
+      "SVC0149"
+    ]
+  },
+  {
+    "place_id": "PLC0369",
+    "name_en": "Tongi Bastuhara",
+    "name_bn": "টঙ্গী বাস্তহারা",
+    "brta_route_ids": [
+      "BRTA_A_240_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0370",
+    "name_en": "Tongi Bazar",
+    "name_bn": "টঙ্গীবাজার",
+    "brta_route_ids": [
+      "BRTA_A_225_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0371",
+    "name_en": "Town Hall",
+    "name_bn": "টাউন হল",
+    "brta_route_ids": [
+      "BRTA_A_166_NO",
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0372",
+    "name_en": "TV Center",
+    "name_bn": "টিভি সেন্টার",
+    "brta_route_ids": [
+      "BRTA_A_173_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0373",
+    "name_en": "UBL",
+    "name_bn": "ইউবিএল",
+    "brta_route_ids": [
+      "BRTA_A_137_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0374",
+    "name_en": "Urojahaj Junction",
+    "name_bn": "উড়োজাহাজ জংশন",
+    "brta_route_ids": [
+      "BRTA_A_354_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0375",
+    "name_en": "Utholi",
+    "name_bn": "উথলী",
+    "brta_route_ids": [
+      "BRTA_A_426_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0376",
+    "name_en": "Uttar Badda",
+    "name_bn": "উত্তর বাড্ডা",
+    "brta_route_ids": [
+      "BRTA_A_166_NO"
+    ],
+    "community_service_ids": [
+      "SVC0001",
+      "SVC0002",
+      "SVC0006",
+      "SVC0013",
+      "SVC0017",
+      "SVC0021",
+      "SVC0039",
+      "SVC0040",
+      "SVC0053",
+      "SVC0054",
+      "SVC0068",
+      "SVC0069",
+      "SVC0100",
+      "SVC0107",
+      "SVC0111",
+      "SVC0114",
+      "SVC0120",
+      "SVC0151"
+    ]
+  },
+  {
+    "place_id": "PLC0377",
+    "name_en": "Uttara",
+    "name_bn": "উত্তরা",
+    "brta_route_ids": [
+      "BRTA_A_292_NO",
+      "BRTA_A_294_NO",
+      "BRTA_A_299_NO",
+      "BRTA_A_341_NO",
+      "BRTA_A_366_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0378",
+    "name_en": "Uttara (Raniganj)",
+    "name_bn": "উত্তরা (রানীগঞ্জ)",
+    "brta_route_ids": [
+      "BRTA_A_138_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0379",
+    "name_en": "Uttara Diabari",
+    "name_bn": "উত্তরা দিয়াবাড়ী",
+    "brta_route_ids": [
+      "BRTA_A_414_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0380",
+    "name_en": "Victoria Park",
+    "name_bn": "ভিক্টোরিয়া পার্ক",
+    "brta_route_ids": [
+      "BRTA_A_102_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_138_NO",
+      "BRTA_A_387_NO"
+    ],
+    "community_service_ids": [
+      "SVC0133"
+    ]
+  },
+  {
+    "place_id": "PLC0381",
+    "name_en": "Washi (Belba Garden)",
+    "name_bn": "ওয়াশী (বেলবা গার্ডেন)",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_2"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0382",
+    "name_en": "Washpur",
+    "name_bn": "ওয়াশপুর",
+    "brta_route_ids": [
+      "BRTA_PILOTING_ROUTE_1",
+      "BRTA_PILOTING_ROUTE_2",
+      "BRTA_PILOTING_ROUTE_3",
+      "BRTA_PILOTING_ROUTE_4"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0383",
+    "name_en": "Work Shop",
+    "name_bn": "ওয়ার্ক সপ",
+    "brta_route_ids": [
+      "BRTA_A_280_NO"
+    ],
+    "community_service_ids": [
+      "SVC0144",
+      "SVC0145",
+      "SVC0146",
+      "SVC0152"
+    ]
+  },
+  {
+    "place_id": "PLC0384",
+    "name_en": "Zillur Rahman Flyover",
+    "name_bn": "জিল্লুর রহমান ফ্লাইওভার",
+    "brta_route_ids": [
+      "BRTA_A_365_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0385",
+    "name_en": "Zirab",
+    "name_bn": "জিরাব",
+    "brta_route_ids": [
+      "BRTA_A_182_NO"
+    ],
+    "community_service_ids": [
+      "SVC0009",
+      "SVC0016",
+      "SVC0081",
+      "SVC0096",
+      "SVC0130"
+    ]
+  },
+  {
+    "place_id": "PLC0386",
+    "name_en": "Zirani",
+    "name_bn": "জিরানী",
+    "brta_route_ids": [
+      "BRTA_A_182_NO"
+    ],
+    "community_service_ids": []
+  },
+  {
+    "place_id": "PLC0387",
+    "name_en": "Zoo",
+    "name_bn": "চিড়িয়াখানা",
+    "brta_route_ids": [
+      "BRTA_A_114_NO",
+      "BRTA_A_131_NO",
+      "BRTA_A_154_NO",
+      "BRTA_A_285_NO",
+      "BRTA_A_320_NO",
+      "BRTA_A_344_NO",
+      "BRTA_A_431_NO"
+    ],
+    "community_service_ids": []
+  }
+]

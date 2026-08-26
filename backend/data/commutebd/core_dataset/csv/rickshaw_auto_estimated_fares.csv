@@ -1,0 +1,21 @@
+﻿distance_km,rickshaw_estimated_fare_tk,auto_estimated_fare_tk,calculation,fare_type,source_id
+1,17,17,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+2,34,34,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+3,51,51,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+4,68,68,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+5,85,85,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+6,102,102,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+7,119,119,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+8,136,136,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+9,153,153,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+10,170,170,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+11,187,187,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+12,204,204,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+13,221,221,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+14,238,238,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+15,255,255,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+16,272,272,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+17,289,289,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+18,306,306,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+19,323,323,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION
+20,340,340,distance_km * 17,user_provided_estimate,USER_PROVIDED_ASSUMPTION

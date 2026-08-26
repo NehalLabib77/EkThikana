@@ -1,4 +1,4 @@
-# EkThikana API reference
+# Gochano API reference
 
 Base prefix:
 
@@ -25,7 +25,7 @@ Render health check.
 Returns authenticated profile identity and role.
 
 ### DELETE `/api/account`
-Permanently deletes the authenticated user's EkThikana data, owned materials, group membership and Firebase Authentication account.
+Permanently deletes the authenticated user's Gochano data, owned materials, group membership and Firebase Authentication account.
 
 ## Student groups
 

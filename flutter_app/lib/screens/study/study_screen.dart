@@ -36,6 +36,8 @@ class StudyScreen extends StatelessWidget {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
           children: [
+            // Community Library remains available from the compact Library quick action.
+            // Do not add a separate 'Community Library / Browse Resources' promo block here.
             Row(
               children: [
                 Expanded(child: _quick(context, Icons.school_outlined, const Color(0xFF5B3DF5), 'Semesters', 'সেমিস্টার', const AcademicStructureScreen())),

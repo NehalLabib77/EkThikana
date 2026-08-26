@@ -1,0 +1,162 @@
+[
+  {
+    "distance_km": 1,
+    "rickshaw_estimated_fare_tk": 17,
+    "auto_estimated_fare_tk": 17,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 2,
+    "rickshaw_estimated_fare_tk": 34,
+    "auto_estimated_fare_tk": 34,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 3,
+    "rickshaw_estimated_fare_tk": 51,
+    "auto_estimated_fare_tk": 51,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 4,
+    "rickshaw_estimated_fare_tk": 68,
+    "auto_estimated_fare_tk": 68,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 5,
+    "rickshaw_estimated_fare_tk": 85,
+    "auto_estimated_fare_tk": 85,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 6,
+    "rickshaw_estimated_fare_tk": 102,
+    "auto_estimated_fare_tk": 102,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 7,
+    "rickshaw_estimated_fare_tk": 119,
+    "auto_estimated_fare_tk": 119,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 8,
+    "rickshaw_estimated_fare_tk": 136,
+    "auto_estimated_fare_tk": 136,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 9,
+    "rickshaw_estimated_fare_tk": 153,
+    "auto_estimated_fare_tk": 153,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 10,
+    "rickshaw_estimated_fare_tk": 170,
+    "auto_estimated_fare_tk": 170,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 11,
+    "rickshaw_estimated_fare_tk": 187,
+    "auto_estimated_fare_tk": 187,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 12,
+    "rickshaw_estimated_fare_tk": 204,
+    "auto_estimated_fare_tk": 204,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 13,
+    "rickshaw_estimated_fare_tk": 221,
+    "auto_estimated_fare_tk": 221,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 14,
+    "rickshaw_estimated_fare_tk": 238,
+    "auto_estimated_fare_tk": 238,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 15,
+    "rickshaw_estimated_fare_tk": 255,
+    "auto_estimated_fare_tk": 255,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 16,
+    "rickshaw_estimated_fare_tk": 272,
+    "auto_estimated_fare_tk": 272,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 17,
+    "rickshaw_estimated_fare_tk": 289,
+    "auto_estimated_fare_tk": 289,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 18,
+    "rickshaw_estimated_fare_tk": 306,
+    "auto_estimated_fare_tk": 306,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 19,
+    "rickshaw_estimated_fare_tk": 323,
+    "auto_estimated_fare_tk": 323,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  },
+  {
+    "distance_km": 20,
+    "rickshaw_estimated_fare_tk": 340,
+    "auto_estimated_fare_tk": 340,
+    "calculation": "distance_km * 17",
+    "fare_type": "user_provided_estimate",
+    "source_id": "USER_PROVIDED_ASSUMPTION"
+  }
+]

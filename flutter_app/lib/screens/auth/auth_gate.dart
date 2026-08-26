@@ -30,7 +30,7 @@ class AuthGate extends StatelessWidget {
             final data = profileSnap.data!.data();
             if (data == null) {
               return const Scaffold(
-                body: Center(child: Text('Your EkThikana profile is missing.')),
+                body: Center(child: Text('Your Gochano profile is missing.')),
               );
             }
 

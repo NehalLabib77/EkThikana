@@ -1,0 +1,388 @@
+﻿place_id,name_en,name_bn,normalized_name,latitude,longitude,geocode_status,source_id
+PLC0001,Abdullahpur,আব্দুল্লাহপুর,abdullahpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0002,Abdullahpur (Jail),আব্দুল্লাহপুর (জেলখানা),abdullahpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0003,Abul Hotel,আবুল হোটেল,abul hotel,,,pending,SRC_BRTA_METRO_FARES
+PLC0004,Agargaon,আগারগাঁও,agargaon,,,pending,SRC_BRTA_METRO_FARES
+PLC0005,Airport,এয়ারপোর্ট,airport,,,pending,SRC_BRTA_METRO_FARES
+PLC0006,Amin Bazar,আমিন বাজার,amin bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0007,Amulia Staff Quarter,আমুলিয়া স্টাফ কোয়ার্টার,amulia staff quarter,,,pending,SRC_BRTA_METRO_FARES
+PLC0008,Ansar Camp,আনসারক্যাম্প,ansar camp,,,pending,SRC_BRTA_METRO_FARES
+PLC0009,Apla Bazar,আপলা বাজার,apla bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0010,Arambagh,আরামবাগ,arambagh,,,pending,SRC_BRTA_METRO_FARES
+PLC0011,Asad Avenue,আসাদ এভিনিউ,asad avenue,,,pending,SRC_BRTA_METRO_FARES
+PLC0012,Asad Gate,আসাদগেট,asad gate,,,pending,SRC_BRTA_METRO_FARES
+PLC0013,Ashika Morh,এশিকা মোড়,ashika,,,pending,SRC_BRTA_METRO_FARES
+PLC0014,Ashulia,আশুলিয়া,ashulia,,,pending,SRC_BRTA_METRO_FARES
+PLC0015,Ashulia (Fantasy Kingdom),আশুলিয়া (ফ্যান্টাসি কিংডম),ashulia,,,pending,SRC_BRTA_METRO_FARES
+PLC0016,Ati Bazar,আতি বাজার,ati bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0017,Azampur,আজমপুর,azampur,,,pending,SRC_BRTA_METRO_FARES
+PLC0018,Azimpur,আজিমপুর,azimpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0019,Azimpur (Dhakeswari),আজিমপুর (ঢাকেশ্বরী),azimpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0020,Babu Bazar,বাবু বাজার,babu bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0021,Babu Bazar Bridge,বাবু বাজার ব্রীজ,babu bazar bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0022,Babubazar Bridge,বাবুবাজার ব্রীজ,babubazar bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0023,Badda,বাড্ডা,badda,,,pending,SRC_BRTA_METRO_FARES
+PLC0024,Badda Link Road,বাড্ডা লিংক রোড,badda link road,,,pending,SRC_BRTA_METRO_FARES
+PLC0025,Badda Link Road/Madhy Badda,বাড্ডা লিংক রোড/মধ্য বাড্ডা,badda link road madhy badda,,,pending,SRC_BRTA_METRO_FARES
+PLC0026,Bagher Bazar,বাঘের বাজার,bagher bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0027,Bagmara,বাগমারা,bagmara,,,pending,SRC_BRTA_METRO_FARES
+PLC0028,Baikali Hotel,বৈকালী হোটেল,baikali hotel,,,pending,SRC_BRTA_METRO_FARES
+PLC0029,Baipail,বাইপাইল,baipail,,,pending,SRC_BRTA_METRO_FARES
+PLC0030,Bakshibazar,বকশিবাজার,bakshibazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0031,Balughat,বালুঘাট,balughat,,,pending,SRC_BRTA_METRO_FARES
+PLC0032,Banani,বনানী,banani,,,pending,SRC_BRTA_METRO_FARES
+PLC0033,Bandura,বান্দুরা,bandura,,,pending,SRC_BRTA_METRO_FARES
+PLC0034,Bangabandhu Avenue,বঙ্গবন্ধু এভিনিউ,bangabandhu avenue,,,pending,SRC_BRTA_METRO_FARES
+PLC0035,Bangabandhu College,বঙ্গবন্ধু কলেজ,bangabandhu college,,,pending,SRC_BRTA_METRO_FARES
+PLC0036,Bangla College,বাংলা কলেজ,bangla college,,,pending,SRC_BRTA_METRO_FARES
+PLC0037,Bangla Motor,বাংলা মোটর,bangla motor,,,pending,SRC_BRTA_METRO_FARES
+PLC0038,Bangladesh Bank,বাংলাদেশ ব্যাংক,bangladesh bank,,,pending,SRC_BRTA_METRO_FARES
+PLC0039,Banglamotor,বাংলামটর,banglamotor,,,pending,SRC_BRTA_METRO_FARES
+PLC0040,Bangonagar,বঙ্গনগর,bangonagar,,,pending,SRC_BRTA_METRO_FARES
+PLC0041,Baniajuri,বানিয়াজুরি,baniajuri,,,pending,SRC_BRTA_METRO_FARES
+PLC0042,Barpa,বরপা,barpa,,,pending,SRC_BRTA_METRO_FARES
+PLC0043,Baruakhali,বারুয়াখালী,baruakhali,,,pending,SRC_BRTA_METRO_FARES
+PLC0044,Basabo,বাসাবো,basabo,,,pending,SRC_BRTA_METRO_FARES
+PLC0045,Bashundhara,বসুন্ধরা,bashundhara,,,pending,SRC_BRTA_METRO_FARES
+PLC0046,Basila,বসিলা,basila,,,pending,SRC_BRTA_METRO_FARES
+PLC0047,Basila Bridge,বসিলা ব্রীজ,basila bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0048,Basila CNG Stand,বসিলা সিএনজি স্ট্যান্ড,basila cng stand,,,pending,SRC_BRTA_METRO_FARES
+PLC0049,Beraid,বেরাইদ,beraid,,,pending,SRC_BRTA_METRO_FARES
+PLC0050,Beribadh,বেড়িবাঁধ,beribadh,,,pending,SRC_BRTA_METRO_FARES
+PLC0051,Bezgaon Chourasta,বেজগাঁও চৌরাস্তা,bezgaon chourasta,,,pending,SRC_BRTA_METRO_FARES
+PLC0052,Bhabantek,ভাবানটেক,bhabantek,,,pending,SRC_BRTA_METRO_FARES
+PLC0053,Bhawal Vita (South Keraniganj),ভাওয়াল ভিটা (দক্ষিণ কেরানীগঞ্জ),bhawal vita,,,pending,SRC_BRTA_METRO_FARES
+PLC0054,Bhulta,ভুলতা,bhulta,,,pending,SRC_BRTA_METRO_FARES
+PLC0055,Bhulta (Gausia),ভুলতা (গাউছিয়া),bhulta,,,pending,SRC_BRTA_METRO_FARES
+PLC0056,Bigatla,বিগাতলা,bigatla,,,pending,SRC_BRTA_METRO_FARES
+PLC0057,Bijay Smarani,বিজয় স্মরণী,bijay smarani,,,pending,SRC_BRTA_METRO_FARES
+PLC0058,Bijoy Nagar,বিজয় নগর,bijoy nagar,,,pending,SRC_BRTA_METRO_FARES
+PLC0059,Bijoy Smriti,বিজয় স্মরণী,bijoy smriti,,,pending,SRC_BRTA_METRO_FARES
+PLC0060,Bishwo Road,বিশ্বরোড,bishwo road,,,pending,SRC_BRTA_METRO_FARES
+PLC0061,Board Bazar,বোর্ড বাজার,board bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0062,Bomi,বমী,bomi,,,pending,SRC_BRTA_METRO_FARES
+PLC0063,Bonoshri,বনশ্রী,bonoshri,,,pending,SRC_BRTA_METRO_FARES
+PLC0064,Bonsree,বনশ্রী,bonsree,,,pending,SRC_BRTA_METRO_FARES
+PLC0065,Bonsree (Meradia),বনশ্রী (মেরাদিয়া),bonsree,,,pending,SRC_BRTA_METRO_FARES
+PLC0066,Borongail,বরংগাইল,borongail,,,pending,SRC_BRTA_METRO_FARES
+PLC0067,BUET,বুয়েট,buet,,,pending,SRC_BRTA_METRO_FARES
+PLC0068,Cantonment Signal Gate,ক্যান্টনমেন্ট সিগন্যাল গেট,cantonment signal gate,,,pending,SRC_BRTA_METRO_FARES
+PLC0069,Chancharpul,চাঁনখারপুল,chancharpul,,,pending,SRC_BRTA_METRO_FARES
+PLC0070,Chandra,চন্দ্রা,chandra,,,pending,SRC_BRTA_METRO_FARES
+PLC0071,Chankharpul,চানখারপুল,chankharpul,,,pending,SRC_BRTA_METRO_FARES
+PLC0072,Chasara Bus Stand,চাষাঢ়া বাসস্ট্যান্ড,chasara bus stand,,,pending,SRC_BRTA_METRO_FARES
+PLC0073,Cherag Ali,চেরাগআলী,cherag ali,,,pending,SRC_BRTA_METRO_FARES
+PLC0074,Chourasta,চৌরাস্তা,chourasta,,,pending,SRC_BRTA_METRO_FARES
+PLC0075,Chun Kutia,চুন কুটিয়া,chun kutia,,,pending,SRC_BRTA_METRO_FARES
+PLC0076,Chunkutia Bazar,চুনকুটিয়া বাজার,chunkutia bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0077,City College,সিটি কলেজ,city college,,,pending,SRC_BRTA_METRO_FARES
+PLC0078,College Gate,কলেজগেট,college gate,,,pending,SRC_BRTA_METRO_FARES
+PLC0079,Daily Bangla,দৈনিক বাংলা,daily bangla,,,pending,SRC_BRTA_METRO_FARES
+PLC0080,Darussalam,দারুসসালাম,darussalam,,,pending,SRC_BRTA_METRO_FARES
+PLC0081,Dayaganj Road,দয়াগঞ্জ রোড,dayaganj road,,,pending,SRC_BRTA_METRO_FARES
+PLC0082,Demra,ডেমরা,demra,,,pending,SRC_BRTA_METRO_FARES
+PLC0083,Demra Bridge,ডেমরা ব্রীজ,demra bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0084,Demra Staff Quarter,ডেমরা স্টাফ কোয়ার্টার,demra staff quarter,,,pending,SRC_BRTA_METRO_FARES
+PLC0085,Dhaka City College,ঢাকা সিটি কলেজ,dhaka city college,,,pending,SRC_BRTA_METRO_FARES
+PLC0086,Dhaka College,ঢাকা কলেজ,dhaka college,,,pending,SRC_BRTA_METRO_FARES
+PLC0087,Dhakeshwari Etimkhana,ঢাকেশ্বরী এতিমখানা,dhakeshwari etimkhana,,,pending,SRC_BRTA_METRO_FARES
+PLC0088,Dhakeswari Mandir,ঢাকেশ্বরী মন্দির,dhakeswari mandir,,,pending,SRC_BRTA_METRO_FARES
+PLC0089,Dhaleswar,ধলেশ্বর,dhaleswar,,,pending,SRC_BRTA_METRO_FARES
+PLC0090,Dhamrai,ধামরাই,dhamrai,,,pending,SRC_BRTA_METRO_FARES
+PLC0091,Dhanmondi,ধানমন্ডি,dhanmondi,,,pending,SRC_BRTA_METRO_FARES
+PLC0092,Dhanmondi-15,ধানমন্ডি-১৫,dhanmondi 15,,,pending,SRC_BRTA_METRO_FARES
+PLC0093,Dhaur,ধউর,dhaur,,,pending,SRC_BRTA_METRO_FARES
+PLC0094,Dhaur Morh,ধউর মোড়,dhaur,,,pending,SRC_BRTA_METRO_FARES
+PLC0095,Dhowr,ধওর,dhowr,,,pending,SRC_BRTA_METRO_FARES
+PLC0096,Dhowr Bridge,ধওর ব্রীজ,dhowr bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0097,Dhupkhola,ধোপখোলা,dhupkhola,,,pending,SRC_BRTA_METRO_FARES
+PLC0098,Diabari,দিয়াবাড়ী,diabari,,,pending,SRC_BRTA_METRO_FARES
+PLC0099,Diabari (Beribadh),দিয়াবাড়ী (বেড়িবাঁধ),diabari,,,pending,SRC_BRTA_METRO_FARES
+PLC0100,Diabari Chourasta,দিয়াবাড়ী চৌরাস্তা,diabari chourasta,,,pending,SRC_BRTA_METRO_FARES
+PLC0101,Diabari Morh,দিয়াবাড়ী মোড়,diabari,,,pending,SRC_BRTA_METRO_FARES
+PLC0102,Duyaripara,দুয়ারীপাড়া,duyaripara,,,pending,SRC_BRTA_METRO_FARES
+PLC0103,Eastern Housing,ইস্টার্ন হাউজিং,eastern housing,,,pending,SRC_BRTA_METRO_FARES
+PLC0104,ECB Chattar,ইসিবি চত্বর,ecb chattar,,,pending,SRC_BRTA_METRO_FARES
+PLC0105,ECB Morh,ইসিবি মোড়,ecb,,,pending,SRC_BRTA_METRO_FARES
+PLC0106,Eden College,ইডেন কলেজ,eden college,,,pending,SRC_BRTA_METRO_FARES
+PLC0107,Ekuria,ইকুরিয়া,ekuria,,,pending,SRC_BRTA_METRO_FARES
+PLC0108,EPZ,ইপিজেড,epz,,,pending,SRC_BRTA_METRO_FARES
+PLC0109,Fakirapool,ফকিরাপুল,fakirapool,,,pending,SRC_BRTA_METRO_FARES
+PLC0110,Fantasy,ফ্যান্টাসী,fantasy,,,pending,SRC_BRTA_METRO_FARES
+PLC0111,Fantasy Kingdom,ফ্যান্টাসী কিংডম,fantasy kingdom,,,pending,SRC_BRTA_METRO_FARES
+PLC0112,Farmgate,ফার্মগেট,farmgate,,,pending,SRC_BRTA_METRO_FARES
+PLC0113,Fulbaria,ফুলবাড়িয়া,fulbaria,,,pending,SRC_BRTA_METRO_FARES
+PLC0114,Gabtoli,গাবতলী,gabtoli,,,pending,SRC_BRTA_METRO_FARES
+PLC0115,Gabtoli Bridge Par,গাবতলী ব্রীজ পাড়,gabtoli bridge par,,,pending,SRC_BRTA_METRO_FARES
+PLC0116,Gausia/Chandnichok,গাউসিয়া/চাঁদনীচক,gausia chandnichok,,,pending,SRC_BRTA_METRO_FARES
+PLC0117,Gazipur,গাজীপুর,gazipur,,,pending,SRC_BRTA_METRO_FARES
+PLC0118,Gazipur Crossroad,গাজীপুর চৌরাস্তা,gazipur crossroad,,,pending,SRC_BRTA_METRO_FARES
+PLC0119,Ghatarchar,ঘাটারচর,ghatarchar,,,pending,SRC_BRTA_METRO_FARES
+PLC0120,Ghatarchor,ঘাটেরচর,ghatarchor,,,pending,SRC_BRTA_METRO_FARES
+PLC0121,Ghater Char,ঘাটের চর,ghater char,,,pending,SRC_BRTA_METRO_FARES
+PLC0122,Golapshah Mazar,গোলাপশাহ মাজার,golapshah mazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0123,Golapshah Mazar (Fulbaria),গোলাপশাহ মাজার (ফুলবাড়ীয়া),golapshah mazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0124,GPO,জিপিও,gpo,,,pending,SRC_BRTA_METRO_FARES
+PLC0125,Gulistan,গুলিস্তান,gulistan,,,pending,SRC_BRTA_METRO_FARES
+PLC0126,Gulistan (Fulbaria),গুলিস্তান (ফুলবাড়িয়া),gulistan,,,pending,SRC_BRTA_METRO_FARES
+PLC0127,Gulistan (Hanif Flyover),গুলিস্তান (হানিফ ফ্লাইওভার),gulistan,,,pending,SRC_BRTA_METRO_FARES
+PLC0128,Gulistan Morh,গুলিস্তান মোড়,gulistan,,,pending,SRC_BRTA_METRO_FARES
+PLC0129,Gulshan-1,গুলশান-১,gulshan 1,,,pending,SRC_BRTA_METRO_FARES
+PLC0130,Gulshan-2,গুলশান-২,gulshan 2,,,pending,SRC_BRTA_METRO_FARES
+PLC0131,Hanif Flyover,হানিফ ফ্লাইওভার,hanif flyover,,,pending,SRC_BRTA_METRO_FARES
+PLC0132,Hemayetpur,হেমায়েতপুর,hemayetpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0133,High Court,হাইকোর্ট,high court,,,pending,SRC_BRTA_METRO_FARES
+PLC0134,Hota Para,হোতা পাড়া,hota para,,,pending,SRC_BRTA_METRO_FARES
+PLC0135,House Building,হাউজ বিল্ডিং,house building,,,pending,SRC_BRTA_METRO_FARES
+PLC0136,Intefak,ইন্তেফাক,intefak,,,pending,SRC_BRTA_METRO_FARES
+PLC0137,Islampur,ইসলামপুর,islampur,,,pending,SRC_BRTA_METRO_FARES
+PLC0138,Jagannath University,জগন্নাথ বিশ্ববিদ্যালয়,jagannath university,,,pending,SRC_BRTA_METRO_FARES
+PLC0139,Jamuna Future Park,যমুনা ফিউচার পার্ক,jamuna future park,,,pending,SRC_BRTA_METRO_FARES
+PLC0140,Japan Garden City,জাপান গার্ডেন সিটি,japan garden city,,,pending,SRC_BRTA_METRO_FARES
+PLC0141,Jasim Uddin,জসীমউদ্দিন,jasim uddin,,,pending,SRC_BRTA_METRO_FARES
+PLC0142,Jasimuddin,জসমউদ্দিন,jasimuddin,,,pending,SRC_BRTA_METRO_FARES
+PLC0143,Jatrabari,যাত্রাবাড়ী,jatrabari,,,pending,SRC_BRTA_METRO_FARES
+PLC0144,Jigatola,জিগাতলা,jigatola,,,pending,SRC_BRTA_METRO_FARES
+PLC0145,Jinjira,জিঞ্জিরা,jinjira,,,pending,SRC_BRTA_METRO_FARES
+PLC0146,Jirabo,জিরাবো,jirabo,,,pending,SRC_BRTA_METRO_FARES
+PLC0147,Jirani Bazar,জিরানী বাজার,jirani bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0148,Jonopoth,জনপথ,jonopoth,,,pending,SRC_BRTA_METRO_FARES
+PLC0149,Jonopoth Mor,জনপথ মোড়,jonopoth,,,pending,SRC_BRTA_METRO_FARES
+PLC0150,Jurain,জুরাইন,jurain,,,pending,SRC_BRTA_METRO_FARES
+PLC0151,Kadamtoli,কদমতলী,kadamtoli,,,pending,SRC_BRTA_METRO_FARES
+PLC0152,Kajla,কাজলা,kajla,,,pending,SRC_BRTA_METRO_FARES
+PLC0153,Kajli,কাজলি,kajli,,,pending,SRC_BRTA_METRO_FARES
+PLC0154,Kakoli,কাকলি,kakoli,,,pending,SRC_BRTA_METRO_FARES
+PLC0155,Kakrail,কাকরাইল,kakrail,,,pending,SRC_BRTA_METRO_FARES
+PLC0156,Kalabagan,কলাবাগান,kalabagan,,,pending,SRC_BRTA_METRO_FARES
+PLC0157,Kalampur,কালামপুর,kalampur,,,pending,SRC_BRTA_METRO_FARES
+PLC0158,Kalapani,কালাপানি,kalapani,,,pending,SRC_BRTA_METRO_FARES
+PLC0159,Kalashi Mor,কালাশি মোড়,kalashi,,,pending,SRC_BRTA_METRO_FARES
+PLC0160,Kalshi,কালশী,kalshi,,,pending,SRC_BRTA_METRO_FARES
+PLC0161,Kalshi Morh,কালশিমোড়,kalshi,,,pending,SRC_BRTA_METRO_FARES
+PLC0162,Kalshir Mor,কালশীর মোড়,kalshir,,,pending,SRC_BRTA_METRO_FARES
+PLC0163,Kalyanpur,কল্যাণপুর,kalyanpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0164,Kamalapur,কমলাপুর,kamalapur,,,pending,SRC_BRTA_METRO_FARES
+PLC0165,Kamalapur (Pirjangi Mazar),কমলাপুর (পীরজঙ্গী মাজার),kamalapur,,,pending,SRC_BRTA_METRO_FARES
+PLC0166,Kamalapur Station,কমলাপুর স্টেশন,kamalapur,,,pending,SRC_BRTA_METRO_FARES
+PLC0167,Kamar Para,কামার পাড়া,kamar para,,,pending,SRC_BRTA_METRO_FARES
+PLC0168,Kamarpada,কামারপাড়া,kamarpada,,,pending,SRC_BRTA_METRO_FARES
+PLC0169,Kamarpara,কামারপাড়া,kamarpara,,,pending,SRC_BRTA_METRO_FARES
+PLC0170,Kamrangirchar (Beribadh),কামারঙ্গীরচর (বেড়িবাঁধ),kamrangirchar,,,pending,SRC_BRTA_METRO_FARES
+PLC0171,Kanchpur,কাঁচপুর,kanchpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0172,Kanchpur Bridge,কাঁচপুরব্রীজ,kanchpur bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0173,Kapasia,কাপাসিয়া,kapasia,,,pending,SRC_BRTA_METRO_FARES
+PLC0174,Karwan Bazar,কারওয়ান বাজার,kawran bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0175,Kasempur,কাশেমপুর,kasempur,,,pending,SRC_BRTA_METRO_FARES
+PLC0176,Kashi,কাশী,kashi,,,pending,SRC_BRTA_METRO_FARES
+PLC0177,Katabon,কাটাবন,katabon,,,pending,SRC_BRTA_METRO_FARES
+PLC0178,Kawran Bazar,কাওরানবাজার,kawran bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0179,Kazipara,কাজীপাড়া,kazipara,,,pending,SRC_BRTA_METRO_FARES
+PLC0180,Kazlail,কাজলাইল,kazlail,,,pending,SRC_BRTA_METRO_FARES
+PLC0181,Keraniganj,কেরানীগঞ্জ,keraniganj,,,pending,SRC_BRTA_METRO_FARES
+PLC0182,Keraniganj (New Jail),কেরানীগঞ্জ (নতুন জেলখানা),keraniganj,,,pending,SRC_BRTA_METRO_FARES
+PLC0183,Khaisakhali Beribadh,খাইস্যাখালী বেড়িবাঁধ,khaisakhali beribadh,,,pending,SRC_BRTA_METRO_FARES
+PLC0184,Khamarbari,খামারবাড়ী,khamarbari,,,pending,SRC_BRTA_METRO_FARES
+PLC0185,Khamrai,খামরাই,khamrai,,,pending,SRC_BRTA_METRO_FARES
+PLC0186,Khanmondol,খানমন্ডল,khanmondol,,,pending,SRC_BRTA_METRO_FARES
+PLC0187,Kharshur,খারশুর,kharshur,,,pending,SRC_BRTA_METRO_FARES
+PLC0188,Khasiakhali Beribadh,খাসিয়াখালী বেড়িবাঁধ,khasiakhali beribadh,,,pending,SRC_BRTA_METRO_FARES
+PLC0189,Khilgaon Flyover,খিলগাঁও ফ্লাইওভার,khilgaon flyover,,,pending,SRC_BRTA_METRO_FARES
+PLC0190,Khilgaon Khidma Hospital,খিলগাঁও খিদমা হাসপাতাল,khilgaon khidma hospital,,,pending,SRC_BRTA_METRO_FARES
+PLC0191,Khilgaon Rail Gate,খিলগাঁও রেলগেট,khilgaon rail gate,,,pending,SRC_BRTA_METRO_FARES
+PLC0192,Khilgaon Taltala,খিলগাঁও তালতলা,khilgaon taltala,,,pending,SRC_BRTA_METRO_FARES
+PLC0193,Khilkhet,খিলক্ষেত,khilkhet,,,pending,SRC_BRTA_METRO_FARES
+PLC0194,Kochukhet,কচুক্ষেত,kochukhet,,,pending,SRC_BRTA_METRO_FARES
+PLC0195,Kochukshet,কচুক্ষেত,kochukshet,,,pending,SRC_BRTA_METRO_FARES
+PLC0196,Komorgonj,কোমরগঞ্জ,komorgonj,,,pending,SRC_BRTA_METRO_FARES
+PLC0197,Konabari,কোনাবাড়ী,konabari,,,pending,SRC_BRTA_METRO_FARES
+PLC0198,Konakhola,কোনাখোলা,konakhola,,,pending,SRC_BRTA_METRO_FARES
+PLC0199,Konapara,কোনাপাড়া,konapara,,,pending,SRC_BRTA_METRO_FARES
+PLC0200,Koshailya Bazar,কোশাইল্যা বাজার,koshailya bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0201,Kumitola General Hospital,কুমিটোলা জেনারেল হাসপাতাল,kumitola general hospital,,,pending,SRC_BRTA_METRO_FARES
+PLC0202,Kuril,কুড়িল,kuril,,,pending,SRC_BRTA_METRO_FARES
+PLC0203,Kuril Bishwa Road,কুড়িল বিশ্বরোড,kuril bishwa road,,,pending,SRC_BRTA_METRO_FARES
+PLC0204,Kuril Biswa Road,কুড়িল বিশ্বরোড,kuril biswa road,,,pending,SRC_BRTA_METRO_FARES
+PLC0205,Kuril Flyover,কুড়িল ফ্লাইওভার,kuril flyover,,,pending,SRC_BRTA_METRO_FARES
+PLC0206,Kurmitola General Hospital,কুর্মিটোলা জেনারেল হাসপাতাল,kurmitola general hospital,,,pending,SRC_BRTA_METRO_FARES
+PLC0207,Link Road,লিংক রোড,link road,,,pending,SRC_BRTA_METRO_FARES
+PLC0208,Madanganj,মদনগঞ্জ,madanganj,,,pending,SRC_BRTA_METRO_FARES
+PLC0209,Madanpur,মদনপুর,madanpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0210,Magbazar,মগবাজার,magbazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0211,Majhir Kanda,মাঝির কান্দা,majhir kanda,,,pending,SRC_BRTA_METRO_FARES
+PLC0212,Malibagh,মালিবাগ,malibagh,,,pending,SRC_BRTA_METRO_FARES
+PLC0213,Malibagh Choudhurypara,মালিবাগ চৌধুরীপাড়া,malibagh choudhurypara,,,pending,SRC_BRTA_METRO_FARES
+PLC0214,Manda Crossroad,মান্ডা চৌরাস্তা,manda crossroad,,,pending,SRC_BRTA_METRO_FARES
+PLC0215,Manik Mia,মানিক মিয়া,manik mia,,,pending,SRC_BRTA_METRO_FARES
+PLC0216,Manik Mia Avenue,মানিক মিয়া এভিনিউ,manik mia avenue,,,pending,SRC_BRTA_METRO_FARES
+PLC0217,Manikdi (ECB Mor),মানিকদি (ইসিবি মোড়),manikdi,,,pending,SRC_BRTA_METRO_FARES
+PLC0218,Manikganj,মানিকগঞ্জ,manikganj,,,pending,SRC_BRTA_METRO_FARES
+PLC0219,Manikmia Avenue,মানিকমিয়া এভিনিউ,manikmia avenue,,,pending,SRC_BRTA_METRO_FARES
+PLC0220,Maniknagar,মানিকনগর,maniknagar,,,pending,SRC_BRTA_METRO_FARES
+PLC0221,Mast Plaza,মাস্ট প্লাজা,mast plaza,,,pending,SRC_BRTA_METRO_FARES
+PLC0222,Matsya Bhaban,মৎসভবন,matsya bhaban,,,pending,SRC_BRTA_METRO_FARES
+PLC0223,Mawa Ferryghat,মাওয়া ফেরীঘাট,mawa ferryghat,,,pending,SRC_BRTA_METRO_FARES
+PLC0224,Mawa Ghat,মাওয়াঘাট,mawa ghat,,,pending,SRC_BRTA_METRO_FARES
+PLC0225,Mayor Mohammad Hanif Flyover,মেয়র মোহাম্মদ হানিফ ফ্লাইওভার,mayor mohammad hanif flyover,,,pending,SRC_BRTA_METRO_FARES
+PLC0226,Mazar Road,মাজার রোড,mazar road,,,pending,SRC_BRTA_METRO_FARES
+PLC0227,Md. Zillur Rahman Flyover,মোঃ জিল্লুর রহমান ফ্লাইওভার,md zillur rahman flyover,,,pending,SRC_BRTA_METRO_FARES
+PLC0228,Meghna Ghat,মেঘনা ঘাট,meghna ghat,,,pending,SRC_BRTA_METRO_FARES
+PLC0229,Meghnaghat,মেঘনাঘাট,meghnaghat,,,pending,SRC_BRTA_METRO_FARES
+PLC0230,Meradia (New Road),মেরাদিয়া (নতুন রাস্তা),meradia,,,pending,SRC_BRTA_METRO_FARES
+PLC0231,Meradia Bazar,মেরাদিয়া বাজার,meradia bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0232,Middle Badda,মধ্য বাড্ডা,middle badda,,,pending,SRC_BRTA_METRO_FARES
+PLC0233,Mirpur (Zoo),মিরপুর (চিড়িয়াখানা),mirpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0234,Mirpur DOHS,মিরপুর ডিওএইচ এস,mirpur dohs,,,pending,SRC_BRTA_METRO_FARES
+PLC0235,Mirpur Mazar Road,মিরপুর মাজার রোড,mirpur mazar road,,,pending,SRC_BRTA_METRO_FARES
+PLC0236,Mirpur Rupnagar,মিরপুর রূপনগর,mirpur rupnagar,,,pending,SRC_BRTA_METRO_FARES
+PLC0237,Mirpur Sade 11,মিরপুর সাড়ে ১১,mirpur sade 11,,,pending,SRC_BRTA_METRO_FARES
+PLC0238,Mirpur Thana,মিরপুর থানা,mirpur thana,,,pending,SRC_BRTA_METRO_FARES
+PLC0239,Mirpur-1,মিরপুর-১,mirpur 1,,,pending,SRC_BRTA_METRO_FARES
+PLC0240,Mirpur-10,মিরপুর-১০,mirpur 10,,,pending,SRC_BRTA_METRO_FARES
+PLC0241,Mirpur-11,মিরপুর-১১,mirpur 11,,,pending,SRC_BRTA_METRO_FARES
+PLC0242,Mirpur-11 1/2,মিরপুর-১১ ১/২,mirpur 11 1 2,,,pending,SRC_BRTA_METRO_FARES
+PLC0243,Mirpur-12,মিরপুর-১২,mirpur 12,,,pending,SRC_BRTA_METRO_FARES
+PLC0244,Mirpur-14,মিরপুর-১৪,mirpur 14,,,pending,SRC_BRTA_METRO_FARES
+PLC0245,Mirpur-2,মিরপুর-২,mirpur 2,,,pending,SRC_BRTA_METRO_FARES
+PLC0246,Mirpur-6,মিরপুর-৬,mirpur 6,,,pending,SRC_BRTA_METRO_FARES
+PLC0247,Mirpur(1),মিরপুর(১),mirpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0248,Mirpur(10),মিরপুর(১০),mirpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0249,Mirpur(14),মিরপুর(১৪),mirpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0250,Mohakhali,মহাখালী,mohakhali,,,pending,SRC_BRTA_METRO_FARES
+PLC0251,Mohakhali Amtali,মহাখালী আমতলী,mohakhali amtali,,,pending,SRC_BRTA_METRO_FARES
+PLC0252,Mohakhali Amtoli,মহাখালী আমতলী,mohakhali amtoli,,,pending,SRC_BRTA_METRO_FARES
+PLC0253,Mohammadpur,মোঃপুর,mohammadpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0254,Mohammadpur (Asad Avenue),মোহাম্মদপুর (আসাদ এভিনিউ),mohammadpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0255,Mohammadpur (Basila Road),মোহাম্মদপুর (বসিলা রোড),mohammadpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0256,Mohammadpur (Japan Garden City),মোহাম্মদপুর (জাপান গার্ডেন সিটি),mohammadpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0257,Mohammadpur Bus Stand,মোহাম্মদপুর বাস স্ট্যান্ড,mohammadpur bus stand,,,pending,SRC_BRTA_METRO_FARES
+PLC0258,Mohammadpur Shia Mosque,মোহাম্মদপুর শিয়া মসজিদ,mohammadpur shia mosque,,,pending,SRC_BRTA_METRO_FARES
+PLC0259,Mohammadpur Town Hall,মোহাম্মদপুর টাউন হল,mohammadpur town hall,,,pending,SRC_BRTA_METRO_FARES
+PLC0260,Motijheel,মতিঝিল,motijheel,,,pending,SRC_BRTA_METRO_FARES
+PLC0261,Motijheel (Hirjheel),মতিঝিল (হীরঝিল),motijheel,,,pending,SRC_BRTA_METRO_FARES
+PLC0262,Motijheel (Notre Dame College),মতিঝিল (নটরডেম কলেজ),motijheel,,,pending,SRC_BRTA_METRO_FARES
+PLC0263,Motijheel (Shapla Chattar),মতিঝিল (শাপলা চত্বর),motijheel,,,pending,SRC_BRTA_METRO_FARES
+PLC0264,Mouchak,মৌচাক,mouchak,,,pending,SRC_BRTA_METRO_FARES
+PLC0265,Mouchak (Flyover),মৌচাক (ফ্লাইওভার),mouchak,,,pending,SRC_BRTA_METRO_FARES
+PLC0266,Mugda,মুগদা,mugda,,,pending,SRC_BRTA_METRO_FARES
+PLC0267,Nabinagar,নবীনগর,nabinagar,,,pending,SRC_BRTA_METRO_FARES
+PLC0268,Nabisco,নাবিস্কো,nabisco,,,pending,SRC_BRTA_METRO_FARES
+PLC0269,Nandan Park,নন্দনপার্ক,nandan park,,,pending,SRC_BRTA_METRO_FARES
+PLC0270,Narayanganj,নারায়ণগঞ্জ,narayanganj,,,pending,SRC_BRTA_METRO_FARES
+PLC0271,Narayanganj Chasara,নারায়ণগঞ্জ চাষাঢ়া,narayanganj chasara,,,pending,SRC_BRTA_METRO_FARES
+PLC0272,Narayanganj Link Road,নারাংগঞ্জ লিংক রোড,narayanganj link road,,,pending,SRC_BRTA_METRO_FARES
+PLC0273,Narsinghpur,নরসিংহপুর,narsinghpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0274,Natun Bazar,নতুন বাজার,natun bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0275,Nawabganj,নবাবগঞ্জ,nawabganj,,,pending,SRC_BRTA_METRO_FARES
+PLC0276,Nayabazar,নয়াবাজার,nayabazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0277,Nayabazar (No. 2 Buriganga Bridge),নয়াবাজার (২নং বুড়িগঙ্গা সেতু),nayabazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0278,New Airport,নিউ এয়ারপোর্ট,new airport,,,pending,SRC_BRTA_METRO_FARES
+PLC0279,New Market,নিউমার্কেট,new market,,,pending,SRC_BRTA_METRO_FARES
+PLC0280,Nilkhet,নীলক্ষেত,nilkhet,,,pending,SRC_BRTA_METRO_FARES
+PLC0281,Nobinagar (Savar),নবীনগর (সাভার),nobinagar,,,pending,SRC_BRTA_METRO_FARES
+PLC0282,Norda,নর্দা,norda,,,pending,SRC_BRTA_METRO_FARES
+PLC0283,Notre Dame College,নটরড্যাম কলেজ,notre dame college,,,pending,SRC_BRTA_METRO_FARES
+PLC0284,Notun Bazar,নতুন বাজার,notun bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0285,Original Das,অরিজিনাল দশ,original das,,,pending,SRC_BRTA_METRO_FARES
+PLC0286,Original-10,অরিজিনাল-১০,original 10,,,pending,SRC_BRTA_METRO_FARES
+PLC0287,Pagla Bazar,পাগলাবাজার,pagla bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0288,Palashi,পলাশী,palashi,,,pending,SRC_BRTA_METRO_FARES
+PLC0289,Pallabi (Ceramic),পল্লবী (সিরামিক),pallabi,,,pending,SRC_BRTA_METRO_FARES
+PLC0290,Pallabi (Mirpur-12),পল্লবী (মিরপুর-১২),pallabi,,,pending,SRC_BRTA_METRO_FARES
+PLC0291,Paltan,পল্টন,paltan,,,pending,SRC_BRTA_METRO_FARES
+PLC0292,Palton,পল্টন,palton,,,pending,SRC_BRTA_METRO_FARES
+PLC0293,Paturia,পাটুরিয়া,paturia,,,pending,SRC_BRTA_METRO_FARES
+PLC0294,Pirjangi Mazar,পীরজঙ্গী মাজার,pirjangi mazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0295,Postgola,পোস্তগোলা,postgola,,,pending,SRC_BRTA_METRO_FARES
+PLC0296,Postgola Bridge,পোস্তগোলা ব্রীজ,postgola bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0297,Prashika,প্রশিকা,prashika,,,pending,SRC_BRTA_METRO_FARES
+PLC0298,Press Club,প্রেসক্লাব,press club,,,pending,SRC_BRTA_METRO_FARES
+PLC0299,Priyangan Gate,প্রিয়ঙ্গন গেট,priyangan gate,,,pending,SRC_BRTA_METRO_FARES
+PLC0300,Progati Sarani,প্রগতি সরণী,progati sarani,,,pending,SRC_BRTA_METRO_FARES
+PLC0301,Purabi,পূরবী,purabi,,,pending,SRC_BRTA_METRO_FARES
+PLC0302,Purbi,পুরবী,purbi,,,pending,SRC_BRTA_METRO_FARES
+PLC0303,Rainbow,রেইনবো,rainbow,,,pending,SRC_BRTA_METRO_FARES
+PLC0304,Rajabari,রাজাবাড়ী,rajabari,,,pending,SRC_BRTA_METRO_FARES
+PLC0305,Rajarbagh,রাজারবাগ,rajarbagh,,,pending,SRC_BRTA_METRO_FARES
+PLC0306,Rajendrapur,রাজেন্দ্রপুর,rajendrapur,,,pending,SRC_BRTA_METRO_FARES
+PLC0307,Rajendrapur Bazar,রাজেন্দ্রপুর বাজার,rajendrapur bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0308,Rajendrapur Crossroad,রাজেন্দ্রপুর চৌরাস্তা,rajendrapur crossroad,,,pending,SRC_BRTA_METRO_FARES
+PLC0309,Rajlaxmi,রাজলক্ষ্মী,rajlaxmi,,,pending,SRC_BRTA_METRO_FARES
+PLC0310,Rajmoni,রাজমনি,rajmoni,,,pending,SRC_BRTA_METRO_FARES
+PLC0311,Ramer Kanda,রামের কান্দা,ramer kanda,,,pending,SRC_BRTA_METRO_FARES
+PLC0312,Rampura,রামপুরা,rampura,,,pending,SRC_BRTA_METRO_FARES
+PLC0313,Rampura (Bonsree),রামপুরা (বনশ্রী),rampura,,,pending,SRC_BRTA_METRO_FARES
+PLC0314,Rampura Bridge,রামপুরা ব্রীজ,rampura bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0315,Rampura TV Center,রামপুরা টিভি সেন্টার,rampura tv center,,,pending,SRC_BRTA_METRO_FARES
+PLC0316,Rayerbag,রায়েরবাগ,rayerbag,,,pending,SRC_BRTA_METRO_FARES
+PLC0317,Raysaheb Bazar,রায়সাহেব বাজার,raysaheb bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0318,Ruhitpur,রুহিতপুর,ruhitpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0319,Rupshi,রূপসী,rupshi,,,pending,SRC_BRTA_METRO_FARES
+PLC0320,Russell Square,রাসেল স্কয়ার,russell square,,,pending,SRC_BRTA_METRO_FARES
+PLC0321,Sadarghat,সদরঘাট,sadarghat,,,pending,SRC_BRTA_METRO_FARES
+PLC0322,Sadarghat Victoria Park,সদরঘাট ভিক্টোরিয়া পার্ক,sadarghat victoria park,,,pending,SRC_BRTA_METRO_FARES
+PLC0323,Safipur,সফিপুর,safipur,,,pending,SRC_BRTA_METRO_FARES
+PLC0324,Sainik Club,সৈনিক ক্লাব,sainik club,,,pending,SRC_BRTA_METRO_FARES
+PLC0325,Satrasta,সাতরাস্তা,satrasta,,,pending,SRC_BRTA_METRO_FARES
+PLC0326,Savar,সাভার,savar,,,pending,SRC_BRTA_METRO_FARES
+PLC0327,Sayedabad,সায়দাবাদ,sayedabad,,,pending,SRC_BRTA_METRO_FARES
+PLC0328,Sayedpur,সৈয়দপুর,sayedpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0329,Science Lab,সায়েন্সল্যাব,science lab,,,pending,SRC_BRTA_METRO_FARES
+PLC0330,Shah Ali Mazar,শাহআলী মাজার,shah ali mazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0331,Shahbag,শাহবাগ,shahbag,,,pending,SRC_BRTA_METRO_FARES
+PLC0332,Shanir Akhra,শনির আখড়া,shanir akhra,,,pending,SRC_BRTA_METRO_FARES
+PLC0333,Shankar,শঙ্কর,shankar,,,pending,SRC_BRTA_METRO_FARES
+PLC0334,Shaora Bazar,শাওড়া বাজার,shaora bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0335,Shapla Chattar,শাপলা চত্বর,shapla chattar,,,pending,SRC_BRTA_METRO_FARES
+PLC0336,Sheora,শেওড়া,sheora,,,pending,SRC_BRTA_METRO_FARES
+PLC0337,Sheora Bazar,শেওড়া বাজার,sheora bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0338,Sheora Para,শেওড়া পাড়া,sheora para,,,pending,SRC_BRTA_METRO_FARES
+PLC0339,Sheorapara,শেওড়াপাড়া,sheorapara,,,pending,SRC_BRTA_METRO_FARES
+PLC0340,Shewrapara,শেওড়াপাড়া,shewrapara,,,pending,SRC_BRTA_METRO_FARES
+PLC0341,Shia Masjid,শিয়া মসজিদ,shia masjid,,,pending,SRC_BRTA_METRO_FARES
+PLC0342,Shialbari,শিয়ালবাড়ী,shialbari,,,pending,SRC_BRTA_METRO_FARES
+PLC0343,Shishumela,শিশুমেলা,shishumela,,,pending,SRC_BRTA_METRO_FARES
+PLC0344,Shukrabad,শুক্রাবাদ,shukrabad,,,pending,SRC_BRTA_METRO_FARES
+PLC0345,Shurganj,শুরগঞ্জ,shurganj,,,pending,SRC_BRTA_METRO_FARES
+PLC0346,Shyamoli,শ্যামলী,shyamoli,,,pending,SRC_BRTA_METRO_FARES
+PLC0347,Shyamoli Ring Road,শ্যামলী রিং রোড,shyamoli ring road,,,pending,SRC_BRTA_METRO_FARES
+PLC0348,Signboard,সাইনবোর্ড,signboard,,,pending,SRC_BRTA_METRO_FARES
+PLC0349,Sobhanbag,সোবহানবাগ,sobhanbag,,,pending,SRC_BRTA_METRO_FARES
+PLC0350,Sonargaon,সোনারগাঁও,sonargaon,,,pending,SRC_BRTA_METRO_FARES
+PLC0351,Sonargaon Mogra Para,সোনারগাঁও মোগড়া পাড়া,sonargaon mogra para,,,pending,SRC_BRTA_METRO_FARES
+PLC0352,Soni Cinema Hall,সনি সিনেমা হল,soni cinema hall,,,pending,SRC_BRTA_METRO_FARES
+PLC0353,Sreepur,শ্রীপুর,sreepur,,,pending,SRC_BRTA_METRO_FARES
+PLC0354,Stadium,স্টেডিয়াম,stadium,,,pending,SRC_BRTA_METRO_FARES
+PLC0355,Staff Quarter,স্টাফ কোয়ার্টার,staff quarter,,,pending,SRC_BRTA_METRO_FARES
+PLC0356,Staff Road,স্টাফরোড,staff road,,,pending,SRC_BRTA_METRO_FARES
+PLC0357,Sultana Kamal Bridge,সুলতানা কামাল ব্রীজ,sultana kamal bridge,,,pending,SRC_BRTA_METRO_FARES
+PLC0358,T&T,টিএন্ডটি,t t,,,pending,SRC_BRTA_METRO_FARES
+PLC0359,T&T Para,টিটিপাড়া,t t para,,,pending,SRC_BRTA_METRO_FARES
+PLC0360,Tankarpur,টঙ্করপুর,tankarpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0361,Tarabo Biswa Road,তারাবো বিশ্বরোড,tarabo biswa road,,,pending,SRC_BRTA_METRO_FARES
+PLC0362,Technical,টেকনিক্যাল,technical,,,pending,SRC_BRTA_METRO_FARES
+PLC0363,Tikarpur,টিকরপুর,tikarpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0364,Tikatapara,টিকটাপাড়া,tikatapara,,,pending,SRC_BRTA_METRO_FARES
+PLC0365,Tikatuli,টিকাটুলি,tikatuli,,,pending,SRC_BRTA_METRO_FARES
+PLC0366,Titumir College,তিতুমীর কলেজ,titumir college,,,pending,SRC_BRTA_METRO_FARES
+PLC0367,Tongi,টঙ্গী,tongi,,,pending,SRC_BRTA_METRO_FARES
+PLC0368,Tongi (Bastuhara),টঙ্গী (বাস্তহারা),tongi,,,pending,SRC_BRTA_METRO_FARES
+PLC0369,Tongi Bastuhara,টঙ্গী বাস্তহারা,tongi bastuhara,,,pending,SRC_BRTA_METRO_FARES
+PLC0370,Tongi Bazar,টঙ্গীবাজার,tongi bazar,,,pending,SRC_BRTA_METRO_FARES
+PLC0371,Town Hall,টাউন হল,town hall,,,pending,SRC_BRTA_METRO_FARES
+PLC0372,TV Center,টিভি সেন্টার,tv center,,,pending,SRC_BRTA_METRO_FARES
+PLC0373,UBL,ইউবিএল,ubl,,,pending,SRC_BRTA_METRO_FARES
+PLC0374,Urojahaj Junction,উড়োজাহাজ জংশন,urojahaj junction,,,pending,SRC_BRTA_METRO_FARES
+PLC0375,Utholi,উথলী,utholi,,,pending,SRC_BRTA_METRO_FARES
+PLC0376,Uttar Badda,উত্তর বাড্ডা,uttar badda,,,pending,SRC_BRTA_METRO_FARES
+PLC0377,Uttara,উত্তরা,uttara,,,pending,SRC_BRTA_METRO_FARES
+PLC0378,Uttara (Raniganj),উত্তরা (রানীগঞ্জ),uttara,,,pending,SRC_BRTA_METRO_FARES
+PLC0379,Uttara Diabari,উত্তরা দিয়াবাড়ী,uttara diabari,,,pending,SRC_BRTA_METRO_FARES
+PLC0380,Victoria Park,ভিক্টোরিয়া পার্ক,victoria park,,,pending,SRC_BRTA_METRO_FARES
+PLC0381,Washi (Belba Garden),ওয়াশী (বেলবা গার্ডেন),washi,,,pending,SRC_BRTA_METRO_FARES
+PLC0382,Washpur,ওয়াশপুর,washpur,,,pending,SRC_BRTA_METRO_FARES
+PLC0383,Work Shop,ওয়ার্ক সপ,work shop,,,pending,SRC_BRTA_METRO_FARES
+PLC0384,Zillur Rahman Flyover,জিল্লুর রহমান ফ্লাইওভার,zillur rahman flyover,,,pending,SRC_BRTA_METRO_FARES
+PLC0385,Zirab,জিরাব,zirab,,,pending,SRC_BRTA_METRO_FARES
+PLC0386,Zirani,জিরানী,zirani,,,pending,SRC_BRTA_METRO_FARES
+PLC0387,Zoo,চিড়িয়াখানা,zoo,,,pending,SRC_BRTA_METRO_FARES

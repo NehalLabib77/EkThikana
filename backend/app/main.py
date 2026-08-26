@@ -5,12 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.routers import account, ai, groups, health, materials, me, prescriptions, reports, study
+from app.routers import account, ai, commute, groups, health, materials, me, prescriptions, reports, study
 
-logger = logging.getLogger("ekthikana")
+logger = logging.getLogger("gochano")
 
 app = FastAPI(
-    title="EkThikana API",
+    title="Gochano API",
     version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -20,7 +20,7 @@ settings = get_settings()
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["*"],
+    allow_origins=origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,3 +50,4 @@ app.include_router(prescriptions.router, prefix="/api/prescriptions", tags=["Pre
 app.include_router(study.router, prefix="/api/study", tags=["Study"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Moderation"])
 app.include_router(account.router, prefix="/api", tags=["Account"])
+app.include_router(commute.router, prefix="/api/commute", tags=["CommuteBD"])

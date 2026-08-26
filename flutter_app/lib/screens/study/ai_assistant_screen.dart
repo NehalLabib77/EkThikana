@@ -59,7 +59,7 @@ class AiAssistantScreen extends StatelessWidget {
                         children: [
                           Text(EkLanguage.text('How can I help you study?', 'পড়াশোনায় কীভাবে সাহায্য করতে পারি?'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                           const SizedBox(height: 5),
-                          Text(EkLanguage.text('Choose a focused tool below. EkThikana does not generate MCQs or automatic quizzes.', 'নিচের নির্দিষ্ট টুল বেছে নিন। EkThikana MCQ বা স্বয়ংক্রিয় কুইজ তৈরি করে না।'), style: const TextStyle(color: EkColors.muted, fontSize: 12, height: 1.4)),
+                          Text(EkLanguage.text('Choose a focused tool below. Gochano does not generate MCQs or automatic quizzes.', 'নিচের নির্দিষ্ট টুল বেছে নিন। Gochano MCQ বা স্বয়ংক্রিয় কুইজ তৈরি করে না।'), style: const TextStyle(color: EkColors.muted, fontSize: 12, height: 1.4)),
                         ],
                       ),
                     ),

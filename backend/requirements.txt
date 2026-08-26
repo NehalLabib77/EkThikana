@@ -11,3 +11,6 @@ pillow>=11,<13
 pytesseract>=0.3.13,<1
 pdf2image>=1.17,<2
 pytest>=8,<9
+numpy>=2,<3
+scikit-learn>=1.5,<2
+joblib>=1.4,<2

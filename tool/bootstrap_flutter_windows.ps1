@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== EkThikana Flutter Android Bootstrap ===" -ForegroundColor Cyan
+Write-Host "=== Gochano Flutter Android Bootstrap ===" -ForegroundColor Cyan
 
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw "Flutter is not available in PATH. Install Flutter first and run 'flutter doctor'."
@@ -63,7 +63,7 @@ Set-Content $GradleFile $Gradle -Encoding UTF8
 $ManifestFile = Join-Path $AndroidTarget "app\src\main\AndroidManifest.xml"
 $Manifest = Get-Content $ManifestFile -Raw
 
-$Manifest = $Manifest -replace 'android:label="ekthikana"', 'android:label="EkThikana"'
+$Manifest = $Manifest -replace 'android:label="ekthikana"', 'android:label="Gochano"'
 
 if ($Manifest -notmatch 'android\.permission\.POST_NOTIFICATIONS') {
     $Permissions = @"
@@ -120,36 +120,7 @@ $DebugManifest = @"
 Set-Content (Join-Path $DebugManifestDir "AndroidManifest.xml") $DebugManifest -Encoding UTF8
 
 Write-Host "3/5 Removing temporary shell..." -ForegroundColor Yellow
-Write-Host "3/5 Removing temporary shell..."
-
-Set-Location $PSScriptRoot
-Start-Sleep -Seconds 2
-
-Get-Process dart,dartaotruntime -ErrorAction SilentlyContinue |
-    Stop-Process -Force -ErrorAction SilentlyContinue
-
-Start-Sleep -Seconds 2
-
-$deleted = $false
-
-for ($i = 1; $i -le 5; $i++) {
-    try {
-        if (Test-Path $Temp) {
-            Remove-Item $Temp -Recurse -Force -ErrorAction Stop
-        }
-
-        $deleted = $true
-        break
-    }
-    catch {
-        Write-Host "Temporary folder is locked. Retry $i/5..."
-        Start-Sleep -Seconds 2
-    }
-}
-
-if (-not $deleted) {
-    Write-Warning "Could not remove temporary shell now. Continuing bootstrap; it can be deleted later."
-}
+Remove-Item $Temp -Recurse -Force
 
 Write-Host "4/5 Getting Flutter packages..." -ForegroundColor Yellow
 Push-Location $FlutterApp

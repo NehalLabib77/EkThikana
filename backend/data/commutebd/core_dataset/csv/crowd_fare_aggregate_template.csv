@@ -1,0 +1,2 @@
+﻿origin_place_id,destination_place_id,transport_mode,bus_service_id,sample_count,median_fare_tk,p25_fare_tk,p75_fare_tk,min_fare_tk,max_fare_tk,last_reported_at,confidence_score,publishable
+,,,,,,,,,,,,

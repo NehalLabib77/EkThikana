@@ -1,0 +1,518 @@
+﻿entity_type,entity_id,name_en,name_bn,search_text,latitude,longitude,provider,confidence,status
+official_place,PLC0001,Abdullahpur,আব্দুল্লাহপুর,"Abdullahpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0002,Abdullahpur (Jail),আব্দুল্লাহপুর (জেলখানা),"Abdullahpur (Jail), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0003,Abul Hotel,আবুল হোটেল,"Abul Hotel, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0004,Agargaon,আগারগাঁও,"Agargaon, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0005,Airport,এয়ারপোর্ট,"Airport, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0006,Amin Bazar,আমিন বাজার,"Amin Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0007,Amulia Staff Quarter,আমুলিয়া স্টাফ কোয়ার্টার,"Amulia Staff Quarter, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0008,Ansar Camp,আনসারক্যাম্প,"Ansar Camp, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0009,Apla Bazar,আপলা বাজার,"Apla Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0010,Arambagh,আরামবাগ,"Arambagh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0011,Asad Avenue,আসাদ এভিনিউ,"Asad Avenue, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0012,Asad Gate,আসাদগেট,"Asad Gate, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0013,Ashika Morh,এশিকা মোড়,"Ashika Morh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0014,Ashulia,আশুলিয়া,"Ashulia, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0015,Ashulia (Fantasy Kingdom),আশুলিয়া (ফ্যান্টাসি কিংডম),"Ashulia (Fantasy Kingdom), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0016,Ati Bazar,আতি বাজার,"Ati Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0017,Azampur,আজমপুর,"Azampur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0018,Azimpur,আজিমপুর,"Azimpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0019,Azimpur (Dhakeswari),আজিমপুর (ঢাকেশ্বরী),"Azimpur (Dhakeswari), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0020,Babu Bazar,বাবু বাজার,"Babu Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0021,Babu Bazar Bridge,বাবু বাজার ব্রীজ,"Babu Bazar Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0022,Babubazar Bridge,বাবুবাজার ব্রীজ,"Babubazar Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0023,Badda,বাড্ডা,"Badda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0024,Badda Link Road,বাড্ডা লিংক রোড,"Badda Link Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0025,Badda Link Road/Madhy Badda,বাড্ডা লিংক রোড/মধ্য বাড্ডা,"Badda Link Road/Madhy Badda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0026,Bagher Bazar,বাঘের বাজার,"Bagher Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0027,Bagmara,বাগমারা,"Bagmara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0028,Baikali Hotel,বৈকালী হোটেল,"Baikali Hotel, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0029,Baipail,বাইপাইল,"Baipail, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0030,Bakshibazar,বকশিবাজার,"Bakshibazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0031,Balughat,বালুঘাট,"Balughat, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0032,Banani,বনানী,"Banani, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0033,Bandura,বান্দুরা,"Bandura, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0034,Bangabandhu Avenue,বঙ্গবন্ধু এভিনিউ,"Bangabandhu Avenue, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0035,Bangabandhu College,বঙ্গবন্ধু কলেজ,"Bangabandhu College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0036,Bangla College,বাংলা কলেজ,"Bangla College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0037,Bangla Motor,বাংলা মোটর,"Bangla Motor, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0038,Bangladesh Bank,বাংলাদেশ ব্যাংক,"Bangladesh Bank, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0039,Banglamotor,বাংলামটর,"Banglamotor, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0040,Bangonagar,বঙ্গনগর,"Bangonagar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0041,Baniajuri,বানিয়াজুরি,"Baniajuri, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0042,Barpa,বরপা,"Barpa, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0043,Baruakhali,বারুয়াখালী,"Baruakhali, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0044,Basabo,বাসাবো,"Basabo, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0045,Bashundhara,বসুন্ধরা,"Bashundhara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0046,Basila,বসিলা,"Basila, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0047,Basila Bridge,বসিলা ব্রীজ,"Basila Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0048,Basila CNG Stand,বসিলা সিএনজি স্ট্যান্ড,"Basila CNG Stand, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0049,Beraid,বেরাইদ,"Beraid, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0050,Beribadh,বেড়িবাঁধ,"Beribadh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0051,Bezgaon Chourasta,বেজগাঁও চৌরাস্তা,"Bezgaon Chourasta, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0052,Bhabantek,ভাবানটেক,"Bhabantek, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0053,Bhawal Vita (South Keraniganj),ভাওয়াল ভিটা (দক্ষিণ কেরানীগঞ্জ),"Bhawal Vita (South Keraniganj), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0054,Bhulta,ভুলতা,"Bhulta, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0055,Bhulta (Gausia),ভুলতা (গাউছিয়া),"Bhulta (Gausia), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0056,Bigatla,বিগাতলা,"Bigatla, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0057,Bijay Smarani,বিজয় স্মরণী,"Bijay Smarani, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0058,Bijoy Nagar,বিজয় নগর,"Bijoy Nagar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0059,Bijoy Smriti,বিজয় স্মরণী,"Bijoy Smriti, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0060,Bishwo Road,বিশ্বরোড,"Bishwo Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0061,Board Bazar,বোর্ড বাজার,"Board Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0062,Bomi,বমী,"Bomi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0063,Bonoshri,বনশ্রী,"Bonoshri, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0064,Bonsree,বনশ্রী,"Bonsree, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0065,Bonsree (Meradia),বনশ্রী (মেরাদিয়া),"Bonsree (Meradia), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0066,Borongail,বরংগাইল,"Borongail, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0067,BUET,বুয়েট,"BUET, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0068,Cantonment Signal Gate,ক্যান্টনমেন্ট সিগন্যাল গেট,"Cantonment Signal Gate, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0069,Chancharpul,চাঁনখারপুল,"Chancharpul, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0070,Chandra,চন্দ্রা,"Chandra, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0071,Chankharpul,চানখারপুল,"Chankharpul, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0072,Chasara Bus Stand,চাষাঢ়া বাসস্ট্যান্ড,"Chasara Bus Stand, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0073,Cherag Ali,চেরাগআলী,"Cherag Ali, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0074,Chourasta,চৌরাস্তা,"Chourasta, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0075,Chun Kutia,চুন কুটিয়া,"Chun Kutia, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0076,Chunkutia Bazar,চুনকুটিয়া বাজার,"Chunkutia Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0077,City College,সিটি কলেজ,"City College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0078,College Gate,কলেজগেট,"College Gate, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0079,Daily Bangla,দৈনিক বাংলা,"Daily Bangla, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0080,Darussalam,দারুসসালাম,"Darussalam, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0081,Dayaganj Road,দয়াগঞ্জ রোড,"Dayaganj Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0082,Demra,ডেমরা,"Demra, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0083,Demra Bridge,ডেমরা ব্রীজ,"Demra Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0084,Demra Staff Quarter,ডেমরা স্টাফ কোয়ার্টার,"Demra Staff Quarter, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0085,Dhaka City College,ঢাকা সিটি কলেজ,"Dhaka City College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0086,Dhaka College,ঢাকা কলেজ,"Dhaka College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0087,Dhakeshwari Etimkhana,ঢাকেশ্বরী এতিমখানা,"Dhakeshwari Etimkhana, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0088,Dhakeswari Mandir,ঢাকেশ্বরী মন্দির,"Dhakeswari Mandir, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0089,Dhaleswar,ধলেশ্বর,"Dhaleswar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0090,Dhamrai,ধামরাই,"Dhamrai, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0091,Dhanmondi,ধানমন্ডি,"Dhanmondi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0092,Dhanmondi-15,ধানমন্ডি-১৫,"Dhanmondi-15, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0093,Dhaur,ধউর,"Dhaur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0094,Dhaur Morh,ধউর মোড়,"Dhaur Morh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0095,Dhowr,ধওর,"Dhowr, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0096,Dhowr Bridge,ধওর ব্রীজ,"Dhowr Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0097,Dhupkhola,ধোপখোলা,"Dhupkhola, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0098,Diabari,দিয়াবাড়ী,"Diabari, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0099,Diabari (Beribadh),দিয়াবাড়ী (বেড়িবাঁধ),"Diabari (Beribadh), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0100,Diabari Chourasta,দিয়াবাড়ী চৌরাস্তা,"Diabari Chourasta, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0101,Diabari Morh,দিয়াবাড়ী মোড়,"Diabari Morh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0102,Duyaripara,দুয়ারীপাড়া,"Duyaripara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0103,Eastern Housing,ইস্টার্ন হাউজিং,"Eastern Housing, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0104,ECB Chattar,ইসিবি চত্বর,"ECB Chattar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0105,ECB Morh,ইসিবি মোড়,"ECB Morh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0106,Eden College,ইডেন কলেজ,"Eden College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0107,Ekuria,ইকুরিয়া,"Ekuria, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0108,EPZ,ইপিজেড,"EPZ, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0109,Fakirapool,ফকিরাপুল,"Fakirapool, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0110,Fantasy,ফ্যান্টাসী,"Fantasy, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0111,Fantasy Kingdom,ফ্যান্টাসী কিংডম,"Fantasy Kingdom, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0112,Farmgate,ফার্মগেট,"Farmgate, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0113,Fulbaria,ফুলবাড়িয়া,"Fulbaria, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0114,Gabtoli,গাবতলী,"Gabtoli, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0115,Gabtoli Bridge Par,গাবতলী ব্রীজ পাড়,"Gabtoli Bridge Par, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0116,Gausia/Chandnichok,গাউসিয়া/চাঁদনীচক,"Gausia/Chandnichok, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0117,Gazipur,গাজীপুর,"Gazipur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0118,Gazipur Crossroad,গাজীপুর চৌরাস্তা,"Gazipur Crossroad, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0119,Ghatarchar,ঘাটারচর,"Ghatarchar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0120,Ghatarchor,ঘাটেরচর,"Ghatarchor, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0121,Ghater Char,ঘাটের চর,"Ghater Char, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0122,Golapshah Mazar,গোলাপশাহ মাজার,"Golapshah Mazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0123,Golapshah Mazar (Fulbaria),গোলাপশাহ মাজার (ফুলবাড়ীয়া),"Golapshah Mazar (Fulbaria), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0124,GPO,জিপিও,"GPO, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0125,Gulistan,গুলিস্তান,"Gulistan, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0126,Gulistan (Fulbaria),গুলিস্তান (ফুলবাড়িয়া),"Gulistan (Fulbaria), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0127,Gulistan (Hanif Flyover),গুলিস্তান (হানিফ ফ্লাইওভার),"Gulistan (Hanif Flyover), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0128,Gulistan Morh,গুলিস্তান মোড়,"Gulistan Morh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0129,Gulshan-1,গুলশান-১,"Gulshan-1, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0130,Gulshan-2,গুলশান-২,"Gulshan-2, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0131,Hanif Flyover,হানিফ ফ্লাইওভার,"Hanif Flyover, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0132,Hemayetpur,হেমায়েতপুর,"Hemayetpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0133,High Court,হাইকোর্ট,"High Court, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0134,Hota Para,হোতা পাড়া,"Hota Para, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0135,House Building,হাউজ বিল্ডিং,"House Building, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0136,Intefak,ইন্তেফাক,"Intefak, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0137,Islampur,ইসলামপুর,"Islampur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0138,Jagannath University,জগন্নাথ বিশ্ববিদ্যালয়,"Jagannath University, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0139,Jamuna Future Park,যমুনা ফিউচার পার্ক,"Jamuna Future Park, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0140,Japan Garden City,জাপান গার্ডেন সিটি,"Japan Garden City, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0141,Jasim Uddin,জসীমউদ্দিন,"Jasim Uddin, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0142,Jasimuddin,জসমউদ্দিন,"Jasimuddin, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0143,Jatrabari,যাত্রাবাড়ী,"Jatrabari, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0144,Jigatola,জিগাতলা,"Jigatola, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0145,Jinjira,জিঞ্জিরা,"Jinjira, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0146,Jirabo,জিরাবো,"Jirabo, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0147,Jirani Bazar,জিরানী বাজার,"Jirani Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0148,Jonopoth,জনপথ,"Jonopoth, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0149,Jonopoth Mor,জনপথ মোড়,"Jonopoth Mor, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0150,Jurain,জুরাইন,"Jurain, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0151,Kadamtoli,কদমতলী,"Kadamtoli, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0152,Kajla,কাজলা,"Kajla, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0153,Kajli,কাজলি,"Kajli, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0154,Kakoli,কাকলি,"Kakoli, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0155,Kakrail,কাকরাইল,"Kakrail, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0156,Kalabagan,কলাবাগান,"Kalabagan, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0157,Kalampur,কালামপুর,"Kalampur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0158,Kalapani,কালাপানি,"Kalapani, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0159,Kalashi Mor,কালাশি মোড়,"Kalashi Mor, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0160,Kalshi,কালশী,"Kalshi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0161,Kalshi Morh,কালশিমোড়,"Kalshi Morh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0162,Kalshir Mor,কালশীর মোড়,"Kalshir Mor, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0163,Kalyanpur,কল্যাণপুর,"Kalyanpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0164,Kamalapur,কমলাপুর,"Kamalapur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0165,Kamalapur (Pirjangi Mazar),কমলাপুর (পীরজঙ্গী মাজার),"Kamalapur (Pirjangi Mazar), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0166,Kamalapur Station,কমলাপুর স্টেশন,"Kamalapur Station, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0167,Kamar Para,কামার পাড়া,"Kamar Para, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0168,Kamarpada,কামারপাড়া,"Kamarpada, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0169,Kamarpara,কামারপাড়া,"Kamarpara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0170,Kamrangirchar (Beribadh),কামারঙ্গীরচর (বেড়িবাঁধ),"Kamrangirchar (Beribadh), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0171,Kanchpur,কাঁচপুর,"Kanchpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0172,Kanchpur Bridge,কাঁচপুরব্রীজ,"Kanchpur Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0173,Kapasia,কাপাসিয়া,"Kapasia, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0174,Karwan Bazar,কারওয়ান বাজার,"Karwan Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0175,Kasempur,কাশেমপুর,"Kasempur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0176,Kashi,কাশী,"Kashi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0177,Katabon,কাটাবন,"Katabon, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0178,Kawran Bazar,কাওরানবাজার,"Kawran Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0179,Kazipara,কাজীপাড়া,"Kazipara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0180,Kazlail,কাজলাইল,"Kazlail, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0181,Keraniganj,কেরানীগঞ্জ,"Keraniganj, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0182,Keraniganj (New Jail),কেরানীগঞ্জ (নতুন জেলখানা),"Keraniganj (New Jail), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0183,Khaisakhali Beribadh,খাইস্যাখালী বেড়িবাঁধ,"Khaisakhali Beribadh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0184,Khamarbari,খামারবাড়ী,"Khamarbari, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0185,Khamrai,খামরাই,"Khamrai, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0186,Khanmondol,খানমন্ডল,"Khanmondol, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0187,Kharshur,খারশুর,"Kharshur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0188,Khasiakhali Beribadh,খাসিয়াখালী বেড়িবাঁধ,"Khasiakhali Beribadh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0189,Khilgaon Flyover,খিলগাঁও ফ্লাইওভার,"Khilgaon Flyover, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0190,Khilgaon Khidma Hospital,খিলগাঁও খিদমা হাসপাতাল,"Khilgaon Khidma Hospital, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0191,Khilgaon Rail Gate,খিলগাঁও রেলগেট,"Khilgaon Rail Gate, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0192,Khilgaon Taltala,খিলগাঁও তালতলা,"Khilgaon Taltala, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0193,Khilkhet,খিলক্ষেত,"Khilkhet, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0194,Kochukhet,কচুক্ষেত,"Kochukhet, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0195,Kochukshet,কচুক্ষেত,"Kochukshet, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0196,Komorgonj,কোমরগঞ্জ,"Komorgonj, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0197,Konabari,কোনাবাড়ী,"Konabari, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0198,Konakhola,কোনাখোলা,"Konakhola, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0199,Konapara,কোনাপাড়া,"Konapara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0200,Koshailya Bazar,কোশাইল্যা বাজার,"Koshailya Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0201,Kumitola General Hospital,কুমিটোলা জেনারেল হাসপাতাল,"Kumitola General Hospital, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0202,Kuril,কুড়িল,"Kuril, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0203,Kuril Bishwa Road,কুড়িল বিশ্বরোড,"Kuril Bishwa Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0204,Kuril Biswa Road,কুড়িল বিশ্বরোড,"Kuril Biswa Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0205,Kuril Flyover,কুড়িল ফ্লাইওভার,"Kuril Flyover, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0206,Kurmitola General Hospital,কুর্মিটোলা জেনারেল হাসপাতাল,"Kurmitola General Hospital, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0207,Link Road,লিংক রোড,"Link Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0208,Madanganj,মদনগঞ্জ,"Madanganj, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0209,Madanpur,মদনপুর,"Madanpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0210,Magbazar,মগবাজার,"Magbazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0211,Majhir Kanda,মাঝির কান্দা,"Majhir Kanda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0212,Malibagh,মালিবাগ,"Malibagh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0213,Malibagh Choudhurypara,মালিবাগ চৌধুরীপাড়া,"Malibagh Choudhurypara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0214,Manda Crossroad,মান্ডা চৌরাস্তা,"Manda Crossroad, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0215,Manik Mia,মানিক মিয়া,"Manik Mia, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0216,Manik Mia Avenue,মানিক মিয়া এভিনিউ,"Manik Mia Avenue, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0217,Manikdi (ECB Mor),মানিকদি (ইসিবি মোড়),"Manikdi (ECB Mor), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0218,Manikganj,মানিকগঞ্জ,"Manikganj, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0219,Manikmia Avenue,মানিকমিয়া এভিনিউ,"Manikmia Avenue, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0220,Maniknagar,মানিকনগর,"Maniknagar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0221,Mast Plaza,মাস্ট প্লাজা,"Mast Plaza, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0222,Matsya Bhaban,মৎসভবন,"Matsya Bhaban, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0223,Mawa Ferryghat,মাওয়া ফেরীঘাট,"Mawa Ferryghat, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0224,Mawa Ghat,মাওয়াঘাট,"Mawa Ghat, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0225,Mayor Mohammad Hanif Flyover,মেয়র মোহাম্মদ হানিফ ফ্লাইওভার,"Mayor Mohammad Hanif Flyover, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0226,Mazar Road,মাজার রোড,"Mazar Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0227,Md. Zillur Rahman Flyover,মোঃ জিল্লুর রহমান ফ্লাইওভার,"Md. Zillur Rahman Flyover, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0228,Meghna Ghat,মেঘনা ঘাট,"Meghna Ghat, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0229,Meghnaghat,মেঘনাঘাট,"Meghnaghat, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0230,Meradia (New Road),মেরাদিয়া (নতুন রাস্তা),"Meradia (New Road), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0231,Meradia Bazar,মেরাদিয়া বাজার,"Meradia Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0232,Middle Badda,মধ্য বাড্ডা,"Middle Badda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0233,Mirpur (Zoo),মিরপুর (চিড়িয়াখানা),"Mirpur (Zoo), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0234,Mirpur DOHS,মিরপুর ডিওএইচ এস,"Mirpur DOHS, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0235,Mirpur Mazar Road,মিরপুর মাজার রোড,"Mirpur Mazar Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0236,Mirpur Rupnagar,মিরপুর রূপনগর,"Mirpur Rupnagar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0237,Mirpur Sade 11,মিরপুর সাড়ে ১১,"Mirpur Sade 11, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0238,Mirpur Thana,মিরপুর থানা,"Mirpur Thana, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0239,Mirpur-1,মিরপুর-১,"Mirpur-1, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0240,Mirpur-10,মিরপুর-১০,"Mirpur-10, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0241,Mirpur-11,মিরপুর-১১,"Mirpur-11, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0242,Mirpur-11 1/2,মিরপুর-১১ ১/২,"Mirpur-11 1/2, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0243,Mirpur-12,মিরপুর-১২,"Mirpur-12, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0244,Mirpur-14,মিরপুর-১৪,"Mirpur-14, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0245,Mirpur-2,মিরপুর-২,"Mirpur-2, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0246,Mirpur-6,মিরপুর-৬,"Mirpur-6, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0247,Mirpur(1),মিরপুর(১),"Mirpur(1), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0248,Mirpur(10),মিরপুর(১০),"Mirpur(10), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0249,Mirpur(14),মিরপুর(১৪),"Mirpur(14), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0250,Mohakhali,মহাখালী,"Mohakhali, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0251,Mohakhali Amtali,মহাখালী আমতলী,"Mohakhali Amtali, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0252,Mohakhali Amtoli,মহাখালী আমতলী,"Mohakhali Amtoli, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0253,Mohammadpur,মোঃপুর,"Mohammadpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0254,Mohammadpur (Asad Avenue),মোহাম্মদপুর (আসাদ এভিনিউ),"Mohammadpur (Asad Avenue), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0255,Mohammadpur (Basila Road),মোহাম্মদপুর (বসিলা রোড),"Mohammadpur (Basila Road), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0256,Mohammadpur (Japan Garden City),মোহাম্মদপুর (জাপান গার্ডেন সিটি),"Mohammadpur (Japan Garden City), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0257,Mohammadpur Bus Stand,মোহাম্মদপুর বাস স্ট্যান্ড,"Mohammadpur Bus Stand, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0258,Mohammadpur Shia Mosque,মোহাম্মদপুর শিয়া মসজিদ,"Mohammadpur Shia Mosque, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0259,Mohammadpur Town Hall,মোহাম্মদপুর টাউন হল,"Mohammadpur Town Hall, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0260,Motijheel,মতিঝিল,"Motijheel, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0261,Motijheel (Hirjheel),মতিঝিল (হীরঝিল),"Motijheel (Hirjheel), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0262,Motijheel (Notre Dame College),মতিঝিল (নটরডেম কলেজ),"Motijheel (Notre Dame College), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0263,Motijheel (Shapla Chattar),মতিঝিল (শাপলা চত্বর),"Motijheel (Shapla Chattar), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0264,Mouchak,মৌচাক,"Mouchak, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0265,Mouchak (Flyover),মৌচাক (ফ্লাইওভার),"Mouchak (Flyover), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0266,Mugda,মুগদা,"Mugda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0267,Nabinagar,নবীনগর,"Nabinagar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0268,Nabisco,নাবিস্কো,"Nabisco, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0269,Nandan Park,নন্দনপার্ক,"Nandan Park, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0270,Narayanganj,নারায়ণগঞ্জ,"Narayanganj, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0271,Narayanganj Chasara,নারায়ণগঞ্জ চাষাঢ়া,"Narayanganj Chasara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0272,Narayanganj Link Road,নারাংগঞ্জ লিংক রোড,"Narayanganj Link Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0273,Narsinghpur,নরসিংহপুর,"Narsinghpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0274,Natun Bazar,নতুন বাজার,"Natun Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0275,Nawabganj,নবাবগঞ্জ,"Nawabganj, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0276,Nayabazar,নয়াবাজার,"Nayabazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0277,Nayabazar (No. 2 Buriganga Bridge),নয়াবাজার (২নং বুড়িগঙ্গা সেতু),"Nayabazar (No. 2 Buriganga Bridge), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0278,New Airport,নিউ এয়ারপোর্ট,"New Airport, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0279,New Market,নিউমার্কেট,"New Market, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0280,Nilkhet,নীলক্ষেত,"Nilkhet, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0281,Nobinagar (Savar),নবীনগর (সাভার),"Nobinagar (Savar), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0282,Norda,নর্দা,"Norda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0283,Notre Dame College,নটরড্যাম কলেজ,"Notre Dame College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0284,Notun Bazar,নতুন বাজার,"Notun Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0285,Original Das,অরিজিনাল দশ,"Original Das, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0286,Original-10,অরিজিনাল-১০,"Original-10, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0287,Pagla Bazar,পাগলাবাজার,"Pagla Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0288,Palashi,পলাশী,"Palashi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0289,Pallabi (Ceramic),পল্লবী (সিরামিক),"Pallabi (Ceramic), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0290,Pallabi (Mirpur-12),পল্লবী (মিরপুর-১২),"Pallabi (Mirpur-12), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0291,Paltan,পল্টন,"Paltan, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0292,Palton,পল্টন,"Palton, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0293,Paturia,পাটুরিয়া,"Paturia, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0294,Pirjangi Mazar,পীরজঙ্গী মাজার,"Pirjangi Mazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0295,Postgola,পোস্তগোলা,"Postgola, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0296,Postgola Bridge,পোস্তগোলা ব্রীজ,"Postgola Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0297,Prashika,প্রশিকা,"Prashika, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0298,Press Club,প্রেসক্লাব,"Press Club, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0299,Priyangan Gate,প্রিয়ঙ্গন গেট,"Priyangan Gate, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0300,Progati Sarani,প্রগতি সরণী,"Progati Sarani, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0301,Purabi,পূরবী,"Purabi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0302,Purbi,পুরবী,"Purbi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0303,Rainbow,রেইনবো,"Rainbow, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0304,Rajabari,রাজাবাড়ী,"Rajabari, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0305,Rajarbagh,রাজারবাগ,"Rajarbagh, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0306,Rajendrapur,রাজেন্দ্রপুর,"Rajendrapur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0307,Rajendrapur Bazar,রাজেন্দ্রপুর বাজার,"Rajendrapur Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0308,Rajendrapur Crossroad,রাজেন্দ্রপুর চৌরাস্তা,"Rajendrapur Crossroad, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0309,Rajlaxmi,রাজলক্ষ্মী,"Rajlaxmi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0310,Rajmoni,রাজমনি,"Rajmoni, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0311,Ramer Kanda,রামের কান্দা,"Ramer Kanda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0312,Rampura,রামপুরা,"Rampura, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0313,Rampura (Bonsree),রামপুরা (বনশ্রী),"Rampura (Bonsree), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0314,Rampura Bridge,রামপুরা ব্রীজ,"Rampura Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0315,Rampura TV Center,রামপুরা টিভি সেন্টার,"Rampura TV Center, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0316,Rayerbag,রায়েরবাগ,"Rayerbag, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0317,Raysaheb Bazar,রায়সাহেব বাজার,"Raysaheb Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0318,Ruhitpur,রুহিতপুর,"Ruhitpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0319,Rupshi,রূপসী,"Rupshi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0320,Russell Square,রাসেল স্কয়ার,"Russell Square, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0321,Sadarghat,সদরঘাট,"Sadarghat, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0322,Sadarghat Victoria Park,সদরঘাট ভিক্টোরিয়া পার্ক,"Sadarghat Victoria Park, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0323,Safipur,সফিপুর,"Safipur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0324,Sainik Club,সৈনিক ক্লাব,"Sainik Club, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0325,Satrasta,সাতরাস্তা,"Satrasta, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0326,Savar,সাভার,"Savar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0327,Sayedabad,সায়দাবাদ,"Sayedabad, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0328,Sayedpur,সৈয়দপুর,"Sayedpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0329,Science Lab,সায়েন্সল্যাব,"Science Lab, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0330,Shah Ali Mazar,শাহআলী মাজার,"Shah Ali Mazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0331,Shahbag,শাহবাগ,"Shahbag, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0332,Shanir Akhra,শনির আখড়া,"Shanir Akhra, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0333,Shankar,শঙ্কর,"Shankar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0334,Shaora Bazar,শাওড়া বাজার,"Shaora Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0335,Shapla Chattar,শাপলা চত্বর,"Shapla Chattar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0336,Sheora,শেওড়া,"Sheora, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0337,Sheora Bazar,শেওড়া বাজার,"Sheora Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0338,Sheora Para,শেওড়া পাড়া,"Sheora Para, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0339,Sheorapara,শেওড়াপাড়া,"Sheorapara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0340,Shewrapara,শেওড়াপাড়া,"Shewrapara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0341,Shia Masjid,শিয়া মসজিদ,"Shia Masjid, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0342,Shialbari,শিয়ালবাড়ী,"Shialbari, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0343,Shishumela,শিশুমেলা,"Shishumela, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0344,Shukrabad,শুক্রাবাদ,"Shukrabad, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0345,Shurganj,শুরগঞ্জ,"Shurganj, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0346,Shyamoli,শ্যামলী,"Shyamoli, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0347,Shyamoli Ring Road,শ্যামলী রিং রোড,"Shyamoli Ring Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0348,Signboard,সাইনবোর্ড,"Signboard, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0349,Sobhanbag,সোবহানবাগ,"Sobhanbag, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0350,Sonargaon,সোনারগাঁও,"Sonargaon, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0351,Sonargaon Mogra Para,সোনারগাঁও মোগড়া পাড়া,"Sonargaon Mogra Para, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0352,Soni Cinema Hall,সনি সিনেমা হল,"Soni Cinema Hall, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0353,Sreepur,শ্রীপুর,"Sreepur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0354,Stadium,স্টেডিয়াম,"Stadium, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0355,Staff Quarter,স্টাফ কোয়ার্টার,"Staff Quarter, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0356,Staff Road,স্টাফরোড,"Staff Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0357,Sultana Kamal Bridge,সুলতানা কামাল ব্রীজ,"Sultana Kamal Bridge, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0358,T&T,টিএন্ডটি,"T&T, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0359,T&T Para,টিটিপাড়া,"T&T Para, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0360,Tankarpur,টঙ্করপুর,"Tankarpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0361,Tarabo Biswa Road,তারাবো বিশ্বরোড,"Tarabo Biswa Road, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0362,Technical,টেকনিক্যাল,"Technical, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0363,Tikarpur,টিকরপুর,"Tikarpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0364,Tikatapara,টিকটাপাড়া,"Tikatapara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0365,Tikatuli,টিকাটুলি,"Tikatuli, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0366,Titumir College,তিতুমীর কলেজ,"Titumir College, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0367,Tongi,টঙ্গী,"Tongi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0368,Tongi (Bastuhara),টঙ্গী (বাস্তহারা),"Tongi (Bastuhara), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0369,Tongi Bastuhara,টঙ্গী বাস্তহারা,"Tongi Bastuhara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0370,Tongi Bazar,টঙ্গীবাজার,"Tongi Bazar, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0371,Town Hall,টাউন হল,"Town Hall, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0372,TV Center,টিভি সেন্টার,"TV Center, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0373,UBL,ইউবিএল,"UBL, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0374,Urojahaj Junction,উড়োজাহাজ জংশন,"Urojahaj Junction, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0375,Utholi,উথলী,"Utholi, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0376,Uttar Badda,উত্তর বাড্ডা,"Uttar Badda, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0377,Uttara,উত্তরা,"Uttara, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0378,Uttara (Raniganj),উত্তরা (রানীগঞ্জ),"Uttara (Raniganj), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0379,Uttara Diabari,উত্তরা দিয়াবাড়ী,"Uttara Diabari, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0380,Victoria Park,ভিক্টোরিয়া পার্ক,"Victoria Park, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0381,Washi (Belba Garden),ওয়াশী (বেলবা গার্ডেন),"Washi (Belba Garden), Dhaka, Bangladesh",,,,,pending
+official_place,PLC0382,Washpur,ওয়াশপুর,"Washpur, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0383,Work Shop,ওয়ার্ক সপ,"Work Shop, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0384,Zillur Rahman Flyover,জিল্লুর রহমান ফ্লাইওভার,"Zillur Rahman Flyover, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0385,Zirab,জিরাব,"Zirab, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0386,Zirani,জিরানী,"Zirani, Dhaka, Bangladesh",,,,,pending
+official_place,PLC0387,Zoo,চিড়িয়াখানা,"Zoo, Dhaka, Bangladesh",,,,,pending
+community_unmatched_stop,RAW_300_FEET,300 Feet,,"300 Feet, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ABDULLA,Abdulla,,"Abdulla, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ADABOR,Adabor,,"Adabor, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ADABOR_SHYAMOLI,Adabor Shyamoli,,"Adabor Shyamoli, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ADAMJEE_COLLEGE,Adamjee College,,"Adamjee College, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ADAMJEE_SCHOOL,Adamjee School,,"Adamjee School, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_AIRPORT_JASHIMUDDIN_UTTARA,Airport Jashimuddin (Uttara),,"Airport Jashimuddin (Uttara), Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ARAMBAGH_KINGDOM,Arambagh Kingdom,,"Arambagh Kingdom, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ARAMBAGH_NOTRE_DAME_COLLEGE,Arambagh Notre Dame College,,"Arambagh Notre Dame College, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ASHULIA_BAZAR,Ashulia Bazar,,"Ashulia Bazar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BAITUL_MUKARRAM,Baitul Mukarram,,"Baitul Mukarram, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BANASREE,Banasree,,"Banasree, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BANGLA_MOTOR_SHAHBAG,Bangla Motor Shahbag,,"Bangla Motor Shahbag, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BAROMI,Baromi,,"Baromi, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BASHTOLA,Bashtola,,"Bashtola, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BASHTOLA,Bashtola -,,"Bashtola -, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BATA_SIGNAL,Bata Signal,,"Bata Signal, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BERIBADH_TIN_RASTAR_MOOR,Beribadh Tin Rastar Moor,,"Beribadh Tin Rastar Moor, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BIRULIA,Birulia,,"Birulia, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_BOT_TOLA,Bot tola,,"Bot tola, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_CMH,CMH,,"CMH, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_CANTONMENT,Cantonment,,"Cantonment, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_CHAIRMAN_BARI,Chairman Bari,,"Chairman Bari, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_CHASHARA,Chashara,,"Chashara, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_CHIRIYAKHANA,Chiriyakhana,,"Chiriyakhana, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_CHITTAGONG_ROAD,Chittagong Road,,"Chittagong Road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DAINIK_BANGLA_MOOR,Dainik Bangla Moor,,"Dainik Bangla Moor, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DAYAGANJ,Dayaganj,,"Dayaganj, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DHAKESHWARI,Dhakeshwari,,"Dhakeshwari, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DHANMONDI_27,Dhanmondi 27,,"Dhanmondi 27, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DHANMONDI_32,Dhanmondi 32,,"Dhanmondi 32, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DHANMONDI_32_KALABAGAN,Dhanmondi 32 Kalabagan,,"Dhanmondi 32 Kalabagan, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DHOLAIRPAR,Dholairpar,,"Dholairpar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_DHOUR,Dhour,,"Dhour, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ECB_SQUARE,ECB Square,,"ECB Square, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_FAKIRAPUL,Fakirapul,,"Fakirapul, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_FARMGATE_BIJOY_SARANI,Farmgate Bijoy Sarani,,"Farmgate Bijoy Sarani, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_GANDARIA,Gandaria,,"Gandaria, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_GARRISON_CANTONMENT,Garrison (Cantonment),,"Garrison (Cantonment), Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_GAZIPUR_BYPASS,Gazipur Bypass,,"Gazipur Bypass, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_GAZIPUR_CHOURASTA,Gazipur Chourasta,,"Gazipur Chourasta, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_GOLAPBAG_CHOURASTA,Golapbag Chourasta,,"Golapbag Chourasta, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_GULSHAN_LINK_ROAD,Gulshan Link Road,,"Gulshan Link Road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_HASNABAD,Hasnabad,,"Hasnabad, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_HAZARIBAG,Hazaribag,,"Hazaribag, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_IDB,IDB,,"IDB, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ITTEFAQ_MOOR,Ittefaq Moor,,"Ittefaq Moor, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ITTEFAQ_MOOR_SAYEDABAD,Ittefaq Moor Sayedabad,,"Ittefaq Moor Sayedabad, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_JAHANGIR_GATE,Jahangir Gate,,"Jahangir Gate, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_JAKIR_HOSSEN_ROAD,Jakir Hossen Road,,"Jakir Hossen Road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_JALKURI,Jalkuri,,"Jalkuri, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_JAMGORA,Jamgora,,"Jamgora, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_JANAPATH_MOOR,Janapath Moor,,"Janapath Moor, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_JARUN,Jarun,,"Jarun, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_JOYDEBPUR,Joydebpur,,"Joydebpur, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KAKALI,Kakali,,"Kakali, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KALABAGAN_CITY_COLLEGE,Kalabagan City College,,"Kalabagan City College, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KALSHI_PALLABI,Kalshi Pallabi,,"Kalshi Pallabi, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KANCHAN_BRIDGE,Kanchan Bridge,,"Kanchan Bridge, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KASHIMPUR,Kashimpur,,"Kashimpur, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KAZIPARA_SHEWRAPARA,Kazipara Shewrapara,,"Kazipara Shewrapara, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KAZLA,Kazla,,"Kazla, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KHAMAR_BARI_FARMGATE,Khamar Bari Farmgate,,"Khamar Bari Farmgate, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KHILGAON,Khilgaon,,"Khilgaon, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KUCHIMURA,Kuchimura,,"Kuchimura, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KURIL_CHOURASTA,Kuril Chourasta,,"Kuril Chourasta, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MES,MES,,"MES, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MADHYA_BADDA,Madhya Badda,,"Madhya Badda, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MALIBAGH_RAILGATE,Malibagh Railgate,,"Malibagh Railgate, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MAOWA,Maowa,,"Maowa, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MATUAIL,Matuail,,"Matuail, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MERUL,Merul,,"Merul, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_METRO_HALL,Metro Hall,,"Metro Hall, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MILL_GATE,Mill Gate,,"Mill Gate, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MIRPUR_2_MIRPUR_10,Mirpur 2 Mirpur 10,,"Mirpur 2 Mirpur 10, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MIRPUR_SONY_CINEMA_HALL,Mirpur Sony Cinema Hall,,"Mirpur Sony Cinema Hall, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MITFORD_GHAT,Mitford Ghat,,"Mitford Ghat, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MOGBAZAR_MOHAKHALI,Mogbazar Mohakhali,,"Mogbazar Mohakhali, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MOTSHO_BHABAN,Motsho Bhaban,,"Motsho Bhaban, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_MUGDAPARA,Mugdapara,,"Mugdapara, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_NADDA,Nadda,,"Nadda, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_NEW_MARKET_NILKHET,New Market Nilkhet,,"New Market Nilkhet, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_NILA_MARKET,Nila Market,,"Nila Market, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_NIMTOLA,Nimtola,,"Nimtola, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_NOBINAGAR_BAIPAYL,Nobinagar Baipayl,,"Nobinagar Baipayl, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_NOBINAGAR_CHANDRA,Nobinagar Chandra,,"Nobinagar Chandra, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_OLD_AIRPORT,Old Airport,,"Old Airport, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_PALLI_BIDYUT,Palli Bidyut,,"Palli Bidyut, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_PANTHAPATH,Panthapath,,"Panthapath, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_PANTHOPOTH,Panthopoth,,"Panthopoth, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_POLICE_PLAZA,Police Plaza,,"Police Plaza, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_PRESS_CLUB_PALTAN,Press Club  Paltan,,"Press Club  Paltan, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_PUROBI_PALLABI,Purobi Pallabi,,"Purobi Pallabi, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RAJLAKSHMI,Rajlakshmi,,"Rajlakshmi, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RAJLAKSHMI_HOUSE_BUILDING,Rajlakshmi House Building,,"Rajlakshmi House Building, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RAMPURA_BAZAR,Rampura Bazar,,"Rampura Bazar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RAYER_BAZAR,Rayer Bazar,,"Rayer Bazar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RING_ROAD,Ring Road,,"Ring Road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RING_ROAD,Ring road,,"Ring road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RUPNAGAR,Rupnagar,,"Rupnagar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_RUPNAGAR_ABASHIK,Rupnagar Abashik,,"Rupnagar Abashik, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SALIMULLAH_ROAD,Salimullah Road,,"Salimullah Road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SANARPAR,Sanarpar,,"Sanarpar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SAUDI_COLONY,Saudi Colony,,"Saudi Colony, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SAVAR_CANTONMENT,Savar Cantonment,,"Savar Cantonment, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHAHJADPUR,Shahjadpur,,"Shahjadpur, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHANTINAGAR,Shantinagar,,"Shantinagar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHEWRA,Shewra,,"Shewra, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHIA_MOSQUE,Shia Mosque,,"Shia Mosque, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHIB_BARI,Shib Bari,,"Shib Bari, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHIBU_MARKET,Shibu Market,,"Shibu Market, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHIMULTOLA,Shimultola,,"Shimultola, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHONBARI_SREENAGAR,Shonbari Sreenagar,,"Shonbari Sreenagar, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SHOWARI_GHAT,Showari Ghat,,"Showari Ghat, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SIGNAL,Signal,,"Signal, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SIKDER_MEDICAL_COLLEGE,Sikder Medical College,,"Sikder Medical College, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SONY_CINEMA_HALL_MIRPUR_1,Sony Cinema Hall Mirpur 1,,"Sony Cinema Hall Mirpur 1, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SOUTH_BANASREE,South Banasree,,"South Banasree, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_STAR_KABAB,Star Kabab,,"Star Kabab, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_STATION_ROAD,Station Road,,"Station Road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_SURA_BARI,Sura Bari,,"Sura Bari, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_TAJMAHAL_ROAD,Tajmahal Road,,"Tajmahal Road, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_TALTOLA,Taltola,,"Taltola, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_TARABO,Tarabo,,"Tarabo, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_TOLARBAG,Tolarbag,,"Tolarbag, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_VASHANTEK,Vashantek,,"Vashantek, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_VULTA,Vulta,,"Vulta, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_WIRELESS,Wireless,,"Wireless, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_ZIA_UDDYAN,Zia Uddyan,,"Zia Uddyan, Dhaka, Bangladesh",,,,,pending_manual_review
+community_unmatched_stop,RAW_KAKALI,kakali,,"kakali, Dhaka, Bangladesh",,,,,pending_manual_review

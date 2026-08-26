@@ -1,0 +1,90 @@
+{
+  "version": "2.0",
+  "strategy": "hybrid_rule_lookup_crowd_ml",
+  "authoritative_modes": {
+    "bus": {
+      "method": "official_stop_pair_lookup_or_rule",
+      "primary_files": [
+        "brta_fare_segments.csv",
+        "brta_route_stops.csv",
+        "fare_rules.csv"
+      ],
+      "ml_allowed": false
+    },
+    "metro": {
+      "method": "official_station_pair_lookup",
+      "primary_files": [
+        "metro_fares.csv",
+        "metro_stations.csv"
+      ],
+      "ml_allowed": false
+    }
+  },
+  "estimated_modes": {
+    "rickshaw": {
+      "method_order": [
+        "verified_crowd_quantiles",
+        "quantile_ml",
+        "distance_baseline_fallback"
+      ],
+      "baseline_file": "rickshaw_auto_estimated_fares.csv"
+    },
+    "cng_autorickshaw": {
+      "method_order": [
+        "legal_meter_rule",
+        "verified_market_crowd_quantiles",
+        "quantile_ml"
+      ],
+      "show_legal_and_market_separately": true
+    }
+  },
+  "ml_release_gate": {
+    "minimum_total_verified_reports": 500,
+    "minimum_verified_reports_per_mode": 150,
+    "minimum_recent_reports_per_origin_destination_group_for_direct_crowd_range": 8,
+    "recommended_high_confidence_reports_per_group": 20
+  },
+  "training_filter": {
+    "moderation_status": "approved",
+    "fare_paid_tk_min_exclusive": 0,
+    "require_coordinates_or_canonical_places": true,
+    "prefer_device_location_verified": true
+  },
+  "recommended_model": {
+    "family": "scikit-learn GradientBoostingRegressor",
+    "purpose": "quantile regression",
+    "models": [
+      {
+        "name": "fare_q25",
+        "loss": "quantile",
+        "alpha": 0.25
+      },
+      {
+        "name": "fare_median",
+        "loss": "quantile",
+        "alpha": 0.5
+      },
+      {
+        "name": "fare_q75",
+        "loss": "quantile",
+        "alpha": 0.75
+      }
+    ],
+    "reason": "Lightweight for Render and directly produces a fare range."
+  },
+  "evaluation": {
+    "split": "time_based_holdout",
+    "metrics": [
+      "MAE",
+      "RMSE",
+      "MedianAbsoluteError",
+      "R2"
+    ],
+    "primary_metric": "MAE",
+    "never_train_on": [
+      "brta_fare_segments",
+      "metro_fares",
+      "synthetic_distance_baseline_only"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+﻿station_id,line_id,station_order,name_en,name_bn,operational_status,live_routing_enabled,latitude,longitude,geocode_status,source_id
+MRT6_01,MRT6,1,Uttara North,উত্তরা উত্তর,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_02,MRT6,2,Uttara Center,উত্তরা সেন্টার,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_03,MRT6,3,Uttara South,উত্তরা দক্ষিণ,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_04,MRT6,4,Pallabi,পল্লবী,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_05,MRT6,5,Mirpur 11,মিরপুর-১১,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_06,MRT6,6,Mirpur 10,মিরপুর-১০,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_07,MRT6,7,Kazipara,কাজীপাড়া,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_08,MRT6,8,Shewrapara,শেওড়াপাড়া,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_09,MRT6,9,Agargaon,আগারগাঁও,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_10,MRT6,10,Bijoy Sarani,বিজয় সরণি,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_11,MRT6,11,Farmgate,ফার্মগেট,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_12,MRT6,12,Karwan Bazar,কারওয়ান বাজার,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_13,MRT6,13,Shahbag,শাহবাগ,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_14,MRT6,14,Dhaka University,ঢাকা বিশ্ববিদ্যালয়,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_15,MRT6,15,Bangladesh Secretariat,বাংলাদেশ সচিবালয়,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_16,MRT6,16,Motijheel,মতিঝিল,in_service,yes,,,pending,SRC_DMTCL_STATIONS
+MRT6_17,MRT6,17,Kamalapur,কমলাপুর,extension_not_in_live_service,no,,,pending,SRC_DMTCL_STATIONS

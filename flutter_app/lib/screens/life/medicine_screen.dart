@@ -1,123 +1,374 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import '../../services/financial_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import 'medicine_form_screen.dart';
+import 'medicine_history_screen.dart';
 import 'medicine_ocr_screen.dart';
 
-class MedicineScreen extends StatelessWidget {
+class MedicineScreen extends StatefulWidget {
   const MedicineScreen({super.key});
 
-  Future<void> _manualAdd(BuildContext context) async {
-    final name = TextEditingController();
-    final dose = TextEditingController();
-    final instruction = TextEditingController();
-    final times = <String>[];
+  @override
+  State<MedicineScreen> createState() => _MedicineScreenState();
+}
 
-    final save = await showDialog<bool>(
+class _MedicineScreenState extends State<MedicineScreen> {
+  String todayKey() => FinancialService.dateKey(DateTime.now());
+
+  List<_DoseRow> rows(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> medicines,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> doseDocs,
+  ) {
+    final byId = {for (final d in doseDocs) d.id: d.data()};
+    final now = DateTime.now();
+    final result = <_DoseRow>[];
+
+    for (final med in medicines) {
+      final data = med.data();
+      if (data['active'] != true || data['paused'] == true) continue;
+
+      final start = data['startDate'] is Timestamp
+          ? (data['startDate'] as Timestamp).toDate()
+          : DateTime(2000);
+      final end = data['endDate'] is Timestamp
+          ? (data['endDate'] as Timestamp).toDate()
+          : null;
+      final today = DateTime(now.year, now.month, now.day);
+      if (today.isBefore(DateTime(start.year, start.month, start.day))) continue;
+      if (end != null &&
+          today.isAfter(DateTime(end.year, end.month, end.day))) {
+        continue;
+      }
+
+      final times = ((data['times'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .where((e) => e.isNotEmpty)
+          .toList()
+        ..sort();
+
+      for (final hhmm in times) {
+        final id = FinancialService.doseId(med.id, now, hhmm);
+        final recorded = byId[id];
+        String status = recorded?['status']?.toString() ?? 'pending';
+
+        if (status == 'pending') {
+          final parts = hhmm.split(':');
+          final hour = int.tryParse(parts.first) ?? 0;
+          final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+          final scheduled = DateTime(now.year, now.month, now.day, hour, minute);
+          if (scheduled.isBefore(now.subtract(const Duration(minutes: 60)))) {
+            status = 'missed';
+          }
+        }
+        result.add(_DoseRow(med.id, data, hhmm, status, recorded));
+      }
+    }
+    result.sort((a, b) => a.time.compareTo(b.time));
+    return result;
+  }
+
+  Future<void> persistMissedDoses(List<_DoseRow> schedule) async {
+    for (final row in schedule) {
+      if (row.status != 'missed' || row.record != null) continue;
+      try {
+        await FinancialService.recordMedicineDose(
+          medicineId: row.medicineId,
+          medicineName: row.medicine['name']?.toString() ?? '',
+          scheduledTime: row.time,
+          date: DateTime.now(),
+          status: 'missed',
+          unitPriceSnapshot:
+              (row.medicine['unitPrice'] as num?)?.toDouble() ?? 0,
+          unit: row.medicine['unit']?.toString() ?? 'tablet',
+        );
+      } catch (_) {
+        // The deterministic dose ID makes retries safe. A transient write
+        // failure should not block the Medicine screen.
+      }
+    }
+  }
+
+  Future<void> markTaken(_DoseRow row) async {
+    final scheduledQty =
+        (row.medicine['quantityPerDose'] as num?)?.toDouble() ?? 1;
+    final quantity = TextEditingController(text: _formatQty(scheduledQty));
+    final note = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: Text(EkLanguage.text('Dose Confirmation', 'ডোজ নিশ্চিত করুন')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              row.medicine['name']?.toString() ?? '',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            Text(
+              '${EkLanguage.text('Scheduled', 'নির্ধারিত')}: $scheduledQty ${row.medicine['unit'] ?? 'tablet'}',
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: quantity,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: EkLanguage.text(
+                  'How much did you actually take?',
+                  'বাস্তবে কতটুকু নিয়েছেন?',
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: note,
+              decoration: InputDecoration(
+                labelText: EkLanguage.text('Note (optional)', 'নোট (ঐচ্ছিক)'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: Text(EkLanguage.text('Cancel', 'বাতিল')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: Text(EkLanguage.text('Confirm Taken', 'খেয়েছি নিশ্চিত করুন')),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      try {
+        final actual = double.tryParse(quantity.text.trim()) ?? 0;
+        await FinancialService.recordMedicineDose(
+          medicineId: row.medicineId,
+          medicineName: row.medicine['name']?.toString() ?? '',
+          scheduledTime: row.time,
+          date: DateTime.now(),
+          status: 'taken',
+          actualQuantityTaken: actual,
+          unitPriceSnapshot:
+              (row.medicine['unitPrice'] as num?)?.toDouble() ?? 0,
+          unit: row.medicine['unit']?.toString() ?? 'tablet',
+          note: note.text.trim(),
+        );
+      } catch (e) {
+        if (mounted) showError(context, e);
+      }
+    }
+    quantity.dispose();
+    note.dispose();
+  }
+
+  Future<void> markSkipped(_DoseRow row) async {
+    final ok = await confirmAction(
+      context,
+      title: EkLanguage.text('Skip this dose?', 'এই ডোজ স্কিপ করবেন?'),
+      message: EkLanguage.text(
+        'Skipped doses create no medicine expense.',
+        'স্কিপ করা ডোজে কোনো ওষুধ খরচ যোগ হবে না।',
+      ),
+      action: EkLanguage.text('Skip', 'স্কিপ'),
+    );
+    if (!ok) return;
+    try {
+      await FinancialService.recordMedicineDose(
+        medicineId: row.medicineId,
+        medicineName: row.medicine['name']?.toString() ?? '',
+        scheduledTime: row.time,
+        date: DateTime.now(),
+        status: 'skipped',
+        unitPriceSnapshot:
+            (row.medicine['unitPrice'] as num?)?.toDouble() ?? 0,
+        unit: row.medicine['unit']?.toString() ?? 'tablet',
+      );
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  Future<void> openMedicineMenu(
+    QueryDocumentSnapshot<Map<String, dynamic>> medicine,
+  ) async {
+    final data = medicine.data();
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => Wrap(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: Text(EkLanguage.text('Edit Medicine', 'ওষুধ সম্পাদনা')),
+            onTap: () => Navigator.pop(context, 'edit'),
+          ),
+          ListTile(
+            leading: Icon(
+              data['paused'] == true
+                  ? Icons.play_circle_outline
+                  : Icons.pause_circle_outline,
+            ),
+            title: Text(
+              data['paused'] == true
+                  ? EkLanguage.text('Resume Reminders', 'রিমাইন্ডার চালু করুন')
+                  : EkLanguage.text('Pause Reminders', 'রিমাইন্ডার বিরতি দিন'),
+            ),
+            onTap: () => Navigator.pop(context, 'pause'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: Text(EkLanguage.text('View History', 'ইতিহাস দেখুন')),
+            onTap: () => Navigator.pop(context, 'history'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.stop_circle_outlined, color: Colors.red),
+            title: Text(
+              EkLanguage.text('Stop Medicine', 'ওষুধ বন্ধ করুন'),
+              style: const TextStyle(color: Colors.red),
+            ),
+            onTap: () => Navigator.pop(context, 'stop'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || action == null) return;
+    if (action == 'edit') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MedicineFormScreen(
+            medicineId: medicine.id,
+            initialData: data,
+          ),
+        ),
+      );
+    } else if (action == 'history') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MedicineHistoryScreen(
+            medicineId: medicine.id,
+            medicine: data,
+          ),
+        ),
+      );
+    } else if (action == 'pause') {
+      final paused = data['paused'] != true;
+      final times = ((data['times'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
+      await medicine.reference.update({
+        'paused': paused,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (paused) {
+        await NotificationService.cancelMedicineTimes(medicine.id, times);
+      } else {
+        for (final time in times) {
+          await NotificationService.scheduleDailyMedicine(
+            medicineId: medicine.id,
+            medicineName: data['name']?.toString() ?? '',
+            hhmm: time,
+            instruction: data['instruction']?.toString() ?? '',
+            quantityPerDose:
+                (data['quantityPerDose'] as num?)?.toDouble() ?? 1,
+            unitPrice: (data['unitPrice'] as num?)?.toDouble() ?? 0,
+            unit: data['unit']?.toString() ?? 'tablet',
+          );
+        }
+      }
+    } else if (action == 'stop') {
+      await stopMedicine(medicine);
+    }
+  }
+
+  Future<void> stopMedicine(
+    QueryDocumentSnapshot<Map<String, dynamic>> medicine,
+  ) async {
+    var reason = 'Course completed';
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
       context: context,
       builder: (d) => StatefulBuilder(
         builder: (context, setLocal) => AlertDialog(
-          title: Text(EkLanguage.text('Add medicine', 'ওষুধ যোগ করুন')),
+          title: Text(EkLanguage.text('Stop Medicine', 'ওষুধ বন্ধ করুন')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: name, decoration: InputDecoration(labelText: EkLanguage.text('Medicine name', 'ওষুধের নাম'))),
-                const SizedBox(height: 10),
-                TextField(controller: dose, decoration: InputDecoration(labelText: EkLanguage.text('Dose as prescribed', 'প্রেসক্রিপশনের ডোজ'))),
-                const SizedBox(height: 10),
+                for (final option in [
+                  'Course completed',
+                  'Doctor advised me to stop',
+                  'No longer taking',
+                  'Side effect / concern',
+                  'Other',
+                ])
+                  RadioListTile<String>(
+                    value: option,
+                    groupValue: reason,
+                    title: Text(option),
+                    onChanged: (v) => setLocal(() => reason = v ?? reason),
+                  ),
                 TextField(
-                  controller: instruction,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: InputDecoration(labelText: EkLanguage.text('Instruction', 'নির্দেশনা')),
+                  controller: note,
+                  decoration: InputDecoration(
+                    labelText: EkLanguage.text('Additional note (optional)', 'অতিরিক্ত নোট (ঐচ্ছিক)'),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(EkLanguage.text('Reminder times', 'রিমাইন্ডারের সময়'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 7,
-                  children: [
-                    for (final time in times)
-                      InputChip(label: Text(time), onDeleted: () => setLocal(() => times.remove(time))),
-                    ActionChip(
-                      avatar: const Icon(Icons.add_alarm, size: 18),
-                      label: Text(EkLanguage.text('Add time', 'সময় যোগ করুন')),
-                      onPressed: () async {
-                        final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
-                        if (picked == null) return;
-                        final value = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-                        if (!times.contains(value)) setLocal(() => times.add(value));
-                      },
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  EkLanguage.text(
+                    'Gochano does not recommend stopping prescribed medicine. Follow professional medical advice.',
+                    'Gochano প্রেসক্রাইব করা ওষুধ বন্ধ করার পরামর্শ দেয় না। পেশাদার চিকিৎসা পরামর্শ অনুসরণ করুন।',
+                  ),
+                  style: const TextStyle(fontSize: 11, color: EkColors.muted),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(d, false), child: Text(EkLanguage.text('Cancel', 'বাতিল'))),
-            FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(EkLanguage.text('Save', 'সংরক্ষণ'))),
+            TextButton(
+              onPressed: () => Navigator.pop(d, false),
+              child: Text(EkLanguage.text('Cancel', 'বাতিল')),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(d, true),
+              child: Text(EkLanguage.text('Stop Medicine', 'ওষুধ বন্ধ করুন')),
+            ),
           ],
         ),
       ),
     );
 
-    try {
-      if (save == true) {
-        if (name.text.trim().isEmpty || times.isEmpty) {
-          throw Exception(EkLanguage.text('Medicine name and at least one confirmed reminder time are required.', 'ওষুধের নাম ও অন্তত একটি নিশ্চিত সময় প্রয়োজন।'));
-        }
-        final sorted = [...times]..sort();
-        final ref = await FirestoreService.addOwnerRecord('medicines', {
-          'name': name.text.trim(),
-          'dose': dose.text.trim(),
-          'instruction': instruction.text.trim(),
-          'times': sorted,
-          'schedule': sorted.join(', '),
-          'confirmedByUser': true,
-          'ocrConfirmed': false,
-          'active': true,
-        });
-        for (final time in sorted) {
-          await NotificationService.scheduleDailyMedicine(
-            medicineId: ref.id,
-            medicineName: name.text.trim(),
-            hhmm: time,
-            instruction: [dose.text.trim(), instruction.text.trim()].where((e) => e.isNotEmpty).join(' • '),
-          );
-        }
-        if (context.mounted) showSuccess(context, EkLanguage.text('Medicine reminder saved.', 'ওষুধের রিমাইন্ডার সংরক্ষিত হয়েছে।'));
-      }
-    } catch (e) {
-      if (context.mounted) showError(context, e);
-    } finally {
-      name.dispose();
-      dose.dispose();
-      instruction.dispose();
+    if (ok == true) {
+      final data = medicine.data();
+      final times = ((data['times'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
+      await medicine.reference.update({
+        'active': false,
+        'paused': false,
+        'stoppedAt': FieldValue.serverTimestamp(),
+        'stopReason': reason,
+        'stopNote': note.text.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      await NotificationService.cancelMedicineTimes(medicine.id, times);
     }
-  }
-
-  List<_ScheduleItem> _items(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    final result = <_ScheduleItem>[];
-    for (final doc in docs) {
-      final data = doc.data();
-      final times = ((data['times'] as List?)?.map((e) => e.toString()).toList() ??
-          data['schedule']?.toString().split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList() ??
-          const <String>[]);
-      for (final time in times) {
-        result.add(_ScheduleItem(doc.id, data, time));
-      }
-    }
-    result.sort((a, b) => a.time.compareTo(b.time));
-    return result;
+    note.dispose();
   }
 
   @override
@@ -127,116 +378,149 @@ class MedicineScreen extends StatelessWidget {
       builder: (context, _, __) => Scaffold(
         appBar: AppBar(
           title: Text(EkLanguage.text('Medicine', 'ওষুধ')),
-          actions: const [Padding(padding: EdgeInsets.only(right: 12), child: LanguageToggle())],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _manualAdd(context),
-          child: const Icon(Icons.add),
+          actions: const [
+            Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: LanguageToggle(),
+            ),
+          ],
         ),
         body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirestoreService.ownerStream('medicines'),
-          builder: (context, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-            final docs = snap.data!.docs;
-            final items = _items(docs);
-            final now = TimeOfDay.now();
-            final nowKey = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-            _ScheduleItem? next;
-            for (final item in items) {
-              if (item.time.compareTo(nowKey) >= 0) {
-                next = item;
-                break;
-              }
-            }
-            next ??= items.isEmpty ? null : items.first;
+          stream: FirestoreService.ownerStream('medicines', limit: 200),
+          builder: (context, medSnap) {
+            if (!medSnap.hasData) return const Center(child: CircularProgressIndicator());
+            final medicines = medSnap.data!.docs;
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirestoreService.ownerStream('medicine_doses', limit: 500),
+              builder: (context, doseSnap) {
+                if (!doseSnap.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final doseDocs = doseSnap.data!.docs
+                    .where((d) => d.data()['scheduledDate'] == todayKey())
+                    .toList();
+                final schedule = rows(medicines, doseDocs);
+                if (schedule.any((r) => r.status == 'missed' && r.record == null)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    persistMissedDoses(schedule);
+                  });
+                }
+                final taken = doseDocs.where((d) => d.data()['status'] == 'taken').length;
+                final skipped = doseDocs.where((d) => d.data()['status'] == 'skipped').length;
+                final cost = doseDocs.fold<double>(
+                  0,
+                  (sum, d) => sum + ((d.data()['cost'] as num?)?.toDouble() ?? 0),
+                );
 
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-              children: [
-                Card(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MedicineOcrScreen())),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 54,
-                            height: 54,
-                            decoration: BoxDecoration(color: const Color(0xFFE9FBF7), borderRadius: BorderRadius.circular(16)),
-                            child: const Icon(Icons.document_scanner_outlined, color: EkColors.teal, size: 29),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(EkLanguage.text('Upload Prescription', 'প্রেসক্রিপশন আপলোড করুন'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                                const SizedBox(height: 3),
-                                Text(EkLanguage.text('Take a photo or choose a file for OCR', 'OCR-এর জন্য ছবি তুলুন বা ফাইল নির্বাচন করুন'), style: const TextStyle(color: EkColors.muted, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios, size: 16, color: EkColors.muted),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SectionHeader(
-                  title: Text(EkLanguage.text("Today's Schedule", 'আজকের সময়সূচী')),
-                  subtitle: Text(EkLanguage.text('Only user-confirmed times are shown', 'শুধু আপনার নিশ্চিত করা সময় দেখানো হচ্ছে')),
-                ),
-                const SizedBox(height: 10),
-                if (items.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(child: Text(EkLanguage.text('No medicine records yet.', 'এখনও কোনো ওষুধের রেকর্ড নেই।'))),
-                    ),
-                  )
-                else
-                  Card(
-                    child: Column(
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                  children: [
+                    _entryMethods(),
+                    const SizedBox(height: 18),
+                    _summary(taken, skipped, schedule.where((e) => e.status == 'missed').length, cost),
+                    const SizedBox(height: 18),
+                    Row(
                       children: [
-                        for (var i = 0; i < items.length; i++) ...[
-                          _scheduleRow(context, items[i]),
-                          if (i != items.length - 1) const Divider(height: 1, indent: 78),
-                        ],
-                      ],
-                    ),
-                  ),
-                if (next != null) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEAFBF1),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFD1F1DC)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.notifications_active_outlined, color: EkColors.green),
-                        const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(EkLanguage.text('Next Medicine', 'পরবর্তী ওষুধ'), style: const TextStyle(color: EkColors.green, fontWeight: FontWeight.w700, fontSize: 12)),
-                              const SizedBox(height: 4),
-                              Text(next.data['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
-                              Text('${next.data['dose'] ?? ''}${(next.data['dose']?.toString() ?? '').isEmpty ? '' : ' • '}${next.time}', style: const TextStyle(color: EkColors.muted, fontSize: 12)),
-                            ],
+                          child: Text(
+                            EkLanguage.text("Today's Schedule", 'আজকের সময়সূচী'),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                           ),
+                        ),
+                        TextButton(
+                          onPressed: medicines.isEmpty
+                              ? null
+                              : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => MedicineHistoryScreen(
+                                        medicineId: '',
+                                        medicine: const {},
+                                      ),
+                                    ),
+                                  ),
+                          child: Text(EkLanguage.text('Full history', 'সম্পূর্ণ ইতিহাস')),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ],
+                    const SizedBox(height: 8),
+                    if (schedule.isEmpty)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            children: [
+                              const Text('💊', style: TextStyle(fontSize: 48)),
+                              const SizedBox(height: 8),
+                              Text(
+                                EkLanguage.text(
+                                  'No active medicine schedule today.',
+                                  'আজ কোনো সক্রিয় ওষুধের সময়সূচী নেই।',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Card(
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < schedule.length; i++) ...[
+                              _doseTile(schedule[i]),
+                              if (i != schedule.length - 1) const Divider(height: 1, indent: 72),
+                            ],
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 18),
+                    Text(
+                      EkLanguage.text('My Medicines', 'আমার ওষুধ'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 8),
+                    if (medicines.isEmpty)
+                      Text(
+                        EkLanguage.text(
+                          'Add medicine manually or scan a prescription.',
+                          'ম্যানুয়ালি ওষুধ যোগ করুন অথবা প্রেসক্রিপশন স্ক্যান করুন।',
+                        ),
+                      )
+                    else
+                      for (final med in medicines)
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F8F3),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Text('💊', style: TextStyle(fontSize: 25)),
+                            ),
+                            title: Text(
+                              med.data()['name']?.toString() ?? '',
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            subtitle: Text(
+                              [
+                                med.data()['instruction']?.toString() ?? '',
+                                '${_formatQty((med.data()['quantityPerDose'] as num?)?.toDouble() ?? 1)} ${med.data()['unit'] ?? 'tablet'}',
+                                med.data()['active'] == true
+                                    ? (med.data()['paused'] == true ? 'Paused' : 'Active')
+                                    : 'Stopped',
+                              ].where((e) => e.isNotEmpty).join(' • '),
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => openMedicineMenu(med),
+                          ),
+                        ),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -244,45 +528,181 @@ class MedicineScreen extends StatelessWidget {
     );
   }
 
-  Widget _scheduleRow(BuildContext context, _ScheduleItem item) {
-    final data = item.data;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(width: 58, child: Text(item.time, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-          Container(width: 8, height: 8, decoration: const BoxDecoration(color: EkColors.green, shape: BoxShape.circle)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text([data['name']?.toString() ?? '', data['dose']?.toString() ?? ''].where((e) => e.isNotEmpty).join(' '), style: const TextStyle(fontWeight: FontWeight.w700)),
-                if ((data['instruction']?.toString() ?? '').isNotEmpty)
-                  Text(data['instruction'].toString(), style: const TextStyle(color: EkColors.muted, fontSize: 11)),
-              ],
+  Widget _entryMethods() {
+    return Row(
+      children: [
+        Expanded(
+          child: _entryCard(
+            icon: Icons.add,
+            title: EkLanguage.text('Add Manually', 'ম্যানুয়ালি যোগ'),
+            subtitle: EkLanguage.text('Add medicine yourself', 'নিজে ওষুধ যোগ করুন'),
+            color: const Color(0xFFEAF3FF),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MedicineFormScreen()),
             ),
           ),
-          IconButton(
-            tooltip: EkLanguage.text('Delete', 'মুছুন'),
-            icon: const Icon(Icons.more_vert, size: 20),
-            onPressed: () async {
-              final ok = await confirmAction(context, title: EkLanguage.text('Delete medicine?', 'ওষুধ মুছবেন?'), message: EkLanguage.text('This will also cancel its confirmed reminder times.', 'এটি নিশ্চিত রিমাইন্ডারের সময়গুলোও বাতিল করবে।'), action: EkLanguage.text('Delete', 'মুছুন'));
-              if (!ok) return;
-              final times = ((data['times'] as List?) ?? const []).map((e) => e.toString());
-              await NotificationService.cancelMedicineTimes(item.id, times);
-              await FirestoreService.db.collection('medicines').doc(item.id).delete();
-            },
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _entryCard(
+            icon: Icons.document_scanner_outlined,
+            title: EkLanguage.text('Scan Prescription', 'প্রেসক্রিপশন স্ক্যান'),
+            subtitle: EkLanguage.text('OCR suggestions', 'OCR পরামর্শ'),
+            color: const Color(0xFFF1ECFF),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MedicineOcrScreen()),
+            ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _entryCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 116,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(18)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: EkColors.purple),
+            const Spacer(),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(subtitle, style: const TextStyle(fontSize: 11, color: EkColors.muted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summary(int taken, int skipped, int missed, double cost) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2EFE7)),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _miniStat(EkLanguage.text('Taken', 'খেয়েছি'), taken.toString(), const Color(0xFF1F9A50))),
+          Expanded(child: _miniStat(EkLanguage.text('Skipped', 'স্কিপ'), skipped.toString(), const Color(0xFFE19B22))),
+          Expanded(child: _miniStat(EkLanguage.text('Missed', 'মিসড'), missed.toString(), const Color(0xFFD84A4A))),
+          Expanded(child: _miniStat(EkLanguage.text('Cost', 'খরচ'), '৳${cost.toStringAsFixed(0)}', EkColors.purple)),
         ],
       ),
     );
   }
+
+  Widget _miniStat(String label, String value, Color color) => Column(
+        children: [
+          Text(label, style: const TextStyle(fontSize: 10, color: EkColors.muted)),
+          const SizedBox(height: 3),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color)),
+        ],
+      );
+
+  Widget _doseTile(_DoseRow row) {
+    Color color;
+    switch (row.status) {
+      case 'taken':
+        color = const Color(0xFF1F9A50);
+        break;
+      case 'skipped':
+        color = const Color(0xFFE19B22);
+        break;
+      case 'missed':
+        color = const Color(0xFFD84A4A);
+        break;
+      default:
+        color = EkColors.muted;
+    }
+
+    return ListTile(
+      leading: SizedBox(
+        width: 52,
+        child: Text(
+          _displayTime(row.time),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        ),
+      ),
+      title: Text(
+        row.medicine['name']?.toString() ?? '',
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        [
+          row.medicine['instruction']?.toString() ?? '',
+          '${_formatQty((row.medicine['quantityPerDose'] as num?)?.toDouble() ?? 1)} ${row.medicine['unit'] ?? 'tablet'}',
+        ].where((e) => e.isNotEmpty).join(' • '),
+      ),
+      trailing: row.status == 'pending' || row.status == 'missed'
+          ? Wrap(
+              spacing: 4,
+              children: [
+                TextButton(
+                  onPressed: () => markSkipped(row),
+                  child: Text(EkLanguage.text('Skip', 'স্কিপ')),
+                ),
+                FilledButton(
+                  onPressed: () => markTaken(row),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(72, 38),
+                    backgroundColor: const Color(0xFF1F9A50),
+                  ),
+                  child: Text(EkLanguage.text('Taken', 'খেয়েছি')),
+                ),
+              ],
+            )
+          : Chip(
+              label: Text(
+                row.status.toUpperCase(),
+                style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 10),
+              ),
+              backgroundColor: color.withValues(alpha: .08),
+              side: BorderSide(color: color.withValues(alpha: .2)),
+            ),
+    );
+  }
+
+  String _displayTime(String hhmm) {
+    try {
+      final p = hhmm.split(':');
+      final dt = DateTime(2020, 1, 1, int.parse(p[0]), int.parse(p[1]));
+      return DateFormat('h:mm a').format(dt);
+    } catch (_) {
+      return hhmm;
+    }
+  }
+
+  static String _formatQty(double value) =>
+      value == value.roundToDouble() ? value.toInt().toString() : value.toStringAsFixed(2);
 }
 
-class _ScheduleItem {
-  _ScheduleItem(this.id, this.data, this.time);
-  final String id;
-  final Map<String, dynamic> data;
+class _DoseRow {
+  const _DoseRow(
+    this.medicineId,
+    this.medicine,
+    this.time,
+    this.status,
+    this.record,
+  );
+
+  final String medicineId;
+  final Map<String, dynamic> medicine;
   final String time;
+  final String status;
+  final Map<String, dynamic>? record;
 }

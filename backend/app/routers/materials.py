@@ -29,7 +29,7 @@ def _check_storage_quota(uid: str, new_size: int):
     if current + new_size > limit:
         raise HTTPException(
             status_code=413,
-            detail=f"Your EkThikana file quota is {settings.user_storage_limit_mb} MB",
+            detail=f"Your Gochano file quota is {settings.user_storage_limit_mb} MB",
         )
 
 

@@ -1,0 +1,21 @@
+{
+  "example_response": {
+    "mode": "rickshaw",
+    "fare_type": "estimated_market_range",
+    "currency": "BDT",
+    "predicted_median_tk": 90,
+    "predicted_low_tk": 75,
+    "predicted_high_tk": 110,
+    "confidence": "medium",
+    "sample_count_nearby": 14,
+    "source": "verified_crowd_plus_ml",
+    "disclaimer": "Estimated fare; actual negotiated fare may vary."
+  },
+  "confidence_rules": {
+    "official": "authoritative",
+    "crowd_3_to_7": "low",
+    "crowd_8_to_19": "medium",
+    "crowd_20_plus_recent_consistent": "high",
+    "ml_without_local_support": "low_or_medium_only"
+  }
+}

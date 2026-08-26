@@ -141,7 +141,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   }
 
   Future<void> downloadSharedNote() async {
-    final safeName = title.text.trim().isEmpty ? 'EkThikana_note' : title.text.trim();
+    final safeName = title.text.trim().isEmpty ? 'Gochano_note' : title.text.trim();
     await FilePicker.saveFile(
       fileName: '$safeName.txt',
       bytes: Uint8List.fromList(utf8.encode(content.text)),

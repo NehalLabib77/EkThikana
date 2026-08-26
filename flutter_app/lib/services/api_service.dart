@@ -38,7 +38,7 @@ class ApiService {
       return await action();
     } on TimeoutException {
       throw ApiException(
-        'EkThikana server is taking longer than expected. Render may be waking up; wait a moment and try again.',
+        'Gochano server is taking longer than expected. Render may be waking up; wait a moment and try again.',
       );
     } on SocketException catch (e) {
       throw ApiException(_connectionMessage(e.message));
@@ -54,7 +54,7 @@ class ApiService {
       return 'Cannot reach the backend at $base. On a physical phone, 127.0.0.1 points to the phone itself. '
           'Use your Render HTTPS URL, your PC Wi-Fi IP, or run "adb reverse tcp:8000 tcp:8000". ($details)';
     }
-    return 'Cannot reach the EkThikana backend at $base. Check internet/Render status and try again. ($details)';
+    return 'Cannot reach the Gochano backend at $base. Check internet/Render status and try again. ($details)';
   }
 
   static Future<String> _token() async {
@@ -97,7 +97,7 @@ class ApiService {
         detail = 'API error ${response.statusCode}';
       }
       if (response.statusCode >= 500 && detail.toLowerCase() == 'internal server error') {
-        detail = 'The EkThikana backend returned an internal error. Open Render → Logs to see the server traceback.';
+        detail = 'The Gochano backend returned an internal error. Open Render → Logs to see the server traceback.';
       }
       throw ApiException(detail, statusCode: response.statusCode);
     }
@@ -230,6 +230,83 @@ class ApiService {
 
   static Future<Map<String, dynamic>> exportAccount() async =>
       _decode(await _get('/api/account/export'));
+
+
+  static Future<Map<String, dynamic>> commuteSearch(String query) async {
+    return _guard(() async {
+      final response = await http.get(
+        _uri('/api/commute/search', {'q': query}),
+        headers: await _headers(),
+      ).timeout(const Duration(seconds: 45));
+      return _decode(response);
+    });
+  }
+
+  static Future<Map<String, dynamic>> commuteRoute({
+    required String originName,
+    required double originLat,
+    required double originLon,
+    required String destinationName,
+    required double destinationLat,
+    required double destinationLon,
+  }) async {
+    return _guard(() async {
+      final response = await http.post(
+        _uri('/api/commute/route'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'origin_name': originName,
+          'origin_lat': originLat,
+          'origin_lon': originLon,
+          'destination_name': destinationName,
+          'destination_lat': destinationLat,
+          'destination_lon': destinationLon,
+        }),
+      ).timeout(const Duration(seconds: 90));
+      return _decode(response);
+    });
+  }
+
+  static Future<Map<String, dynamic>> reportCommuteFare({
+    required String originText,
+    required String destinationText,
+    required String mode,
+    required double farePaid,
+    double? originLat,
+    double? originLon,
+    double? destinationLat,
+    double? destinationLon,
+    int? tripMinutes,
+    double? routeDistanceKm,
+    String trafficLevel = 'unknown',
+    String paymentType = 'cash',
+    String? routeId,
+    bool locationVerified = false,
+  }) async {
+    return _guard(() async {
+      final response = await http.post(
+        _uri('/api/commute/fare-report'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'origin_text': originText,
+          'destination_text': destinationText,
+          'origin_lat': originLat,
+          'origin_lon': originLon,
+          'destination_lat': destinationLat,
+          'destination_lon': destinationLon,
+          'transport_mode': mode,
+          'fare_paid_tk': farePaid,
+          'trip_minutes': tripMinutes,
+          'route_distance_km': routeDistanceKm,
+          'traffic_level': trafficLevel,
+          'payment_type': paymentType,
+          'route_id_if_known': routeId,
+          'device_location_verified': locationVerified,
+        }),
+      ).timeout(const Duration(seconds: 90));
+      return _decode(response);
+    });
+  }
 
   static Future<Uint8List> downloadBytes(String url) async {
     final response = await _guard(() async => http.get(Uri.parse(url)).timeout(const Duration(seconds: 150)));

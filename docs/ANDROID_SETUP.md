@@ -1,6 +1,6 @@
 # Android setup
 
-Flutter targets Android for EkThikana. This doc covers the pieces the Flutter `flutter create` skeleton does not set up for you.
+Flutter targets Android for Gochano. This doc covers the pieces the Flutter `flutter create` skeleton does not set up for you.
 
 ## 1. SDK packages
 
@@ -114,5 +114,5 @@ Wipe data and restart the emulator, then `flutter run` again.
 
 If a notification is delayed, check:
 
-1. Battery optimisation is disabled for the app (Settings → Apps → EkThikana → Battery → Unrestricted).
+1. Battery optimisation is disabled for the app (Settings → Apps → Gochano → Battery → Unrestricted).
 2. The exact alarm permission is granted (Android 12+ shows this prompt when scheduling a one-shot).

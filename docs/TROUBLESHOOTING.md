@@ -1,4 +1,4 @@
-# EkThikana troubleshooting
+# Gochano troubleshooting
 
 Quick recipes for the issues you're most likely to hit during local dev, Render deploy, or Play Console review.
 

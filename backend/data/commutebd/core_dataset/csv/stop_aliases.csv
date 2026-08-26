@@ -1,0 +1,302 @@
+﻿raw_stop_name,normalized_stop_name,canonical_place_id,canonical_name_en,match_score,match_method,needs_manual_review,source_id
+- Ray Saheb Bazar,ray saheb bazar,PLC0317,Raysaheb Bazar,0.9655,fuzzy_high,no,SRC_BUS_GITHUB
+300 Feet,300 feet,,,0.3636,unmatched,yes,SRC_BUS_GITHUB
+Abdulla,abdulla,,,0.7778,unmatched,yes,SRC_BUS_GITHUB
+Abdullahpur,abdullahpur,PLC0002,Abdullahpur (Jail),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Adabor,adabor,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Adabor Shyamoli,adabor shyamoli,,,0.6957,unmatched,yes,SRC_BUS_GITHUB
+Adamjee College,adamjee college,,,0.7407,unmatched,yes,SRC_BUS_GITHUB
+Adamjee School,adamjee school,,,0.5217,unmatched,yes,SRC_BUS_GITHUB
+Agargaon,agargaon,PLC0004,Agargaon,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Airport,airport,PLC0005,Airport,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Airport Jashimuddin (Uttara),airport jashimuddin,,,0.6897,unmatched,yes,SRC_BUS_GITHUB
+Amin Bazar,amin bazar,PLC0006,Amin Bazar,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Ansar Camp,ansar camp,PLC0008,Ansar Camp,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Arambagh,arambagh,PLC0010,Arambagh,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Arambagh Kingdom,arambagh kingdom,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Arambagh Notre Dame College,arambagh notre dame college,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Asad Gate,asad gate,PLC0012,Asad Gate,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Ashulia,ashulia,PLC0015,Ashulia (Fantasy Kingdom),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Ashulia Bazar,ashulia bazar,,,0.7826,unmatched,yes,SRC_BUS_GITHUB
+Azampur,azampur,PLC0017,Azampur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Azimpur,azimpur,PLC0019,Azimpur (Dhakeswari),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Babubazar,babubazar,PLC0020,Babu Bazar,0.9474,fuzzy_high,no,SRC_BUS_GITHUB
+Badda,badda,PLC0023,Badda,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Badda Link Road,badda link road,PLC0024,Badda Link Road,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Baipayl,baipail,PLC0029,Baipail,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Baitul Mukarram,baitul mukarram,,,0.5455,unmatched,yes,SRC_BUS_GITHUB
+Bakshi Bazar,bakshi bazar,PLC0030,Bakshibazar,0.9565,fuzzy_high,no,SRC_BUS_GITHUB
+Balughat,balughat,PLC0031,Balughat,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Banani,banani,PLC0032,Banani,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Banasree,banasree,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Bangla College,bangla college,PLC0036,Bangla College,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Bangla Motor,bangla motor,PLC0037,Bangla Motor,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Bangla Motor Shahbag,bangla motor shahbag,,,0.75,unmatched,yes,SRC_BUS_GITHUB
+Bangladesh Bank,bangladesh bank,PLC0038,Bangladesh Bank,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Baromi,baromi,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Bashabo,bashabo,PLC0044,Basabo,0.9231,fuzzy_high,no,SRC_BUS_GITHUB
+Bashtola,bashtola,,,0.7143,unmatched,yes,SRC_BUS_GITHUB
+Bashtola -,bashtola,,,0.7143,unmatched,yes,SRC_BUS_GITHUB
+Bashundhara,bashundhara,PLC0045,Bashundhara,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Bashundhara (300 Feet Gate),bashundhara,PLC0045,Bashundhara,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Bata Signal,bata signal,,,0.5882,unmatched,yes,SRC_BUS_GITHUB
+Beribadh,beribadh,PLC0050,Beribadh,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Beribadh Tin Rastar Moor,beribadh tin rastar,,,0.5926,unmatched,yes,SRC_BUS_GITHUB
+Bijoy Sarani,bijoy sarani,PLC0057,Bijay Smarani,0.88,fuzzy_high,no,SRC_BUS_GITHUB
+Birulia,birulia,,,0.6154,unmatched,yes,SRC_BUS_GITHUB
+Board Bazar,board bazar,PLC0061,Board Bazar,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Bosila,basila,PLC0046,Basila,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Bot tola,bot tola,,,0.625,unmatched,yes,SRC_BUS_GITHUB
+CMH,cmh,,,0.4,unmatched,yes,SRC_BUS_GITHUB
+Cantonment,cantonment,,,0.625,unmatched,yes,SRC_BUS_GITHUB
+Chairman Bari,chairman bari,,,0.6957,unmatched,yes,SRC_BUS_GITHUB
+Chandra,chandra,PLC0070,Chandra,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Chankhar Pul,chankhar pul,PLC0071,Chankharpul,0.9565,fuzzy_high,no,SRC_BUS_GITHUB
+Chashara,chashara,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Chiriyakhana,chiriyakhana,,,0.5833,unmatched,yes,SRC_BUS_GITHUB
+Chittagong Road,chittagong road,,,0.5833,unmatched,yes,SRC_BUS_GITHUB
+City College,city college,PLC0077,City College,1.0,exact_normalized,no,SRC_BUS_GITHUB
+College Gate,college gate,PLC0078,College Gate,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Dainik Bangla Moor,dainik bangla,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Darussalam,darussalam,PLC0080,Darussalam,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Dayaganj,dayaganj,,,0.7619,unmatched,yes,SRC_BUS_GITHUB
+Demra Staff Quarter,demra staff quarter,PLC0084,Demra Staff Quarter,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Dhakeshwari,dhakeshwari,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Dhamra,dhamra,PLC0090,Dhamrai,0.9231,fuzzy_high,no,SRC_BUS_GITHUB
+Dhamrai,dhamrai,PLC0090,Dhamrai,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Dhanmondi 15,dhanmondi 15,PLC0092,Dhanmondi-15,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Dhanmondi 27,dhanmondi 27,,,0.8571,unmatched,yes,SRC_BUS_GITHUB
+Dhanmondi 32,dhanmondi 32,,,0.8571,unmatched,yes,SRC_BUS_GITHUB
+Dhanmondi 32 Kalabagan,dhanmondi 32 kalabagan,,,0.5882,unmatched,yes,SRC_BUS_GITHUB
+Dholairpar,dholairpar,,,0.6316,unmatched,yes,SRC_BUS_GITHUB
+Dhour,dhour,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Dhupkhola,dhupkhola,PLC0097,Dhupkhola,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Dia Bari,dia bari,PLC0101,Diabari Morh,0.9333,fuzzy_high,no,SRC_BUS_GITHUB
+Diabari,diabari,PLC0101,Diabari Morh,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Duaripara,duaripara,PLC0102,Duyaripara,0.9474,fuzzy_high,no,SRC_BUS_GITHUB
+ECB Square,ecb square,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Eden College,eden college,PLC0106,Eden College,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Fakirapul,fakirapul,,,0.8421,unmatched,yes,SRC_BUS_GITHUB
+Fantasy Kingdom,fantasy kingdom,PLC0111,Fantasy Kingdom,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Farmgate,farmgate,PLC0112,Farmgate,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Farmgate Bijoy Sarani,farmgate bijoy sarani,,,0.6857,unmatched,yes,SRC_BUS_GITHUB
+Fulbaria,fulbaria,PLC0113,Fulbaria,1.0,exact_normalized,no,SRC_BUS_GITHUB
+GPO,gpo,PLC0124,GPO,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Gabtoli,gabtoli,PLC0114,Gabtoli,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Gandaria,gandaria,,,0.6316,unmatched,yes,SRC_BUS_GITHUB
+Garrison (Cantonment),garrison,,,0.625,unmatched,yes,SRC_BUS_GITHUB
+Gazipur Bypass,gazipur bypass,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Gazipur Chourasta,gazipur chourasta,,,0.7059,unmatched,yes,SRC_BUS_GITHUB
+Ghatar Char,ghatar char,PLC0119,Ghatarchar,0.9524,fuzzy_high,no,SRC_BUS_GITHUB
+Golap Shah Mazar,golap shah mazar,PLC0123,Golapshah Mazar (Fulbaria),0.9677,fuzzy_high,no,SRC_BUS_GITHUB
+Golapbag Chourasta,golapbag chourasta,,,0.7429,unmatched,yes,SRC_BUS_GITHUB
+Gulistan,gulistan,PLC0128,Gulistan Morh,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Gulshan 1,gulshan 1,PLC0129,Gulshan-1,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Gulshan 2,gulshan 2,PLC0130,Gulshan-2,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Gulshan Link Road,gulshan link road,,,0.6923,unmatched,yes,SRC_BUS_GITHUB
+Hasnabad,hasnabad,,,0.5882,unmatched,yes,SRC_BUS_GITHUB
+Hazaribag,hazaribag,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Hazipara,hazipara,PLC0179,Kazipara,0.875,fuzzy_high,no,SRC_BUS_GITHUB
+Hemayetpur,hemayetpur,PLC0132,Hemayetpur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+High Court,high court,PLC0133,High Court,1.0,exact_normalized,no,SRC_BUS_GITHUB
+House Building,house building,PLC0135,House Building,1.0,exact_normalized,no,SRC_BUS_GITHUB
+IDB,idb,,,0.5,unmatched,yes,SRC_BUS_GITHUB
+Ittefaq Moor,ittefaq,,,0.7143,unmatched,yes,SRC_BUS_GITHUB
+Ittefaq Moor Sayedabad,ittefaq sayedabad,,,0.6923,unmatched,yes,SRC_BUS_GITHUB
+Jahangir Gate,jahangir gate,,,0.6364,unmatched,yes,SRC_BUS_GITHUB
+Jakir Hossen Road,jakir hossen road,,,0.6471,unmatched,yes,SRC_BUS_GITHUB
+Jalkuri,jalkuri,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Jamgora,jamgora,,,0.5714,unmatched,yes,SRC_BUS_GITHUB
+Jamuna Future Park,jamuna future park,PLC0139,Jamuna Future Park,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Janapath Moor,janapath,,,0.625,unmatched,yes,SRC_BUS_GITHUB
+Japan Garden City,japan garden city,PLC0140,Japan Garden City,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Jarun,jarun,,,0.5455,unmatched,yes,SRC_BUS_GITHUB
+Jashimuddin (Uttara),jashimuddin,PLC0142,Jasimuddin,0.9524,fuzzy_high,no,SRC_BUS_GITHUB
+Jatrabari,jatrabari,PLC0143,Jatrabari,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Jatrabari -,jatrabari,PLC0143,Jatrabari,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Jigatola,jigatola,PLC0144,Jigatola,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Joydebpur,joydebpur,,,0.5882,unmatched,yes,SRC_BUS_GITHUB
+Jurain,jurain,PLC0150,Jurain,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kachukhet,kachukhet,PLC0194,Kochukhet,0.8889,fuzzy_high,no,SRC_BUS_GITHUB
+Kadamtali,kadamtali,PLC0151,Kadamtoli,0.8889,fuzzy_high,no,SRC_BUS_GITHUB
+Kajipara,kajipara,PLC0179,Kazipara,0.875,fuzzy_high,no,SRC_BUS_GITHUB
+Kakali,kakali,,,0.8333,unmatched,yes,SRC_BUS_GITHUB
+Kakrail,kakrail,PLC0155,Kakrail,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kalabagan,kalabagan,PLC0156,Kalabagan,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kalabagan City College,kalabagan city college,,,0.75,unmatched,yes,SRC_BUS_GITHUB
+Kalampur,kalampur,PLC0157,Kalampur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kallyanpur,kalyanpur,PLC0163,Kalyanpur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kalshi,kalshi,PLC0161,Kalshi Morh,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kalshi Pallabi,kalshi pallabi,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Kamalapur,kamalapur,PLC0166,Kamalapur Station,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kamarpara,kamarpara,PLC0169,Kamarpara,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kamlapur,kamlapur,PLC0166,Kamalapur Station,0.9412,fuzzy_high,no,SRC_BUS_GITHUB
+Kamrangirchar,kamrangirchar,PLC0170,Kamrangirchar (Beribadh),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kanchan Bridge,kanchan bridge,,,0.8276,unmatched,yes,SRC_BUS_GITHUB
+Kanchpur,kanchpur,PLC0171,Kanchpur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Karwan Bazar,kawran bazar,PLC0178,Kawran Bazar,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kashimpur,kashimpur,,,0.8235,unmatched,yes,SRC_BUS_GITHUB
+Katabon,katabon,PLC0177,Katabon,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kawran Bazar,kawran bazar,PLC0178,Kawran Bazar,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kazipara,kazipara,PLC0179,Kazipara,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kazipara Shewrapara,kazipara shewrapara,,,0.6897,unmatched,yes,SRC_BUS_GITHUB
+Kazla,kazla,,,0.8333,unmatched,yes,SRC_BUS_GITHUB
+Keraniganj,keraniganj,PLC0182,Keraniganj (New Jail),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Khamar Bari,khamar bari,PLC0184,Khamarbari,0.9524,fuzzy_high,no,SRC_BUS_GITHUB
+Khamar Bari -,khamar bari,PLC0184,Khamarbari,0.9524,fuzzy_high,no,SRC_BUS_GITHUB
+Khamar Bari Farmgate,khamar bari farmgate,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Khamarbari,khamarbari,PLC0184,Khamarbari,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Khilgaon,khilgaon,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Khilgaon Flyover,khilgaon flyover,PLC0189,Khilgaon Flyover,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Khilgaon Khidma Hospital,khilgaon khidma hospital,PLC0190,Khilgaon Khidma Hospital,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Khilkhet,khilkhet,PLC0193,Khilkhet,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kolabagan,kolabagan,PLC0156,Kalabagan,0.8889,fuzzy_high,no,SRC_BUS_GITHUB
+Konabari,konabari,PLC0197,Konabari,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kuchimura,kuchimura,,,0.625,unmatched,yes,SRC_BUS_GITHUB
+Kuril  Bishwa Road,kuril bishwa road,PLC0203,Kuril Bishwa Road,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kuril Bishwa Road,kuril bishwa road,PLC0203,Kuril Bishwa Road,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Kuril Bissho Road,kuril bissho road,PLC0203,Kuril Bishwa Road,0.8824,fuzzy_high,no,SRC_BUS_GITHUB
+Kuril Chourasta,kuril chourasta,,,0.75,unmatched,yes,SRC_BUS_GITHUB
+Kuril Flyover,kuril flyover,PLC0205,Kuril Flyover,1.0,exact_normalized,no,SRC_BUS_GITHUB
+MES,mes,,,0.4,unmatched,yes,SRC_BUS_GITHUB
+Madanpur,madanpur,PLC0209,Madanpur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Madhya Badda,madhya badda,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Malibagh,malibagh,PLC0212,Malibagh,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Malibagh Moor,malibagh,PLC0212,Malibagh,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Malibagh Railgate,malibagh railgate,,,0.64,unmatched,yes,SRC_BUS_GITHUB
+Manik Mia Avenue,manik mia avenue,PLC0216,Manik Mia Avenue,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Manik Nagar,manik nagar,PLC0220,Maniknagar,0.9524,fuzzy_high,no,SRC_BUS_GITHUB
+Manikganj,manikganj,PLC0218,Manikganj,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Maowa,maowa,,,0.5714,unmatched,yes,SRC_BUS_GITHUB
+Matsya Bhaban,matsya bhaban,PLC0222,Matsya Bhaban,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Matuail,matuail,,,0.5714,unmatched,yes,SRC_BUS_GITHUB
+Mazar Road,mazar road,PLC0226,Mazar Road,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Meghna Ghat,meghna ghat,PLC0228,Meghna Ghat,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Merul,merul,,,0.5455,unmatched,yes,SRC_BUS_GITHUB
+Metro Hall,metro hall,,,0.7368,unmatched,yes,SRC_BUS_GITHUB
+Mill Gate,mill gate,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Mirpur 1,mirpur 1,PLC0239,Mirpur-1,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mirpur 10,mirpur 10,PLC0240,Mirpur-10,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mirpur 11,mirpur 11,PLC0241,Mirpur-11,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mirpur 12,mirpur 12,PLC0243,Mirpur-12,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mirpur 13,mirpur 13,PLC0239,Mirpur-1,0.9412,fuzzy_high,no,SRC_BUS_GITHUB
+Mirpur 14,mirpur 14,PLC0244,Mirpur-14,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mirpur 2,mirpur 2,PLC0245,Mirpur-2,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mirpur 2 Mirpur 10,mirpur 2 mirpur 10,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Mirpur DOHS,mirpur dohs,PLC0234,Mirpur DOHS,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mirpur Sony Cinema Hall,mirpur sony cinema hall,,,0.7692,unmatched,yes,SRC_BUS_GITHUB
+Mitford Ghat,mitford ghat,,,0.5714,unmatched,yes,SRC_BUS_GITHUB
+Mogbazar,mogbazar,PLC0210,Magbazar,0.875,fuzzy_high,no,SRC_BUS_GITHUB
+Mogbazar Mohakhali,mogbazar mohakhali,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Mohakhali,mohakhali,PLC0250,Mohakhali,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mohammadpur,mohammadpur,PLC0256,Mohammadpur (Japan Garden City),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mohammadpur Bus Stand,mohammadpur bus stand,PLC0257,Mohammadpur Bus Stand,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Motijheel,motijheel,PLC0263,Motijheel (Shapla Chattar),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Motsho Bhaban,motsho bhaban,,,0.7692,unmatched,yes,SRC_BUS_GITHUB
+Mouchak,mouchak,PLC0265,Mouchak (Flyover),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Mugdapara,mugdapara,,,0.7143,unmatched,yes,SRC_BUS_GITHUB
+Nabisco,nabisco,PLC0268,Nabisco,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Nadda,nadda,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Nandan Park,nandan park,PLC0269,Nandan Park,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Narshinghapur,narshinghapur,PLC0273,Narsinghpur,0.9167,fuzzy_high,no,SRC_BUS_GITHUB
+Nawabganj,nawabganj,PLC0275,Nawabganj,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Naya Bazar,naya bazar,PLC0277,Nayabazar (No. 2 Buriganga Bridge),0.9474,fuzzy_high,no,SRC_BUS_GITHUB
+New Market,new market,PLC0279,New Market,1.0,exact_normalized,no,SRC_BUS_GITHUB
+New Market Nilkhet,new market nilkhet,,,0.7143,unmatched,yes,SRC_BUS_GITHUB
+Nila Market,nila market,,,0.7619,unmatched,yes,SRC_BUS_GITHUB
+Nilkhet,nilkhet,PLC0280,Nilkhet,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Nimtola,nimtola,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Nobinagar,nobinagar,PLC0281,Nobinagar (Savar),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Nobinagar Baipayl,nobinagar baipail,,,0.6923,unmatched,yes,SRC_BUS_GITHUB
+Nobinagar Chandra,nobinagar chandra,,,0.6923,unmatched,yes,SRC_BUS_GITHUB
+Notun Bazar,notun bazar,PLC0284,Notun Bazar,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Old Airport,old airport,,,0.7778,unmatched,yes,SRC_BUS_GITHUB
+Palashi,palashi,PLC0288,Palashi,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Pallabi,pallabi,PLC0290,Pallabi (Mirpur-12),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Palli Bidyut,palli bidyut,,,0.6316,unmatched,yes,SRC_BUS_GITHUB
+Paltan,paltan,PLC0291,Paltan,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Panthapath,panthapath,,,0.5,unmatched,yes,SRC_BUS_GITHUB
+Panthopoth,panthopoth,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Paturia,paturia,PLC0293,Paturia,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Police Plaza,police plaza,,,0.5455,unmatched,yes,SRC_BUS_GITHUB
+Postagola,postagola,PLC0295,Postgola,0.9412,fuzzy_high,no,SRC_BUS_GITHUB
+Press Club,press club,PLC0298,Press Club,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Press Club  Paltan,press club paltan,,,0.7407,unmatched,yes,SRC_BUS_GITHUB
+Proshika Moor,proshika,PLC0297,Prashika,0.875,fuzzy_high,no,SRC_BUS_GITHUB
+Purobi,purobi,PLC0302,Purbi,0.9091,fuzzy_high,no,SRC_BUS_GITHUB
+Purobi Pallabi,purobi pallabi,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Rajarbag,rajarbag,PLC0305,Rajarbagh,0.9412,fuzzy_high,no,SRC_BUS_GITHUB
+Rajendrapur,rajendrapur,PLC0306,Rajendrapur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Rajlakshmi,rajlakshmi,,,0.7778,unmatched,yes,SRC_BUS_GITHUB
+Rajlakshmi House Building,rajlakshmi house building,,,0.7179,unmatched,yes,SRC_BUS_GITHUB
+Rampura Bazar,rampura bazar,,,0.7826,unmatched,yes,SRC_BUS_GITHUB
+Rampura Bridge,rampura bridge,PLC0314,Rampura Bridge,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Ray Saheb Bazar,ray saheb bazar,PLC0317,Raysaheb Bazar,0.9655,fuzzy_high,no,SRC_BUS_GITHUB
+Ray Shaheb Bazar,ray shaheb bazar,PLC0317,Raysaheb Bazar,0.9333,fuzzy_high,no,SRC_BUS_GITHUB
+Rayer Bazar,rayer bazar,,,0.8,unmatched,yes,SRC_BUS_GITHUB
+Rayerbag,rayerbag,PLC0316,Rayerbag,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Ring Road,ring road,,,0.7778,unmatched,yes,SRC_BUS_GITHUB
+Ring road,ring road,,,0.7778,unmatched,yes,SRC_BUS_GITHUB
+Rupnagar,rupnagar,,,0.6957,unmatched,yes,SRC_BUS_GITHUB
+Rupnagar Abashik,rupnagar abashik,,,0.5455,unmatched,yes,SRC_BUS_GITHUB
+Sadarghat,sadarghat,PLC0321,Sadarghat,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Sainik Club,sainik club,PLC0324,Sainik Club,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Salimullah Road,salimullah road,,,0.5833,unmatched,yes,SRC_BUS_GITHUB
+Sanarpar,sanarpar,,,0.7059,unmatched,yes,SRC_BUS_GITHUB
+Sat rasta,sat rasta,PLC0325,Satrasta,0.9412,fuzzy_high,no,SRC_BUS_GITHUB
+Satrasta,satrasta,PLC0325,Satrasta,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Saudi Colony,saudi colony,,,0.5217,unmatched,yes,SRC_BUS_GITHUB
+Savar,savar,PLC0326,Savar,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Savar Cantonment,savar cantonment,,,0.5385,unmatched,yes,SRC_BUS_GITHUB
+Sayedabad,sayedabad,PLC0327,Sayedabad,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Science Lab,science lab,PLC0329,Science Lab,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Shahbag,shahbag,PLC0331,Shahbag,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Shahjadpur,shahjadpur,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Shanir Akhra,shanir akhra,PLC0332,Shanir Akhra,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Shankar,shankar,PLC0333,Shankar,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Shantinagar,shantinagar,,,0.7619,unmatched,yes,SRC_BUS_GITHUB
+Shewra,shewra,,,0.8333,unmatched,yes,SRC_BUS_GITHUB
+Shewrapara,shewrapara,PLC0340,Shewrapara,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Shia Mosque,shia mosque,,,0.6471,unmatched,yes,SRC_BUS_GITHUB
+Shib Bari,shib bari,,,0.7778,unmatched,yes,SRC_BUS_GITHUB
+Shibu Market,shibu market,,,0.6364,unmatched,yes,SRC_BUS_GITHUB
+Shimultola,shimultola,,,0.625,unmatched,yes,SRC_BUS_GITHUB
+Shishu Mela,shishu mela,PLC0343,Shishumela,0.9524,fuzzy_high,no,SRC_BUS_GITHUB
+Shiyal Bari,shiyal bari,PLC0342,Shialbari,0.9,fuzzy_high,no,SRC_BUS_GITHUB
+Shonbari Sreenagar,shonbari sreenagar,,,0.5926,unmatched,yes,SRC_BUS_GITHUB
+Shonir Akhra,shonir akhra,PLC0332,Shanir Akhra,0.9167,fuzzy_high,no,SRC_BUS_GITHUB
+Showari Ghat,showari ghat,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Shukrabad,shukrabad,PLC0344,Shukrabad,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Shyamoli,shyamoli,PLC0346,Shyamoli,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Sign Board,sign board,PLC0348,Signboard,0.9474,fuzzy_high,no,SRC_BUS_GITHUB
+Signal,signal,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Sikder Medical College,sikder medical college,,,0.5882,unmatched,yes,SRC_BUS_GITHUB
+Sony CInema Hall,sony cinema hall,PLC0352,Soni Cinema Hall,0.9375,fuzzy_high,no,SRC_BUS_GITHUB
+Sony Cenema Hall,sony cinema hall,PLC0352,Soni Cinema Hall,0.9375,fuzzy_high,no,SRC_BUS_GITHUB
+Sony Cinema Hall,sony cinema hall,PLC0352,Soni Cinema Hall,0.9375,fuzzy_high,no,SRC_BUS_GITHUB
+Sony Cinema Hall Mirpur 1,sony cinema hall mirpur 1,,,0.7317,unmatched,yes,SRC_BUS_GITHUB
+South Banasree,south banasree,,,0.5714,unmatched,yes,SRC_BUS_GITHUB
+Sreepur,sreepur,PLC0353,Sreepur,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Staff Road,staff road,PLC0356,Staff Road,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Star Kabab,star kabab,,,0.5833,unmatched,yes,SRC_BUS_GITHUB
+Station Road,road,,,0.6154,unmatched,yes,SRC_BUS_GITHUB
+Sura Bari,sura bari,,,0.7059,unmatched,yes,SRC_BUS_GITHUB
+TT Para,tt para,PLC0359,T&T Para,0.9333,fuzzy_high,no,SRC_BUS_GITHUB
+Tajmahal Road,tajmahal road,,,0.6957,unmatched,yes,SRC_BUS_GITHUB
+Taltola,taltola,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Tarabo,tarabo,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Technical,technical,PLC0362,Technical,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Technical -,technical,PLC0362,Technical,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Tikatuli,tikatuli,PLC0365,Tikatuli,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Tolarbag,tolarbag,,,0.625,unmatched,yes,SRC_BUS_GITHUB
+Tongi,tongi,PLC0368,Tongi (Bastuhara),1.0,exact_normalized,no,SRC_BUS_GITHUB
+Uttar Badda,uttar badda,PLC0376,Uttar Badda,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Vashantek,vashantek,,,0.6667,unmatched,yes,SRC_BUS_GITHUB
+Victoria Park,victoria park,PLC0380,Victoria Park,1.0,exact_normalized,no,SRC_BUS_GITHUB
+Vulta,vulta,,,0.7273,unmatched,yes,SRC_BUS_GITHUB
+Wireless,wireless,,,0.4444,unmatched,yes,SRC_BUS_GITHUB
+Workshop,workshop,PLC0383,Work Shop,0.9412,fuzzy_high,no,SRC_BUS_GITHUB
+Zia Uddyan,zia uddyan,,,0.5714,unmatched,yes,SRC_BUS_GITHUB
+Zirabo,zirabo,PLC0385,Zirab,0.9091,fuzzy_high,no,SRC_BUS_GITHUB
+Zirani Bazar,zirani bazar,PLC0147,Jirani Bazar,0.9167,fuzzy_high,no,SRC_BUS_GITHUB
+kakali,kakali,,,0.8333,unmatched,yes,SRC_BUS_GITHUB

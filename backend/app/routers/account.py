@@ -16,11 +16,23 @@ OWNER_COLLECTIONS = [
     "notes",
     "tasks",
     "medicines",
+    "medicine_doses",
+    "bazar_items",
+    "daily_expenses",
+    "commute_trips",
+    "financial_transactions",
+]
+
+# Legacy collections are deleted during account deletion only so old user data
+# is not stranded after the LifeHub redesign. They are no longer exported or
+# reachable from current Firestore rules/UI.
+LEGACY_OWNER_COLLECTIONS = [
     "grocery_items",
     "family_records",
     "rent_records",
     "saved_locations",
     "wellness_records",
+    "savings",  # legacy cleanup only; Gochano no longer tracks savings
 ]
 
 # Collections surfaced in §29 data export. We expose owned material
@@ -31,11 +43,11 @@ EXPORT_OWNER_COLLECTIONS = [
     "notes",
     "tasks",
     "medicines",
-    "grocery_items",
-    "family_records",
-    "rent_records",
-    "saved_locations",
-    "wellness_records",
+    "medicine_doses",
+    "bazar_items",
+    "daily_expenses",
+    "commute_trips",
+    "financial_transactions",
 ]
 
 # Fields stripped from exported material metadata so that the JSON contains
@@ -157,7 +169,7 @@ def delete_account(
     _delete_owned_materials(user.uid)
     _remove_group_membership(user.uid)
 
-    for collection in OWNER_COLLECTIONS:
+    for collection in OWNER_COLLECTIONS + LEGACY_OWNER_COLLECTIONS:
         for snap in db.collection(collection).where("ownerId", "==", user.uid).stream():
             _delete_subcollections(snap.reference)
             snap.reference.delete()
@@ -207,8 +219,8 @@ def export_account(
     }
 
     payload = {
-        "app": "EkThikana",
-        "schemaVersion": 1,
+        "app": "Gochano",
+        "schemaVersion": 2,
         "exportedAt": datetime.now(timezone.utc).isoformat(),
         "profile": profile_view,
     }

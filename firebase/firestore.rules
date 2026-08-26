@@ -19,10 +19,6 @@ service cloud.firestore {
       return verified() && userDoc().data.role == 'student';
     }
 
-    function isOwner(ownerId) {
-      return verified() && request.auth.uid == ownerId;
-    }
-
     function isGroupMember(groupId) {
       return isStudent()
         && groupId is string
@@ -35,6 +31,20 @@ service cloud.firestore {
         || data.visibility == 'public'
         || (data.visibility == 'group' && isGroupMember(data.groupId))
       );
+    }
+
+    function ownedCreate() {
+      return verified() && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    function ownedReadDelete() {
+      return verified() && resource.data.ownerId == request.auth.uid;
+    }
+
+    function ownedUpdate() {
+      return verified()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
     }
 
     match /users/{uid} {
@@ -63,6 +73,8 @@ service cloud.firestore {
       }
     }
 
+    // ---------------- STUDENT-ONLY ACADEMIC DATA ----------------
+
     match /semesters/{id} {
       allow create: if isStudent() && request.resource.data.ownerId == request.auth.uid;
       allow read, delete: if isStudent() && resource.data.ownerId == request.auth.uid;
@@ -83,9 +95,7 @@ service cloud.firestore {
       allow create: if isStudent()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.visibility in ['private', 'group', 'public'];
-
       allow read: if canReadStudyDoc(resource.data);
-
       allow update, delete: if isStudent()
         && resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId;
@@ -93,73 +103,86 @@ service cloud.firestore {
 
     match /materials/{id} {
       allow read: if canReadStudyDoc(resource.data);
-      // Creation/update/delete is performed by trusted backend only.
-      allow create, update, delete: if false;
+      allow create, update, delete: if false; // trusted backend only
     }
 
     match /groups/{id} {
       allow read: if isStudent() && request.auth.uid in resource.data.memberIds;
-      // Group mutations go through backend.
-      allow create, update, delete: if false;
+      allow create, update, delete: if false; // trusted backend only
     }
 
+    // ---------------- STUDENT + GENERAL PERSONAL DATA ----------------
+
     match /tasks/{id} {
-      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
-      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
-      allow update: if verified()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+      allow create: if ownedCreate();
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate();
     }
 
     match /medicines/{id} {
-      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
-      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
-      allow update: if verified()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+      allow create: if ownedCreate();
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate();
     }
 
-    match /grocery_items/{id} {
-      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
-      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
-      allow update: if verified()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+    match /medicine_doses/{id} {
+      allow create: if ownedCreate()
+        && request.resource.data.status in ['pending', 'taken', 'skipped', 'missed'];
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate()
+        && request.resource.data.status in ['pending', 'taken', 'skipped', 'missed'];
     }
 
-    match /family_records/{id} {
-      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
-      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
-      allow update: if verified()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+    match /bazar_items/{id} {
+      allow create: if ownedCreate();
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate();
     }
 
-    match /rent_records/{id} {
-      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
-      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
-      allow update: if verified()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+    match /daily_expenses/{id} {
+      allow create: if ownedCreate() && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate()
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
     }
 
-    match /saved_locations/{id} {
-      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
-      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
-      allow update: if verified()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+    match /commute_trips/{id} {
+      allow create: if ownedCreate()
+        && request.resource.data.actualFare is number
+        && request.resource.data.actualFare > 0;
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate()
+        && request.resource.data.actualFare is number
+        && request.resource.data.actualFare > 0;
     }
 
-    match /wellness_records/{id} {
-      allow create: if verified() && request.resource.data.ownerId == request.auth.uid;
+    // Central expense ledger. IDs are deterministic by source + sourceRecordId.
+    match /financial_transactions/{id} {
+      allow create: if verified()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.type == 'expense'
+        && request.resource.data.source in ['daily', 'bazar', 'medicine', 'commute']
+        && request.resource.data.sourceRecordId is string
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0;
+
       allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+
       allow update: if verified()
         && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.type == 'expense'
+        && request.resource.data.source in ['daily', 'bazar', 'medicine', 'commute']
+        && request.resource.data.sourceRecordId == resource.data.sourceRecordId
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0;
     }
 
-    // Backend-only metering and moderation.
+    // Backend-only metering/moderation.
     match /ai_usage/{id} {
       allow read, write: if false;
     }
@@ -171,5 +194,8 @@ service cloud.firestore {
     match /reports/{id} {
       allow read, write: if false;
     }
+
+    // Legacy LifeHub/finance collections (FamilyHub/RentMate/Wellness/old grocery/location/savings
+    // stores) intentionally have no match rules and are therefore denied.
   }
 }

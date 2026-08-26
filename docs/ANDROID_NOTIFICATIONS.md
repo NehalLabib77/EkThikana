@@ -1,6 +1,6 @@
 # Android notifications
 
-EkThikana uses `flutter_local_notifications` for task reminders.
+Gochano uses `flutter_local_notifications` for task reminders.
 
 The included Windows bootstrap script prepares the current Android shell with:
 

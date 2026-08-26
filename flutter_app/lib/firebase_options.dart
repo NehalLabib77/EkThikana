@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError('EkThikana starter is configured for Android first.');
+      throw UnsupportedError('Gochano starter is configured for Android first.');
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:

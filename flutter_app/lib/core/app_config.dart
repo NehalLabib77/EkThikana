@@ -1,6 +1,6 @@
 class AppConfig {
-  static const appName = 'EkThikana';
-  static const tagline = 'One place for everything';
+  static const appName = 'Gochano';
+  static const tagline = 'Everything in One Place';
 
   // Deliberately has no localhost default. A physical Android phone cannot
   // reach your PC through 127.0.0.1 unless adb reverse is active. Always pass

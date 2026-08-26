@@ -1,0 +1,8 @@
+﻿fare_rule_id,mode,coverage,effective_from,base_or_minimum_fare_tk,included_distance_km,per_km_tk,waiting_rule,other_rule,production_status,source_id
+RULE_BUS_DHAKA_METRO,bus,Dhaka Metropolitan Area local bus,2022-08-31,10,,2.45,,"Calculated fare is ceil(distance * 2.45), minimum Tk 10.",usable_with_route_validation,SRC_BRTA_METRO_FARES
+RULE_METRO_MRT6,metro,MRT Line-6,2023,20,,,,Use station-to-station fare matrix; maximum Tk 100; MRT/Rapid Pass 10% discount.,usable,SRC_DMTCL_FARES
+RULE_CNG_2015,cng_autorickshaw,Government meter rule in uploaded 2015 gazette,2015-11-01,40,2,12,Tk 2.00 per minute,Daily deposit Tk 900 in the uploaded revision.,historical_verify_current_rule_before_live_use,SRC_CNG_2015
+RULE_TAXI_2014,taxicab,Government taxi rule in uploaded 2014 gazette,2014-04-29,85,2,34,Tk 8.50 per 2 minutes,Each 0.25 km or part: Tk 8.50; phone call charge Tk 20.,historical_verify_current_rule_before_live_use,SRC_TAXI_2014
+RULE_RICKSHAW_CROWD,rickshaw,Dhaka,,,,,,No reliable citywide fixed fare dataset included. Estimate from verified crowdsourced trips by origin/destination/time.,crowdsource_only,
+RULE_RICKSHAW_USER_ESTIMATE_17,rickshaw,Dhaka local estimated fare,2026-08-25,,,17,,User-provided estimate: estimated fare = distance_km × Tk 17. Keep separate from official fare rules and replace/refine with crowdsourced median fares as data grows.,user_estimate_not_official,USER_PROVIDED_ASSUMPTION
+RULE_AUTO_USER_ESTIMATE_17,auto,Dhaka local estimated fare,2026-08-25,,,17,,User-provided estimate: estimated fare = distance_km × Tk 17. This is not the historical CNG meter rule; keep both rules separately.,user_estimate_not_official,USER_PROVIDED_ASSUMPTION

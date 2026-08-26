@@ -63,8 +63,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                         const SizedBox(height: 5),
                         Text(
                           EkLanguage.text(
-                            'EkThikana ranks unfinished tasks by deadline urgency. It does not generate questions or MCQs.',
-                            'EkThikana অসমাপ্ত কাজ ডেডলাইন অনুযায়ী সাজায়। এটি প্রশ্ন বা MCQ তৈরি করে না।',
+                            'Gochano ranks unfinished tasks by deadline urgency. It does not generate questions or MCQs.',
+                            'Gochano অসমাপ্ত কাজ ডেডলাইন অনুযায়ী সাজায়। এটি প্রশ্ন বা MCQ তৈরি করে না।',
                           ),
                           style: const TextStyle(color: EkColors.muted, fontSize: 12, height: 1.4),
                         ),

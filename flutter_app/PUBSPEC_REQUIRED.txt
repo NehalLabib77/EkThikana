@@ -1,0 +1,8 @@
+This patch adds camera capture for prescription OCR.
+Run inside your existing flutter_app folder:
+
+flutter pub add image_picker
+
+Existing required packages from the current project are still used:
+firebase_core, firebase_auth, cloud_firestore, http, file_picker, pdfrx,
+intl, flutter_local_notifications, timezone.

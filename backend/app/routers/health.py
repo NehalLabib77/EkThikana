@@ -7,6 +7,6 @@ router = APIRouter()
 def health():
     return {
         "ok": True,
-        "service": "ekthikana-api",
-        "version": "1.0.0",
+        "service": "gochano-api",
+        "version": "2.0.0",
     }

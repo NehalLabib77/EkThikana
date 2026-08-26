@@ -1,0 +1,2 @@
+﻿report_id,user_id_hash,trip_started_at,trip_ended_at,origin_place_id,origin_text,origin_latitude,origin_longitude,destination_place_id,destination_text,destination_latitude,destination_longitude,transport_mode,bus_service_id,bus_name_user_entered,route_id_if_known,fare_paid_tk,passenger_count,payment_type,traffic_level,user_confidence,receipt_or_photo_url,device_location_verified,moderation_status,created_at
+,,,,,,,,,,,,,,,,,1,,,,,,pending,

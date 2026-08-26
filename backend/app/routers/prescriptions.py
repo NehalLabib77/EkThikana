@@ -40,7 +40,7 @@ async def extract_prescription(
         "candidateLines": candidate_lines(text),
         "medicines": medicines,
         "warning": (
-            "OCR can be wrong. EkThikana does not prescribe or infer a medical schedule. "
+            "OCR can be wrong. Gochano does not prescribe or infer a medical schedule. "
             "Confirm medicine name, dose/instructions and actual reminder times before saving."
         ),
     }

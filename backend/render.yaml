@@ -1,3 +1,5 @@
+# Existing technical service name retained for deployment compatibility.
+# User-facing brand is Gochano; renaming this service is optional.
 services:
   - type: web
     name: ekthikana-api
@@ -8,7 +10,7 @@ services:
       - key: APP_ENV
         value: production
       - key: CORS_ORIGINS
-        value: "*"
+        value: ""
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_B64
@@ -30,6 +32,18 @@ services:
       - key: UPLOAD_DAILY_LIMIT
         value: "10"
       - key: SIGNED_URL_TTL_SECONDS
-        value: "3600"
+        value: "900"
       - key: AI_DAILY_LIMIT
         value: "30"
+      - key: ROUTING_PROVIDER
+        value: osrm
+      - key: OSRM_BASE_URL
+        value: https://router.project-osrm.org
+      - key: NOMINATIM_BASE_URL
+        value: https://nominatim.openstreetmap.org
+      - key: ROUTING_USER_AGENT
+        sync: false
+      - key: COMMUTE_ML_MIN_TOTAL_REPORTS
+        value: "500"
+      - key: COMMUTE_ML_MIN_MODE_REPORTS
+        value: "150"

@@ -1,11 +1,11 @@
 # Firebase setup
 
-EkThikana uses Firebase Authentication (email/password) and Cloud Firestore. This doc covers the one-time console work and the credential handoff to the backend. The Flutter app talks to Firebase directly; the FastAPI backend talks via the Firebase Admin SDK.
+Gochano uses Firebase Authentication (email/password) and Cloud Firestore. This doc covers the one-time console work and the credential handoff to the backend. The Flutter app talks to Firebase directly; the FastAPI backend talks via the Firebase Admin SDK.
 
 ## 1. Create a project
 
 1. Open the Firebase console.
-2. Project name: `ekthikana-prod` (or anything you like — the project id is what matters).
+2. Reuse your existing Gochano Firebase project. The checked-in FlutterFire config currently uses project id `gochano-a30c8`; the project id is what matters.
 3. Disable Google Analytics if you do not need it (saves a confirmation step).
 
 ## 2. Enable Authentication
@@ -62,7 +62,7 @@ The backend decodes this at startup. If decoding fails or the JSON is malformed,
 
 1. Authentication → Templates → Email address verification.
 2. From address: a domain you control (the default `noreply@…` works for development).
-3. Subject and body: at minimum mention "EkThikana" so users know what they are verifying.
+3. Subject and body: at minimum mention "Gochano" so users know what they are verifying.
 
 ## 8. What lives where
 

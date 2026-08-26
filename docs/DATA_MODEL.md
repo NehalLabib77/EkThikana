@@ -1,131 +1,67 @@
-# EkThikana Firestore data model
+# Gochano data model — current scope
 
-## `users/{uid}`
+## Users
 
-Main fields:
+`users/{uid}`: displayName, email, role (`student|general`), optional university/department/semester, timestamps.
 
-```text
-displayName
-email
-role                  student | general
-university             student profile
-department
-semester
-createdAt
-updatedAt
-```
+## Student-only
 
-Nested collections:
+- `semesters/{id}`
+- `subjects/{id}`
+- `notes/{id}` (`private|group|public`)
+- `materials/{id}` (private Supabase file metadata)
+- `groups/{id}`
+- `users/{uid}/saved_materials/{materialId}`
+- `users/{uid}/material_state/{materialId}` + page notes
 
-```text
-saved_materials/{materialId}
-material_state/{materialId}
-material_state/{materialId}/page_notes/{noteId}
-```
+No messages/chat collection exists.
 
-`material_state` stores PDF last page and bookmarks.
+## Student + General
 
-## Student-only collections
+- `tasks/{id}`
+- `medicines/{id}`
+- `medicine_doses/{id}`
+- `bazar_items/{id}`
+- `daily_expenses/{id}`
+- `commute_trips/{id}`
+- `financial_transactions/{id}`
 
-### `semesters/{id}`
-
-```text
-ownerId
-name
-createdAt
-updatedAt
-```
-
-### `subjects/{id}`
+## Central expense transaction
 
 ```text
 ownerId
-semesterId
-name
-createdAt
-updatedAt
-```
-
-### `notes/{id}`
-
-```text
-ownerId
-ownerName
+userId
+type = expense
+source = daily | bazar | medicine | commute
+sourceRecordId
+category
 title
-content
-visibility            private | group | public
-groupId
-university
-department
-semester
-semesterId
-subjectId
-keywords[]
+amount
+date
+dateKey
+monthKey
 createdAt
 updatedAt
 ```
 
-### `materials/{id}`
+The ID is deterministic from source + sourceRecordId. This provides idempotent retry/update behavior.
 
-Metadata only. File bytes stay in private Supabase Storage.
+### Expense creation rules
 
-```text
-ownerId
-ownerName
-title
-fileName
-filePath
-mimeType
-sizeBytes
-visibility            private | group | public
-groupId
-university
-department
-semester
-subject
-keywords[]
-saveCount
-downloadCount
-createdAt
-updatedAt
-```
+- daily record -> expense
+- bazar purchased -> expense; unpurchased -> remove
+- medicine Taken -> actual quantity × stored unit-price snapshot -> expense
+- pending/skipped/missed -> none
+- commute estimate -> none
+- confirmed actual fare -> expense
 
-### `groups/{id}`
+Savings/income/cash-flow are not part of the current product.
 
-```text
-name
-description
-ownerId
-adminIds[]
-memberIds[]
-memberCount
-inviteCode
-createdAt
-updatedAt
-```
+## Backend-only/moderated
 
-There is no messages collection.
+- `ai_usage/*`
+- `upload_usage/*`
+- `reports/*`
+- Commute fare-report/aggregate data where implemented through backend/Supabase
 
-## Student + General collections
-
-```text
-tasks/{id}
-medicines/{id}
-grocery_items/{id}
-family_records/{id}
-rent_records/{id}
-saved_locations/{id}
-wellness_records/{id}
-```
-
-All contain `ownerId`, timestamps and module-specific fields.
-
-## Backend-only collections
-
-```text
-ai_usage/{uid_day}
-upload_usage/{uid_day}
-reports/{reportId}
-```
-
-Firestore security rules deny direct Flutter access to these backend-only collections.
+Legacy Family/Rent/Wellness/Savings collections are denied to the current Flutter app and may only be cleaned up during account deletion.

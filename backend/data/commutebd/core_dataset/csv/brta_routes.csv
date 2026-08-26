@@ -1,0 +1,113 @@
+﻿route_id,route_code_en,route_code_bn,route_name_en,route_name_bn,origin_name_en,destination_name_en,total_distance_km,stop_count,fare_per_km_tk,minimum_fare_tk,live_use,source_id
+BRTA_A_101_NO,A-101 No.,এ-১০১নং,Kalshi (Mirpur-12) to Kanchpur Bridge,কালশী (মিরপুর-১২) হতে কাঁচপুর ব্রীজ,Kalshi,Kanchpur Bridge,28.8,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_102_NO,A-102 No.,এ-১০২নং,Pallabi to Sadarghat,পল্লবী হতে সদরঘাট,Pallabi (Mirpur-12),Victoria Park,16.9,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_103_NO,A-103 No.,এ-১০৩নং,Pallabi (Duyaripara) to Dhakeswari,পল্লবী (দুয়ারীপাড়া) হতে ঢাকেশ্বরী,Duyaripara,Dhakeswari Mandir,15.1,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_110_NO,A-110 No.,এ-১১০নং,Duyaripara to Gulistan,দুয়ারীপাড়া হতে গুলিস্তান,Duyaripara,Gulistan,16.7,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_111_NO,A-111 No.,এ-১১১নং,Pallabi (Ceramic) to Dilkuasha [Sonali Bank],পল্লবী (সিরামিক) হতে দিলকুশা [সোনালী ব্যাংক],Pallabi (Ceramic),Notre Dame College,17.0,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_114_NO,A-114 No.,এ-১১৪নং,Mirpur (Zoo) to Sayedabad,মিরপুর(চিড়িয়াখানা) হতে সায়েদাবাদ,Zoo,Sayedabad,18.3,15,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_115_NO,A-115 No.,এ-১১৫নং,Mirpur-1 (Boishakhi Super Market) to Jatrabari,মিরপুর-১(বৈশাখী সুপার মার্কেট) হতে যাত্রাবাড়ী,Mirpur-1,Jatrabari,17.6,15,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_122_NO,A-122 No.,এ-১২২নং,Mirpur-12 (ECB Chattar) to Azimpur,মিরপুর-১২ (ইসিবি চত্বর) হতে আজিমপুর,Mirpur-12,Azimpur,22.0,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_127_NO,A-127 No.,এ-১২৭নং,Mirpur Mazar Road to Azimpur,মিরপুর মাজার রোড হতে আজিমপুর,Mirpur Mazar Road,Azimpur,12.0,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_129_NO,A-129 No.,এ-১২৯নং,Mirpur-14 to Khilgaon Taltala,মিরপুর-১৪ হতে খিলগাঁও তালতলা,Mirpur(14),Khilgaon Taltala,25.7,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_131_NO,A-131 No.,এ-১৩১নং,Mirpur Zoo to Sadarghat,মিরপুর চিড়িয়াখানা হতে সদরঘাট,Zoo,Victoria Park,16.0,9,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_132_NO,A-132 No.,এ-১৩২নং,Baipail to Keraniganj (New Jail),বাইপাইল হতে কেরানীগঞ্জ (নতুন জেলখানা),Baipail,Keraniganj (New Jail),47.5,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_137_NO,A-137 No.,এ-১৩৭নং,Balughat to Sayedabad,বালুঘাট হতে সায়েদাবাদ,Sayedabad,Balughat,14.6,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_138_NO,A-138 No.,এ-১৩৮নং,Uttara (Raniganj) to Sadarghat,উত্তরা (রানীগঞ্জ) হতে সদরঘাট,Uttara (Raniganj),Victoria Park,23.3,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_141_NO,A-141 No.,এ-১৪১নং,Bonoshri to Mohammadpur Shia Mosque,বনশ্রী হতে মোহাম্মদপুর শিয়া মসজিদ,Bonoshri,Mohammadpur Shia Mosque,18.2,6,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_142_NO,A-142 No.,এ-১৪২নং,Pirjangi Mazar to Natun Bazar,পীরজঙ্গী মাজার হতে নতুন বাজার,Pirjangi Mazar,Natun Bazar,16.7,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_154_NO,A-154 No.,এ-১৫৪নং,Mirpur-14 to Signboard,মিরপুর-১৪ হতে সাইনবোর্ড,Zoo,Signboard,26.5,17,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_157_NO,A-157 No.,এ-১৫৭নং,Bonoshri to Mohammadpur,বনশ্রী হতে মোহাম্মদপুর,Bonoshri,Mohammadpur (Asad Avenue),14.0,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_160_NO,A-160 No.,এ-১৬০নং,Mohammadpur (Japan Garden City) to Postgola,মোহাম্মদপুর (জাপান গার্ডেন সিটি) হতে পোস্তগোলা,Mohammadpur (Japan Garden City),Postgola,16.2,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_161_NO,A-161 No.,এ-১৬১নং,Ghatarchar to Dhupkhola,ঘাটারচর হতে ধুপখোলা,Ghatarchar,Dhupkhola,20.5,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_166_NO,A-166 No.,এ-১৬৬নং,Mohammadpur (Bus Stand) to Uttara House Building,মোহাম্মদপুর(বাস স্ট্যান্ড) হতে উত্তরা হাউজ বিল্ডিং,Mohammadpur,House Building,20.5,17,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_173_NO,A-173 No.,এ-১৭৩নং,Babu Bazar Bridge to Dhowr Bridge,বাবু বাজার ব্রীজ হতে ধওর ব্রীজ,Babu Bazar Bridge,Dhowr Bridge,25.2,15,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_181_NO,A-181 No.,এ-১৮১নং,Savar to Badda Natun Bazar,সাভার হতে বাড্ডা নতুন বাজার,Savar,Natun Bazar,27.8,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_182_NO,A-182 No.,এ-১৮২নং,Mirpur-14 to Chandra,মিরপুর-১৪ হতে চন্দ্রা,Mirpur-14,Chandra,42.5,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_190_NO,A-190 No.,এ-১৯০নং,Savar EPZ to Narayanganj Link Road,সাভার ইপিজেড হতে নারায়ণগঞ্জ লিংকরোড,EPZ,Link Road,46.2,8,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_192_NO,A-192 No.,এ-১৯২নং,Savar EPZ to Narayanganj Link Road,সাভার ইপিজেড হতে নারায়ণগঞ্জ লিংকরোড,EPZ,Narayanganj Link Road,47.5,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_202_NO,A-202 No.,এ-২০২নং,Savar to Amulia Staff Quarter,সাভার হতে আমুলিয়া স্টাফ কোয়ার্টার,Savar,Amulia Staff Quarter,43.0,8,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_207_NO,A-207 No.,এ-২০৭নং,Tongi (Cherag Ali) to Dhakeshwari,টঙ্গী (চেরাগআলী) হতে ঢাকেশ্বরী,Tongi,Dhakeshwari Etimkhana,28.0,8,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_219_NO,A-219 No.,এ-২১৯নং,Fulbaria to Kapasia,ফুলবাড়িয়া হতে কাপাসিয়া,Fulbaria,Kapasia,66.0,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_220_NO,A-220 No.,এ-২২০নং,Fulbaria to Sreepur,ফুলবাড়িয়া হতে শ্রীপুর,Fulbaria,Bomi,77.5,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_222_NO,A-222 No.,এ-২২২নং,Fulbaria to Gazipur,ফুলবাড়িয়া হতে গাজীপুর,Fulbaria,Gazipur,41.5,9,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_224_NO,A-224 No.,এ-২২৪নং,Fulbaria to Paturia,ফুলবাড়িয়া হতে পাটুরিয়া,Fulbaria,Paturia,92.3,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_225_NO,A-225 No.,এ-২২৫নং,Sayedabad to Gazipur,সায়েদাবাদ হতে গাজীপুর,Sayedabad,Gazipur,42.0,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_228_NO,A-228 No.,এ-২২৮নং,Sayedabad to Narayanganj,সায়েদাবাদ হতে নারায়ণগঞ্জ,Sayedabad,Narayanganj,15.8,5,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_234_NO,A-234 No.,এ-২৩৪নং,Madanganj to Azimpur,মদনগঞ্জ হতে আজিমপুর,Madanganj,Azimpur,33.1,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_236_NO,A-236 No.,এ-২৩৬নং,Sayedabad to Narayanganj,সায়েদাবাদ হতে নারায়ণগঞ্জ,Sayedabad,Narayanganj,16.2,6,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_240_NO,A-240 No.,এ-২৪০নং,Kanchpur to Tongi Bastuhara,কাঁচপুর হতে টঙ্গী বাস্তহারা,Kanchpur,Tongi Bastuhara,36.0,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_243_NO,A-243 No.,এ-২৪৩নং,Dhaleswar to Tongi (Bastuhara),ধলেশ্বর হতে টঙ্গী (বাস্তহারা),Dhaleswar,Tongi (Bastuhara),31.7,6,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_245_NO,A-245 No.,এ-২৪৫নং,Madanpur to Abdullahpur,মদনপুর হতে আব্দুল্লাহপুর,Madanpur,Abdullahpur,36.5,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_249_NO,A-249 No.,এ-২৪৯নং,Fulbaria to Khasiakhali Beribadh,ফুলবাড়িয়া হতে খাসিয়াখালী বেড়িবাঁধ,Fulbaria,Khasiakhali Beribadh,52.5,17,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_252_NO,A-252 No.,এ-২৫২নং,Bhulta to Science Lab,ভুলতা হতে সায়েন্সল্যাব,Bhulta,Science Lab,31.3,6,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_256_NO,A-256 No.,এ-২৫৬নং,Chancharpul to Meghna Ghat,চাঁনখারপুল হতে মেঘনা ঘাট,Chancharpul,Meghna Ghat,29.3,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_257_NO,A-257 No.,এ-২৫৭নং,Kanchpur Bridge to Board Bazar,কাঁচপুর ব্রীজ হতে বোর্ড বাজার,Kanchpur Bridge,Board Bazar,40.9,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_259_NO,A-259 No.,এ-২৫৯নং,Palashi to Meghnaghat,পলাশী হতে মেঘনাঘাট,Palashi,Meghnaghat,33.4,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_260_NO,A-260 No.,এ-২৬০নং,Fulbaria Path Hospital to Dhamrai,ফুলবাড়ীয়া পথ হাসপাতাল হতে ধামরাই,Fulbaria,Dhamrai,42.0,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_264_NO,A-264 No.,এ-২৬৪নং,Mirpur (Zoo) to Keraniganj,মিরপুর (চিড়িয়াখানা) হতে কেরানীগঞ্জ,Mirpur (Zoo),Keraniganj,17.2,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_265_NO,A-265 No.,এ-২৬৫নং,Jagannath University to Chandra,জগন্নাথ বিশ্ববিদ্যালয় হতে চন্দ্রা,Jagannath University,Chandra,55.3,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_266_NO,A-266 No.,এ-২৬৬নং,Jagannath University to Chandra,জগন্নাথ বিশ্ববিদ্যালয় হতে চন্দ্রা,Jagannath University,Chandra,55.3,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_270_NO,A-270 No.,এ-২৭০নং,Basila to Kamarpada,বসিলা হতে কামারপাড়া,Basila,Kamarpada,29.2,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_271_NO,A-271 No.,এ-২৭১নং,Gabtoli to Gazipur,গাবতলী হতে গাজীপুর,Gabtoli Bridge Par,Gazipur,36.7,9,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_273_NO,A-273 No.,এ-২৭৩নং,Gabtoli to Rampura,গাবতলী হতে রামপুরা,Gabtoli Bridge Par,Meradia Bazar,26.5,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_278_NO,A-278 No.,এ-২৭৮নং,Mirpur-1 (Sony Cinema Hall) to Beraid,মিরপুর-১ (সনি সিনেমা হল) হতে বেরাইদ,Mirpur-1,Beraid,21.0,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_280_NO,A-280 No.,এ-২৮০নং,Mirpur DOHS to Motijheel,মিরপুর ডিওএইচ এস হতে মতিঝিল,Mirpur DOHS,Motijheel,18.9,9,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_285_NO,A-285 No.,এ-২৮৫নং,Zoo to Keraniganj (New Jail),চিড়িয়াখানা হতে কেরানীগঞ্জ (নতুন জেলখানা),Zoo,Keraniganj (New Jail),21.0,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_288_NO,A-288 No.,এ-২৮৮নং,Mirpur-12 to Narayanganj,মিরপুর-১২ হতে নারায়ণগঞ্জ,Mirpur-12,Narayanganj,35.0,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_292_NO,A-292 No.,এ-২৯২নং,Mohammadpur Shia Mosque to Nobinagar (Savar),মোহাম্মদপুর শিয়া মসজিদ হতে নবীনগর (সাভার),Mohammadpur Shia Mosque,Nobinagar (Savar),40.0,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_294_NO,A-294 No.,এ-২৯৪নং,Japan Garden City to Dhaur,জাপান গার্ডেন সিটি হতে ধউর,Japan Garden City,Dhaur,25.2,8,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_295_NO,A-295 No.,এ-২৯৫নং,Mirpur-12 to Mawa,মিরপুর-১২ হতে মাওয়া,Mirpur-12,Mawa Ferryghat,53.0,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_299_NO,A-299 No.,এ-২৯৯নং,Ati Bazar to Dhaur,আটি বাজার হতে ধউর,Ati Bazar,Dhaur,29.0,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_301_NO,A-301 No.,এ-৩০১নং,Japan Garden City to Dhaur,জাপান গার্ডেন সিটি হতে ধউর,Japan Garden City,Dhaur,29.5,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_302_NO,A-302 No.,এ-৩০২নং,Bonsree (Meradia) to Savar,বনশ্রী (মেরাদিয়া) হতে সাভার,Bonsree (Meradia),Savar,26.7,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_304_NO,A-304 No.,এ-৩০৪নং,Basila to Dhaur,বছিলা হতে ধউর,Basila,Dhaur,32.2,17,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_307_NO,A-307 No.,এ-৩০৭নং,Mirpur-14 to EPZ,মিরপুর-১৪ হতে ইপিজেড,Mirpur-14,EPZ,32.7,8,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_309_NO,A-309 No.,এ-৩০৯নং,Sadarghat to EPZ,সদরঘাট হতে ইপিজেড,Sadarghat,EPZ,41.7,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_310_NO,A-310 No.,এ-৩১০নং,Mirpur Rupnagar to Sayedabad,মিরপুর রূপনগর হতে সায়েদাবাদ,Mirpur Rupnagar,Sayedabad,19.9,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_314_NO,A-314 No.,এ-৩১৪নং,Hemayetpur to Demra Staff Quarter,হেমায়েতপুর হতে ডেমরা স্টাফ কোয়ার্টার,Hemayetpur,Staff Quarter,38.8,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_317_NO,A-317 No.,এ-৩১৭নং,Diabari to Postgola,দিয়াবাড়ী হতে পোস্তগোলা,Diabari Chourasta,Postgola,27.3,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_319_NO,A-319 No.,এ-৩১৯নং,Mirpur-12 to Kanchpur Bridge,মিরপুর-১২ হতে কাঁচপুর ব্রীজ,Mirpur-12,Kanchpur Bridge,30.7,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_320_NO,A-320 No.,এ-৩২০নং,Zoo to Jatrabari,চিড়িয়াখানা হতে যাত্রাবাড়ী,Zoo,Jatrabari,25.0,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_327_NO,A-327 No.,এ-৩২৭নং,Mirpur-14 to Motijheel,মিরপুর-১৪ হতে মতিঝিল,Mirpur-14,Motijheel,13.5,7,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_329_NO,A-329 No.,এ-৩২৯নং,Basila to Signboard,বসিলা হতে সাইনবোর্ড,Basila,Signboard,20.8,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_330_NO,A-330 No.,এ-৩৩০নং,Narayanganj to Diabari,নারায়ণগঞ্জ হতে দিয়াবাড়ী,Narayanganj,Diabari,31.8,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_331_NO,A-331 No.,এ-৩৩১নং,Nandan Park to Signboard,নন্দন পার্ক হতে সাইনবোর্ড,Nandan Park,Signboard,58.6,20,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_333_NO,A-333 No.,এ-৩৩৩নং,Mirpur-14 to Nandan Park,মিরপুর-১৪ হতে নন্দন পার্ক,Mirpur-14,Nandan Park,39.8,8,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_341_NO,A-341 No.,এ-৩৪১নং,Azimpur to Dhaur,আজিমপুর হতে ধউর,Azimpur,Dhaur,27.3,8,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_344_NO,A-344 No.,এ-৩৪৪নং,Zoo to Ekuria,চিড়িয়াখানা হতে ইকুরিয়া,Zoo,Ekuria,23.7,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_346_NO,A-346 No.,এ-৩৪৬নং,Kamarpara to Notre Dame College,কামারপাড়া হতে নটরডেম কলেজ,Kamar Para,Notre Dame College,25.0,9,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_354_NO,A-354 No.,এ-৩৫৪নং,Azimpur to Nandan Park,আজিমপুর হতে নন্দনপার্ক,Azimpur,Nandan Park,50.5,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_355_NO,A-355 No.,এ-৩৫৫নং,Kuril Biswa Road to Azimpur,কুড়িল বিশ্বরোড হতে আজিমপুর,Kuril Biswa Road,Azimpur,17.5,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_356_NO,A-356 No.,এ-৩৫৬নং,Azimpur to Dhaur,আজিমপুর হতে ধউর,Azimpur,Dhaur,29.9,15,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_362_NO,A-362 No.,এ-৩৬২নং,Dhaur to Madanpur,ধউর হতে মদনপুর,Dhaur,Madanpur,38.5,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_365_NO,A-365 No.,এ-৩৬৫নং,Nabinagar to Dhaur,নবীনগর হতে ধউর,Nabinagar,Dhaur,45.2,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_366_NO,A-366 No.,এ-৩৬৬নং,Basila to Dhaur,বসিলা হতে ধউর,Basila,Dhaur,32.4,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_367_NO,A-367 No.,এ-৩৬৭নং,Bhabantek to Nandan Park,ভাবানটেক হতে নন্দনপার্ক,Bhabantek,Nandan Park,44.8,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_368_NO,A-368 No.,এ-৩৬৮নং,Demra Staff Quarter to Basila,ডেমরা স্টাফ কোয়ার্টার হতে বসিলা,Demra Staff Quarter,Basila,23.5,10,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_373_NO,A-373 No.,এ-৩৭৩নং,Demra (Bridge) to Nabinagar,ডেমরা (ব্রীজ) হতে নবীনগর,Demra Bridge,Nabinagar,46.9,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_377_NO,A-377 No.,এ-৩৭৭নং,Gabtoli to Rampura,গাবতলী হতে রামপুরা,Gabtoli Bridge Par,Meradia Bazar,26.5,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_378_NO,A-378 No.,এ-৩৭৮নং,Shialbari to Kamalapur (Pirjangi Mazar),শিয়ালবাড়ী হতে কমলাপুর (পীরজঙ্গী মাজার),Shialbari,Kamalapur (Pirjangi Mazar),21.3,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_380_NO,A-380 No.,এ-৩৮০নং,Signboard to Fantasy Kingdom,সাইনবোর্ড হতে ফ্যান্টাসী কিংডম,Signboard,Fantasy Kingdom,46.3,18,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_381_NO,A-381 No.,এ-৩৮১নং,Gulistan to Bhulta (Gausia),গুলিস্তান হতে ভুলতা (গাউছিয়া),Gulistan,Bhulta (Gausia),20.6,5,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_386_NO,A-386 No.,এ-৩৮৬নং,Madanpur to Nandan Park,মদনপুর হতে নন্দনপার্ক,Madanpur,Nandan Park,78.6,17,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_387_NO,A-387 No.,এ-৩৮৭নং,Kalampur to Victoria Park,কালামপুর হতে ভিক্টোরিয়াপার্ক,Kalampur,Victoria Park,49.5,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_406_NO,A-406 No.,এ-৪০৬নং,Ghater Char to Sonargaon,ঘাটের চর হতে সোনারগাঁও,Ghater Char,Sonargaon,39.4,17,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_414_NO,A-414 No.,এ-৪১৪নং,Uttara Diabari to Ghater Char,উত্তরা দিয়াবাড়ী হতে ঘাটের চর,Uttara Diabari,Ghater Char,32.1,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_421_NO,A-421 No.,এ-৪২১নং,Signboard to Nabinagar,সাইনবোর্ড হতে নবীনগর,Signboard,Nabinagar,45.5,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_422_NO,A-422 No.,এ-৪২২নং,Kamrangirchar (Beribadh) to Konabari,কামারঙ্গীরচর (বেড়িবাঁধ) থেকে কোনাবাড়ী,Kamrangirchar (Beribadh),Konabari,52.0,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_424_NO,A-424 No.,এ-৪২৪নং,Signboard to Dhaur,সাইনবোর্ড হতে ধউর,Signboard,Dhaur,33.0,15,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_426_NO,A-426 No.,এ-৪২৬নং,Kanchpur to Paturia,কাঁচপুর হতে পাটুরিয়া,Kanchpur,Paturia,104.5,16,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_429_NO,A-429 No.,এ-৪২৯নং,Savar to Signboard,সাভার হতে সাইনবোর্ড,Savar,Signboard,34.0,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_430_NO,A-430 No.,এ-৪৩০নং,Bhawal Vita (South Keraniganj) to Diabari,ভাওয়াল ভিটা (দক্ষিণ কেরানীগঞ্জ) হতে দিয়াবাড়ী,Bhawal Vita (South Keraniganj),Diabari,35.1,19,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_431_NO,A-431 No.,এ-৪৩১নং,Zoo to Khaisakhali Beribadh,চিড়িয়াখানা হতে খাইস্যাখালী বেড়িবাঁধ,Zoo,Beribadh,53.8,18,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_432_NO,A-432 No.,এ-৪৩২নং,Kuril Biswa Road to Palashi,কুড়িল বিশ্বরোড হতে পলাশী,Kuril Biswa Road,Palashi,20.0,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_436_NO,A-436 No.,এ-৪৩৬নং,Sadarghat Victoria Park to Baipail,সদরঘাট ভিক্টোরিয়া পার্ক হতে বাইপাইল,Sadarghat Victoria Park,Baipail,39.8,13,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_439_NO,A-439 No.,এ-৪৩৯নং,Khilgaon Khidma Hospital to Ghater Char,খিলগাঁও খিদমা হাসপাতাল হতে ঘাটেরচর,Khilgaon Khidma Hospital,Ghater Char,20.0,14,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_441_NO,A-441 No.,এ-৪৪১নং,Nandan Park to Narayanganj Chasara,নন্দনপার্ক হতে নারায়ণগঞ্জ চাষাঢ়া,Nandan Park,Narayanganj Chasara,65.4,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_453_NO,A-453 No.,এ-৪৫৩নং,Nabinagar to Mawa Ghat,নবীনগর হতে মাওয়াঘাট,Nabinagar,Mawa Ghat,72.5,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_458_NO,A-458 No.,এ-৪৫৮নং,Mirpur-12 to Motijheel,মিরপুর-১২ হতে মতিঝিল,Mirpur-12,Motijheel,15.3,11,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_A_459,A-459,এ-৪৫৯,Manikdi (ECB Mor) to Azimpur,মানিকদি (ইসিবি মোড়) হতে আজিমপুর,Manikdi (ECB Mor),Azimpur,15.3,12,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_PILOTING_ROUTE_1,Piloting Route-1,পাইলটিং রুট-১,Ghatarchor to Demra Staff Quarter,ঘাটেরচর হতে ডেমরা স্টাফ কোয়ার্টার,Ghatarchor,Demra Staff Quarter,22.27,21,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_PILOTING_ROUTE_2,Piloting Route-2,পাইলটিং রুট-২,Demra Staff Quarter to Ghatarchor,ডেমরা স্টাফ কোয়ার্টার হতে ঘাটেরচর,Demra Staff Quarter,Ghatarchor,22.26,22,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_PILOTING_ROUTE_3,Piloting Route-3,পাইলটিং রুট-৩,Ghatarchor to Pagla Bazar,ঘাটেরচর হতে পাগলা বাজার,Ghatarchor,Pagla Bazar,23.51,15,2.45,10,yes,SRC_BRTA_METRO_FARES
+BRTA_PILOTING_ROUTE_4,Piloting Route-4,পাইলটিং রুট-৪,Pagla Bazar to Ghatarchor,পাগলা বাজার হতে ঘাটেরচর,Pagla Bazar,Ghatarchor,23.6,14,2.45,10,yes,SRC_BRTA_METRO_FARES
