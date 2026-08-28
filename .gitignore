@@ -1,7 +1,11 @@
-# secrets
-.env
+# secrets                                                                       .env
 *.json.b64
 service-account*.json
+firebase-adminsdk*.json
+*.pem
+*.p12
+*.key
+*.pfx
 
 # Python
 __pycache__/
@@ -44,10 +48,14 @@ backend/scripts/_tmp_counts.py
 backend_backup/
 
 # Generated archives - do not commit
+*.zip
 /flutter_app.zip
 /backend.zip
 /backend (2).zip
 /flutter_app/lib.zip
+/Gochano_Full_Production/
+/_commute_patch/
+/backend_backup/
 
 # Build/runtime files
 flutter_app/android/.kotlin/
@@ -56,3 +64,7 @@ flutter_app/android/.kotlin/
 backend/.venv/
 __pycache__/
 .pytest_cache/
+
+
+backend/.env
+*.env
