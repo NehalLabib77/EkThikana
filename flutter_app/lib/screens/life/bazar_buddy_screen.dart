@@ -40,11 +40,16 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
 
   String get sessionId => FinancialService.bazarSessionId(selectedDate);
 
-  /// Captured while building the bottom sheet so the `other` freeform
-  /// controller can be disposed together with the other controllers in
-  /// `editItem`'s `finally`. Resolved inside the builder so the value at
-  /// sheet-close time is the final user input.
-  TextEditingController? _customUnitController;
+  // No persistent controller field. The freeform-unit controller is owned
+  // by `editItem` and tied to the lifetime of the bottom sheet, so it was
+  // leaking (and racing) when held as a field. Now it is created lazily
+  // inside the sheet's first build and disposed when the sheet closes.
+
+  /// Cache of the latest custom-unit text from the bottom sheet. We only
+  /// read this from outside the sheet at save-time, so it is a String,
+  /// never a controller. The controller itself lives entirely inside the
+  /// `StatefulBuilder` scope of `editItem`.
+  String? _lastCustomUnitText;
 
   Future<void> pickDate() async {
     final picked = await showDatePicker(
@@ -176,7 +181,17 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
     // one of the known options.
     const fixedUnits = <String>{'kg', 'g', 'L', 'ml', 'pcs', 'pack'};
     final savedUnit = data['unit']?.toString() ?? 'kg';
+    // Defensive lookup: legacy data may have a category that doesn't
+    // exist in the current `categories` list (renamed categories, typos,
+    // or case differences). Map anything unknown to the preset, or the
+    // last category ('Other') as the safe fallback. This prevents the
+    // DropdownButton 'initialValue not in items' assertion when the
+    // dropdown is built below.
+    final knownCategoryValues = {for (final c in categories) c.en};
     var category = data['category']?.toString() ?? presetCategory?.en ?? 'Other';
+    if (!knownCategoryValues.contains(category)) {
+      category = presetCategory?.en ?? categories.last.en;
+    }
     final title = TextEditingController(text: data['title']?.toString() ?? '');
     final quantity = TextEditingController(
       text: ((data['quantity'] as num?)?.toDouble() ?? 1).toString(),
@@ -198,6 +213,15 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
             .toStringAsFixed(2);
     final unitPrice = TextEditingController(text: initialUnitPrice);
     var purchased = data['purchased'] == true;
+    // Local-only controller for the 'other' unit field. The very first
+    // build of the bottom sheet creates it inside the StatefulBuilder's
+    // Builder (see below) and the very last line of editItem disposes it.
+    // It is intentionally NOT a class field — re-assigning a controller
+    // during a builder is what caused the original leak/assert.
+    TextEditingController? customController;
+    // Reset the cached typed text so a fresh sheet doesn't inherit text
+    // from the previous sheet's `customUnit`.
+    _lastCustomUnitText = null;
 
     final save = await showModalBottomSheet<bool>(
       context: context,
@@ -284,11 +308,16 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                     const SizedBox(height: 12),
                     Builder(
                       builder: (_) {
-                        // Local controller so the freeform text is per-sheet
-                        // and disposed together with the other controllers.
-                        final customController =
-                            TextEditingController(text: customUnit);
-                        _customUnitController = customController;
+                        // Local controller, scoped to this Builder so each
+                        // rebuild of the StatefulBuilder gets a fresh
+                        // controller while the sheet is open. The very first
+                        // build seeds it from the saved value (`customUnit`).
+                        // We keep a tiny text cache on the State so the
+                        // suffix hint and the save handler can read the
+                        // latest value without holding the controller.
+                        customController = TextEditingController(
+                          text: _lastCustomUnitText ?? customUnit,
+                        );
                         return TextField(
                           controller: customController,
                           decoration: InputDecoration(
@@ -296,8 +325,13 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                             hintText: EkLanguage.text('e.g. dozen, bundle', 'যেমন: ডজন, আঁটি'),
                           ),
                           // Rebuild so the unit-price suffix hint (e.g. ৳/dozen)
-                          // tracks the freshly typed custom unit.
-                          onChanged: (_) => setSheet(() {}),
+                          // tracks the freshly typed custom unit. Capture
+                          // the text in a plain String — never re-assign a
+                          // controller from the build path.
+                          onChanged: (value) {
+                            _lastCustomUnitText = value;
+                            setSheet(() {});
+                          },
                         );
                       },
                     ),
@@ -315,9 +349,14 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                       suffixText: () {
                         String resolved;
                         if (unit == 'other') {
-                          resolved = _customUnitController?.text.trim().isNotEmpty == true
-                              ? _customUnitController!.text.trim()
-                              : (customUnit.trim().isNotEmpty ? customUnit.trim() : 'unit');
+                          final typed = _lastCustomUnitText?.trim() ?? '';
+                          if (typed.isNotEmpty) {
+                            resolved = typed;
+                          } else if (customUnit.trim().isNotEmpty) {
+                            resolved = customUnit.trim();
+                          } else {
+                            resolved = 'unit';
+                          }
                         } else {
                           resolved = unit;
                         }
@@ -421,8 +460,10 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
         // to 'pcs' (matches the dropdown default) when 'other' is left blank.
         String resolvedUnit = unit;
         if (unit == 'other') {
-          final custom =
-              _customUnitController?.text.trim() ?? customUnit.trim();
+          // Prefer the typed value captured during the sheet's rebuilds,
+          // then fall back to whatever the saved document had.
+          final typed = _lastCustomUnitText?.trim() ?? '';
+          final custom = typed.isNotEmpty ? typed : customUnit.trim();
           resolvedUnit = custom.isEmpty ? 'pcs' : custom;
         }
         await FinancialService.saveBazarItem(
@@ -449,8 +490,11 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
     title.dispose();
     quantity.dispose();
     unitPrice.dispose();
-    _customUnitController?.dispose();
-    _customUnitController = null;
+    // Always dispose the per-sheet custom unit controller, even if the
+    // sheet was never opened with `unit == 'other'`.
+    customController?.dispose();
+    customController = null;
+    _lastCustomUnitText = null;
   }
 
   @override
@@ -756,8 +800,13 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
 
   Widget _itemTile(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
+    // Case-insensitive category lookup so that legacy docs with a
+    // slightly different category string (e.g. 'fish' vs 'Fish', or
+    // 'Vegetables ' with a trailing space) still render the right icon
+    // instead of silently falling back to the 'Other' emoji.
+    final rawCategory = data['category']?.toString().trim() ?? '';
     final category = categories.firstWhere(
-      (c) => c.en == data['category']?.toString(),
+      (c) => c.en.toLowerCase() == rawCategory.toLowerCase(),
       orElse: () => categories.last,
     );
     final serverBought = data['purchased'] == true;
@@ -796,6 +845,10 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
             onChanged: (value) async {
               final next = value == true;
               // Optimistic local update so the UI feels instant.
+              // Guarded: the user could have navigated away during the
+              // toggle, which would otherwise throw the
+              // "setState() called after dispose()" assertion.
+              if (!mounted) return;
               setState(() => _optimisticPurchased[doc.id] = next);
               try {
                 await FinancialService.toggleBazarPurchased(
@@ -824,6 +877,7 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                   action: EkLanguage.text('Delete', 'মুছুন'),
                 );
                 if (ok) {
+                  if (!mounted) return;
                   setState(() => _optimisticPurchased.remove(doc.id));
                   await FinancialService.deleteBazarItem(doc.id);
                 }

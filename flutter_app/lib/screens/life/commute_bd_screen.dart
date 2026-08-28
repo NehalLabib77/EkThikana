@@ -12,6 +12,7 @@ import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/api_service.dart';
 import '../../services/financial_service.dart';
+import '../../widgets/location_picker.dart';
 
 /// Lightweight recent-destinations store backed by [SharedPreferences].
 /// Phase 2 UI/UX additive feature: keeps the last 6 destinations the user
@@ -299,6 +300,60 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
       lon: selected.lon,
     );
 
+    if (origin != null) {
+      await _buildRoute();
+    }
+  }
+
+  /// Opens the full-screen map picker so the user can choose a custom
+  /// starting point instead of using device GPS. The picked point
+  /// becomes the new `origin` and rebuilds the route if a destination
+  /// is already chosen.
+  Future<void> _pickOriginOnMap() async {
+    final picked = await LocationPickerScreen.show(
+      context,
+      title: EkLanguage.text('Pick starting point', 'শুরুর পয়েন্ট নিন'),
+      initial: origin ?? const LatLng(23.8103, 90.4125),
+      initialName: originName == 'Current location' ? null : originName,
+    );
+    if (picked == null) return;
+    setState(() {
+      origin = picked.point;
+      originName = picked.name;
+      route = null;
+      routeError = null;
+      polyline = const [];
+    });
+    mapController.move(picked.point, 13);
+    if (destination != null) {
+      await _buildRoute();
+    }
+  }
+
+  /// Opens the full-screen map picker for the destination. The user
+  /// can drop a pin anywhere and label it. If a route was previously
+  /// computed it will be invalidated and recomputed.
+  Future<void> _pickDestinationOnMap() async {
+    final picked = await LocationPickerScreen.show(
+      context,
+      title: EkLanguage.text('Pick destination', 'গন্তব্য নির্বাচন করুন'),
+      initial: destination ?? origin ?? const LatLng(23.8103, 90.4125),
+      initialName: destinationName.isEmpty ? null : destinationName,
+    );
+    if (picked == null) return;
+    setState(() {
+      destination = picked.point;
+      destinationName = picked.name;
+      route = null;
+      routeError = null;
+      polyline = const [];
+    });
+    mapController.move(picked.point, 13);
+    await _rememberDestination(
+      name: picked.name,
+      lat: picked.point.latitude,
+      lon: picked.point.longitude,
+    );
     if (origin != null) {
       await _buildRoute();
     }
@@ -644,6 +699,8 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
               destination: destination,
               onLocate: _locate,
               onPickDestination: _searchDestination,
+              onPickOrigin: _pickOriginOnMap,
+              onPickDestinationOnMap: _pickDestinationOnMap,
             ),
             const SizedBox(height: 12),
             if (_recents.isNotEmpty)
@@ -1155,6 +1212,8 @@ class _HomeHeaderCard extends StatelessWidget {
     required this.destination,
     required this.onLocate,
     required this.onPickDestination,
+    required this.onPickOrigin,
+    required this.onPickDestinationOnMap,
   });
 
   final String originName;
@@ -1164,6 +1223,8 @@ class _HomeHeaderCard extends StatelessWidget {
   final LatLng? destination;
   final VoidCallback onLocate;
   final VoidCallback onPickDestination;
+  final VoidCallback onPickOrigin;
+  final VoidCallback onPickDestinationOnMap;
 
   @override
   Widget build(BuildContext context) {
@@ -1219,6 +1280,14 @@ class _HomeHeaderCard extends StatelessWidget {
                       )
                     : const Icon(Icons.refresh),
               ),
+              IconButton(
+                tooltip: EkLanguage.text(
+                  'Pick on map',
+                  'মানচিত্র থেকে নির্বাচন',
+                ),
+                onPressed: onPickOrigin,
+                icon: const Icon(Icons.map_outlined),
+              ),
             ],
           ),
           const Padding(
@@ -1263,6 +1332,14 @@ class _HomeHeaderCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: EkLanguage.text(
+                      'Pick on map',
+                      'মানচিত্র থেকে নির্বাচন',
+                    ),
+                    onPressed: onPickDestinationOnMap,
+                    icon: const Icon(Icons.map_outlined),
                   ),
                   Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
                 ],

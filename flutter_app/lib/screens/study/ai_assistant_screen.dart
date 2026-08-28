@@ -1,10 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/language.dart';
 import '../../services/api_service.dart';
 import '../search/universal_search_screen.dart';
-import 'materials_screen.dart';
 import 'notes_screen.dart';
 import 'study_plan_screen.dart';
 
@@ -29,7 +30,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   bool _sending = false;
 
   PlatformFile? _pickedFile;
-  final bool _uploading = false;
+  String? _uploadedMaterialId;
+  bool _uploading = false;
   String? _uploadError;
 
   @override
@@ -74,10 +76,51 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
       );
       if (picked.isEmpty) return;
+      final file = picked.first;
+      final Uint8List? bytes = await file.readAsBytes();
+      if (bytes == null || bytes.isEmpty) {
+        setState(() => _uploadError = EkLanguage.text(
+              'Could not read the selected file.',
+              'নির্বাচিত ফাইল পড়া যায়নি।',
+            ));
+        return;
+      }
+
       setState(() {
-        _pickedFile = picked.first;
+        _pickedFile = file;
+        _uploadedMaterialId = null;
+        _uploading = true;
         _uploadError = null;
       });
+
+      try {
+        // Reuse the existing materials upload pipeline. This stores the file
+        // on Supabase, registers it in Firestore, and returns an id we can
+        // then turn around and ask about via /api/ai/pdf-question. No new
+        // backend routes or contracts are introduced.
+        final id = await ApiService.uploadMaterial(
+          bytes: bytes,
+          fileName: file.name,
+          title: file.name,
+          visibility: 'private',
+        );
+        if (!mounted) return;
+        setState(() {
+          _uploadedMaterialId = id;
+          _uploading = false;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _uploading = false;
+          _uploadError = e is ApiException
+              ? e.message
+              : EkLanguage.text(
+                  'Upload failed. Check your connection and try again.',
+                  'আপলোড ব্যর্থ হয়েছে। সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।',
+                );
+        });
+      }
     } catch (_) {
       setState(() => _uploadError = EkLanguage.text(
             'Could not read the selected file.',
@@ -86,7 +129,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
   }
 
-  void _askPdfFromUpload() {
+  Future<void> _askPdfFromUpload() async {
     final file = _pickedFile;
     if (file == null || _uploading) return;
     final question = _chatController.text.trim();
@@ -97,14 +140,43 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ));
       return;
     }
+    if (_uploadedMaterialId == null) {
+      setState(() => _uploadError = EkLanguage.text(
+            'Upload the file first, then ask your question.',
+            'আগে ফাইলটি আপলোড করুন, তারপর প্রশ্ন লিখুন।',
+          ));
+      return;
+    }
+
     setState(() {
       _bubbles.add(_ChatBubble.user(
           '${EkLanguage.text('File', 'ফাইল')}: ${file.name}\n$question'));
+      _sending = true;
     });
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const MaterialsScreen()),
-    );
+    _chatController.clear();
+
+    try {
+      final reply = await ApiService.askPdf(
+        materialId: _uploadedMaterialId!,
+        question: question,
+      );
+      if (!mounted) return;
+      setState(() {
+        _bubbles.add(_ChatBubble.ai(reply));
+        _sending = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _bubbles.add(_ChatBubble.error(
+          EkLanguage.text(
+            'Could not read the file. Try a clearer PDF.',
+            'ফাইল পড়া যায়নি। আরও স্পষ্ট PDF দিয়ে আবার চেষ্টা করুন।',
+          ),
+        ));
+        _sending = false;
+      });
+    }
   }
 
   void _openSettings() {

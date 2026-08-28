@@ -52,7 +52,16 @@ class _BootRouterState extends State<_BootRouter> {
   bool _ready = false;
 
   void _handleReady() {
-    if (!mounted) return;
+    // The splash invokes [onReady] from inside its build cycle. Defer the
+    // ready flip until the current frame has been laid out so setState never
+    // runs during a build of a different widget. Without this deferral the
+    // splash can deadlock against `_debugLocked` / `_debugBuildingDirtyElements`
+    // and leave the user staring at the dark splash background forever.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flipReady());
+  }
+
+  void _flipReady() {
+    if (!mounted || _ready) return;
     setState(() => _ready = true);
   }
 

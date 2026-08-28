@@ -9,6 +9,8 @@ import '../groups/groups_screen.dart';
 import 'academic_structure_screen.dart';
 // community_screen.dart removed in PART 3 (correction 4: no public runtime).
 import 'focus_timer_screen.dart';
+import 'material_upload_screen.dart';
+import 'materials_screen.dart';
 import 'note_editor_screen.dart';
 import 'notes_screen.dart';
 import 'saved_materials_screen.dart';
@@ -38,13 +40,117 @@ class StudyScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
           children: [
             // Community Library removed in PART 3 (correction 4: no public runtime).
-Row(
+            Row(
               children: [
                 Expanded(child: _quick(context, Icons.school_outlined, const Color(0xFF5B3DF5), 'Semesters', 'সেমিস্টার', const AcademicStructureScreen())),
                 const SizedBox(width: 8),
                 Expanded(child: _quick(context, Icons.groups_outlined, const Color(0xFFFF9500), 'Groups', 'গ্রুপ', const GroupsScreen())),
                 const SizedBox(width: 8),
                 Expanded(child: _quick(context, Icons.timer_outlined, const Color(0xFFE0388A), 'Focus', 'ফোকাস', const FocusTimerScreen())),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Card(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _go(context, const MaterialsScreen()),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0EA5E9).withValues(alpha: .12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.library_books_outlined,
+                                  color: Color(0xFF0EA5E9), size: 22),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    EkLanguage.text('Materials', 'উপকরণ'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 13, fontWeight: FontWeight.w800),
+                                  ),
+                                  Text(
+                                    EkLanguage.text('Browse PDFs & notes',
+                                        'PDF ও নোট দেখুন'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 10, color: EkColors.muted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Card(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _go(context, const MaterialUploadScreen()),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF16A34A).withValues(alpha: .12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.upload_file_outlined,
+                                  color: Color(0xFF16A34A), size: 22),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    EkLanguage.text('Upload', 'আপলোড'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 13, fontWeight: FontWeight.w800),
+                                  ),
+                                  Text(
+                                    EkLanguage.text('PDF, image or doc',
+                                        'PDF, ছবি বা ডক'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 10, color: EkColors.muted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 22),
