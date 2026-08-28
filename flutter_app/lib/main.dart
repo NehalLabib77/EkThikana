@@ -4,6 +4,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 import 'app.dart';
 import 'core/app_config.dart';
+import 'core/navigation.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
 
@@ -12,6 +13,13 @@ const String _kLogoAsset = 'assets/branding/Gochano.png';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   pdfrxFlutterInitialize();
+
+  // Always start each cold launch with a fresh Navigator key. Without
+  // this hook, a hot-restart on a developer build would reuse the same
+  // `GlobalKey<NavigatorState>` instance for both the outgoing and the
+  // incoming root `Navigator`, tripping Flutter's
+  // "Duplicate GlobalKey detected" assertion.
+  AppNavigation.resetForColdStart();
 
   try {
     AppConfig.validateRelease();
