@@ -13,6 +13,10 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/financial_service.dart';
 import '../life/expense_tracker_screen.dart';
+import '../study/monthly_money_screen.dart';
+import '../study/study_stats_screen.dart';
+
+const String _kLogoAsset = 'assets/branding/Gochano.png';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -99,10 +103,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(EkLanguage.text('Cancel', 'বাতিল')),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(
-              d,
-              phrase.text.trim().toUpperCase() == 'DELETE',
-            ),
+            onPressed: () =>
+                Navigator.pop(d, phrase.text.trim().toUpperCase() == 'DELETE'),
             child: Text(
               EkLanguage.text('Delete permanently', 'স্থায়ীভাবে মুছুন'),
             ),
@@ -132,7 +134,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       valueListenable: EkLanguage.bangla,
       builder: (context, _, _) => Scaffold(
         appBar: AppBar(
-          title: Text(EkLanguage.text('Profile', 'প্রোফাইল')),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                _kLogoAsset,
+                width: 26,
+                height: 26,
+                fit: BoxFit.contain,
+                gaplessPlayback: true,
+              ),
+              const SizedBox(width: 8),
+              Text(EkLanguage.text('Profile', 'প্রোফাইল')),
+            ],
+          ),
           actions: const [
             Padding(
               padding: EdgeInsets.only(right: 12),
@@ -167,9 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  data['displayName']?.toString() ??
-                      user.displayName ??
-                      '',
+                  data['displayName']?.toString() ?? user.displayName ?? '',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 26,
@@ -187,20 +200,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       _row(
                         Icons.badge_outlined,
-                        EkLanguage.text(
-                          'Account type',
-                          'অ্যাকাউন্টের ধরন',
-                        ),
+                        EkLanguage.text('Account type', 'অ্যাকাউন্টের ধরন'),
                         (data['role']?.toString() ?? '').toUpperCase(),
                       ),
                       if (data['role'] == 'student') ...[
                         const Divider(height: 1, indent: 60),
                         _row(
                           Icons.account_balance_outlined,
-                          EkLanguage.text(
-                            'University',
-                            'বিশ্ববিদ্যালয়',
-                          ),
+                          EkLanguage.text('University', 'বিশ্ববিদ্যালয়'),
                           data['university']?.toString() ?? '',
                         ),
                         const Divider(height: 1, indent: 60),
@@ -216,23 +223,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 14),
                 _financialSummaryCard(),
                 const SizedBox(height: 14),
+                _insightsCard(context),
+                const SizedBox(height: 14),
                 OutlinedButton.icon(
-                  onPressed:
-                      exporting || deleting ? null : exportMyData,
+                  onPressed: exporting || deleting ? null : exportMyData,
                   icon: exporting
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.download_outlined),
                   label: Text(
                     EkLanguage.text(
-                      exporting
-                          ? 'Preparing export…'
-                          : 'Export my data',
+                      exporting ? 'Preparing export…' : 'Export my data',
                       exporting
                           ? 'এক্সপোর্ট প্রস্তুত হচ্ছে…'
                           : 'আমার ডেটা এক্সপোর্ট করুন',
@@ -243,9 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 FilledButton.tonalIcon(
                   onPressed: deleting ? null : AuthService.logout,
                   icon: const Icon(Icons.logout),
-                  label: Text(
-                    EkLanguage.text('Sign out', 'সাইন আউট'),
-                  ),
+                  label: Text(EkLanguage.text('Sign out', 'সাইন আউট')),
                 ),
                 const SizedBox(height: 10),
                 TextButton.icon(
@@ -305,10 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        EkLanguage.text(
-                          'This Month',
-                          'এই মাস',
-                        ),
+                        EkLanguage.text('This Month', 'এই মাস'),
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -367,7 +366,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         );
-      },
+    },
+  );
+}
+
+  Widget _insightsCard(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          children: [
+            ListTile(
+              leading: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE9F8EB),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.insights_outlined,
+                  color: EkColors.green,
+                ),
+              ),
+              title: Text(
+                EkLanguage.text('Study statistics', 'পড়ার পরিসংখ্যান'),
+              ),
+              subtitle: Text(
+                EkLanguage.text(
+                  'Tasks, focus minutes, saved materials',
+                  'টাস্ক, ফোকাস মিনিট, সংরক্ষিত উপকরণ',
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StudyStatsScreen()),
+              ),
+            ),
+            const Divider(height: 1, indent: 60),
+            ListTile(
+              leading: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFCE5F1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: Color(0xFFE0388A),
+                ),
+              ),
+              title: Text(
+                EkLanguage.text('Expense tracker', 'খরচ ট্র্যাকার'),
+              ),
+              subtitle: Text(
+                EkLanguage.text(
+                  'Daily, bazar, medicine, commute',
+                  'দৈনিক, বাজার, ওষুধ, যাতায়াত',
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MonthlyMoneyScreen()),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -377,10 +445,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: EkColors.muted,
-            fontSize: 11,
-          ),
+          style: const TextStyle(color: EkColors.muted, fontSize: 11),
         ),
         Text(
           '৳${value.toStringAsFixed(0)}',
@@ -400,10 +465,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: EkColors.muted),
-            ),
+            child: Text(label, style: const TextStyle(color: EkColors.muted)),
           ),
           Text(
             '৳${amount.toStringAsFixed(0)}',

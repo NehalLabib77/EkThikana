@@ -186,6 +186,52 @@ class ApiService {
     _decode(response);
   }
 
+  /// Owner-only metadata edit. Pass any of [title], [subject], [description].
+  /// To clear description, pass `description: null`. Strings over 1000 chars
+  /// are rejected server-side.
+  static Future<Map<String, dynamic>> updateMaterial(
+    String id, {
+    String? title,
+    String? subject,
+    Object? description = _kOmit,
+  }) async {
+    final body = <String, dynamic>{};
+    if (title != null) body['title'] = title;
+    if (subject != null) body['subject'] = subject;
+    if (!identical(description, _kOmit)) body['description'] = description;
+    return _decode(await _patch('/api/materials/$id', body: body));
+  }
+
+  /// Owner-only file replacement. Uploads new bytes as multipart to PUT
+  /// /api/materials/{id}/file. materialId stays the same; the server
+  /// increments the version on success.
+  static Future<Map<String, dynamic>> replaceMaterialFile({
+    required String id,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    return _guard(() async {
+      final request = http.MultipartRequest('PUT', _uri('/api/materials/$id/file'));
+      request.headers['Authorization'] = 'Bearer ${await _token()}';
+      request.headers['Accept'] = 'application/json';
+      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+      final streamed = await request.send().timeout(const Duration(seconds: 150));
+      return _decode(await http.Response.fromStream(streamed));
+    });
+  }
+
+  static const Object _kOmit = Object();
+
+  static Future<http.Response> _patch(String path, {Object? body, bool auth = true}) {
+    return _guard(() async => http
+        .patch(
+          _uri(path),
+          headers: auth ? await _headers() : {'Content-Type': 'application/json', 'Accept': 'application/json'},
+          body: body == null ? null : jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 120)));
+  }
+
   static Future<String> aiNote(String action, String text) async =>
       _decode(await _post('/api/ai/note', body: {'action': action, 'text': text}))['result'] as String;
 
@@ -275,10 +321,10 @@ class ApiService {
     }
     final body = <String, dynamic>{
       'text': text,
-      if (attachmentUrl != null) 'attachment_url': attachmentUrl,
-      if (attachmentFilename != null) 'attachment_filename': attachmentFilename,
-      if (attachmentMime != null) 'attachment_mime': attachmentMime,
-      if (attachmentSize != null) 'attachment_size': attachmentSize,
+      'attachment_url': ?attachmentUrl,
+      'attachment_filename': ?attachmentFilename,
+      'attachment_mime': ?attachmentMime,
+      'attachment_size': ?attachmentSize,
     };
     return _decode(await _post('/api/groups/$groupId/chat', body: body));
   }

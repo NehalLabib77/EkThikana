@@ -106,14 +106,14 @@ class _MonthlyMoneyScreenState extends State<MonthlyMoneyScreen> {
                 Card(
                   child: ListTile(
                     title: const Text('Budget'),
-                    subtitle: Text(_budget == null ? 'Not set' : '${_budget!.toStringAsFixed(2)}'),
+                    subtitle: Text(_budget == null ? 'Not set' : _budget!.toStringAsFixed(2)),
                   ),
                 ),
                 Card(
                   child: ListTile(
                     title: const Text('Remaining'),
                     subtitle: Text(
-                      _remaining == null ? '—' : '${_remaining!.toStringAsFixed(2)}',
+                      _remaining == null ? '—' : _remaining!.toStringAsFixed(2),
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         color: (_remaining ?? 0) < 0 ? Colors.red : Colors.green[800],

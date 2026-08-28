@@ -258,7 +258,6 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             items: const [
               DropdownMenuItem(value: 'private', child: Text('Private — only me')),
               DropdownMenuItem(value: 'group', child: Text('Group — selected group')),
-              DropdownMenuItem(value: 'public', child: Text('Public — Student Community')),
             ],
             onChanged: (v) => setState(() => visibility = v ?? 'private'),
           ),

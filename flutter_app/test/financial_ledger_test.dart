@@ -52,49 +52,42 @@ void main() {
     });
   });
 
-  group('FinancialSummary.fromTransactions (savings never counted as expense)', () {
-    test('expense transactions contribute to spending', () {
+  group('FinancialSummary.fromTransactions (expense-only ledger)', () {
+    test('expense transactions contribute to spending and bySource', () {
       final summary = FinancialSummary.fromTransactions([
         _tx(source: 'daily', amount: 100),
         _tx(source: 'bazar', amount: 250.5),
       ]);
       expect(summary.totalSpending, equals(350.5));
-      expect(summary.totalSavings, equals(0));
       expect(summary.bySource['daily'], equals(100));
       expect(summary.bySource['bazar'], equals(250.5));
     });
 
-    test('saving transactions contribute to savings only', () {
+    test('legacy non-expense rows are ignored', () {
       final summary = FinancialSummary.fromTransactions([
-        _tx(source: 'saving', type: 'saving', amount: 500),
         _tx(source: 'daily', amount: 200),
+        _tx(source: 'legacy', type: 'saving', amount: 500),
       ]);
       expect(summary.totalSpending, equals(200));
-      expect(summary.totalSavings, equals(500));
-      expect(summary.bySource.containsKey('saving'), isFalse,
-          reason: 'savings must never appear in spending breakdown');
+      expect(summary.bySource.containsKey('legacy'), isFalse,
+          reason: 'non-expense rows must never appear in spending breakdown');
     });
 
-    test('mixed set keeps savings separate from spending', () {
+    test('mixed sources aggregate correctly', () {
       final summary = FinancialSummary.fromTransactions([
         _tx(source: 'medicine', amount: 75),
         _tx(source: 'commute', amount: 40),
-        _tx(source: 'saving', type: 'saving', amount: 1000),
         _tx(source: 'daily', amount: 60),
       ]);
       expect(summary.totalSpending, equals(175));
-      expect(summary.totalSavings, equals(1000));
       expect(summary.bySource.keys.toSet(),
           equals({'medicine', 'commute', 'daily'}));
-      expect(summary.netDifference, equals(825));
     });
 
     test('empty input is a clean zero summary', () {
       final summary = FinancialSummary.fromTransactions(const []);
       expect(summary.totalSpending, equals(0));
-      expect(summary.totalSavings, equals(0));
       expect(summary.bySource, isEmpty);
-      expect(summary.netDifference, equals(0));
     });
   });
 

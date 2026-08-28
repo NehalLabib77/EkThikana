@@ -4,15 +4,15 @@ import 'firestore_service.dart';
 
 /// PART 3 — Monthly Money.
 ///
-/// Per correction 6 this reads the central `financial_transactions` ledger.
-/// `status == 'confirmed'` is the only kind counted. Estimated/draft entries
-/// never bleed into [remaining].
+/// Reads the central `financial_transactions` ledger — the same collection
+/// `FinancialService.monthStream` reads. No `status` filter: ledger writers
+/// (daily / bazar / medicine / commute) do not emit a `status` field, so a
+/// `status == 'confirmed'` predicate would silently drop every row and the
+/// budget screen would always show ৳0.
 class MonthlyMoneyService {
   MonthlyMoneyService._();
 
-  /// Streams confirmed transactions for the given month, sourced from the
-  /// central ledger. Existing UI consumers continue to use
-  /// `FinancialService.monthStream`; this wraps the same collection.
+  /// Streams expense rows for the given month from the central ledger.
   static Stream<List<FinancialTransactionModel>> monthStream(DateTime month) {
     final first = DateTime(month.year, month.month, 1);
     final next = DateTime(month.year, month.month + 1, 1);
@@ -20,7 +20,6 @@ class MonthlyMoneyService {
         .collection('financial_transactions')
         .where('ownerId', isEqualTo: FirestoreService.uid)
         .where('type', isEqualTo: 'expense')
-        .where('status', isEqualTo: 'confirmed')
         .where('date', isGreaterThanOrEqualTo: first)
         .where('date', isLessThan: next)
         .snapshots()

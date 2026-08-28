@@ -9,8 +9,6 @@ import '../groups/groups_screen.dart';
 import 'academic_structure_screen.dart';
 // community_screen.dart removed in PART 3 (correction 4: no public runtime).
 import 'focus_timer_screen.dart';
-import 'monthly_money_screen.dart';
-import 'study_stats_screen.dart';
 import 'note_editor_screen.dart';
 import 'notes_screen.dart';
 import 'saved_materials_screen.dart';
@@ -40,11 +38,9 @@ class StudyScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
           children: [
             // Community Library removed in PART 3 (correction 4: no public runtime).
-            Row(
+Row(
               children: [
                 Expanded(child: _quick(context, Icons.school_outlined, const Color(0xFF5B3DF5), 'Semesters', 'সেমিস্টার', const AcademicStructureScreen())),
-                const SizedBox(width: 8),
-                Expanded(child: _quick(context, Icons.menu_book_outlined, const Color(0xFF16A56D), 'Subjects', 'বিষয়', const AcademicStructureScreen())),
                 const SizedBox(width: 8),
                 Expanded(child: _quick(context, Icons.groups_outlined, const Color(0xFFFF9500), 'Groups', 'গ্রুপ', const GroupsScreen())),
                 const SizedBox(width: 8),
@@ -141,20 +137,12 @@ class StudyScreen extends StatelessWidget {
                         ),
                 );
               },
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(child: _quick(context, Icons.insights_outlined, const Color(0xFF16A56D), 'Stats', 'পরিসংখ্যান', const StudyStatsScreen())),
-                const SizedBox(width: 8),
-                Expanded(child: _quick(context, Icons.account_balance_wallet_outlined, const Color(0xFFE0388A), 'Money', 'টাকা', const MonthlyMoneyScreen())),
-              ],
-            ),
+),
             const SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: () => _go(context, const SavedMaterialsScreen()),
               icon: const Icon(Icons.bookmark_outline),
-              label: Text(EkLanguage.text('Open Saved Library', 'সংরক্�িত লাইব্রেরি খুলুন')),
+              label: Text(EkLanguage.text('Open Saved Library', 'সংরক্িত লাইব্রেরি খুলুন')),
             ),
           ],
         ),

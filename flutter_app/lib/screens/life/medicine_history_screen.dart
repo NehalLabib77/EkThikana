@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../core/language.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
+import '../../services/financial_service.dart';
 import '../../services/firestore_service.dart';
 
 class MedicineHistoryScreen extends StatelessWidget {
@@ -49,7 +51,14 @@ class MedicineHistoryScreen extends StatelessWidget {
             final missed = docs.where((d) => d.data()['status'] == 'missed').length;
             final cost = docs.fold<double>(
               0,
-              (sum, d) => sum + ((d.data()['cost'] as num?)?.toDouble() ?? 0),
+              (acc, d) => acc + ((d.data()['cost'] as num?)?.toDouble() ?? 0),
+            );
+            final monthKey = FinancialService.monthKey(DateTime.now());
+            final monthlyCost = docs.fold<double>(
+              0,
+              (s, d) => d.data()['monthKey'] == monthKey
+                  ? s + ((d.data()['cost'] as num?)?.toDouble() ?? 0)
+                  : s,
             );
 
             return ListView(
@@ -61,16 +70,50 @@ class MedicineHistoryScreen extends StatelessWidget {
                     color: const Color(0xFFEAFBF4),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(child: _stat(EkLanguage.text('Taken', 'খেয়েছি'), '$taken')),
-                      Expanded(child: _stat(EkLanguage.text('Skipped', 'স্কিপ'), '$skipped')),
-                      Expanded(child: _stat(EkLanguage.text('Missed', 'মিসড'), '$missed')),
-                      Expanded(child: _stat(EkLanguage.text('Cost', 'খরচ'), '৳${cost.toStringAsFixed(0)}')),
+                      Row(
+                        children: [
+                          Expanded(child: _stat(EkLanguage.text('Taken', 'খেয়েছি'), '$taken')),
+                          Expanded(child: _stat(EkLanguage.text('Skipped', 'স্কিপ'), '$skipped')),
+                          Expanded(child: _stat(EkLanguage.text('Missed', 'মিসড'), '$missed')),
+                          Expanded(child: _stat(EkLanguage.text('Cost', 'খরচ'), '৳${cost.toStringAsFixed(0)}')),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: EkColors.purple.withValues(alpha: .10),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: EkColors.purple.withValues(alpha: .25)),
+                          ),
+                          child: Text(
+                            '${EkLanguage.text('This month', 'এই মাসে')}: ৳${monthlyCost.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: EkColors.purple,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 14),
+                SectionHeader(
+                  title: Text(EkLanguage.text('Dose History', 'ডোজের ইতিহাস')),
+                  subtitle: Text(
+                    EkLanguage.text(
+                      'Tap a card to see exact time, quantity, and cost.',
+                      'প্রতিটি কার্ডে সময়, পরিমাণ ও খরচ দেখুন।',
+                    ),
+                  ),
+                ),
                 if (docs.isEmpty)
                   Center(
                     child: Padding(

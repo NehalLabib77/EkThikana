@@ -1,8 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/ui.dart';
-import '../../services/firestore_service.dart';
 import '../../services/study_service.dart';
 
 class StudyStatsScreen extends StatefulWidget {
@@ -15,7 +13,6 @@ class StudyStatsScreen extends StatefulWidget {
 class _StudyStatsScreenState extends State<StudyStatsScreen> {
   StudyStats? _stats;
   bool _loading = true;
-  int _completedTaskCount = 0;
 
   @override
   void initState() {
@@ -27,22 +24,9 @@ class _StudyStatsScreenState extends State<StudyStatsScreen> {
     setState(() => _loading = true);
     try {
       final s = await StudyService.stats();
-      final user = FirebaseAuth.instance.currentUser;
-      final tasksSnap = user == null
-          ? null
-          : await FirestoreService.db
-              .collection('tasks')
-              .where('ownerId', isEqualTo: user.uid)
-              .get();
-      final count = tasksSnap == null
-          ? 0
-          : tasksSnap.docs
-              .where((d) => (d.data()['completed'] as bool?) == true)
-              .length;
       if (!mounted) return;
       setState(() {
         _stats = s;
-        _completedTaskCount = count;
         _loading = false;
       });
     } catch (e) {
@@ -81,7 +65,7 @@ class _StudyStatsScreenState extends State<StudyStatsScreen> {
                     _tile('Today', _fmt(_stats!.todaySeconds)),
                     _tile('This month', _fmt(_stats!.monthSeconds)),
                     _tile('Streak', '${_stats!.streakDays} day${_stats!.streakDays == 1 ? '' : 's'}'),
-                    _tile('Completed tasks', '$_completedTaskCount'),
+                    _tile('Completed tasks', '${_stats!.completedTaskCount}'),
                   ],
                 ),
     );

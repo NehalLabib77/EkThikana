@@ -12,13 +12,24 @@ class AppConfig {
 
   static const bangladeshTimeZone = 'Asia/Dhaka';
 
-  /// True when the API base URL points at a loopback address (localhost /
-  /// 127.0.0.1 / 0.0.0.0 / ::1). On a physical Android device these URLs
-  /// resolve to the device itself and will silently fail every request.
+  /// True when the API base URL points at a loopback / emulator-only address
+  /// (localhost / 127.0.0.1 / 0.0.0.0 / ::1 / 10.0.2.2). On a physical Android
+  /// device these URLs resolve to the device itself (or the emulator host
+  /// alias) and will silently fail every request.
   static bool get isLoopback {
     final raw = apiBaseUrl.trim().toLowerCase();
     if (raw.isEmpty) return false;
-    final hosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
+    final hosts = [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      '::1',
+      '[::1]',
+      // Android emulator alias for the host loopback. Only meaningful in an
+      // emulator on the build machine; never valid for a physical device or
+      // a release build.
+      '10.0.2.2',
+    ];
     for (final h in hosts) {
       if (raw.startsWith('$h:') || raw.startsWith('$h/') || raw == h) {
         return true;

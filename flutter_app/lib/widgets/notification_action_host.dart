@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/navigation.dart';
 import '../core/ui.dart';
+import '../screens/life/medicine_screen.dart';
 import '../services/financial_service.dart';
 import '../services/notification_service.dart';
 
@@ -43,6 +44,19 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
       await Future<void>.delayed(const Duration(milliseconds: 150));
     }
     if (context == null || !context.mounted) return;
+
+    // Deep-link to the Medicine screen first so the user lands on a real
+    // medicine context before any confirm/skip dialog. Payload is untouched.
+    final nav = AppNavigation.navigatorKey.currentState;
+    if (nav != null) {
+      nav.push(
+        MaterialPageRoute(builder: (_) => const MedicineScreen()),
+      );
+      // Let the new route mount so its dialogs/snackbars use the new context.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      context = AppNavigation.navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+    }
 
     if (action.action == 'skip') {
       try {

@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "branch": "part4-deep-clean",
+  "baseline_commit": "89c6fdb774e29bf5e6a3b6d168f41cd0e2884764",
+  "git_safety_snapshot_path": ".part4_pre_git_safety.json",
+  "created_at": "2026-08-27",
+  "totals": {
+    "files_removed": 1,
+    "directories_removed": 0,
+    "dependencies_removed": 0,
+    "dead_symbols_removed": 8,
+    "routes_removed": 1,
+    "assets_removed": 0,
+    "docs_removed": 0,
+    "docs_added": 1,
+    "verification_records_added": 2,
+    "branding_strings_changed": 0,
+    "logging_calls_removed": 0
+  },
+  "items": [
+    {
+      "path": "flutter_app/lib/screens/study/note_editor_screen.dart",
+      "type": "code-symbol",
+      "reason": "Public-visibility menu item removed (spec removes public runtime).",
+      "evidence": [
+        "PROJECT_SPEC.md does not surface public notes.",
+        "audit.json obsolete_scope[] includes 'public material visibility' and 'public note visibility'.",
+        "Backend /api/materials/upload rejects visibility=='public'.",
+        "Batch A edit: dropped DropdownMenuItem(value: 'public', ...)."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "flutter_app/lib/services/firestore_service.dart",
+      "type": "code-symbol",
+      "reason": "publicMaterials() and publicNotes() no-op Stream.empty stubs have zero active callers.",
+      "evidence": [
+        "grep across flutter_app/lib/**/*.dart shows no caller of publicMaterials() or publicNotes().",
+        "PART 3 already deleted community_screen.dart which was the only consumer.",
+        "UniversalSearchScreen filters by ownerId == currentUid."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "flutter_app/lib/models/financial_transaction.dart",
+      "type": "code-symbol",
+      "reason": "Removed totalSavings and netDifference fields; Gochano ledger is expense-only.",
+      "evidence": [
+        "PROJECT_SPEC.md explicitly forbids cash flow, savings, net difference.",
+        "audit.json obsolete_scope[] names 'Savings / cash-flow / Net Difference UI'.",
+        "Active UI (profile_screen, expense_tracker_screen) only reads summary.bySource and summary.totalSpending.",
+        "Test financial_ledger_test.dart is the only other reader; updated."
+      ],
+      "referenced_by": [
+        "flutter_app/lib/screens/profile/profile_screen.dart",
+        "flutter_app/lib/screens/life/expense_tracker_screen.dart",
+        "flutter_app/test/financial_ledger_test.dart"
+      ],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "flutter_app/test/financial_ledger_test.dart",
+      "type": "code-symbol",
+      "reason": "Removed obsolete savings/net-difference assertions; replaced with 'legacy non-expense rows are ignored'.",
+      "evidence": [
+        "After model cleanup the savings/net-difference tests would fail to compile.",
+        "New behavior matches spec: legacy non-expense rows are ignored by the central ledger."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "backend/app/services/permission_service.py",
+      "type": "code-symbol",
+      "reason": "Removed public-visibility read branch from get_material_for_user and get_note_for_user.",
+      "evidence": [
+        "Spec removes public runtime surface.",
+        "Owner-only branch already returns data for the owning user; legacy public docs stay accessible to their owner.",
+        "Backend upload rejects visibility=='public' so no new public docs are written."
+      ],
+      "referenced_by": [
+        "backend/app/routers/materials.py",
+        "backend/app/routers/notes (via similar pattern)"
+      ],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "backend/app/routers/materials.py",
+      "type": "code-symbol",
+      "reason": "Tightened upload visibility whitelist to {'private', 'group'} (no new public writes).",
+      "evidence": [
+        "Spec forbids public writes.",
+        "Combined two if-blocks into one for clarity."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "firebase/firestore.rules",
+      "type": "code-symbol",
+      "reason": "Removed data.visibility == 'public' from canReadStudyDoc; legacy public docs remain owner-only via the ownerId branch.",
+      "evidence": [
+        "No Flutter caller queries public-visibility documents.",
+        "Backend permission_service.py no longer allows public reads.",
+        "Rules change is consistent with the spec-defined final surface."
+      ],
+      "referenced_by": [
+        "backend/app/routers/notes",
+        "backend/app/routers/materials"
+      ],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "backend/tests/test_materials.py",
+      "type": "code-symbol",
+      "reason": "Replaced test_student_can_read_public_material with test_legacy_public_material_only_owner_can_read and added test_upload_rejects_public_visibility.",
+      "evidence": [
+        "Original test contradicted the new spec.",
+        "New tests cover the owner-only legacy-public fallback and the explicit 400 on new public uploads."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "backend/app/routers/me.py",
+      "type": "file",
+      "reason": "Deleted unused GET /api/me router (zero Flutter callers, zero backend callers, zero test callers).",
+      "evidence": [
+        "grep_search for '/api/me' across backend/ and flutter_app/ returned only audit/docs references.",
+        "Account/export/reports endpoints remain in backend/app/routers/account.py and reports.py.",
+        "me router returned {uid, email, role, displayName} which is not consumed by the Flutter app."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "backend/app/main.py",
+      "type": "code-symbol",
+      "reason": "Removed `from app.routers import ... me` and `app.include_router(me.router, ...)` to reflect /api/me deletion.",
+      "evidence": [
+        "Without this change, importing app.main would raise ModuleNotFoundError on the deleted me module."
+      ],
+      "referenced_by": [
+        "backend/app/routers/me.py (deleted)"
+      ],
+      "safe_to_remove": true,
+      "removed": true
+    },
+    {
+      "path": "flutter_app/lib/**/* and backend/app/**/*.py",
+      "type": "branding-verification",
+      "reason": "Verified ZERO user-facing 'EkThikana' / 'LifeHubBD' / 'LifeHub' strings remain in Flutter lib/ or backend user-facing responses. All matches are locked infrastructure IDs (Android package id, Firebase project, Supabase bucket, notification channel ids) which are explicitly preserved per spec.",
+      "evidence": [
+        "grep_search for EkThikana|LifeHubBD|LifeHub across flutter_app/lib/**/*.dart returned 0 matches.",
+        "grep_search for these strings inside Text('...') or title: '...' patterns returned 0 matches.",
+        "Backend already says 'Gochano' in user-facing responses (health.py service='gochano-api', main.py title='Gochano API', materials.py 'Your Gochano file quota...', account.py /me 'app: Gochano').",
+        "Locked infrastructure strings preserved: com.ekthikana.ekthikana (Android package + OSM user-agent package), ekthikana-files (Supabase bucket), ekthikana_reminders / ekthikana_medicine (Android notification channel ids)."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": false,
+      "removed_count": 0,
+      "preserved_count": 4
+    },
+    {
+      "path": "flutter_app/lib/**/*.dart and backend/app/**/*.py",
+      "type": "logging-verification",
+      "reason": "Verified ZERO noisy debug prints, ZERO secret-adjacent logs, ZERO full-token/request-body logs in Flutter and backend app code. Global exception handler exists in main.py. CLI scripts (4 print() calls in scripts/ + ml/) are intentional CLI output and are kept.",
+      "evidence": [
+        "grep_search for print(|debugPrint|console.log|developer.log in flutter_app/lib/**/*.dart returned 0 matches.",
+        "grep_search for print(|logger.|logging. in backend/app/**/*.py returned only 1 match: the single logging.getLogger('gochano') call in main.py.",
+        "backend/scripts/import_commutebd_to_supabase.py has 2 print() calls for import progress; backend/ml/train_fare_models.py has 1 print() for metrics JSON; backend/scripts/_tmp_counts.py has 1 print() for content-range debug. All CLI tools, not request logs. KEEP.",
+        "backend/app/core/auth.py raises HTTPException with descriptive detail strings ('Missing Firebase ID token', 'Invalid or expired Firebase ID token') — it never prints, logs, or echoes the actual token value.",
+        "backend/app/services/ai_service.py reads gemini_api_key from settings, sends it only to Gemini's x-goog-api-key header, and returns generic error details. The key is never logged.",
+        "backend/app/routers/groups.py uses stdlib 'secrets.choice' for group join codes (not for credential logging).",
+        "backend/app/main.py has a global exception handler that returns sanitized error responses."
+      ],
+      "referenced_by": [],
+      "safe_to_remove": true,
+      "removed": false,
+      "removed_count": 0,
+      "preserved_count": 4
+    }
+  ]
+}

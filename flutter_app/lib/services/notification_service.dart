@@ -48,8 +48,11 @@ class NotificationService {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation(AppConfig.bangladeshTimeZone));
 
+    // Use the monochrome notification small icon (white-on-transparent vector).
+    // The launcher icon (Gochano.png) must never be used as a status-bar icon -
+    // Android would render it as a solid white square.
     const settings = InitializationSettings(
-      android: AndroidInitializationSettings('app_icon'),
+      android: AndroidInitializationSettings('@drawable/ic_stat_gochano'),
     );
 
     await plugin.initialize(
@@ -60,7 +63,8 @@ class NotificationService {
 
     await plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
 
     final launch = await plugin.getNotificationAppLaunchDetails();
@@ -85,8 +89,7 @@ class NotificationService {
         medicineId: data['medicineId']?.toString() ?? '',
         medicineName: data['medicineName']?.toString() ?? '',
         hhmm: data['hhmm']?.toString() ?? '',
-        quantityPerDose:
-            (data['quantityPerDose'] as num?)?.toDouble() ?? 1,
+        quantityPerDose: (data['quantityPerDose'] as num?)?.toDouble() ?? 1,
         unitPrice: (data['unitPrice'] as num?)?.toDouble() ?? 0,
         unit: data['unit']?.toString() ?? 'tablet',
       );
@@ -116,6 +119,7 @@ class NotificationService {
           channelDescription: 'Task and daily-life reminders',
           importance: Importance.high,
           priority: Priority.high,
+          icon: '@drawable/ic_stat_gochano',
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -125,6 +129,12 @@ class NotificationService {
 
   static int _medicineNotificationId(String medicineId, String hhmm) =>
       '$medicineId|$hhmm'.hashCode & 0x7fffffff;
+
+  /// Exposed for tests so we can pin the deterministic id policy without
+  /// having to spin up the platform channel.
+  @visibleForTesting
+  static int debugMedicineNotificationId(String medicineId, String hhmm) =>
+      _medicineNotificationId(medicineId, hhmm);
 
   static Future<void> scheduleDailyMedicine({
     required String medicineId,
@@ -177,6 +187,7 @@ class NotificationService {
           channelDescription: 'User-confirmed medicine reminder times',
           importance: Importance.high,
           priority: Priority.high,
+          icon: '@drawable/ic_stat_gochano',
           actions: [
             AndroidNotificationAction(
               'taken',

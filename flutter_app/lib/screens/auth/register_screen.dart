@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/ui.dart';
 import '../../services/auth_service.dart';
 
+const String _kLogoAsset = 'assets/branding/Gochano.png';
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -35,8 +37,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> register() async {
-    if (name.text.trim().isEmpty || email.text.trim().isEmpty || password.text.length < 6) {
-      showError(context, Exception('Name, valid email and a 6+ character password are required.'));
+    if (name.text.trim().isEmpty ||
+        email.text.trim().isEmpty ||
+        password.text.length < 6) {
+      showError(
+        context,
+        Exception(
+          'Name, valid email and a 6+ character password are required.',
+        ),
+      );
       return;
     }
 
@@ -69,7 +78,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              TextField(controller: name, decoration: const InputDecoration(labelText: 'Full name')),
+              Center(
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    _kLogoAsset,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                  ),
+                ),
+              ),
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'Full name'),
+              ),
               const SizedBox(height: 10),
               TextField(
                 controller: email,
@@ -80,14 +116,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: password,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password (6+ characters)'),
+                decoration: const InputDecoration(
+                  labelText: 'Password (6+ characters)',
+                ),
               ),
               const SizedBox(height: 10),
-              TextField(controller: university, decoration: const InputDecoration(labelText: 'University')),
+              TextField(
+                controller: university,
+                decoration: const InputDecoration(labelText: 'University'),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: department, decoration: const InputDecoration(labelText: 'Department')),
+              TextField(
+                controller: department,
+                decoration: const InputDecoration(labelText: 'Department'),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: semester, decoration: const InputDecoration(labelText: 'Current semester')),
+              TextField(
+                controller: semester,
+                decoration: const InputDecoration(
+                  labelText: 'Current semester',
+                ),
+              ),
               const SizedBox(height: 18),
               FilledButton(
                 onPressed: busy ? null : register,

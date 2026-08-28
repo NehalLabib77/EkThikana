@@ -51,20 +51,11 @@ class FinancialTransactionModel {
 class FinancialSummary {
   const FinancialSummary({
     required this.totalSpending,
-    required this.totalSavings,
-    required this.netDifference,
     required this.bySource,
   });
 
   /// Sum of every expense-only ledger entry (the only kind Gochano records).
   final double totalSpending;
-
-  /// Legacy-compatible zero. Gochano no longer records savings; this field is
-  /// retained so older callers/tests can still ask for it without crashing.
-  final double totalSavings;
-
-  /// Legacy-compatible alias for [totalSpending] (was: spending − savings).
-  final double netDifference;
 
   final Map<String, double> bySource;
 
@@ -72,24 +63,19 @@ class FinancialSummary {
     Iterable<FinancialTransactionModel> items,
   ) {
     var spending = 0.0;
-    var savings = 0.0;
     final bySource = <String, double>{};
 
     for (final item in items) {
-      // Gochano only writes `expense` rows today. Legacy `saving` rows may
-      // still exist on older devices and are reflected only in `totalSavings`
-      // — they never bleed into spending or `bySource`.
+      // Gochano only writes `expense` rows. Anything else (legacy `saving`
+      // rows on older devices) is intentionally excluded from spending and
+      // from the per-source breakdown.
       if (item.type == 'expense') {
         spending += item.amount;
         bySource[item.source] = (bySource[item.source] ?? 0) + item.amount;
-      } else if (item.type == 'saving') {
-        savings += item.amount;
       }
     }
     return FinancialSummary(
       totalSpending: spending,
-      totalSavings: savings,
-      netDifference: savings - spending,
       bySource: bySource,
     );
   }

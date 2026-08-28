@@ -5,6 +5,7 @@ import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../models/financial_transaction.dart';
+import '../../widgets/gochano_loading.dart';
 import '../../services/financial_service.dart';
 import 'expense_tracker_screen.dart';
 
@@ -172,12 +173,15 @@ class _DailyExpensesScreenState extends State<DailyExpensesScreen> {
     if (save == true) {
       try {
         final value = double.tryParse(amount.text.trim()) ?? 0;
-        if (title.text.trim().isEmpty) throw Exception('Expense title is required.');
+        final cleanTitle = title.text.trim();
+        if (cleanTitle.isEmpty) throw Exception('Expense title is required.');
+        if (cleanTitle.length > 80) throw Exception('Expense title is too long.');
+        if (value <= 0) throw Exception('Amount must be greater than zero.');
         final when = DateTime(date.year, date.month, date.day, time.hour, time.minute);
         if (existing == null) {
           await FinancialService.addDailyExpense(
             category: category,
-            title: title.text.trim(),
+            title: cleanTitle,
             amount: value,
             note: note.text.trim(),
             date: when,
@@ -186,7 +190,7 @@ class _DailyExpensesScreenState extends State<DailyExpensesScreen> {
           await FinancialService.updateDailyExpense(
             id: existing.sourceRecordId,
             category: category,
-            title: title.text.trim(),
+            title: cleanTitle,
             amount: value,
             note: note.text.trim(),
             date: when,
@@ -229,13 +233,28 @@ class _DailyExpensesScreenState extends State<DailyExpensesScreen> {
         body: StreamBuilder<List<FinancialTransactionModel>>(
           stream: FinancialService.dayStream(selectedDate),
           builder: (context, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snap.hasData) {
+              return GochanoLoading(
+                message: EkLanguage.text('Loading…', 'লোড হচ্ছে…'),
+              );
+            }
             final all = snap.data!;
-            final daily = all.where((e) => e.type == 'expense' && e.source == 'daily').toList();
-            final dailyTotal = daily.fold<double>(0, (s, e) => s + e.amount);
-            final overallDayTotal = all
-                .where((e) => e.type == 'expense')
-                .fold<double>(0, (s, e) => s + e.amount);
+            // Single-pass split: avoid two separate `.where().toList()` walks
+            // over the day snapshot. Per-day count is bounded by the user's
+            // daily activity so this stays cheap, but it's the kind of thing
+            // that compounds when the same list is iterated for the year
+            // total inside `ExpenseTrackerScreen` as well.
+            var dailyTotal = 0.0;
+            var overallDayTotal = 0.0;
+            final daily = <FinancialTransactionModel>[];
+            for (final e in all) {
+              if (e.type != 'expense') continue;
+              overallDayTotal += e.amount;
+              if (e.source == 'daily') {
+                dailyTotal += e.amount;
+                daily.add(e);
+              }
+            }
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
@@ -251,37 +270,38 @@ class _DailyExpensesScreenState extends State<DailyExpensesScreen> {
                     if (picked != null) setState(() => selectedDate = picked);
                   },
                   borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF9E9),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_month, color: Color(0xFF187E2D)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            DateFormat('EEEE, d MMMM yyyy').format(selectedDate),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                  child: Builder(
+                    builder: (context) {
+                      final dark = Theme.of(context).brightness == Brightness.dark;
+                      final bg = dark ? const Color(0xFF1E293B) : const Color(0xFFFFF9E9);
+                      final accent = dark ? const Color(0xFF7CD992) : const Color(0xFF187E2D);
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: bg,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: dark ? const Color(0xFF334155) : Colors.transparent,
                           ),
                         ),
-                        const Icon(Icons.expand_more),
-                      ],
-                    ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_month, color: accent),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                DateFormat('EEEE, d MMMM yyyy').format(selectedDate),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            const Icon(Icons.expand_more),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  EkLanguage.text("Today's Categories", 'আজকের ক্যাটাগরি'),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 10),
-                for (final c in categories) ...[
-                  _categoryRow(c, daily),
-                  const SizedBox(height: 8),
-                ],
                 if (daily.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
@@ -302,36 +322,52 @@ class _DailyExpensesScreenState extends State<DailyExpensesScreen> {
                   ),
                 ],
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF3FCEB), Color(0xFFFFF9E6)],
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0xFFDCECCB)),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        EkLanguage.text("Today's Daily Expense", 'আজকের দৈনিক খরচ'),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                Builder(
+                  builder: (context) {
+                    final dark = Theme.of(context).brightness == Brightness.dark;
+                    final gradient = dark
+                        ? const LinearGradient(
+                            colors: [Color(0xFF1E293B), Color(0xFF1E293B)],
+                          )
+                        : const LinearGradient(
+                            colors: [Color(0xFFF3FCEB), Color(0xFFFFF9E6)],
+                          );
+                    final border = dark
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFDCECCB);
+                    final headline = dark
+                        ? const Color(0xFF7CD992)
+                        : const Color(0xFF126C25);
+                    return Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: gradient,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: border),
                       ),
-                      Text(
-                        '৳${dailyTotal.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 38,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF126C25),
-                        ),
+                      child: Column(
+                        children: [
+                          Text(
+                            DateFormat('d MMMM yyyy').format(selectedDate),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            '৳${dailyTotal.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.w900,
+                              color: headline,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${EkLanguage.text('All Gochano spending', 'Gochano-তে মোট খরচ')}: ৳${overallDayTotal.toStringAsFixed(0)}',
+                            style: const TextStyle(color: EkColors.muted),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${EkLanguage.text('All Gochano spending today', 'আজ Gochano-তে মোট খরচ')}: ৳${overallDayTotal.toStringAsFixed(0)}',
-                        style: const TextStyle(color: EkColors.muted),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 14),
                 FilledButton.icon(
@@ -430,45 +466,5 @@ class _DailyExpensesScreenState extends State<DailyExpensesScreen> {
       if (c.$1 == category) return c.$2;
     }
     return 'অন্যান্য';
-  }
-
-  Widget _categoryRow(
-    (String, String, String, Color) c,
-    List<FinancialTransactionModel> daily,
-  ) {
-    final total = daily
-        .where((e) => e.category == c.$1)
-        .fold<double>(0, (s, e) => s + e.amount);
-
-    return InkWell(
-      onTap: () => addExpense(presetCategory: c.$1),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: c.$4,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.black.withValues(alpha: .04)),
-        ),
-        child: Row(
-          children: [
-            Text(c.$3, style: const TextStyle(fontSize: 34)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                EkLanguage.text(c.$1, c.$2),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-            ),
-            Text(
-              '৳${total.toStringAsFixed(0)}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(width: 6),
-            const Icon(Icons.edit_outlined, size: 18),
-          ],
-        ),
-      ),
-    );
   }
 }

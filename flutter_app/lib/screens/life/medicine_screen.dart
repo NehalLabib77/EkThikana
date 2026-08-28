@@ -388,14 +388,12 @@ class _MedicineScreenState extends State<MedicineScreen> {
         body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: FirestoreService.ownerStream('medicines', limit: 200),
           builder: (context, medSnap) {
-            if (!medSnap.hasData) return const Center(child: CircularProgressIndicator());
+            if (!medSnap.hasData) return const _MedicineLoadingSkeleton();
             final medicines = medSnap.data!.docs;
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: FirestoreService.ownerStream('medicine_doses', limit: 500),
               builder: (context, doseSnap) {
-                if (!doseSnap.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                if (!doseSnap.hasData) return const _MedicineLoadingSkeleton();
                 final doseDocs = doseSnap.data!.docs
                     .where((d) => d.data()['scheduledDate'] == todayKey())
                     .toList();
@@ -409,7 +407,16 @@ class _MedicineScreenState extends State<MedicineScreen> {
                 final skipped = doseDocs.where((d) => d.data()['status'] == 'skipped').length;
                 final cost = doseDocs.fold<double>(
                   0,
-                  (sum, d) => sum + ((d.data()['cost'] as num?)?.toDouble() ?? 0),
+                  (acc, d) => acc + ((d.data()['cost'] as num?)?.toDouble() ?? 0),
+                );
+                final currentMonth = FinancialService.monthKey(DateTime.now());
+                final monthlyCost = doseSnap.data!.docs.fold<double>(
+                  0,
+                  (acc, d) =>
+                      d.data()['monthKey'] == currentMonth
+                          ? acc +
+                              ((d.data()['cost'] as num?)?.toDouble() ?? 0)
+                          : acc,
                 );
 
                 return ListView(
@@ -417,7 +424,13 @@ class _MedicineScreenState extends State<MedicineScreen> {
                   children: [
                     _entryMethods(),
                     const SizedBox(height: 18),
-                    _summary(taken, skipped, schedule.where((e) => e.status == 'missed').length, cost),
+                    _summary(
+                      taken,
+                      skipped,
+                      schedule.where((e) => e.status == 'missed').length,
+                      cost,
+                      monthlyCost,
+                    ),
                     const SizedBox(height: 18),
                     Row(
                       children: [
@@ -480,10 +493,16 @@ class _MedicineScreenState extends State<MedicineScreen> {
                     ),
                     const SizedBox(height: 8),
                     if (medicines.isEmpty)
-                      Text(
-                        EkLanguage.text(
-                          'Add medicine manually or scan a prescription.',
-                          'ম্যানুয়ালি ওষুধ যোগ করুন অথবা প্রেসক্রিপশন স্ক্যান করুন।',
+                      _MedicineEmptyState(
+                        onAddManual: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const MedicineFormScreen()),
+                        ),
+                        onScan: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const MedicineOcrScreen()),
                         ),
                       )
                     else
@@ -587,7 +606,7 @@ class _MedicineScreenState extends State<MedicineScreen> {
     );
   }
 
-  Widget _summary(int taken, int skipped, int missed, double cost) {
+Widget _summary(int taken, int skipped, int missed, double cost, double monthlyCost) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -595,12 +614,41 @@ class _MedicineScreenState extends State<MedicineScreen> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE2EFE7)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: _miniStat(EkLanguage.text('Taken', 'খেয়েছি'), taken.toString(), const Color(0xFF1F9A50))),
-          Expanded(child: _miniStat(EkLanguage.text('Skipped', 'স্কিপ'), skipped.toString(), const Color(0xFFE19B22))),
-          Expanded(child: _miniStat(EkLanguage.text('Missed', 'মিসড'), missed.toString(), const Color(0xFFD84A4A))),
-          Expanded(child: _miniStat(EkLanguage.text('Cost', 'খরচ'), '৳${cost.toStringAsFixed(0)}', EkColors.purple)),
+          Row(
+            children: [
+              Expanded(child: _miniStat(EkLanguage.text('Taken', 'খেয়েছি'), taken.toString(), const Color(0xFF1F9A50))),
+              Expanded(child: _miniStat(EkLanguage.text('Skipped', 'স্কিপ'), skipped.toString(), const Color(0xFFE19B22))),
+              Expanded(child: _miniStat(EkLanguage.text('Missed', 'মিসড'), missed.toString(), const Color(0xFFD84A4A))),
+              Expanded(child: _miniStat(EkLanguage.text('Cost', 'খরচ'), '৳${cost.toStringAsFixed(0)}', EkColors.purple)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEDE6FB),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined, size: 16, color: EkColors.purple),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    EkLanguage.text('This month', 'এই মাসে'),
+                    style: const TextStyle(fontSize: 12, color: EkColors.muted, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Text(
+                  '৳${monthlyCost.toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: EkColors.purple),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -705,4 +753,111 @@ class _DoseRow {
   final String time;
   final String status;
   final Map<String, dynamic>? record;
+}
+
+class _MedicineLoadingSkeleton extends StatelessWidget {
+  const _MedicineLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 60),
+      children: [
+        Row(
+          children: [
+            for (var i = 0; i < 2; i++) ...[
+              Expanded(child: _skeletonBox(height: 116, radius: 18)),
+              if (i == 0) const SizedBox(width: 10),
+            ],
+          ],
+        ),
+        const SizedBox(height: 18),
+        _skeletonBox(height: 110, radius: 18),
+        const SizedBox(height: 18),
+        _skeletonBox(height: 22, width: 180),
+        const SizedBox(height: 10),
+        _skeletonBox(height: 130, radius: 18),
+        const SizedBox(height: 18),
+        _skeletonBox(height: 22, width: 140),
+        const SizedBox(height: 10),
+        for (var i = 0; i < 3; i++) ...[
+          _skeletonBox(height: 78, radius: 16),
+          if (i != 2) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _skeletonBox({required double height, double? width, double radius = 12}) {
+    return Container(
+      width: width ?? double.infinity,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDEDF2),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+}
+
+class _MedicineEmptyState extends StatelessWidget {
+  const _MedicineEmptyState({
+    required this.onAddManual,
+    required this.onScan,
+  });
+
+  final VoidCallback onAddManual;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const Text('💊', style: TextStyle(fontSize: 56)),
+            const SizedBox(height: 10),
+            Text(
+              EkLanguage.text(
+                'No medicines yet.',
+                'এখনও কোনো ওষুধ যোগ করা হয়নি।',
+              ),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              EkLanguage.text(
+                'Add medicine manually or scan a prescription to get started.',
+                'ম্যানুয়ালি ওষুধ যোগ করুন অথবা প্রেসক্রিপশন স্ক্যান করে শুরু করুন।',
+              ),
+              style: const TextStyle(fontSize: 12, color: EkColors.muted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onAddManual,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(EkLanguage.text('Add Manually', 'ম্যানুয়ালি যোগ')),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: onScan,
+                    icon: const Icon(Icons.document_scanner_outlined, size: 18),
+                    label: Text(EkLanguage.text('Scan', 'স্ক্যান')),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import '../../widgets/gochano_loading.dart';
 import '../../services/financial_service.dart';
 import 'expense_tracker_screen.dart';
 
@@ -18,6 +19,11 @@ class BazarBuddyScreen extends StatefulWidget {
 class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
   DateTime selectedDate = DateTime.now();
   String search = '';
+
+  /// Optimistic override for `purchased` while a toggle is in flight.
+  /// Keyed by document id. Reconciled on the next stream emission; if
+  /// the server value disagrees, the stream's `data['purchased']` wins.
+  final Map<String, bool> _optimisticPurchased = <String, bool>{};
 
   static const categories = <_BazarCategory>[
     _BazarCategory('Fish', 'মাছ', '🐟', Color(0xFFE7F6FF)),
@@ -34,6 +40,12 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
 
   String get sessionId => FinancialService.bazarSessionId(selectedDate);
 
+  /// Captured while building the bottom sheet so the `other` freeform
+  /// controller can be disposed together with the other controllers in
+  /// `editItem`'s `finally`. Resolved inside the builder so the value at
+  /// sheet-close time is the final user input.
+  TextEditingController? _customUnitController;
+
   Future<void> pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -44,20 +56,147 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
     if (picked != null) setState(() => selectedDate = picked);
   }
 
+  /// Returns a small set of commonly-purchased items for a category.
+  /// Long-press on the carousel opens these as one-tap presets that
+  /// jump straight into the add sheet with the title pre-filled.
+  static List<String> quickPicksFor(String category) {
+    switch (category) {
+      case 'Fish':
+        return const ['Rui', 'Hilsa', 'Katla', 'Tilapia', 'Prawn'];
+      case 'Meat':
+        return const ['Chicken', 'Beef', 'Mutton', 'Liver'];
+      case 'Vegetables':
+        return const ['Potato', 'Onion', 'Tomato', 'Brinjal', 'Okra'];
+      case 'Fruits':
+        return const ['Banana', 'Apple', 'Mango', 'Orange'];
+      case 'Rice':
+        return const ['Miniket', 'Nazirshail', 'Atop'];
+      case 'Eggs':
+        return const ['Chicken egg', 'Duck egg'];
+      case 'Milk':
+        return const ['Liquid milk', 'Powder milk', 'Yogurt'];
+      case 'Spices':
+        return const ['Onion paste', 'Ginger paste', 'Turmeric', 'Chili'];
+      case 'Household':
+        return const ['Detergent', 'Soap', 'Toilet paper'];
+      case 'Other':
+      default:
+        return const [];
+    }
+  }
+
+  Future<void> _showQuickPicks(
+    BuildContext context,
+    _BazarCategory c,
+    List<String> picks,
+  ) async {
+    // Capture the messenger BEFORE the async gap so we never touch
+    // `context` after an await — this avoids `use_build_context_synchronously`.
+    final messenger = ScaffoldMessenger.of(context);
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+              child: Row(
+                children: [
+                  Text(c.emoji, style: const TextStyle(fontSize: 24)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${EkLanguage.text('Quick add', 'দ্রুত যোগ')} · ${EkLanguage.text(c.en, c.bn)}',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: picks.length,
+                itemBuilder: (_, i) {
+                  final p = picks[i];
+                  return ListTile(
+                    leading: const Icon(Icons.add_circle_outline,
+                        color: Color(0xFF2EAD46)),
+                    title: Text(p),
+                    onTap: () => Navigator.pop(sheetContext, p),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null && mounted) {
+      try {
+        // One-tap add: write a sensible default row directly through the
+        // service. Marked NOT purchased so it does not yet become an
+        // expense — the user can adjust quantity/price from the sheet or
+        // via Edit. This honours the `purchased && price > 0` mirror gate.
+        await FinancialService.saveBazarItem(
+          sessionId: sessionId,
+          category: c.en,
+          title: chosen,
+          quantity: 1,
+          unit: 'pcs',
+          price: 0,
+          purchased: false,
+          date: DateTime(
+            selectedDate.year,
+            selectedDate.month,
+            selectedDate.day,
+            DateTime.now().hour,
+            DateTime.now().minute,
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
   Future<void> editItem({
     _BazarCategory? presetCategory,
     QueryDocumentSnapshot<Map<String, dynamic>>? doc,
   }) async {
     final data = doc?.data() ?? const <String, dynamic>{};
+    // Saved 'unit' may be a freeform string (when user picked 'other' before)
+    // or one of the fixed dropdown values. Show freeform input only if it's not
+    // one of the known options.
+    const fixedUnits = <String>{'kg', 'g', 'L', 'ml', 'pcs', 'pack'};
+    final savedUnit = data['unit']?.toString() ?? 'kg';
     var category = data['category']?.toString() ?? presetCategory?.en ?? 'Other';
     final title = TextEditingController(text: data['title']?.toString() ?? '');
     final quantity = TextEditingController(
       text: ((data['quantity'] as num?)?.toDouble() ?? 1).toString(),
     );
-    var unit = data['unit']?.toString() ?? 'kg';
-    final price = TextEditingController(
-      text: (data['price'] as num?)?.toString() ?? '',
-    );
+    var unit = fixedUnits.contains(savedUnit) ? savedUnit : 'other';
+    var customUnit = fixedUnits.contains(savedUnit) ? '' : savedUnit;
+    // The persisted `price` field stores the TOTAL price (per the existing
+    // FinancialService / financial_transactions contract). When opening an
+    // existing row we therefore back-derive the unit price by dividing
+    // `price / quantity` so the edit sheet shows what the user originally
+    // typed. For new rows we default to empty so the user enters a unit
+    // price from scratch.
+    final savedTotal = (data['price'] as num?)?.toDouble();
+    final savedQuantity =
+        ((data['quantity'] as num?)?.toDouble() ?? 1);
+    final initialUnitPrice = (savedTotal == null)
+        ? ''
+        : (savedTotal / (savedQuantity == 0 ? 1 : savedQuantity))
+            .toStringAsFixed(2);
+    final unitPrice = TextEditingController(text: initialUnitPrice);
     var purchased = data['purchased'] == true;
 
     final save = await showModalBottomSheet<bool>(
@@ -117,6 +256,7 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                           decoration: InputDecoration(
                             labelText: EkLanguage.text('Quantity', 'পরিমাণ'),
                           ),
+                          onChanged: (_) => setSheet(() {}),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -140,14 +280,97 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                       ),
                     ],
                   ),
+                  if (unit == 'other') ...[
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (_) {
+                        // Local controller so the freeform text is per-sheet
+                        // and disposed together with the other controllers.
+                        final customController =
+                            TextEditingController(text: customUnit);
+                        _customUnitController = customController;
+                        return TextField(
+                          controller: customController,
+                          decoration: InputDecoration(
+                            labelText: EkLanguage.text('Custom unit', 'কাস্টম একক'),
+                            hintText: EkLanguage.text('e.g. dozen, bundle', 'যেমন: ডজন, আঁটি'),
+                          ),
+                          // Rebuild so the unit-price suffix hint (e.g. ৳/dozen)
+                          // tracks the freshly typed custom unit.
+                          onChanged: (_) => setSheet(() {}),
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
-                    controller: price,
+                    controller: unitPrice,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      labelText: EkLanguage.text('Total price (৳)', 'মোট দাম (৳)'),
+                      labelText: EkLanguage.text('Unit price (৳)', 'একক মূল্য (৳)'),
+                      // Helper hint shows which unit the price is per.
+                      // Mirrors the unit actually being saved (dropdown OR
+                      // custom text), so the user can never confuse themselves
+                      // about whether they're entering per-kg or per-piece.
+                      suffixText: () {
+                        String resolved;
+                        if (unit == 'other') {
+                          resolved = _customUnitController?.text.trim().isNotEmpty == true
+                              ? _customUnitController!.text.trim()
+                              : (customUnit.trim().isNotEmpty ? customUnit.trim() : 'unit');
+                        } else {
+                          resolved = unit;
+                        }
+                        return '৳/$resolved';
+                      }(),
                     ),
+                    onChanged: (_) => setSheet(() {}),
                   ),
+                  const SizedBox(height: 10),
+                  // Live calculated total = unit price × quantity. Shown
+                  // while the user types so they can sanity-check before save.
+                  Builder(builder: (_) {
+                    final q = double.tryParse(quantity.text.trim()) ?? 0;
+                    final up = double.tryParse(unitPrice.text.trim()) ?? 0;
+                    final total = q > 0 && up > 0 ? (up * q) : 0.0;
+                    final hasInput = quantity.text.trim().isNotEmpty &&
+                        unitPrice.text.trim().isNotEmpty;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1FBE9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFDCECCB)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calculate_outlined,
+                              size: 18, color: Color(0xFF0D6E2A)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              EkLanguage.text(
+                                'Calculated total',
+                                'হিসাব করা মোট',
+                              ),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0D6E2A),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            hasInput ? '৳${total.toStringAsFixed(2)}' : '৳0',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              color: Color(0xFF0D6E2A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 6),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -182,15 +405,33 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
     if (save == true) {
       try {
         final q = double.tryParse(quantity.text.trim()) ?? 0;
-        final p = double.tryParse(price.text.trim()) ?? 0;
-        if (title.text.trim().isEmpty) throw Exception('Item name is required.');
+        final up = double.tryParse(unitPrice.text.trim()) ?? 0;
+        // Save contract is unchanged: FinancialService.saveBazarItem(price: ...)
+        // expects the TOTAL, not the unit price. Compute it here from
+        // unitPrice × quantity so the mirror (financial_transactions.amount)
+        // still receives the correct total.
+        final p = up * q;
+        final cleanTitle = title.text.trim();
+        if (cleanTitle.isEmpty) throw Exception('Item name is required.');
+        if (cleanTitle.length > 60) throw Exception('Item name is too long.');
+        if (q <= 0) throw Exception('Quantity must be greater than zero.');
+        if (up < 0) throw Exception('Unit price cannot be negative.');
+        // If the user picked 'other' and typed a custom unit, persist the
+        // freeform text. Otherwise keep the chosen dropdown value. Fall back
+        // to 'pcs' (matches the dropdown default) when 'other' is left blank.
+        String resolvedUnit = unit;
+        if (unit == 'other') {
+          final custom =
+              _customUnitController?.text.trim() ?? customUnit.trim();
+          resolvedUnit = custom.isEmpty ? 'pcs' : custom;
+        }
         await FinancialService.saveBazarItem(
           id: doc?.id,
           sessionId: sessionId,
           category: category,
-          title: title.text.trim(),
+          title: cleanTitle,
           quantity: q,
-          unit: unit,
+          unit: resolvedUnit,
           price: p,
           purchased: purchased,
           date: DateTime(
@@ -207,7 +448,9 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
     }
     title.dispose();
     quantity.dispose();
-    price.dispose();
+    unitPrice.dispose();
+    _customUnitController?.dispose();
+    _customUnitController = null;
   }
 
   @override
@@ -246,7 +489,9 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
             stream: FinancialService.bazarItemsForSession(sessionId),
             builder: (context, snap) {
               if (!snap.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return GochanoLoading(
+                  message: EkLanguage.text('Loading…', 'লোড হচ্ছে…'),
+                );
               }
               final all = [...snap.data!.docs];
               all.sort((a, b) {
@@ -255,6 +500,20 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                 return (ac?.millisecondsSinceEpoch ?? 0)
                     .compareTo(bc?.millisecondsSinceEpoch ?? 0);
               });
+              // Reconcile optimistic toggles with server state once the
+              // round-trip completes: clear optimistic entries whose
+              // server value matches, and drop entries for docs that
+              // are no longer in the snapshot.
+              if (_optimisticPurchased.isNotEmpty) {
+                final liveIds = {for (final d in all) d.id};
+                _optimisticPurchased.removeWhere((id, value) {
+                  if (!liveIds.contains(id)) return true;
+                  final server = all
+                      .firstWhere((d) => d.id == id)
+                      .data()['purchased'] == true;
+                  return server == value;
+                });
+              }
               final filtered = all.where((doc) {
                 if (search.trim().isEmpty) return true;
                 final d = doc.data();
@@ -264,12 +523,18 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
 
               final planned = all.fold<double>(
                 0,
-                (sum, doc) => sum + ((doc.data()['price'] as num?)?.toDouble() ?? 0),
+                (runningTotal, doc) =>
+                    runningTotal +
+                    ((doc.data()['price'] as num?)?.toDouble() ?? 0),
               );
-              final purchased = all.where((doc) => doc.data()['purchased'] == true).fold<double>(
-                0,
-                (sum, doc) => sum + ((doc.data()['price'] as num?)?.toDouble() ?? 0),
-              );
+              final purchased = all
+                  .where((doc) => doc.data()['purchased'] == true)
+                  .fold<double>(
+                    0,
+                    (runningTotal, doc) =>
+                        runningTotal +
+                        ((doc.data()['price'] as num?)?.toDouble() ?? 0),
+                  );
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
@@ -289,8 +554,16 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                       separatorBuilder: (_, _) => const SizedBox(width: 9),
                       itemBuilder: (context, index) {
                         final c = categories[index];
+                        final picks = quickPicksFor(c.en);
                         return InkWell(
-                          onTap: () => editItem(presetCategory: c),
+                          onTap: () {
+                            // Tap → open add sheet with this category
+                            // pre-selected (existing behaviour).
+                            editItem(presetCategory: c);
+                          },
+                          onLongPress: picks.isEmpty
+                              ? null
+                              : () => _showQuickPicks(context, c, picks),
                           borderRadius: BorderRadius.circular(20),
                           child: Container(
                             width: 94,
@@ -374,23 +647,52 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                       border: Border.all(color: const Color(0xFFDCECCB)),
                     ),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          EkLanguage.text('Current Bazar Total', 'বর্তমান বাজারের মোট'),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '৳${planned.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 38,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0D6E2A),
+                        Center(
+                          child: Text(
+                            EkLanguage.text(
+                              'Current Bazar Total',
+                              'বর্তমান বাজারের মোট',
+                            ),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0D6E2A),
+                            ),
                           ),
                         ),
-                        Text(
-                          '${EkLanguage.text('Purchased so far', 'এখন পর্যন্ত কেনা')}: ৳${purchased.toStringAsFixed(0)}',
-                          style: const TextStyle(color: EkColors.muted),
+                        const SizedBox(height: 6),
+                        Center(
+                          child: Text(
+                            '৳${planned.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0D6E2A),
+                              letterSpacing: -.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .55),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${EkLanguage.text('Purchased so far', 'এখন পর্যন্ত কেনা')}: ৳${purchased.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                color: EkColors.muted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -400,7 +702,8 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ExpenseTrackerScreen(initialMonth: selectedDate),
+                        builder: (_) =>
+                            ExpenseTrackerScreen(initialMonth: selectedDate),
                       ),
                     ),
                     icon: const Icon(Icons.calendar_month_outlined),
@@ -409,6 +712,10 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                         'View daily & monthly spending',
                         'দৈনিক ও মাসিক খরচ দেখুন',
                       ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      alignment: Alignment.center,
                     ),
                   ),
                 ],
@@ -453,7 +760,9 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
       (c) => c.en == data['category']?.toString(),
       orElse: () => categories.last,
     );
-    final bought = data['purchased'] == true;
+    final serverBought = data['purchased'] == true;
+    final optimistic = _optimisticPurchased[doc.id];
+    final bought = optimistic ?? serverBought;
     final quantity = (data['quantity'] as num?)?.toDouble() ?? 1;
     final unit = data['unit']?.toString() ?? 'pcs';
     final price = (data['price'] as num?)?.toDouble() ?? 0;
@@ -473,7 +782,8 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
         data['title']?.toString() ?? '',
         style: TextStyle(
           fontWeight: FontWeight.w700,
-          decoration: bought ? TextDecoration.none : null,
+          decoration: bought ? TextDecoration.lineThrough : TextDecoration.none,
+          color: bought ? EkColors.muted : null,
         ),
       ),
       subtitle: Text('${_formatQty(quantity)} $unit • ৳${price.toStringAsFixed(0)}'),
@@ -484,10 +794,18 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
             value: bought,
             activeColor: const Color(0xFF2EAD46),
             onChanged: (value) async {
+              final next = value == true;
+              // Optimistic local update so the UI feels instant.
+              setState(() => _optimisticPurchased[doc.id] = next);
               try {
-                await FinancialService.toggleBazarPurchased(doc.reference, value == true);
+                await FinancialService.toggleBazarPurchased(
+                    doc.reference, next);
               } catch (e) {
-                if (mounted) showError(context, e);
+                // Roll back optimistic state on failure.
+                if (mounted) {
+                  setState(() => _optimisticPurchased.remove(doc.id));
+                  showError(context, e);
+                }
               }
             },
           ),
@@ -505,7 +823,10 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                   ),
                   action: EkLanguage.text('Delete', 'মুছুন'),
                 );
-                if (ok) await FinancialService.deleteBazarItem(doc.id);
+                if (ok) {
+                  setState(() => _optimisticPurchased.remove(doc.id));
+                  await FinancialService.deleteBazarItem(doc.id);
+                }
               }
             },
             itemBuilder: (_) => [
@@ -520,18 +841,46 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
 
   Widget _emptyCard() {
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: EkColors.line),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('🛒', style: TextStyle(fontSize: 44)),
-            const SizedBox(height: 8),
+            const Center(child: Text('🛒', style: TextStyle(fontSize: 56))),
+            const SizedBox(height: 12),
             Text(
               EkLanguage.text(
-                'No items for this bazar yet.',
-                'এই বাজারে এখনও কোনো আইটেম নেই।',
+                'Start your bazar list',
+                'বাজার তালিকা শুরু করুন',
               ),
               textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              EkLanguage.text(
+                'Tap a category above or use the button below to add your first item.',
+                'উপরে একটি ক্যাটাগরিতে ট্যা� করুন অথবা নিচের বোতাম থেকে প্রথম আইটেম যোগ করুন।',
+              ),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: EkColors.muted, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => editItem(),
+              icon: const Icon(Icons.add_circle_outline),
+              label: Text(
+                EkLanguage.text('Add your first item', 'প্রথম আইটেম যোগ করুন'),
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                backgroundColor: const Color(0xFF2EAD46),
+              ),
             ),
           ],
         ),

@@ -1,15 +1,178 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/api_service.dart';
 import '../../services/financial_service.dart';
+
+/// Lightweight recent-destinations store backed by [SharedPreferences].
+/// Phase 2 UI/UX additive feature: keeps the last 6 destinations the user
+/// has chosen so the home screen can show them as tap-to-fill chips.
+class CommuteRecents {
+  CommuteRecents._();
+
+  static const _key = 'commute_recents_v1';
+  static const _max = 6;
+
+  static Future<List<RecentPlace>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map(RecentPlace.fromJson)
+          .where((p) => p.lat != 0 && p.lon != 0)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static Future<List<RecentPlace>> add(RecentPlace place) async {
+    final current = await load();
+    final filtered = current
+        .where((p) => !(p.lat == place.lat && p.lon == place.lon))
+        .toList();
+    final next = <RecentPlace>[place, ...filtered];
+    if (next.length > _max) next.removeRange(_max, next.length);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _key,
+      jsonEncode(next.map((p) => p.toJson()).toList()),
+    );
+    return next;
+  }
+}
+
+class RecentPlace {
+  const RecentPlace({
+    required this.name,
+    required this.lat,
+    required this.lon,
+    required this.savedAt,
+  });
+
+  final String name;
+  final double lat;
+  final double lon;
+  final DateTime savedAt;
+
+  factory RecentPlace.fromJson(Map json) {
+    return RecentPlace(
+      name: json['name']?.toString() ?? '',
+      lat: (json['lat'] as num?)?.toDouble() ?? 0,
+      lon: (json['lon'] as num?)?.toDouble() ?? 0,
+      savedAt: DateTime.tryParse(json['savedAt']?.toString() ?? '') ??
+          DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'lat': lat,
+        'lon': lon,
+        'savedAt': savedAt.toIso8601String(),
+      };
+}
+
+/// Friendly mapping for the backend `source` string used by the fare
+/// transparency block in the option details modal.
+String _friendlySource(String? raw) {
+  switch (raw?.toLowerCase()) {
+    case 'official':
+    case 'official_rule_calculation':
+    case 'official_rule':
+      return EkLanguage.text(
+        'BRTA official fare',
+        'BRTA অনুমোদিত ভাড়া',
+      );
+    case 'crowdsourced':
+    case 'crowd_reports':
+      return EkLanguage.text(
+        'Recent fare reports',
+        'সাম্প্রতিক ভাড়ার রিপোর্�',
+      );
+    case 'estimated':
+    case 'ml_estimate':
+      return EkLanguage.text(
+        'ML estimate from approved reports',
+        'অনুমোদিত রিপোর্� থেকে ML অনুমান',
+      );
+    case 'historical':
+    case 'meter_rule':
+      return EkLanguage.text(
+        'Legal meter rule',
+        'বৈধ মিটার নিয়ম',
+      );
+    case 'unverified':
+      return EkLanguage.text(
+        'Reference only',
+        'শুধুমাত্র রেফারেন্স',
+      );
+    case 'none':
+    case '':
+    case null:
+      return EkLanguage.text('No fare', 'কোনো ভাড়া নে�');
+    default:
+      return raw ?? EkLanguage.text('Reference', 'রেফারেন্স');
+  }
+}
+
+/// Friendly mapping for the backend `confidence` string used by the fare
+/// transparency block. Values come verbatim from the backend, so we only
+/// normalize casing/formatting for display.
+String _friendlyConfidence(String? raw) {
+  switch (raw?.toLowerCase()) {
+    case 'high':
+    case 'authoritative':
+      return EkLanguage.text('Authoritative', 'নির্ভরযোগ্য');
+    case 'medium':
+    case 'moderate':
+      return EkLanguage.text('Moderate', 'মাঝারি');
+    case 'low':
+    case 'unverified':
+      return EkLanguage.text('Low', 'কম');
+    case '':
+    case null:
+      return EkLanguage.text('Unknown', 'অজানা');
+    default:
+      return raw ?? EkLanguage.text('Unknown', 'অজানা');
+  }
+}
+
+/// Friendly mapping for the backend `fareType` string used by the option card
+/// subtitle. This is purely a display transform — backend strings are not
+/// rewritten for any downstream logic.
+String _friendlyFareType(String? raw) {
+  switch (raw?.toLowerCase()) {
+    case 'official':
+      return EkLanguage.text('Official fare', 'অনুমোদিত ভাড়া');
+    case 'crowdsourced':
+      return EkLanguage.text('Crowdsourced', 'জনসম্পৃক্ত');
+    case 'estimated':
+      return EkLanguage.text('Estimated', 'আনুমানিক');
+    case 'historical':
+      return EkLanguage.text('Historical', 'ঐতিহাসিক');
+    case 'unverified':
+      return EkLanguage.text('Unverified', 'যাচাই নয়');
+    case '':
+    case null:
+      return EkLanguage.text('Estimated', 'আনুমানিক');
+    default:
+      return raw ?? EkLanguage.text('Estimated', 'আনুমানিক');
+  }
+}
 
 class CommuteBDScreen extends StatefulWidget {
   const CommuteBDScreen({super.key});
@@ -27,15 +190,41 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
   String destinationName = '';
   bool locating = false;
   bool routing = false;
+  bool _inFlightRoute = false;
   String? locationError;
   String? routeError;
   Map<String, dynamic>? route;
   List<LatLng> polyline = const [];
+  List<RecentPlace> _recents = const [];
 
   @override
   void initState() {
     super.initState();
     unawaited(_locate());
+    unawaited(_loadRecents());
+  }
+
+  Future<void> _loadRecents() async {
+    final loaded = await CommuteRecents.load();
+    if (!mounted) return;
+    setState(() => _recents = loaded);
+  }
+
+  Future<void> _rememberDestination({
+    required String name,
+    required double lat,
+    required double lon,
+  }) async {
+    final next = await CommuteRecents.add(
+      RecentPlace(
+        name: name,
+        lat: lat,
+        lon: lon,
+        savedAt: DateTime.now(),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _recents = next);
   }
 
   Future<void> _locate() async {
@@ -87,12 +276,12 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
     }
   }
 
-  Future<void> _searchDestination() async {
+  Future<void> _searchDestination({RecentPlace? initial}) async {
     final selected = await showModalBottomSheet<_PlaceResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => const _PlaceSearchSheet(),
+      builder: (context) => _PlaceSearchSheet(initial: initial),
     );
     if (selected == null) return;
 
@@ -104,14 +293,35 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
       polyline = const [];
     });
     mapController.move(destination!, 13);
+    await _rememberDestination(
+      name: selected.name,
+      lat: selected.lat,
+      lon: selected.lon,
+    );
 
     if (origin != null) {
       await _buildRoute();
     }
   }
 
+  void _applyRecent(RecentPlace place) {
+    setState(() {
+      destination = LatLng(place.lat, place.lon);
+      destinationName = place.name;
+      route = null;
+      routeError = null;
+      polyline = const [];
+    });
+    mapController.move(destination!, 13);
+    if (origin != null) {
+      unawaited(_buildRoute());
+    }
+  }
+
   Future<void> _buildRoute() async {
     if (origin == null || destination == null) return;
+    if (_inFlightRoute) return; // Phase 2 perf: dedupe duplicate route calls
+    _inFlightRoute = true;
     setState(() {
       routing = true;
       routeError = null;
@@ -154,6 +364,7 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
         setState(() => routeError = e.toString());
       }
     } finally {
+      _inFlightRoute = false;
       if (mounted) setState(() => routing = false);
     }
   }
@@ -186,21 +397,75 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
                 const SizedBox(height: 8),
                 _detailLine(
                   EkLanguage.text('Fare type', 'ভাড়ার ধরন'),
-                  option['fareType']?.toString() ?? 'unknown',
+                  _friendlyFareType(option['fareType']?.toString()),
+                ),
+                const SizedBox(height: 14),
+                // Phase 2 — Fare transparency header.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.verified_user_outlined,
+                        size: 14,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: .85),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Fare transparency / ভাড়ার স্বচ্ছতা',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .4,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: .85),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 _detailLine(
                   EkLanguage.text('Source', 'উৎস'),
-                  option['source']?.toString() ?? 'Unavailable',
+                  _friendlySource(option['source']?.toString()),
                 ),
                 _detailLine(
                   EkLanguage.text('Confidence', 'নির্ভরযোগ্যতা'),
-                  option['confidence']?.toString() ?? 'Low',
+                  _friendlyConfidence(option['confidence']?.toString()),
                 ),
                 if ((option['warning']?.toString() ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    option['warning'].toString(),
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFB36B00)),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF6E5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFF1D27A)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 18,
+                          color: Color(0xFFB36B00),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            option['warning'].toString(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF7A4A00),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
                 const Divider(height: 24),
@@ -219,22 +484,9 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
                     labelText: EkLanguage.text('Actual Fare Paid (৳)', 'বাস্তব ভাড়া (৳)'),
                   ),
                 ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
+                _SurveyModerationTile(
                   value: alsoReport,
-                  onChanged: (v) => setLocal(() => alsoReport = v == true),
-                  title: Text(
-                    EkLanguage.text(
-                      'Also submit fare report for moderation',
-                      'মডারেশনের জন্য ভাড়ার রিপোর্টও পাঠান',
-                    ),
-                  ),
-                  subtitle: Text(
-                    EkLanguage.text(
-                      'It remains pending until approved.',
-                      'অনুমোদনের আগে এটি প্রকাশিত হবে না।',
-                    ),
-                  ),
+                  onChanged: (v) => setLocal(() => alsoReport = v),
                 ),
               ],
             ),
@@ -246,12 +498,13 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(d, true),
-              child: Text(EkLanguage.text('Record Actual Fare', 'বাস্তব ভাড়া সংরক্ষণ')),
+              child: Text(EkLanguage.text('Record Actual Fare', 'বাস্তব ভাড়া সংরক্ষণ')),
             ),
           ],
         ),
       ),
     );
+
 
     if (record == true) {
       try {
@@ -383,39 +636,21 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
           children: [
             if (locationError != null)
               _warning(locationError!, const Color(0xFFFFF1E6)),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _locate,
-                    icon: const Icon(Icons.my_location),
-                    label: Text(
-                      origin == null
-                          ? EkLanguage.text('Set current location', 'বর্তমান লোকেশন নিন')
-                          : originName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward, color: EkColors.muted),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: _searchDestination,
-                    icon: const Icon(Icons.place_outlined),
-                    label: Text(
-                      destinationName.isEmpty
-                          ? EkLanguage.text('Destination', 'গন্তব্য')
-                          : destinationName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
+            _HomeHeaderCard(
+              originName: originName,
+              destinationName: destinationName,
+              locating: locating,
+              origin: origin,
+              destination: destination,
+              onLocate: _locate,
+              onPickDestination: _searchDestination,
             ),
+            const SizedBox(height: 12),
+            if (_recents.isNotEmpty)
+              _RecentDestinationsStrip(
+                recents: _recents,
+                onTap: _applyRecent,
+              ),
             const SizedBox(height: 12),
             SizedBox(
               height: 360,
@@ -423,7 +658,8 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
                 borderRadius: BorderRadius.circular(22),
                 child: Stack(
                   children: [
-                    FlutterMap(
+                    RepaintBoundary(
+                      child: FlutterMap(
                       mapController: mapController,
                       options: MapOptions(
                         initialCenter: defaultCenter,
@@ -471,6 +707,7 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
                           ],
                         ),
                       ],
+                      ),
                     ),
                     Positioned(
                       left: 8,
@@ -718,14 +955,15 @@ class _CommuteBDScreenState extends State<CommuteBDScreen> {
 }
 
 class _PlaceSearchSheet extends StatefulWidget {
-  const _PlaceSearchSheet();
+  const _PlaceSearchSheet({this.initial});
+  final RecentPlace? initial;
 
   @override
   State<_PlaceSearchSheet> createState() => _PlaceSearchSheetState();
 }
 
 class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
-  final controller = TextEditingController();
+  late final controller = TextEditingController(text: widget.initial?.name ?? '');
   Timer? debounce;
   bool busy = false;
   String? error;
@@ -855,4 +1093,232 @@ class _PlaceResult {
   final String name;
   final double lat;
   final double lon;
+}
+
+
+class _SurveyModerationTile extends StatelessWidget {
+  const _SurveyModerationTile({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.verified_user_outlined, color: cs.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  EkLanguage.text(
+                    'Also send the fare report for moderation',
+                    'মডারেশনের জন্য ভাড়ার রিপোর্টও পাঠান',
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  EkLanguage.text(
+                    'It remains pending until approved.',
+                    'অনুমোদনের আগে এটি প্রকাশিত হবে না।',
+                  ),
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _HomeHeaderCard extends StatelessWidget {
+  const _HomeHeaderCard({
+    required this.originName,
+    required this.destinationName,
+    required this.locating,
+    required this.origin,
+    required this.destination,
+    required this.onLocate,
+    required this.onPickDestination,
+  });
+
+  final String originName;
+  final String destinationName;
+  final bool locating;
+  final LatLng? origin;
+  final LatLng? destination;
+  final VoidCallback onLocate;
+  final VoidCallback onPickDestination;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.my_location, color: cs.primary, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      EkLanguage.text('From', 'থেকে'),
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                    ),
+                    Text(
+                      origin == null
+                          ? EkLanguage.text('Set current location', 'বর্তমান লোকেশন নিন')
+                          : originName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: EkLanguage.text('Recenter', 'বর্তমান লোকেশন'),
+                onPressed: locating ? null : onLocate,
+                icon: locating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: Divider(height: 1),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onPickDestination,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: cs.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.place_outlined, color: cs.tertiary, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          EkLanguage.text('To', 'পর্যন্ত'),
+                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                        ),
+                        Text(
+                          destinationName.isEmpty
+                              ? EkLanguage.text('Choose destination', 'গন্তব্য নির্বাচন করুন')
+                              : destinationName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: destinationName.isEmpty ? cs.onSurfaceVariant : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentDestinationsStrip extends StatelessWidget {
+  const _RecentDestinationsStrip({required this.recents, required this.onTap});
+
+  final List<RecentPlace> recents;
+  final ValueChanged<RecentPlace> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            EkLanguage.text('Recent destinations', 'সাম্প্রতিক গন্তব্য'),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: recents.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final r = recents[i];
+              return ActionChip(
+                avatar: const Icon(Icons.history, size: 16),
+                label: Text(
+                  r.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: () => onTap(r),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/language.dart';
 import '../../core/theme.dart';
-import '../../core/ui.dart';
 import '../../services/api_service.dart';
 import 'medicine_form_screen.dart';
 
@@ -22,6 +21,8 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
   String fileName = '';
   String rawText = '';
   String warning = '';
+  String errorMessage = '';
+  Uint8List? lastBytes;
   List<Map<String, dynamic>> medicines = const [];
 
   Future<void> pickFile() async {
@@ -50,6 +51,11 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
     setState(() {
       busy = true;
       fileName = name;
+      lastBytes = bytes;
+      errorMessage = '';
+      medicines = const [];
+      rawText = '';
+      warning = '';
     });
     try {
       final result = await ApiService.prescriptionOcr(
@@ -69,10 +75,19 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
         medicines = list;
       });
     } catch (e) {
-      if (mounted) showError(context, e);
+      if (mounted) {
+        setState(() {
+          errorMessage = e.toString().replaceFirst('Exception: ', '').trim();
+        });
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<void> retryOcr() async {
+    if (lastBytes == null || fileName.isEmpty) return;
+    await runOcr(lastBytes!, fileName);
   }
 
   Future<void> openCandidate(Map<String, dynamic> candidate) async {
@@ -201,11 +216,39 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
                       ),
                     ],
                   ),
-                  if (busy) ...[
+if (busy) ...[
                     const SizedBox(height: 18),
-                    const LinearProgressIndicator(),
-                    const SizedBox(height: 7),
-                    Text(EkLanguage.text('Reading prescription…', 'প্রেসক্রিপশন পড়া হচ্ছে…')),
+                    const LinearProgressIndicator(
+                      minHeight: 6,
+                      borderRadius: BorderRadius.all(Radius.circular(6)),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                EkColors.purple),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          EkLanguage.text(
+                            'Reading prescription…',
+                            'প্রেসক্রি�শন পড়া হচ্ছে…',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: EkColors.purple,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -235,6 +278,67 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
                 ],
               ),
             ),
+            if (errorMessage.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDEDEE),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFF3C7CA)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline, color: Color(0xFFD84A4A)),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            EkLanguage.text(
+                              'Could not read the prescription.',
+                              'প্রেসক্রিপশন পড়া যায়নি।',
+                            ),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFB23B3B),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            errorMessage,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: busy ? null : pickFile,
+                                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                                label: Text(
+                                  EkLanguage.text('Choose another', 'অন্য ছবি বাছুন'),
+                                ),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: busy ? null : retryOcr,
+                                icon: const Icon(Icons.refresh, size: 18),
+                                label: Text(
+                                  EkLanguage.text('Retry', 'আবার চেষ্টা করুন'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (rawText.isNotEmpty) ...[
               const SizedBox(height: 18),
               Row(
@@ -285,35 +389,9 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
                 )
               else
                 for (final candidate in medicines)
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: Container(
-                        width: 46,
-                        height: 46,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE9F9F3),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text('💊', style: TextStyle(fontSize: 25)),
-                      ),
-                      title: Text(
-                        candidate['name']?.toString() ?? '',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      subtitle: Text(
-                        [
-                          candidate['dose']?.toString() ?? '',
-                          candidate['instruction']?.toString() ?? '',
-                          ((candidate['scheduleHints'] as List?) ?? const []).join(' • '),
-                        ].where((e) => e.trim().isNotEmpty).join('\n'),
-                      ),
-                      trailing: FilledButton.tonal(
-                        onPressed: () => openCandidate(candidate),
-                        child: Text(EkLanguage.text('Review', 'যাচাই')),
-                      ),
-                    ),
+                  _CandidateCard(
+                    candidate: candidate,
+                    onReview: () => openCandidate(candidate),
                   ),
               if (warning.isNotEmpty)
                 Padding(
@@ -328,5 +406,153 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
         ),
       ),
     );
+  }
+}
+
+class _CandidateCard extends StatelessWidget {
+  const _CandidateCard({
+    required this.candidate,
+    required this.onReview,
+  });
+
+  final Map<String, dynamic> candidate;
+  final VoidCallback onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = candidate['name']?.toString() ?? '';
+    final dose = candidate['dose']?.toString() ?? '';
+    final instruction = candidate['instruction']?.toString() ?? '';
+    final scheduleHints = ((candidate['scheduleHints'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+    final confidenceRaw = candidate['confidence'];
+    final confidence = confidenceRaw is num
+        ? confidenceRaw.toDouble()
+        : double.tryParse(confidenceRaw?.toString() ?? '');
+
+    final chips = <Widget>[];
+    if (dose.isNotEmpty) {
+      chips.add(_chip(Icons.science_outlined, dose, const Color(0xFFEDE6FB), EkColors.purple));
+    }
+    for (final hint in scheduleHints) {
+      chips.add(_chip(Icons.schedule, hint, const Color(0xFFEAF3FF), const Color(0xFF3D7BFF)));
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9F9F3),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text('💊', style: TextStyle(fontSize: 25)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                      if (instruction.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          instruction,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: EkColors.muted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (confidence != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _confidenceColor(confidence).withValues(alpha: .14),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${(confidence * 100).round()}%',
+                      style: TextStyle(
+                        color: _confidenceColor(confidence),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (chips.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 6, children: chips),
+            ],
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: onReview,
+                icon: const Icon(Icons.edit_note, size: 18),
+                label: Text(EkLanguage.text('Review', 'যাচাই')),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(IconData icon, String label, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: fg),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _confidenceColor(double value) {
+    if (value >= 0.75) return EkColors.green;
+    if (value >= 0.5) return const Color(0xFFE19B22);
+    return const Color(0xFFD84A4A);
   }
 }

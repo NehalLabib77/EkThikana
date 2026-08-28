@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/language.dart';
+import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
@@ -27,6 +28,7 @@ class MedicineFormScreen extends StatefulWidget {
 
 class _MedicineFormScreenState extends State<MedicineFormScreen> {
   late final TextEditingController name;
+  late final TextEditingController strength;
   late final TextEditingController instruction;
   late final TextEditingController quantity;
   late final TextEditingController unitPrice;
@@ -44,6 +46,9 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
     super.initState();
     final d = widget.initialData ?? const <String, dynamic>{};
     name = TextEditingController(text: d['name']?.toString() ?? '');
+    strength = TextEditingController(
+      text: d['strength']?.toString() ?? '',
+    );
     instruction = TextEditingController(
       text: d['instruction']?.toString() ?? d['dose']?.toString() ?? '',
     );
@@ -80,6 +85,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
   @override
   void dispose() {
     name.dispose();
+    strength.dispose();
     instruction.dispose();
     quantity.dispose();
     unitPrice.dispose();
@@ -95,6 +101,25 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
     final price = double.tryParse(packPrice.text.trim()) ?? 0;
     final count = double.tryParse(unitsInPack.text.trim()) ?? 0;
     return count <= 0 ? 0 : price / count;
+  }
+
+  Future<void> _friendlyAlert(String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (d) => AlertDialog(
+        icon: const Icon(Icons.checklist_rtl, color: EkColors.purple),
+        title: Text(
+          EkLanguage.text('Please review', 'দয়া করে যাচাই করুন'),
+        ),
+        content: Text(message),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(d),
+            child: Text(EkLanguage.text('Got it', 'বুঝেছি')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> addTime() async {
@@ -120,25 +145,31 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
     final price = calculatedUnitPrice;
 
     if (medName.isEmpty) {
-      showError(context, Exception(EkLanguage.text('Medicine name is required.', 'ওষুধের নাম প্রয়োজন।')));
+      await _friendlyAlert(
+        EkLanguage.text('Medicine name is required.', 'ও�ুধের নাম প্রয়োজন।'),
+      );
       return;
     }
     if (qty <= 0) {
-      showError(context, Exception(EkLanguage.text('Quantity per dose must be greater than zero.', 'প্রতি ডোজের পরিমাণ শূন্যের বেশি হতে হবে।')));
+      await _friendlyAlert(
+        EkLanguage.text(
+          'Quantity per dose must be greater than zero.',
+          'প্রতি ডোজের পরিমাণ শূন্যের বেশি হতে হবে।',
+        ),
+      );
       return;
     }
     if (price < 0) {
-      showError(context, Exception('Price cannot be negative.'));
+      await _friendlyAlert(
+        EkLanguage.text('Price cannot be negative.', 'দাম ঋণাত্মক হতে পারে না।'),
+      );
       return;
     }
     if (times.isEmpty) {
-      showError(
-        context,
-        Exception(
-          EkLanguage.text(
-            'Confirm at least one reminder time. Gochano will not guess reminder times.',
-            'অন্তত একটি রিমাইন্ডারের সময় নিশ্চিত করুন। Gochano সময় অনুমান করবে না।',
-          ),
+      await _friendlyAlert(
+        EkLanguage.text(
+          'Confirm at least one reminder time. Gochano will not guess reminder times.',
+          'অন্তত একটি রি�াইন্ডারের সময় নিশ্চিত করুন। Gochano সময় অনুমান করবে না।',
         ),
       );
       return;
@@ -164,6 +195,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
         {
           'ownerId': FirestoreService.uid,
           'name': medName,
+          'strength': strength.text.trim(),
           'instruction': instruction.text.trim(),
           'dose': instruction.text.trim(),
           'quantityPerDose': qty,
@@ -249,14 +281,32 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
+            SectionHeader(
+              title: Text(EkLanguage.text('Medicine Info', 'ওষুধের তথ্য')),
+              subtitle: Text(
+                EkLanguage.text(
+                  'Required fields are marked with *',
+                  'আবশ্যক ক্ষেত্রগুলো * চিহ্নিত',
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: name,
               decoration: InputDecoration(
                 labelText: EkLanguage.text('Medicine Name *', 'ওষুধের নাম *'),
-                hintText: 'e.g. Napa 500mg',
+                hintText: 'e.g. Napa',
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            TextField(
+              controller: strength,
+              decoration: InputDecoration(
+                labelText: EkLanguage.text('Strength', 'ক্ষমতা'),
+                hintText: EkLanguage.text('e.g. 500mg, 5mg/ml', 'যেমন: 500mg, 5mg/ml'),
+              ),
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: instruction,
               minLines: 2,
@@ -298,12 +348,17 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              EkLanguage.text('Price', 'দাম'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            const SizedBox(height: 22),
+            SectionHeader(
+              title: Text(EkLanguage.text('Price', 'দাম')),
+              subtitle: Text(
+                EkLanguage.text(
+                  'Unit price is used for cost calculations.',
+                  'ইউনিট দাম খরচ গণনায় ব্যবহৃত হয়।',
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             SegmentedButton<String>(
               segments: [
                 ButtonSegment(
@@ -367,12 +422,17 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 18),
-            Text(
-              EkLanguage.text('Reminder Times *', 'রিমাইন্ডারের সময় *'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            const SizedBox(height: 22),
+            SectionHeader(
+              title: Text(EkLanguage.text('Schedule', 'সময়সূচী')),
+              subtitle: Text(
+                EkLanguage.text(
+                  'Confirm at least one reminder time.',
+                  'অন্তত একটি রিমাইন্ডারের সময় নিশ্চিত করুন।',
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 7,
               runSpacing: 7,
@@ -445,7 +505,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
                 ),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0A9B6A),
+                backgroundColor: EkColors.green,
               ),
             ),
           ],
