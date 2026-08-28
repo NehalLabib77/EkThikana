@@ -27,24 +27,39 @@ class GochanoApp extends StatelessWidget {
 }
 
 /// Boots the branded splash and, as soon as real initialization completes,
-/// hands control to [AuthGate]. We use pushReplacement so the splash is
-/// removed from the navigation stack and cannot be revisited via the system
-/// back button. There is no artificial delay here - the splash's own
-/// fade-out animation is the only transition; the app opens immediately
-/// after real initialization finishes (bounded by a hard timeout inside
-/// GochanoSplashScreen).
-class _BootRouter extends StatelessWidget {
+/// hands control to [AuthGate].
+///
+/// We deliberately avoid `Navigator.pushReplacement` here. The splash and
+/// AuthGate are both rendered as the single `home:` child of MaterialApp.
+/// The splash calls [onReady] when it has finished its fade-out animation,
+/// which flips [_BootRouter._ready]. The next rebuild swaps the body to
+/// [AuthGate] inside the same Navigator slot, with no route transition.
+///
+/// This pattern is what avoids the
+/// `'package:flutter/src/widgets/navigator.dart': Failed assertion:
+/// line 5909 pos 12: '!_debugLocked': is not true.` runtime error and the
+/// companion `'scope != null'` assertion in routes.dart that fired when
+/// the splash route was popped while its fade-out animation was still in
+/// progress.
+class _BootRouter extends StatefulWidget {
   const _BootRouter();
 
   @override
+  State<_BootRouter> createState() => _BootRouterState();
+}
+
+class _BootRouterState extends State<_BootRouter> {
+  bool _ready = false;
+
+  void _handleReady() {
+    if (!mounted) return;
+    setState(() => _ready = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GochanoSplashScreen(
-      onReady: () async {
-        if (!context.mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const AuthGate()),
-        );
-      },
-    );
+    return _ready
+        ? const AuthGate()
+        : GochanoSplashScreen(onReady: _handleReady);
   }
 }

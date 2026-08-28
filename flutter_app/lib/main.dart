@@ -24,12 +24,16 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    try {
-      await NotificationService.init();
-    } catch (_) {
-      // The app remains usable if OS notification setup is incomplete.
-    }
     runApp(const GochanoApp());
+    // Defer non-critical platform setup so the first frame paints sooner.
+    // Notifications aren't required for the app to be usable, and the
+    // permission prompt can take seconds on slow Android devices.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.init().catchError((_) {
+        // Swallow - app stays usable even if notification setup fails.
+        return Future<void>.value();
+      });
+    });
   } catch (e) {
     runApp(_SetupRequiredApp(error: e));
   }
