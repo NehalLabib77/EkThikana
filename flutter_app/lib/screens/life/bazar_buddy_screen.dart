@@ -6,6 +6,7 @@ import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../widgets/gochano_loading.dart';
+import '../../widgets/gochano_primitives.dart';
 import '../../services/financial_service.dart';
 import 'expense_tracker_screen.dart';
 
@@ -894,51 +895,21 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
   }
 
   Widget _emptyCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: BorderSide(color: EkColors.line),
+    return EmptyState(
+      module: 'bazar',
+      title: EkLanguage.text(
+        'Start your bazar list',
+        'বাজার তালিকা শুরু করুন',
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Center(child: Text('🛒', style: TextStyle(fontSize: 56))),
-            const SizedBox(height: 12),
-            Text(
-              EkLanguage.text(
-                'Start your bazar list',
-                'বাজার তালিকা শুরু করুন',
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              EkLanguage.text(
-                'Tap a category above or use the button below to add your first item.',
-                'উপরে একটি ক্যাটাগরিতে ট্যা� করুন অথবা নিচের বোতাম থেকে প্রথম আইটেম যোগ করুন।',
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: EkColors.muted, height: 1.4),
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => editItem(),
-              icon: const Icon(Icons.add_circle_outline),
-              label: Text(
-                EkLanguage.text('Add your first item', 'প্রথম আইটেম যোগ করুন'),
-              ),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                backgroundColor: const Color(0xFF2EAD46),
-              ),
-            ),
-          ],
-        ),
+      message: EkLanguage.text(
+        'Tap a category above or use the button below to add your first item.',
+        'উপরে একটি ক্যাটাগরিতে ট্যাপ করুন অথবা নিচের বোতাম থেকে প্রথম আইটেম যোগ করুন।',
       ),
+      primaryActionLabel: EkLanguage.text(
+        'Add your first item',
+        'প্রথম আইটেম যোগ করুন',
+      ),
+      onPrimaryAction: () => editItem(),
     );
   }
 

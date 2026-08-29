@@ -8,6 +8,7 @@ import '../../core/ui.dart';
 import '../../services/financial_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/gochano_primitives.dart';
 import 'medicine_form_screen.dart';
 import 'medicine_history_screen.dart';
 import 'medicine_ocr_screen.dart';
@@ -811,53 +812,20 @@ class _MedicineEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Text('💊', style: TextStyle(fontSize: 56)),
-            const SizedBox(height: 10),
-            Text(
-              EkLanguage.text(
-                'No medicines yet.',
-                'এখনও কোনো ওষুধ যোগ করা হয়নি।',
-              ),
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              EkLanguage.text(
-                'Add medicine manually or scan a prescription to get started.',
-                'ম্যানুয়ালি ওষুধ যোগ করুন অথবা প্রেসক্রিপশন স্ক্যান করে শুরু করুন।',
-              ),
-              style: const TextStyle(fontSize: 12, color: EkColors.muted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onAddManual,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(EkLanguage.text('Add Manually', 'ম্যানুয়ালি যোগ')),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onScan,
-                    icon: const Icon(Icons.document_scanner_outlined, size: 18),
-                    label: Text(EkLanguage.text('Scan', 'স্ক্যান')),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return EmptyState(
+      module: 'medicine',
+      title: EkLanguage.text(
+        'No medicines yet.',
+        'এখনও কোনো ওষুধ যোগ করা হয়নি।',
       ),
+      message: EkLanguage.text(
+        'Add medicine manually or scan a prescription to get started.',
+        'ম্যানুয়ালি ওষুধ যোগ করুন অথবা প্রেসক্রিপশন স্ক্যান করে শুরু করুন।',
+      ),
+      primaryActionLabel: EkLanguage.text('Add manually', 'ম্যানুয়ালি যোগ করুন'),
+      onPrimaryAction: onAddManual,
+      secondaryActionLabel: EkLanguage.text('Scan prescription', 'প্রেসক্রিপশন স্ক্যান করুন'),
+      onSecondaryAction: onScan,
     );
   }
 }

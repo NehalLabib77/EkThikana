@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/gochano_primitives.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -151,7 +152,18 @@ class _TasksScreenState extends State<TasksScreen> {
                 ),
                 Expanded(
                   child: filtered.isEmpty
-                      ? Center(child: Text(EkLanguage.text('No tasks here yet.', 'এখানে এখনও কোনো কাজ নেই।')))
+                      ? EmptyState(
+                          module: 'tasks',
+                          title: EkLanguage.text(
+                            'No tasks here yet.',
+                            'এখানে এখনও কোনো কাজ নেই।',
+                          ),
+                          message: EkLanguage.text(
+                            'Tap the + button below to add your first task.',
+                            'নিচের + বোতামে চাপ দিয়ে প্রথম কাজ যোগ করুন।',
+                          ),
+                          compact: true,
+                        )
                       : ListView(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
                           children: [
@@ -174,14 +186,14 @@ class _TasksScreenState extends State<TasksScreen> {
     final selected = tab == value;
     return Expanded(
       child: InkWell(
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(10),
         onTap: () => setState(() => tab = value),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: selected ? EkColors.purple : Colors.transparent,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: selected ? Colors.white : EkColors.muted, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, fontSize: 12)),
         ),

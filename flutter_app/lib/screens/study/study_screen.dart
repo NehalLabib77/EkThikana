@@ -5,6 +5,7 @@ import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/gochano_primitives.dart';
 import '../groups/groups_screen.dart';
 import 'academic_structure_screen.dart';
 // community_screen.dart removed in PART 3 (correction 4: no public runtime).
@@ -219,8 +220,19 @@ class StudyScreen extends StatelessWidget {
                 return Card(
                   child: docs.isEmpty
                       ? Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Text(EkLanguage.text('No notes yet. Create a note from My Notes.', 'এখনও কোনো নোট নেই। My Notes থেকে নোট তৈরি করুন।')),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: EmptyState(
+                            module: 'study',
+                            title: EkLanguage.text(
+                              'No notes yet',
+                              'এখনও কোনো নোট নেই',
+                            ),
+                            message: EkLanguage.text(
+                              'Create a note from My Notes.',
+                              'My Notes থেকে নোট তৈরি করুন।',
+                            ),
+                            compact: true,
+                          ),
                         )
                       : Column(
                           children: [

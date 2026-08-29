@@ -55,14 +55,21 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final reply = await ApiService.aiNote('explain', raw);
       if (!mounted) return;
       setState(() => _bubbles.add(_ChatBubble.ai(reply)));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _bubbles.add(_ChatBubble.error(
-            EkLanguage.text(
-              'Could not reach the AI service. Try again.',
-              'AI পরিষেবায় যোগাযোগ করা যায়নি। আবার চেষ্টা করুন।',
-            ),
-          )));
+      // Keep the real backend message visible (it includes provider status,
+      // missing API key, quota, etc.) but fall back to a generic line for
+      // socket / timeout / unexpected errors.
+      final msg = e is ApiException
+          ? e.message
+          : EkLanguage.text(
+              'AI service temporarily unavailable.',
+              'AI পরিষেবা সাময়িকভাবে অনুপলব্ধ।',
+            );
+      // Print helps the developer read status codes from lutter run.
+      // ignore: avoid_print
+      print('[AI] sendChat failed: ' + msg);
+      setState(() => _bubbles.add(_ChatBubble.error(msg)));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -77,7 +84,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       );
       if (picked.isEmpty) return;
       final file = picked.first;
-      final Uint8List? bytes = await file.readAsBytes();
+      final Uint8List bytes = await file.readAsBytes();
       if (bytes == null || bytes.isEmpty) {
         setState(() => _uploadError = EkLanguage.text(
               'Could not read the selected file.',
@@ -165,15 +172,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         _bubbles.add(_ChatBubble.ai(reply));
         _sending = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      final msg = e is ApiException
+          ? e.message
+          : EkLanguage.text(
+              'AI service temporarily unavailable.',
+              'AI পরিষেবা সাময়িকভাবে অনুপলব্ধ।',
+            );
+      // ignore: avoid_print
+      print('[AI] askPdf failed: ' + msg);
       setState(() {
-        _bubbles.add(_ChatBubble.error(
-          EkLanguage.text(
-            'Could not read the file. Try a clearer PDF.',
-            'ফাইল পড়া যায়নি। আরও স্পষ্ট PDF দিয়ে আবার চেষ্টা করুন।',
-          ),
-        ));
+        _bubbles.add(_ChatBubble.error(msg));
         _sending = false;
       });
     }

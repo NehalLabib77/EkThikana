@@ -19,10 +19,31 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
 
+  // Pages and destinations are cached per (role, displayName) so we don't
+  // reallocate the lists (or rebuild the same widgets) on every frame.
+  // [DashboardScreen] is the only tab that depends on user-specific data
+  // (role + displayName); the rest are const-friendly and reused as-is.
+  late final List<Widget> _pages;
+  late final List<NavigationDestination> _destinations;
+
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    _rebuildTabs();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.role != widget.role ||
+        oldWidget.displayName != widget.displayName) {
+      _rebuildTabs();
+    }
+  }
+
+  void _rebuildTabs() {
     final student = widget.role == 'student';
-    final pages = student
+    _pages = student
         ? <Widget>[
             DashboardScreen(role: widget.role, displayName: widget.displayName),
             const StudyScreen(),
@@ -37,7 +58,7 @@ class _HomeShellState extends State<HomeShell> {
             const ProfileScreen(),
           ];
 
-    final items = student
+    _destinations = student
         ? const <NavigationDestination>[
             NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
             NavigationDestination(icon: Icon(Icons.school_outlined), selectedIcon: Icon(Icons.school_rounded), label: 'Study'),
@@ -52,14 +73,17 @@ class _HomeShellState extends State<HomeShell> {
             NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
           ];
 
-    if (index >= pages.length) index = 0;
+    if (index >= _pages.length) index = 0;
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: index, children: pages),
+      body: IndexedStack(index: index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (value) => setState(() => index = value),
-        destinations: items,
+        destinations: _destinations,
       ),
     );
   }

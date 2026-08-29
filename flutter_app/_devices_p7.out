@@ -1,9 +1,0 @@
-Found 4 connected devices:
-  Infinix X665E (mobile) ΓÇó 0935625332014966 ΓÇó android-arm64  ΓÇó Android 12 (API 31)
-  Windows (desktop)      ΓÇó windows          ΓÇó windows-x64    ΓÇó Microsoft Windows [Version 10.0.26200.9168]
-  Chrome (web)           ΓÇó chrome           ΓÇó web-javascript ΓÇó Google Chrome 151.0.7922.174
-  Edge (web)             ΓÇó edge             ΓÇó web-javascript ΓÇó Microsoft Edge 151.0.4129.107
-
-Run "flutter emulators" to list and start any available device emulators.
-
-If you expected another device to be detected, please run "flutter doctor" to diagnose potential issues. You may also try increasing the time to wait for connected devices with the "--device-timeout" flag. Visit https://flutter.dev/setup/ for troubleshooting tips.
