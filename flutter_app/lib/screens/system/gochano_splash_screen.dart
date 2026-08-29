@@ -10,10 +10,16 @@
 //     logo lazily on first paint).
 //   - Rotating ring animation (no `AnimationController` / `repeat()`).
 //   - Progress bar (the `_StartupProgressBar` helper is gone).
-//   - Logo scale / opacity entrance animation (no `FadeTransition`,
-//     no `ScaleTransition`, no `TickerProviderStateMixin`).
+//   - Logo scale entrance animation (no `ScaleTransition`).
 //   - Manual `Future.delayed` waits; the only timing primitive left is
 //     `addPostFrameCallback`, which fires once per build.
+//
+// What remains (one-shot, free of animation controllers):
+//   - A 300 ms opacity fade-in via `TweenAnimationBuilder<double>`,
+//     curved with `Curves.easeOutCubic`. Independent of [onReady]:
+//     the hand-off fires on the next post-frame regardless of how far
+//     the fade has progressed, so a slow fade never blocks reaching
+//     `AuthGate`. The fade is purely visual polish.
 //
 // What is preserved (the public contract):
 //   - `const GochanoSplashScreen({super.key, this.onReady})` — same
@@ -39,6 +45,14 @@ const String _kLogoAsset = 'assets/branding/Gochano.png';
 /// resolve before firing it once on a timer so the UI cannot freeze.
 /// Intentionally short: a hung callback should not block startup.
 const Duration _kHardTimeout = Duration(milliseconds: 1500);
+
+/// Duration of the logo fade-in.
+///
+/// Kept short (300 ms) so the splash never feels heavy on cold start.
+/// Independent of [onReady] firing: the hand-off happens on the next
+/// post-frame whether or not the fade has finished, so a slow fade
+/// never blocks the user from reaching `AuthGate`.
+const Duration _kFadeIn = Duration(milliseconds: 300);
 
 class GochanoSplashScreen extends StatefulWidget {
   const GochanoSplashScreen({super.key, this.onReady});
@@ -117,15 +131,31 @@ class _GochanoSplashScreenState extends State<GochanoSplashScreen> {
                   maxWidth: constraints.maxWidth.clamp(0.0, 280.0),
                   maxHeight: constraints.maxHeight.clamp(0.0, 280.0),
                 ),
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  alignment: Alignment.center,
-                  child: Image.asset(
-                    _kLogoAsset,
-                    width: 200,
-                    height: 200,
+                // One-shot implicit fade-in: opacity 0 -> 1 over
+                // [_kFadeIn]. No AnimationController, no TickerProvider,
+                // no Future.delayed. The animation is purely visual;
+                // [onReady] still fires on the next post-frame so the
+                // hand-off to AuthGate is not blocked by the fade.
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: 1.0),
+                  duration: _kFadeIn,
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Opacity(
+                      opacity: value,
+                      child: child,
+                    );
+                  },
+                  child: FittedBox(
                     fit: BoxFit.contain,
-                    gaplessPlayback: true,
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      _kLogoAsset,
+                      width: 200,
+                      height: 200,
+                      fit: BoxFit.contain,
+                      gaplessPlayback: true,
+                    ),
                   ),
                 ),
               ),
