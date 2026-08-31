@@ -23,7 +23,15 @@ services:
         value: ekthikana-files
       - key: DATABASE_URL
         sync: false
-      - key: FIREBASE_STORAGE_BUCKET
+      - key: B2_BUCKET_NAME
+        sync: false
+      - key: B2_ENDPOINT_URL
+        sync: false
+      - key: B2_REGION
+        sync: false
+      - key: B2_KEY_ID
+        sync: false
+      - key: B2_APPLICATION_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false

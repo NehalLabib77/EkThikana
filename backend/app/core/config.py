@@ -21,9 +21,18 @@ class Settings(BaseSettings):
     # backend falls back to an in-memory SQLite engine so unit tests and
     # local dev never break on a missing database.
     database_url: str = ""
-    # Phase 2: Firebase Storage bucket name. When empty the storage service
-    # refuses writes/reads so the backend fails loudly instead of silently
-    # routing to Supabase.
+    # Private file storage: Backblaze B2 via its S3-compatible API. All five
+    # values are required; when any is empty the storage service refuses
+    # reads/writes so the backend fails loudly instead of silently routing
+    # user files to a different provider (spec §79).
+    b2_bucket_name: str = ""
+    b2_endpoint_url: str = ""
+    b2_region: str = ""
+    b2_key_id: str = ""
+    b2_application_key: str = ""
+
+    # Retained only so an existing deployment that still sets this variable
+    # does not fail validation. It is inert: nothing reads it at runtime.
     firebase_storage_bucket: str = ""
 
     gemini_api_key: str = ""

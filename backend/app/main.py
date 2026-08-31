@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.latency import latency_middleware, router as latency_router
 from app.database.connection import describe_active_database
+from app.services.storage_service import describe_active_storage
 from app.routers import account, ai, commute, groups, health, materials, me, part3, prescriptions, reports, study
 
 logger = logging.getLogger("gochano")
@@ -41,14 +42,14 @@ def _log_startup_banner() -> None:
     still honoured for backwards compatibility but logged as warnings so the
     operator knows they are inert.
     """
-    storage = settings.firebase_storage_bucket.strip() or "<UNSET>"
+    storage = describe_active_storage()
     ai_model = settings.gemini_model.strip() or "<UNSET>"
     db = describe_active_database()
     legacy_supabase = bool(
         settings.supabase_url.strip() or settings.supabase_service_role_key.strip()
     )
     logger.info(
-        "Gochano API starting | env=%s | db=%s | storage_bucket=%s | ai_model=%s"
+        "Gochano API starting | env=%s | db=%s | storage=%s | ai_model=%s"
         " | legacy_supabase=%s",
         settings.app_env,
         db,
@@ -59,9 +60,21 @@ def _log_startup_banner() -> None:
     if legacy_supabase:
         logger.warning(
             "Legacy Supabase env bindings (supabase_url / supabase_service_role_key)"
-            " are still present. They are inert in Phase 2 — the active storage"
-            " surface is Firebase Storage. Remove them on the next operator"
-            " rotation if no historical code path needs them."
+            " are still present. They are inert — the active private file store"
+            " is Backblaze B2. Remove them on the next operator rotation if no"
+            " historical code path needs them."
+        )
+    if settings.firebase_storage_bucket.strip():
+        logger.warning(
+            "FIREBASE_STORAGE_BUCKET is still set but is inert. Private files"
+            " are stored in Backblaze B2; remove this variable to avoid"
+            " confusion about the runtime storage target."
+        )
+    if storage.startswith("backblaze-b2 <UNCONFIGURED"):
+        logger.error(
+            "Backblaze B2 is not configured. Uploads, downloads, signed URLs"
+            " and material-backed AI answers will fail until the B2_* variables"
+            " are set. See README § Backblaze B2 Setup."
         )
 
 

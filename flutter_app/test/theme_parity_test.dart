@@ -86,8 +86,10 @@ void main() {
       final lib = Directory("lib");
       for (final entity in lib.listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith(".dart")) continue;
-        // Allow the token file itself, which owns the literal.
+        // Allow the token files that own the literal: the legacy
+        // `core/theme.dart` and the Gochano design-system shadow token.
         if (entity.path.endsWith("theme.dart")) continue;
+        if (entity.path.endsWith("gochano_spacing.dart")) continue;
         final content = entity.readAsStringSync();
         if (content.contains("Color(0x14000000)")) {
           offenders.add(entity.path);
