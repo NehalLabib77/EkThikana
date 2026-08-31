@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Splash-screen background colours for the Android 12+ SplashScreen API.
+
+  The OS reads these values once during process start before Flutter has
+  a chance to draw anything, so they must be plain colour resources —
+  no drawable references, no gradients.  They are kept in sync with the
+  Flutter app's brand seed (EkColors.purple / EkColors.bgDark).
+
+  Light mode:  brand seed purple (#5B3DF5)
+  Dark mode:   deep brand-bg dark   (#0F172A = EkColors.bgDark)
+-->
+<resources>
+    <color name="splash_background_light">#5B3DF5</color>
+    <color name="splash_background_dark">#0F172A</color>
+</resources>

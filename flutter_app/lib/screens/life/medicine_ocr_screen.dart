@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../services/api_service.dart';
 import 'medicine_form_screen.dart';
 
+import '../../core/page_route.dart';
 class MedicineOcrScreen extends StatefulWidget {
   const MedicineOcrScreen({super.key});
 
@@ -99,7 +100,7 @@ class _MedicineOcrScreenState extends State<MedicineOcrScreen> {
 
     await Navigator.push(
       context,
-      MaterialPageRoute(
+      GochanoRoute.to(
         builder: (_) => MedicineFormScreen(
           initialData: {
             'name': candidate['name']?.toString() ?? '',
@@ -373,7 +374,7 @@ if (busy) ...[
                         FilledButton(
                           onPressed: () => Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            GochanoRoute.to(
                               builder: (_) => MedicineFormScreen(
                                 initialData: {'instruction': rawText},
                                 ocrSourceText: rawText,

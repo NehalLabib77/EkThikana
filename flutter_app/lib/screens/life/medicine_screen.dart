@@ -13,6 +13,7 @@ import 'medicine_form_screen.dart';
 import 'medicine_history_screen.dart';
 import 'medicine_ocr_screen.dart';
 
+import '../../core/page_route.dart';
 class MedicineScreen extends StatefulWidget {
   const MedicineScreen({super.key});
 
@@ -248,7 +249,7 @@ class _MedicineScreenState extends State<MedicineScreen> {
     if (action == 'edit') {
       await Navigator.push(
         context,
-        MaterialPageRoute(
+        GochanoRoute.to(
           builder: (_) => MedicineFormScreen(
             medicineId: medicine.id,
             initialData: data,
@@ -258,7 +259,7 @@ class _MedicineScreenState extends State<MedicineScreen> {
     } else if (action == 'history') {
       await Navigator.push(
         context,
-        MaterialPageRoute(
+        GochanoRoute.to(
           builder: (_) => MedicineHistoryScreen(
             medicineId: medicine.id,
             medicine: data,
@@ -316,10 +317,15 @@ class _MedicineScreenState extends State<MedicineScreen> {
                   'Side effect / concern',
                   'Other',
                 ])
+                  // RadioListTile still uses the legacy groupValue/onChanged
+                  // API; ignore the deprecation until Flutter ships an updated
+                  // list-tile that participates in RadioGroup.
                   RadioListTile<String>(
                     value: option,
+                    // ignore: deprecated_member_use
                     groupValue: reason,
                     title: Text(option),
+                    // ignore: deprecated_member_use
                     onChanged: (v) => setLocal(() => reason = v ?? reason),
                   ),
                 TextField(
@@ -446,7 +452,7 @@ class _MedicineScreenState extends State<MedicineScreen> {
                               ? null
                               : () => Navigator.push(
                                     context,
-                                    MaterialPageRoute(
+                                    GochanoRoute.to(
                                       builder: (_) => MedicineHistoryScreen(
                                         medicineId: '',
                                         medicine: const {},
@@ -497,12 +503,12 @@ class _MedicineScreenState extends State<MedicineScreen> {
                       _MedicineEmptyState(
                         onAddManual: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
+                          GochanoRoute.to(
                               builder: (_) => const MedicineFormScreen()),
                         ),
                         onScan: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
+                          GochanoRoute.to(
                               builder: (_) => const MedicineOcrScreen()),
                         ),
                       )
@@ -559,7 +565,7 @@ class _MedicineScreenState extends State<MedicineScreen> {
             color: const Color(0xFFEAF3FF),
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const MedicineFormScreen()),
+              GochanoRoute.to(builder: (_) => const MedicineFormScreen()),
             ),
           ),
         ),
@@ -572,7 +578,7 @@ class _MedicineScreenState extends State<MedicineScreen> {
             color: const Color(0xFFF1ECFF),
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const MedicineOcrScreen()),
+              GochanoRoute.to(builder: (_) => const MedicineOcrScreen()),
             ),
           ),
         ),

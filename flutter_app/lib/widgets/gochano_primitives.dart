@@ -39,6 +39,8 @@ class GradientStatCard extends StatelessWidget {
     this.subtitle,
     this.onTap,
     this.compact = false,
+    this.semanticsLabel,
+    this.semanticsHint,
   });
 
   /// Logical module id passed to [EkGradients.module]. Unknown ids fall
@@ -66,6 +68,14 @@ class GradientStatCard extends StatelessWidget {
   /// Compact variant drops vertical padding for use in 2x2 tile grids.
   final bool compact;
 
+  /// Optional semantic label for the tappable card. Defaults to
+  /// ``"$title, $value"`` when [onTap] is non-null so screen readers
+  /// announce something meaningful.
+  final String? semanticsLabel;
+
+  /// Optional hint spoken after the label, e.g. "opens expense details".
+  final String? semanticsHint;
+
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -79,7 +89,14 @@ class GradientStatCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(EkRadius.xl),
-          child: Ink(
+          child: Semantics(
+            button: onTap != null,
+            label: onTap == null
+                ? null
+                : (semanticsLabel ?? '$title, $value'),
+            hint: onTap == null ? null : semanticsHint,
+            excludeSemantics: onTap != null && semanticsLabel != null,
+            child: Ink(
             decoration: BoxDecoration(
               gradient: gradient,
               borderRadius: BorderRadius.circular(EkRadius.xl),
@@ -138,8 +155,15 @@ class GradientStatCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               subtitle!,
+                              // Pure white is required to keep the
+                              // body-text contrast ratio above WCAG AA
+                              // (4.5:1) on the lighter end of every
+                              // module gradient. The visual hierarchy
+                              // between title (700) and subtitle (500)
+                              // still comes from weight + size, not
+                              // from fading the colour.
                               style: const TextStyle(
-                                color: Colors.white70,
+                                color: Colors.white,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -175,6 +199,7 @@ class GradientStatCard extends StatelessWidget {
               ),
             ),
           ),
+          ),
         ),
       ),
     );
@@ -193,6 +218,8 @@ class SoftTile extends StatelessWidget {
     this.padding = const EdgeInsets.all(EkSpace.lg),
     this.onTap,
     this.radius,
+    this.semanticsLabel,
+    this.semanticsHint,
   });
 
   final String module;
@@ -200,6 +227,8 @@ class SoftTile extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final double? radius;
+  final String? semanticsLabel;
+  final String? semanticsHint;
 
   @override
   Widget build(BuildContext context) {
@@ -212,10 +241,16 @@ class SoftTile extends StatelessWidget {
     return Material(
       color: bg,
       shape: shape,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(radius ?? EkRadius.lg),
-        child: Padding(padding: padding, child: child),
+      child: Semantics(
+        button: onTap != null,
+        label: onTap == null ? null : semanticsLabel,
+        hint: onTap == null ? null : semanticsHint,
+        excludeSemantics: onTap != null && semanticsLabel != null,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(radius ?? EkRadius.lg),
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
   }
@@ -450,17 +485,29 @@ class _ChipPalette {
 /// InkWell replacement that adds a subtle scale-down + opacity dip while
 /// pressed. Use on tappable surfaces that should feel "alive" without
 /// pulling in [Material] / splash ripples twice.
+///
+/// Wraps the gesture in a [Semantics] button node so screen readers
+/// announce one labeled button instead of reading every child text.
 class ScaleTap extends StatefulWidget {
   const ScaleTap({
     super.key,
     required this.child,
     required this.onTap,
     this.borderRadius,
+    this.semanticsLabel,
+    this.semanticsHint,
   });
 
   final Widget child;
   final VoidCallback onTap;
   final BorderRadius? borderRadius;
+
+  /// When provided, the wrapper is promoted to a semantic button with
+  /// this label — typically the visible text on the tappable surface.
+  final String? semanticsLabel;
+
+  /// Optional hint spoken by TalkBack, e.g. "opens details".
+  final String? semanticsHint;
 
   @override
   State<ScaleTap> createState() => _ScaleTapState();
@@ -492,19 +539,25 @@ class _ScaleTapState extends State<ScaleTap>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _setPressed(true),
-      onTapUp: (_) => _setPressed(false),
-      onTapCancel: () => _setPressed(false),
-      onTap: widget.onTap,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.97, end: 1.0).animate(
-          CurvedAnimation(parent: _c, curve: Curves.easeOut),
-        ),
-        child: ClipRRect(
-          borderRadius: widget.borderRadius ?? BorderRadius.circular(EkRadius.lg),
-          child: widget.child,
+    return Semantics(
+      button: true,
+      label: widget.semanticsLabel,
+      hint: widget.semanticsHint,
+      excludeSemantics: widget.semanticsLabel != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.onTap,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.97, end: 1.0).animate(
+            CurvedAnimation(parent: _c, curve: Curves.easeOut),
+          ),
+          child: ClipRRect(
+            borderRadius: widget.borderRadius ?? BorderRadius.circular(EkRadius.lg),
+            child: widget.child,
+          ),
         ),
       ),
     );

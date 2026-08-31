@@ -102,10 +102,28 @@ _firebase_firestore.Query = types.SimpleNamespace(DESCENDING="DESCENDING", ASCEN
 _firebase_admin.auth = _firebase_auth
 _firebase_admin.credentials = _firebase_credentials
 _firebase_admin.firestore = _firebase_firestore
+
+# Firebase Storage — stubbed at import time so storage_service.py can be
+# imported in tests. The bucket/Client surface is only used inside the
+# production code path, so a minimal namespace is enough.
+_firebase_storage = types.ModuleType("firebase_admin.storage")
+_firebase_storage.Client = lambda *a, **k: types.SimpleNamespace(
+    bucket=lambda name: types.SimpleNamespace(
+        blob=lambda path: types.SimpleNamespace(
+            upload_from_string=lambda *a, **k: None,
+            generate_signed_url=lambda **k: "http://fake/signed",
+            download_as_bytes=lambda: b"%PDF-1.4\n%fake",
+            delete=lambda: None,
+        )
+    )
+)
+_firebase_admin.storage = _firebase_storage
+
 sys.modules["firebase_admin"] = _firebase_admin
 sys.modules["firebase_admin.auth"] = _firebase_auth
 sys.modules["firebase_admin.credentials"] = _firebase_credentials
 sys.modules["firebase_admin.firestore"] = _firebase_firestore
+sys.modules["firebase_admin.storage"] = _firebase_storage
 
 
 # OCR / image helpers — only used by prescription upload route. We patch the
@@ -400,18 +418,31 @@ class FakeSupabaseStorage:
     def __init__(self):
         self.uploads: list[tuple[str, int, str]] = []  # (path, size, content_type)
         self.deletes: list[str] = []
+        # Optional per-path byte overrides. Use ``set_bytes(path, data)`` so
+        # AI / OCR / image tests can return realistic fixtures (PNGs, scans,
+        # multi-page PDFs) instead of the default ``%PDF-1.4\n%fake`` blob.
+        self._bytes_by_path: dict[str, bytes] = {}
+
+    def set_bytes(self, path: str, data: bytes) -> None:
+        """Seed the fake storage so ``download_bytes(path)`` returns ``data``."""
+        self._bytes_by_path[path] = data
 
     def upload_bytes(self, path: str, data: bytes, content_type: str) -> None:
         self.uploads.append((path, len(data), content_type))
+        # Last write wins — keep the in-memory store consistent with uploads.
+        self._bytes_by_path[path] = data
 
     def create_signed_url(self, path: str, ttl: int = 60, download: bool = False) -> str:
         return f"http://fake/{path}?ttl={ttl}&download={int(bool(download))}"
 
     def download_bytes(self, path: str) -> bytes:
+        if path in self._bytes_by_path:
+            return self._bytes_by_path[path]
         return b"%PDF-1.4\n%fake"
 
     def delete_file(self, path: str) -> None:
         self.deletes.append(path)
+        self._bytes_by_path.pop(path, None)
 
 
 # ---------------------------------------------------------------------------
@@ -499,6 +530,54 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
         "candidate_lines",
         lambda text: ["Paracetamol 500mg", "1+0+1 after meal"],
     )
+    # The prescriptions router bound these names at import time via
+    # ``from app.services.ocr_service import ...``; patch the router's
+    # local references too so tests that exercise the full route stay
+    # hermetic even after other tests have already imported the router.
+    import app.routers.prescriptions as _rx_mod
+
+    if hasattr(_rx_mod, "extract_text"):
+        monkeypatch.setattr(
+            _rx_mod,
+            "extract_text",
+            lambda data, content_type: f"fake-text-bytes={len(data)}",
+        )
+    if hasattr(_rx_mod, "candidate_lines"):
+        monkeypatch.setattr(
+            _rx_mod,
+            "candidate_lines",
+            lambda text: ["Paracetamol 500mg", "1+0+1 after meal"],
+        )
+
+    # --- PDF text extraction (used by /api/ai/pdf-question). The real
+    # pypdf-backed parser raises on fake bytes; the test fixture returns
+    # a stable, deterministic string so AI question tests don't depend on
+    # a real PDF corpus. ---
+    import app.services.pdf_service as pdf_mod
+
+    def _fake_extract_pdf_text(data, page=None, max_chars=70000):
+        # Real PDF text is multi-sentence; mimic that so the route's
+        # ``len(text.strip()) < 40`` heuristic doesn't fall through to OCR.
+        return (
+            f"fake-pdf-text bytes={len(data)} page={page or 'all'} "
+            "Photosynthesis is how plants convert sunlight into chemical energy. "
+            "This fake PDF text is returned by the test fixture so AI question "
+            "tests do not depend on a real PDF corpus."
+        )
+
+    monkeypatch.setattr(
+        pdf_mod,
+        "extract_pdf_text",
+        _fake_extract_pdf_text,
+    )
+    # The router imports it via ``from app.services.pdf_service import
+    # extract_pdf_text`` so we must patch the bound copy too.
+    import app.routers.ai as _ai_router_pdf_mod
+
+    if hasattr(_ai_router_pdf_mod, "extract_pdf_text"):
+        monkeypatch.setattr(
+            _ai_router_pdf_mod, "extract_pdf_text", _fake_extract_pdf_text
+        )
 
     # --- AI service: deterministic, no quota side-effects unless we want ---
     import app.services.ai_service as ai_mod
@@ -506,11 +585,21 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     async def _fake_generate(uid: str, prompt: str) -> str:
         return f"echo({len(prompt)})"
 
+    async def _fake_generate_multimodal(uid: str, parts: list) -> str:
+        # Echo back enough to verify the caller shape (which parts were sent,
+        # whether inline_data was attached) without leaking to real Gemini.
+        text_parts = [p.get("text", "") for p in parts if isinstance(p, dict) and "text" in p]
+        inline = [p for p in parts if isinstance(p, dict) and "inline_data" in p]
+        return f"multimodal(text_chars={sum(len(t) for t in text_parts)},inline_parts={len(inline)})"
+
     monkeypatch.setattr(ai_mod, "generate", _fake_generate)
-    # The AI router bound ``generate`` at import time, so patch that too.
+    monkeypatch.setattr(ai_mod, "generate_multimodal", _fake_generate_multimodal)
+    # The AI router bound both helpers at import time, so patch those too.
     import app.routers.ai as _ai_router_mod
     if hasattr(_ai_router_mod, "generate"):
         monkeypatch.setattr(_ai_router_mod, "generate", _fake_generate)
+    if hasattr(_ai_router_mod, "generate_multimodal"):
+        monkeypatch.setattr(_ai_router_mod, "generate_multimodal", _fake_generate_multimodal)
 
     # Avoid Gemini quota document mutations from polluting the fake db.
     monkeypatch.setattr(ai_mod, "_consume_quota", lambda uid: None)

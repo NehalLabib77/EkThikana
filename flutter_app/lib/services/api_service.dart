@@ -20,6 +20,13 @@ class ApiException implements Exception {
 class ApiService {
   ApiService._();
 
+  /// Shared HTTP client. `package:http` is supposed to keep a single
+  /// `Client` per process so the TLS handshake to the Render backend is
+  /// amortised across calls. Spinning a fresh `http.Client()` per request
+  /// (the previous behaviour) meant every API call paid a full TCP+TLS
+  /// round trip — clearly visible on cold starts and on the AI endpoints.
+  static final http.Client _client = http.Client();
+
   static Uri _uri(String path, [Map<String, String>? query]) {
     final configured = AppConfig.apiBaseUrl.trim();
     if (configured.isEmpty) {
@@ -166,7 +173,9 @@ class ApiService {
         'subject': subject,
       });
       request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
-      final streamed = await request.send().timeout(const Duration(seconds: 150));
+      final streamed = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 150));
       final response = await http.Response.fromStream(streamed);
       return _decode(response)['id'] as String;
     });
@@ -180,7 +189,7 @@ class ApiService {
   }
 
   static Future<void> deleteMaterial(String id) async {
-    final response = await _guard(() async => http
+    final response = await _guard(() async => _client
         .delete(_uri('/api/materials/$id'), headers: await _headers())
         .timeout(const Duration(seconds: 100)));
     _decode(response);
@@ -215,7 +224,9 @@ class ApiService {
       request.headers['Authorization'] = 'Bearer ${await _token()}';
       request.headers['Accept'] = 'application/json';
       request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
-      final streamed = await request.send().timeout(const Duration(seconds: 150));
+      final streamed = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 150));
       return _decode(await http.Response.fromStream(streamed));
     });
   }
@@ -223,7 +234,7 @@ class ApiService {
   static const Object _kOmit = Object();
 
   static Future<http.Response> _patch(String path, {Object? body, bool auth = true}) {
-    return _guard(() async => http
+    return _guard(() async => _client
         .patch(
           _uri(path),
           headers: auth ? await _headers() : {'Content-Type': 'application/json', 'Accept': 'application/json'},
@@ -251,7 +262,9 @@ class ApiService {
       request.headers['Authorization'] = 'Bearer ${await _token()}';
       request.headers['Accept'] = 'application/json';
       request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
-      final streamed = await request.send().timeout(const Duration(seconds: 150));
+      final streamed = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 150));
       return _decode(await http.Response.fromStream(streamed));
     });
   }
@@ -396,7 +409,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> commuteSearch(String query) async {
     return _guard(() async {
-      final response = await http.get(
+      final response = await _client.get(
         _uri('/api/commute/search', {'q': query}),
         headers: await _headers(),
       ).timeout(const Duration(seconds: 45));
@@ -413,7 +426,7 @@ class ApiService {
     required double destinationLon,
   }) async {
     return _guard(() async {
-      final response = await http.post(
+      final response = await _client.post(
         _uri('/api/commute/route'),
         headers: await _headers(),
         body: jsonEncode({
@@ -446,7 +459,7 @@ class ApiService {
     bool locationVerified = false,
   }) async {
     return _guard(() async {
-      final response = await http.post(
+      final response = await _client.post(
         _uri('/api/commute/fare-report'),
         headers: await _headers(),
         body: jsonEncode({
@@ -471,10 +484,34 @@ class ApiService {
   }
 
   static Future<Uint8List> downloadBytes(String url) async {
-    final response = await _guard(() async => http.get(Uri.parse(url)).timeout(const Duration(seconds: 150)));
+    final response = await _guard(() async => _client.get(Uri.parse(url)).timeout(const Duration(seconds: 150)));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException('Download failed (${response.statusCode})', statusCode: response.statusCode);
     }
     return response.bodyBytes;
+  }
+
+  // ----- AI image / OCR flow ---------------------------------------------
+  // Image upload is handled by uploadMaterial() above (it routes PDFs and
+  // images through the same backend endpoint). We just call the new
+  // /api/ai/image-question endpoint with the resulting material id.
+  static Future<String> askImage({
+    required String materialId,
+    required String question,
+  }) async {
+    return _guard(() async {
+      final response = await http
+          .post(
+            _uri('/api/ai/image-question'),
+            headers: await _headers(),
+            body: jsonEncode({
+              'material_id': materialId,
+              'question': question,
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
+      final data = _decode(response);
+      return (data['answer'] as String?) ?? '';
+    });
   }
 }

@@ -5,6 +5,9 @@ from firebase_admin import auth, firestore
 
 from app.core.auth import AuthenticatedIdentity, get_verified_identity
 from app.core.firebase import _ensure_firebase, get_firestore
+from app.database.repositories.fare_report_repository import (
+    delete_fare_reports_for_user,
+)
 from app.services.storage_service import delete_file
 
 router = APIRouter()
@@ -185,6 +188,26 @@ def delete_account(
 
     for snap in db.collection("reports").where("reporterId", "==", user.uid).stream():
         snap.reference.delete()
+
+    # P1-5 — Wipe Postgres-mirrored fare reports authored by this user.
+    # Failures here MUST NOT block account deletion: Firestore + Auth
+    # already represent the user's identity, and the Postgres mirror is
+    # only a community-data store. We log the failure for ops visibility.
+    try:
+        delete_fare_reports_for_user(user.uid)
+    except Exception as exc:  # pragma: no cover - defensive
+        # Use FastAPI logger when available; fall back silently so the
+        # route still returns 200 with the rest of the cleanup.
+        try:
+            from fastapi import logger as _logger
+
+            _logger.warning(
+                "delete_fare_reports_for_user failed for uid=%s: %s",
+                user.uid,
+                exc,
+            )
+        except Exception:
+            pass
 
     _ensure_firebase()
     auth.delete_user(user.uid)

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon background colour for Gochano.
+
+  This is the brand-seed purple that appears behind the foreground 'G'
+  glyph on launcher icons.  Kept in sync with lib/core/theme.dart
+  EkColors.purple (#5B3DF5).  Defining it as a colour resource rather than
+  hard-coding it lets us reuse the same hue across light / dark adaptive
+  variants and themed icons (Android 13+).
+
+  Test seam: any test that compares the launcher icon to a known colour
+  must read this resource via Resources.getColor(R.color.ic_launcher_background).
+-->
+<resources>
+    <color name="ic_launcher_background">#5B3DF5</color>
+</resources>

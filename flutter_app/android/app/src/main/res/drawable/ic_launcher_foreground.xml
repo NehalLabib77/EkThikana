@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon foreground for Gochano.
+
+  Drawn inside a 108dp viewport. The safe zone (the area always visible
+  on every launcher shape: circle, squircle, teardrop, square) is the
+  centred 66dp circle. Anything outside that may be clipped, so the
+  white 'G' glyph is intentionally sized to fit comfortably inside it
+  with ~6dp of padding on each side.
+
+  The foreground is pure white (#FFFFFFFF); the launcher's purple
+  background comes from @color/ic_launcher_background, so the icon
+  reads correctly on every launcher shape and on the Android 13 themed
+  icons feature (which recolours the background from the user's
+  wallpaper palette).
+
+  Master artwork: flutter_app/assets/branding/Gochano.png
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- White 'G' glyph centred in the 66dp safe zone. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,32
+                          C42.40,32 33,41.40 33,53
+                          C33,64.60 42.40,74 54,74
+                          C62.40,74 69.50,69.10 73,62
+                          L73,57
+                          L54,57
+                          L54,64
+                          L65.20,64
+                          C63.10,67.40 59,69 54,69
+                          C45.70,69 39,62.30 39,53
+                          C39,43.70 45.70,37 54,37
+                          C59,37 63,38.80 66,42.10
+                          L70.50,38.10
+                          C66.50,33.50 60.60,32 54,32 Z" />
+</vector>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive launcher icon for Android 8+ (API 26+).
+
+  Older devices (API 24, 25) continue to use the raster
+  mipmap-*/ic_launcher.png fallback; this XML takes over on every
+  device that supports the adaptive icon system.
+
+  Layers:
+    * background: solid purple from @color/ic_launcher_background
+    * foreground: white 'G' from @drawable/ic_launcher_foreground
+
+  The launcher masks each layer to its own shape (circle, square,
+  squircle, teardrop, etc.) so the same artwork renders correctly
+  on every device.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

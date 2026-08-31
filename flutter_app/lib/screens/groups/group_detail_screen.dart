@@ -7,6 +7,7 @@ import '../study/materials_screen.dart';
 import '../study/notes_screen.dart';
 import 'group_chat_screen.dart';
 
+import '../../core/page_route.dart';
 class GroupDetailScreen extends StatefulWidget {
   const GroupDetailScreen({
     super.key,
@@ -236,7 +237,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
+                GochanoRoute.to(
                   builder: (_) => MaterialsScreen(
                     groupId: widget.groupId,
                     groupName: name,
@@ -265,7 +266,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
+                GochanoRoute.to(
                   builder: (_) => NotesScreen(
                     groupId: widget.groupId,
                     groupName: name,
@@ -295,7 +296,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  GochanoRoute.to(
                     builder: (_) => GroupChatScreen(
                       groupId: widget.groupId,
                       groupName: name,

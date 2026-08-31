@@ -117,6 +117,7 @@ class _GochanoLoadingState extends State<GochanoLoading>
                   _kLogoAsset,
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
+                  semanticLabel: 'Gochano logo',
                 ),
                 // Rotating ring.
                 RotationTransition(

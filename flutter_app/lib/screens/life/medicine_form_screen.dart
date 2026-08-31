@@ -235,6 +235,29 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
         );
       }
 
+      // Non-blocking nudge: if the OS denied POST_NOTIFICATIONS the
+      // schedule call above silently no-ops, so the user must be told
+      // their reminders are queued but will not fire until they re-enable
+      // the channel in system settings.
+      if (mounted) {
+        final enabled =
+            await NotificationService.areNotificationsEnabled();
+        if (enabled == false) {
+          if (!mounted) return;
+          showInfo(
+            context,
+            EkLanguage.text(
+              'Reminders saved, but notifications are off. Tap to enable.',
+              'রিমাইন্ডার সংরক্ষিত হয়েছে, তবে নোটিফিকেশন বন্ধ আছে। চালু করতে ট্যাপ করুন।',
+            ),
+            actionLabel: EkLanguage.text('Open settings', 'সেটিংস'),
+            onAction: () async {
+              await NotificationService.openNotificationSettings();
+            },
+          );
+        }
+      }
+
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) showError(context, e);

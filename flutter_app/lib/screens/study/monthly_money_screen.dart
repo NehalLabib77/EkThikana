@@ -89,7 +89,11 @@ class _MonthlyMoneyScreenState extends State<MonthlyMoneyScreen> {
       appBar: AppBar(
         title: const Text('Monthly Money'),
         actions: [
-          IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh)),
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _loading ? null : _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
         ],
       ),
       body: _loading

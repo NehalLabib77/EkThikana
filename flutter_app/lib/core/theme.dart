@@ -1,5 +1,31 @@
 import 'package:flutter/material.dart';
 
+/// Standardized drop-shadows. Both modes use the same low-opacity
+/// black so that the visual depth matches between light & dark themes;
+/// dark mode would otherwise lose the lift because dark surfaces blend
+/// into a dark background.
+class EkShadows {
+  /// Standard elevation shadow for floating brand marks (login logo,
+  /// splash logo, large icon badges). blur 12, y-offset 4.
+  static const List<BoxShadow> elevated = [
+    BoxShadow(
+      color: Color(0x14000000),
+      blurRadius: 12,
+      offset: Offset(0, 4),
+    ),
+  ];
+
+  /// Stronger lift for hero surfaces (login logo 88x88 plate). blur 18,
+  /// y-offset 6.
+  static const List<BoxShadow> hero = [
+    BoxShadow(
+      color: Color(0x14000000),
+      blurRadius: 18,
+      offset: Offset(0, 6),
+    ),
+  ];
+}
+
 class EkColors {
   static const purple = Color(0xFF5B3DF5);
   static const purpleDark = Color(0xFF4527D8);
@@ -40,6 +66,11 @@ class EkTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: EkColors.background,
       fontFamily: 'Roboto',
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
@@ -149,6 +180,11 @@ class EkTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: EkColors.bgDark,
       fontFamily: 'Roboto',
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,

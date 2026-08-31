@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../core/language.dart';
 
+import '../core/page_route.dart';
 /// Result returned by [LocationPickerScreen] when the user confirms.
 class PickedLocation {
   const PickedLocation({
@@ -69,7 +70,7 @@ class LocationPickerScreen extends StatefulWidget {
     bool allowGps = true,
   }) {
     return Navigator.of(context).push<PickedLocation>(
-      MaterialPageRoute(
+      GochanoRoute.to(
         fullscreenDialog: true,
         builder: (_) => LocationPickerScreen(
           title: title,

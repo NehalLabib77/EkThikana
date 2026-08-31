@@ -9,6 +9,7 @@ import '../../widgets/gochano_loading.dart';
 import '../../services/financial_service.dart';
 import 'expense_tracker_screen.dart';
 
+import '../../core/page_route.dart';
 class DailyExpensesScreen extends StatefulWidget {
   const DailyExpensesScreen({super.key});
 
@@ -296,7 +297,7 @@ class _DailyExpensesScreenState extends State<DailyExpensesScreen> {
                 OutlinedButton.icon(
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    GochanoRoute.to(
                       builder: (_) => ExpenseTrackerScreen(initialMonth: selectedDate),
                     ),
                   ),

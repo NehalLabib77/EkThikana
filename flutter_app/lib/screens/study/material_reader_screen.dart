@@ -226,6 +226,7 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       trailing: IconButton(
+                        tooltip: 'Add note to this page',
                         onPressed: () {
                           Navigator.pop(sheetContext);
                           _addPageNote();
@@ -252,6 +253,7 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
                                       doc.data()['text']?.toString() ?? '',
                                     ),
                                     trailing: IconButton(
+                                      tooltip: 'Delete note',
                                       icon: const Icon(
                                         Icons.delete_outline,
                                       ),
@@ -724,7 +726,11 @@ class _ExternalFileOpenerState extends State<_ExternalFileOpener> {
         child: Center(
           child: Image.network(
             widget.url,
+            // Bound the decode to the screen width so an oversized PDF
+            // page render or attached image doesn't blow up the cache.
+            cacheWidth: MediaQuery.of(context).size.width.round() * 2,
             fit: BoxFit.contain,
+            semanticLabel: 'Material image preview',
             loadingBuilder: (context, child, progress) {
               if (progress == null) return child;
               return const Center(child: CircularProgressIndicator());

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../../services/auth_service.dart';
 
@@ -87,18 +88,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
+                    boxShadow: EkShadows.elevated,
                   ),
                   child: Image.asset(
                     _kLogoAsset,
                     fit: BoxFit.contain,
                     gaplessPlayback: true,
+                    semanticLabel: 'Gochano logo',
                   ),
                 ),
               ),

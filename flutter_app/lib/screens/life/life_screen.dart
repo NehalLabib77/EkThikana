@@ -9,6 +9,7 @@ import 'commute_bd_screen.dart';
 import 'daily_expenses_screen.dart';
 import 'medicine_screen.dart';
 
+import '../../core/page_route.dart';
 class LifeScreen extends StatelessWidget {
   const LifeScreen({super.key});
 
@@ -92,7 +93,7 @@ class LifeScreen extends StatelessWidget {
                       return InkWell(
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => module.page),
+                          GochanoRoute.to(builder: (_) => module.page),
                         ),
                         borderRadius: BorderRadius.circular(22),
                         child: Container(

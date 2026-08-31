@@ -4,12 +4,14 @@ from datetime import datetime, timedelta, timezone
 from statistics import median
 from typing import Any
 
-from supabase import create_client
+from sqlalchemy import and_, func, select
 
-from app.core.config import get_settings, normalize_supabase_url
+from app.core.config import get_settings
+from app.database.connection import get_sessionmaker
+from app.database.models import UserFareReport
 
 
-def percentile(values: list[float], p: float) -> float:
+def percentile(values, p):
     if not values:
         raise ValueError("values cannot be empty")
     values = sorted(values)
@@ -22,7 +24,7 @@ def percentile(values: list[float], p: float) -> float:
     return values[lower] * (1 - weight) + values[upper] * weight
 
 
-def confidence_for_sample_count(count: int) -> str | None:
+def confidence_for_sample_count(count):
     if count < 3:
         return None
     if count < 8:
@@ -33,70 +35,83 @@ def confidence_for_sample_count(count: int) -> str | None:
 
 
 class CrowdFareRepository:
-    """Supabase-backed approved fare report repository.
+    """PostgreSQL-backed approved fare-report repository.
 
-    Service-role credentials stay server-side. If Supabase/report tables are
-    not configured yet, methods safely return no crowd estimate instead of
-    fabricating data.
+    Public method surface matches the previous Supabase implementation. If
+    PostgreSQL credentials are not configured, methods safely return empty
+    results instead of fabricating data.
     """
 
-    def __init__(self) -> None:
-        settings = get_settings()
-        self.enabled = bool(settings.supabase_url and settings.supabase_service_role_key)
-        self.client = (
-            create_client(normalize_supabase_url(settings.supabase_url), settings.supabase_service_role_key)
-            if self.enabled
-            else None
-        )
+    def __init__(self):
+        self.enabled = bool(get_settings().database_url)
+
+    def _session(self):
+        return get_sessionmaker()()
 
     def approved_fares(
         self,
         *,
-        mode: str,
-        origin_text: str | None = None,
-        destination_text: str | None = None,
-        days: int = 180,
-        limit: int = 500,
-    ) -> list[float]:
-        if not self.client:
+        mode,
+        origin_text=None,
+        destination_text=None,
+        days=180,
+        limit=500,
+    ):
+        if not self.enabled:
             return []
-        try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-            query = (
-                self.client.table("user_fare_reports")
-                .select("fare_paid_tk,origin_text,destination_text,created_at")
-                .eq("transport_mode", mode)
-                .eq("moderation_status", "approved")
-                .gte("created_at", cutoff)
-                .limit(limit)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        stmt = (
+            select(
+                UserFareReport.fare_paid_tk,
+                UserFareReport.origin_text,
+                UserFareReport.destination_text,
             )
-            response = query.execute()
-            rows = getattr(response, "data", None) or []
-            fares: list[float] = []
-            origin_norm = (origin_text or "").strip().lower()
-            dest_norm = (destination_text or "").strip().lower()
-            for row in rows:
-                if origin_norm and origin_norm not in str(row.get("origin_text", "")).lower():
-                    continue
-                if dest_norm and dest_norm not in str(row.get("destination_text", "")).lower():
-                    continue
-                try:
-                    fare = float(row.get("fare_paid_tk"))
+            .where(
+                and_(
+                    UserFareReport.transport_mode == mode,
+                    UserFareReport.moderation_status == "approved",
+                    UserFareReport.created_at >= cutoff,
+                )
+            )
+            .order_by(UserFareReport.created_at.desc())
+            .limit(limit)
+        )
+        origin_norm = (origin_text or "").strip().lower()
+        dest_norm = (destination_text or "").strip().lower()
+        fares = []
+        try:
+            with self._session() as session:
+                for row in session.execute(stmt).all():
+                    if origin_norm and origin_norm not in str(row.origin_text or "").lower():
+                        continue
+                    if dest_norm and dest_norm not in str(row.destination_text or "").lower():
+                        continue
+                    try:
+                        fare = float(row.fare_paid_tk)
+                    except Exception:
+                        continue
                     if 1 <= fare <= 10000:
                         fares.append(fare)
-                except Exception:
-                    continue
-            return fares
         except Exception:
             return []
+        return fares
 
-    def aggregate(
-        self,
-        *,
-        mode: str,
-        origin_text: str | None = None,
-        destination_text: str | None = None,
-    ) -> dict[str, Any] | None:
+    def count_approved(self, *, mode=None):
+        """Return count of approved reports (optionally filtered by mode)."""
+        if not self.enabled:
+            return 0
+        stmt = select(func.count()).select_from(UserFareReport).where(
+            UserFareReport.moderation_status == "approved"
+        )
+        if mode is not None:
+            stmt = stmt.where(UserFareReport.transport_mode == mode)
+        try:
+            with self._session() as session:
+                return int(session.execute(stmt).scalar_one() or 0)
+        except Exception:
+            return 0
+
+    def aggregate(self, *, mode, origin_text=None, destination_text=None):
         fares = self.approved_fares(
             mode=mode,
             origin_text=origin_text,
@@ -114,3 +129,6 @@ class CrowdFareRepository:
             "fareType": "crowdsourced",
             "source": "Approved recent Gochano fare reports",
         }
+
+
+__all__ = ["CrowdFareRepository", "confidence_for_sample_count", "percentile"]

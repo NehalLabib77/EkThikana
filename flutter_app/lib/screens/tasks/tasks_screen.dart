@@ -81,7 +81,32 @@ class _TasksScreenState extends State<TasksScreen> {
         'keywords': FirestoreService.keywords(title.text),
       });
       if (due != null) {
-        await NotificationService.scheduleTask(taskId: ref.id, title: title.text.trim(), when: due!);
+        await NotificationService.scheduleTask(
+          taskId: ref.id,
+          title: title.text.trim(),
+          when: due!,
+        );
+
+        // Non-blocking nudge: if notifications are disabled at the OS level
+        // the reminder is saved but will not fire. Surface that here so the
+        // user can re-enable POST_NOTIFICATIONS from system settings.
+        if (context.mounted) {
+          final enabled =
+              await NotificationService.areNotificationsEnabled();
+          if (enabled == false && context.mounted) {
+            showInfo(
+              context,
+              EkLanguage.text(
+                'Task saved. Reminders stay off until notifications are on.',
+                'টাস্ক সংরক্ষিত হয়েছে। নোটিফিকেশন চালু না হওয়া পর্যন্ত রিমাইন্ডার আসবে না।',
+              ),
+              actionLabel: EkLanguage.text('Open settings', 'সেটিংস'),
+              onAction: () async {
+                await NotificationService.openNotificationSettings();
+              },
+            );
+          }
+        }
       }
     } catch (e) {
       if (context.mounted) showError(context, e);

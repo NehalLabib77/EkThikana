@@ -6,6 +6,7 @@ import '../../services/firestore_service.dart';
 import '../../widgets/gochano_primitives.dart';
 import 'note_editor_screen.dart';
 
+import '../../core/page_route.dart';
 class NotesScreen extends StatelessWidget {
   const NotesScreen({
     super.key,
@@ -27,7 +28,7 @@ class NotesScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(
+          GochanoRoute.to(
             builder: (_) => NoteEditorScreen(
               initialVisibility: groupId == null ? 'private' : 'group',
               initialGroupId: groupId,
@@ -77,7 +78,7 @@ class NotesScreen extends StatelessWidget {
                   trailing: Text(data['visibility']?.toString() ?? 'private'),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    GochanoRoute.to(
                       builder: (_) => NoteEditorScreen(
                         noteId: doc.id,
                         initialData: data,

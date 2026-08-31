@@ -6,18 +6,18 @@ from typing import Any
 from app.schemas import CommutePlaceInput, CommuteRoutesRequest
 from app.services.commute.fare_engine import FareEngine
 from app.services.commute.routing import Coordinate, MapRoutingProvider, get_routing_provider
-from app.services.commute.supabase_repository import CommuteSupabaseRepository
+from app.database.repositories.postgres_repository import CommutePostgresRepository
 
 
 class CommuteService:
-    """Application service for Supabase-backed CommuteBD endpoints."""
+    """Application service for the PostgreSQL-backed CommuteBD endpoints."""
 
     def __init__(
         self,
-        repo: CommuteSupabaseRepository | None = None,
+        repo: CommutePostgresRepository | None = None,
         routing_provider: MapRoutingProvider | None = None,
     ) -> None:
-        self.repo = repo or CommuteSupabaseRepository()
+        self.repo = repo or CommutePostgresRepository()
         self.routing = routing_provider or get_routing_provider()
         self.fare_engine = FareEngine(repo=self.repo)
 
@@ -26,14 +26,14 @@ class CommuteService:
 
     def search_places(self, query: str, limit: int = 15) -> dict[str, Any]:
         return {
-            "source": "supabase",
+            "source": "postgres",
             "query": query,
             "results": self.repo.search_places(query, limit=limit),
         }
 
     def nearby_stops(self, lat: float, lon: float, radius_m: int = 1500) -> dict[str, Any]:
         return {
-            "source": "supabase",
+            "source": "postgres",
             "center": {"lat": lat, "lon": lon},
             "radiusM": radius_m,
             "results": self.repo.nearby_stops(lat, lon, radius_m),
@@ -80,7 +80,7 @@ class CommuteService:
             "name": name or place_id or "Selected place",
             "lat": float(lat),
             "lon": float(lon),
-            "source": "supabase" if place else "input/geocoder",
+            "source": "postgres" if place else "input/geocoder",
         }
 
     @staticmethod
@@ -108,7 +108,7 @@ class CommuteService:
             Coordinate(lat=destination["lat"], lon=destination["lon"]),
         )
 
-        # Use canonical human-readable names for FareEngine. The Supabase
+        # Use canonical human-readable names for FareEngine. The PostgreSQL
         # repository resolves those names back to place IDs for BRTA fare
         # lookup, while MetroFareService can match station names directly.
         options = self.fare_engine.options(
@@ -139,7 +139,7 @@ class CommuteService:
             "liveTraffic": False,
             "recommendations": self._recommendations(options),
             "transitCandidates": transit_candidates,
-            "dataSource": "supabase",
+            "dataSource": "postgres",
             "disclaimer": (
                 "Route time is a map estimate without fabricated live traffic. "
                 "Each fare result preserves its official, crowdsourced, historical, or estimated source label."

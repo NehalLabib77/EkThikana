@@ -16,6 +16,7 @@ import '../life/expense_tracker_screen.dart';
 import '../study/monthly_money_screen.dart';
 import '../study/study_stats_screen.dart';
 
+import '../../core/page_route.dart';
 const String _kLogoAsset = 'assets/branding/Gochano.png';
 
 class ProfileScreen extends StatefulWidget {
@@ -143,6 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 height: 26,
                 fit: BoxFit.contain,
                 gaplessPlayback: true,
+                semanticLabel: 'Gochano logo',
               ),
               const SizedBox(width: 8),
               Text(EkLanguage.text('Profile', 'প্রোফাইল')),
@@ -348,7 +350,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: TextButton.icon(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
+                      GochanoRoute.to(
                         builder: (_) => const ExpenseTrackerScreen(),
                       ),
                     ),
@@ -401,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const StudyStatsScreen()),
+                GochanoRoute.to(builder: (_) => const StudyStatsScreen()),
               ),
             ),
             const Divider(height: 1, indent: 60),
@@ -430,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const MonthlyMoneyScreen()),
+                GochanoRoute.to(builder: (_) => const MonthlyMoneyScreen()),
               ),
             ),
           ],

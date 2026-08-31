@@ -7,6 +7,7 @@ import '../../core/language.dart';
 import '../../services/firestore_service.dart';
 import 'material_reader_screen.dart';
 
+import '../../core/page_route.dart';
 /// Saved Library. Lists every material the user has bookmarked. Fetches the
 /// underlying material documents once per snapshot batch (no N+1 reads) and
 /// caches them for the lifetime of the visible list. The Firestore stream
@@ -131,6 +132,7 @@ class _SavedMaterialsScreenState extends State<SavedMaterialsScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: IconButton(
+                    tooltip: 'Remove from saved',
                     icon: const Icon(Icons.bookmark_remove_outlined),
                     onPressed: () => _unsave(s.reference),
                   ),
@@ -138,7 +140,7 @@ class _SavedMaterialsScreenState extends State<SavedMaterialsScreen> {
                       ? null
                       : () => Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            GochanoRoute.to(
                               builder: (_) => MaterialReaderScreen(
                                 materialId: materialId,
                                 material: material,

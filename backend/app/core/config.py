@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     cors_origins: str = ""
 
+    # P4-1: shared secret required to read the internal latency snapshot.
+    # Empty by default — when unset, GET /api/_internal/latency returns 404.
+    internal_metrics_token: str = ""
+
     firebase_project_id: str = ""
     firebase_service_account_b64: str = ""
 
@@ -13,8 +17,17 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_bucket: str = "ekthikana-files"
 
+    # Phase 2: PostgreSQL connection URL (psycopg2 dialect). When unset the
+    # backend falls back to an in-memory SQLite engine so unit tests and
+    # local dev never break on a missing database.
+    database_url: str = ""
+    # Phase 2: Firebase Storage bucket name. When empty the storage service
+    # refuses writes/reads so the backend fails loudly instead of silently
+    # routing to Supabase.
+    firebase_storage_bucket: str = ""
+
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.7-flash"
+    gemini_model: str = "gemini-2.5-flash"
 
     max_upload_mb: int = 15
     user_storage_limit_mb: int = 100

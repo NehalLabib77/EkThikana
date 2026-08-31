@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from supabase import create_client
+from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import CurrentUser, get_current_user
-from app.core.config import get_settings, normalize_supabase_url
+from app.database.repositories.fare_report_repository import insert_fare_report
 from app.schemas import CommuteFareReportRequest, CommuteRouteRequest, CommuteRoutesRequest
 from app.services.commute.data_repository import get_commute_repository
 from app.services.commute.fare_engine import FareEngine
@@ -82,14 +82,6 @@ async def route_trip(
     }
 
 
-def _supabase():
-    settings = get_settings()
-    if not settings.supabase_url or not settings.supabase_service_role_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Fare reporting storage is not configured",
-        )
-    return create_client(normalize_supabase_url(settings.supabase_url), settings.supabase_service_role_key)
 
 
 @router.post("/fare-report")
@@ -147,19 +139,16 @@ def report_fare(
     }
 
     try:
-        response = _supabase().table("user_fare_reports").insert(row).execute()
-        data = getattr(response, "data", None) or []
-        report_id = data[0].get("id") if data else None
-    except Exception as exc:
-        text = str(exc).lower()
-        if "duplicate" in text or "dedupe_key" in text or "unique" in text:
-            raise HTTPException(status_code=409, detail="Duplicate fare report")
+        inserted = insert_fare_report(row)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Duplicate fare report")
+    except Exception:
         raise HTTPException(status_code=503, detail="Could not store fare report")
 
     return {
         "accepted": True,
-        "reportId": report_id,
-        "moderationStatus": "pending",
+        "reportId": inserted.get("reportId"),
+        "moderationStatus": inserted.get("moderationStatus"),
         "message": "Thank you. The report is pending moderation and is not published as truth yet.",
     }
 
@@ -221,3 +210,5 @@ async def routes_supabase(
         raise
     except Exception:
         raise HTTPException(status_code=503, detail="CommuteBD route calculation is unavailable")
+
+

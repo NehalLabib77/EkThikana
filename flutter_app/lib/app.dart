@@ -6,6 +6,7 @@ import 'core/theme.dart';
 import 'screens/auth/auth_gate.dart';
 import 'screens/system/gochano_splash_screen.dart';
 import 'widgets/notification_action_host.dart';
+import 'widgets/offline_banner.dart';
 
 class GochanoApp extends StatelessWidget {
   const GochanoApp({super.key});
@@ -20,8 +21,27 @@ class GochanoApp extends StatelessWidget {
       darkTheme: EkTheme.dark(),
       themeMode: ThemeMode.system,
       home: const _BootRouter(),
-      builder: (context, child) =>
-          NotificationActionHost(child: child ?? const SizedBox.shrink()),
+      // `builder:` wraps every route (including dialogs) so the offline
+      // banner and notification action host are layered above any screen
+      // without per-screen wiring. Order matters: notification action
+      // listens for taps below the banner, so the banner (top) is last
+      // in the stack.
+      builder: (context, child) {
+        final body = child ?? const SizedBox.shrink();
+        return NotificationActionHost(
+          child: Stack(
+            children: [
+              Positioned.fill(child: body),
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: OfflineBanner(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -52,17 +72,11 @@ class _BootRouterState extends State<_BootRouter> {
   bool _ready = false;
 
   void _handleReady() {
-    // The splash invokes [onReady] from inside its build cycle. Defer the
-    // ready flip until the current frame has been laid out so setState never
-    // runs during a build of a different widget. Without this deferral the
-    // splash can deadlock against `_debugLocked` / `_debugBuildingDirtyElements`
-    // and leave the user staring at the dark splash background forever.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _flipReady());
-  }
-
-  void _flipReady() {
-    if (!mounted || _ready) return;
-    setState(() => _ready = true);
+    if (_ready) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _ready) return;
+      setState(() => _ready = true);
+    });
   }
 
   @override

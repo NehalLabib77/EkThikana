@@ -23,6 +23,11 @@ def _ensure_firebase():
     options = {}
     if settings.firebase_project_id:
         options["projectId"] = settings.firebase_project_id
+    if settings.firebase_storage_bucket:
+        # Phase 2: attach the storage bucket to the default app so
+        # ``firebase_admin.storage`` resolves to the correct GCS bucket
+        # when ``storage_service`` mints signed URLs.
+        options["storageBucket"] = settings.firebase_storage_bucket
 
     firebase_admin.initialize_app(cred, options=options or None)
 

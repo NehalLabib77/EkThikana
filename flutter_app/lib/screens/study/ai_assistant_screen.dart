@@ -9,15 +9,48 @@ import '../search/universal_search_screen.dart';
 import 'notes_screen.dart';
 import 'study_plan_screen.dart';
 
+import '../../core/page_route.dart';
 /// Modern AI Assistant - visual rebuild only.
 ///
 /// No AI service, Gemini integration, file upload API, response parser,
 /// authentication gate, or business logic was modified. All such behaviour
 /// is delegated to the same call sites the previous screen used
-/// (ApiService.aiNote, ApiService.askPdf, and Navigator.push into the
-/// existing Notes / Materials / StudyPlan screens).
+/// (ApiService.aiNote, ApiService.askPdf, ApiService.askImage, and
+/// Navigator.push into the existing Notes / Materials / StudyPlan screens).
+///
+/// File uploads route to the matching backend question endpoint based on
+/// the picked file's extension: ``.pdf`` → ``askPdf`` (text extraction on
+/// the server), ``.png`` / ``.jpg`` / ``.jpeg`` / ``.webp`` → ``askImage``
+/// (Gemini Vision on the server). Mixed / unknown types fall back to the
+/// image endpoint so we never silently 400 on the server.
 class AiAssistantScreen extends StatefulWidget {
   const AiAssistantScreen({super.key});
+
+  /// Returns the lowercased extension of [name] without the dot, or `''` if
+  /// the file has no extension. Visible for testing.
+  @visibleForTesting
+  static String extensionOf(String name) {
+    final lower = name.toLowerCase();
+    final dot = lower.lastIndexOf('.');
+    if (dot < 0 || dot == lower.length - 1) return '';
+    return lower.substring(dot + 1);
+  }
+
+  /// True when the picked file's extension routes to the PDF question
+  /// backend (server-side text extraction).
+  @visibleForTesting
+  static bool isPdfName(String name) => extensionOf(name) == 'pdf';
+
+  /// True when the picked file's extension routes to the image question
+  /// backend (Gemini Vision multimodal). Unknown extensions return `false`
+  /// so callers fall back to the image route and surface a real 4xx with
+  /// a useful message instead of a silent backend crash on the PDF
+  /// extractor.
+  @visibleForTesting
+  static bool isImageName(String name) {
+    const imageExts = <String>{'png', 'jpg', 'jpeg', 'webp'};
+    return imageExts.contains(extensionOf(name));
+  }
 
   @override
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
@@ -66,9 +99,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               'AI service temporarily unavailable.',
               'AI পরিষেবা সাময়িকভাবে অনুপলব্ধ।',
             );
-      // Print helps the developer read status codes from lutter run.
+// Print helps the developer read status codes from flutter run.
       // ignore: avoid_print
-      print('[AI] sendChat failed: ' + msg);
+      print('[AI] sendChat failed: $msg');
       setState(() => _bubbles.add(_ChatBubble.error(msg)));
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -80,12 +113,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       // file_picker 12.x: pickFiles is static on FilePicker and returns a List<PlatformFile>.
       final picked = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
+        // Keep in lockstep with backend ``_is_image`` allowlist in
+        // ``backend/app/routers/ai.py`` (PNG / JPEG / WEBP) plus PDF.
+        allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp'],
       );
       if (picked.isEmpty) return;
       final file = picked.first;
       final Uint8List bytes = await file.readAsBytes();
-      if (bytes == null || bytes.isEmpty) {
+      if (bytes.isEmpty) {
         setState(() => _uploadError = EkLanguage.text(
               'Could not read the selected file.',
               'নির্বাচিত ফাইল পড়া যায়নি।',
@@ -136,6 +171,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
   }
 
+  /// Returns the lowercased extension of [name] without the dot, or `''` if
+  /// the file has no extension. Visible for testing.
   Future<void> _askPdfFromUpload() async {
     final file = _pickedFile;
     if (file == null || _uploading) return;
@@ -155,6 +192,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       return;
     }
 
+    final isPdf = AiAssistantScreen.isPdfName(file.name);
+    final routeAsImage = !isPdf;
+
     setState(() {
       _bubbles.add(_ChatBubble.user(
           '${EkLanguage.text('File', 'ফাইল')}: ${file.name}\n$question'));
@@ -163,10 +203,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _chatController.clear();
 
     try {
-      final reply = await ApiService.askPdf(
-        materialId: _uploadedMaterialId!,
-        question: question,
-      );
+      final reply = routeAsImage
+          ? await ApiService.askImage(
+              materialId: _uploadedMaterialId!,
+              question: question,
+            )
+          : await ApiService.askPdf(
+              materialId: _uploadedMaterialId!,
+              question: question,
+            );
       if (!mounted) return;
       setState(() {
         _bubbles.add(_ChatBubble.ai(reply));
@@ -181,7 +226,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               'AI পরিষেবা সাময়িকভাবে অনুপলব্ধ।',
             );
       // ignore: avoid_print
-      print('[AI] askPdf failed: ' + msg);
+      print('[AI] askFromUpload(${routeAsImage ? 'image' : 'pdf'}) failed: $msg');
       setState(() {
         _bubbles.add(_ChatBubble.error(msg));
         _sending = false;
@@ -206,7 +251,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   Navigator.pop(sheetCtx);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    GochanoRoute.to(
                       builder: (_) => const UniversalSearchScreen(student: true),
                     ),
                   );
@@ -220,7 +265,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   Navigator.pop(sheetCtx);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const StudyPlanScreen()),
+                    GochanoRoute.to(builder: (_) => const StudyPlanScreen()),
                   );
                 },
               ),
@@ -864,10 +909,10 @@ class _ChatInput extends StatelessWidget {
 class _AiNav {
   static void notes(BuildContext context) => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const NotesScreen()),
+        GochanoRoute.to(builder: (_) => const NotesScreen()),
       );
   static void plan(BuildContext context) => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const StudyPlanScreen()),
+        GochanoRoute.to(builder: (_) => const StudyPlanScreen()),
       );
 }

@@ -1,9 +1,14 @@
 // Gochano splash screen.
 //
 // Simplified for startup performance: the splash now renders exactly one
-// static logo on a dark background, then fires its [onReady] callback on
+// static logo on a flat surface, then fires its [onReady] callback on
 // the next post-frame so the host (typically `_BootRouter` in app.dart)
 // can swap in the real first route.
+//
+// No spinner, no progress bar, no rotating ring — just a one-shot
+// opacity fade-in on the logo. The hand-off fires regardless of how
+// far the fade has progressed, so a slow fade never blocks reaching
+// `AuthGate`.
 //
 // What was removed:
 //   - Asset precache (no `precacheImage` await; the framework decodes the
@@ -39,6 +44,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/design_tokens.dart';
+
 const String _kLogoAsset = 'assets/branding/Gochano.png';
 
 /// Hard upper bound on how long the splash will wait for [onReady] to
@@ -48,11 +55,13 @@ const Duration _kHardTimeout = Duration(milliseconds: 1500);
 
 /// Duration of the logo fade-in.
 ///
-/// Kept short (300 ms) so the splash never feels heavy on cold start.
-/// Independent of [onReady] firing: the hand-off happens on the next
-/// post-frame whether or not the fade has finished, so a slow fade
-/// never blocks the user from reaching `AuthGate`.
-const Duration _kFadeIn = Duration(milliseconds: 300);
+/// Aliased to `EkMotion.slow` (360 ms) so the splash obeys the same
+/// motion tokens as the rest of the app. Kept intentionally short so the
+/// splash never feels heavy on cold start. Independent of [onReady]:
+/// the hand-off happens on the next post-frame whether or not the fade
+/// has finished, so a slow fade never blocks the user from reaching
+/// `AuthGate`.
+const Duration _kFadeIn = EkMotion.slow;
 
 class GochanoSplashScreen extends StatefulWidget {
   const GochanoSplashScreen({super.key, this.onReady});
@@ -121,7 +130,9 @@ class _GochanoSplashScreenState extends State<GochanoSplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1115),
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFF8F7F2),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -155,6 +166,7 @@ class _GochanoSplashScreenState extends State<GochanoSplashScreen> {
                       height: 200,
                       fit: BoxFit.contain,
                       gaplessPlayback: true,
+                      semanticLabel: 'Gochano logo',
                     ),
                   ),
                 ),

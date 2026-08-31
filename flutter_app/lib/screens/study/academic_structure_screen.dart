@@ -110,6 +110,7 @@ class AcademicStructureScreen extends StatelessWidget {
                             leading: const Icon(Icons.menu_book_outlined),
                             title: Text(subject.data()['name']?.toString() ?? ''),
                             trailing: IconButton(
+                              tooltip: 'Delete subject',
                               icon: const Icon(Icons.delete_outline),
                               onPressed: () => subject.reference.delete(),
                             ),

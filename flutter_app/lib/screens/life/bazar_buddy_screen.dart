@@ -5,11 +5,13 @@ import 'package:intl/intl.dart';
 import '../../core/language.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import '../../widgets/bento/bento_bar.dart';
 import '../../widgets/gochano_loading.dart';
 import '../../widgets/gochano_primitives.dart';
 import '../../services/financial_service.dart';
 import 'expense_tracker_screen.dart';
 
+import '../../core/page_route.dart';
 class BazarBuddyScreen extends StatefulWidget {
   const BazarBuddyScreen({super.key});
 
@@ -98,7 +100,6 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
   ) async {
     // Capture the messenger BEFORE the async gap so we never touch
     // `context` after an await — this avoids `use_build_context_synchronously`.
-    final messenger = ScaffoldMessenger.of(context);
     final chosen = await showModalBottomSheet<String>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -144,10 +145,10 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
     );
     if (chosen != null && mounted) {
       try {
-        // One-tap add: write a sensible default row directly through the
+        // One-tap add: write a sensible default row directly through the       
         // service. Marked NOT purchased so it does not yet become an
-        // expense — the user can adjust quantity/price from the sheet or
-        // via Edit. This honours the `purchased && price > 0` mirror gate.
+        // expense — the user can adjust quantity/price from the sheet or     
+        // via Edit. This honours the `purchased && price > 0` mirror gate.     
         await FinancialService.saveBazarItem(
           sessionId: sessionId,
           category: c.en,
@@ -165,9 +166,9 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
           ),
         );
       } catch (e) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        if (context.mounted) {
+          showError(context, e);
+        }
       }
     }
   }
@@ -582,17 +583,35 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                   );
 
               return ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
                 children: [
                   _dateHeader(context),
                   const SizedBox(height: 14),
+                  BentoLargeCard(
+                    moduleId: 'bazar',
+                    icon: Icons.shopping_basket_rounded,
+                    title: EkLanguage.text(
+                      'BazarBuddy',
+                      'বাজারবন্ধু',
+                    ),
+                    subtitle: EkLanguage.text(
+                      '${all.length} items · ${planned.toStringAsFixed(0)} ৳ planned',
+                      '${all.length}টি আইটেম · ${planned.toStringAsFixed(0)} ৳ পরিকল্পিত',
+                    ),
+                    trailing: const BentoIllustration(module: 'bazar', size: 56),
+                  ),
+                  const SizedBox(height: 18),
                   Text(
                     EkLanguage.text('🛍️  Choose Items', '🛍️  আইটেম বাছাই করুন'),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: BentoColors.onTint(context),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
-                    height: 116,
+                    height: 122,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: categories.length,
@@ -600,38 +619,97 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                       itemBuilder: (context, index) {
                         final c = categories[index];
                         final picks = quickPicksFor(c.en);
-                        return InkWell(
-                          onTap: () {
-                            // Tap → open add sheet with this category
-                            // pre-selected (existing behaviour).
-                            editItem(presetCategory: c);
-                          },
-                          onLongPress: picks.isEmpty
-                              ? null
-                              : () => _showQuickPicks(context, c, picks),
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            width: 94,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: c.color,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.black.withValues(alpha: .05)),
-                            ),
+                        // Per-category count so the user sees what's
+                        // already on the list before tapping. Matches
+                        // case-insensitively against `data['category']`
+                        // so legacy rows still count.
+                        final count = all
+                            .where((doc) =>
+                                (doc.data()['category']?.toString() ?? '')
+                                    .trim()
+                                    .toLowerCase() ==
+                                c.en.toLowerCase())
+                            .length;
+                        return SizedBox(
+                          width: 110,
+                          child: GestureDetector(
+                            onLongPress: picks.isEmpty
+                                ? null
+                                : () => _showQuickPicks(context, c, picks),
+                            child: BentoCard(
+                            padding: const EdgeInsets.all(14),
+                            background: BentoColors.module(context, 'bazar').tint,
+                            onTap: () {
+                              // Tap → open add sheet with this category
+                              // pre-selected (existing behaviour).
+                              editItem(presetCategory: c);
+                            },
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(c.emoji, style: const TextStyle(fontSize: 39)),
-                                const SizedBox(height: 6),
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    const BentoIllustration(
+                                      module: 'bazar',
+                                      size: 44,
+                                    ),
+                                    // Optional count badge in the top-right
+                                    // corner. Hidden when 0 so the row
+                                    // doesn't feel cluttered for empty
+                                    // categories.
+                                    if (count > 0)
+                                      Positioned(
+                                        right: -6,
+                                        top: -6,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: BentoColors.onTint(context),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            '$count',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 11,
+                                              color: BentoColors.module(context, 'bazar').accent,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const Spacer(),
                                 Text(
                                   EkLanguage.text(c.en, c.bn),
-                                  textAlign: TextAlign.center,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                  style: TextStyle(
+                                    color: BentoColors.onTint(context),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                  ),
                                 ),
+                                if (picks.isNotEmpty)
+                                  Text(
+                                    EkLanguage.text(
+                                      'Long-press for quick picks',
+                                      'কুইক পিকের জন্য চেপে ধরুন',
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: BentoColors.onTintMuted(context),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                               ],
                             ),
+                          ),
                           ),
                         );
                       },
@@ -647,6 +725,7 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                         'বাজার তালিকায় খুঁজুন…',
                       ),
                       suffixIcon: IconButton(
+                        tooltip: 'Add new item',
                         onPressed: () => editItem(),
                         icon: const Icon(Icons.add_circle, color: Color(0xFF2EAD46)),
                       ),
@@ -746,7 +825,7 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
                   OutlinedButton.icon(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
+                      GochanoRoute.to(
                         builder: (_) =>
                             ExpenseTrackerScreen(initialMonth: selectedDate),
                       ),
@@ -817,26 +896,71 @@ class _BazarBuddyScreenState extends State<BazarBuddyScreen> {
     final unit = data['unit']?.toString() ?? 'pcs';
     final price = (data['price'] as num?)?.toDouble() ?? 0;
 
+    // Unit-price label is what the user originally typed in the add sheet
+    // (per-kg, per-pc, per-dozen, …). It is derived by reversing the
+    // `price / quantity` save contract so the user can sanity-check that
+    // the row reflects what they entered — even when the unit is a
+    // freeform string from the 'other' dropdown.
+    final unitPriceLabel = quantity > 0 ? (price / quantity) : 0.0;
+
     return ListTile(
       leading: Container(
-        width: 46,
-        height: 46,
+        width: 52,
+        height: 52,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: category.color,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.black.withValues(alpha: .05)),
         ),
-        child: Text(category.emoji, style: const TextStyle(fontSize: 25)),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(category.emoji, style: const TextStyle(fontSize: 30)),
+            if (bought)
+              Positioned(
+                right: 2,
+                bottom: 2,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF2EAD46),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, size: 11, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
       ),
       title: Text(
         data['title']?.toString() ?? '',
         style: TextStyle(
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           decoration: bought ? TextDecoration.lineThrough : TextDecoration.none,
           color: bought ? EkColors.muted : null,
         ),
       ),
-      subtitle: Text('${_formatQty(quantity)} $unit • ৳${price.toStringAsFixed(0)}'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${_formatQty(quantity)} $unit  •  ৳${price.toStringAsFixed(0)} total',
+          ),
+          if (quantity > 0 && price > 0)
+            Text(
+              '৳${unitPriceLabel.toStringAsFixed(2)} / $unit',
+              style: const TextStyle(
+                color: EkColors.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

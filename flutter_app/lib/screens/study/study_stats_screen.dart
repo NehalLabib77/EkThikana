@@ -52,7 +52,11 @@ class _StudyStatsScreenState extends State<StudyStatsScreen> {
       appBar: AppBar(
         title: const Text('Study Stats'),
         actions: [
-          IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh)),
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _loading ? null : _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
         ],
       ),
       body: _loading

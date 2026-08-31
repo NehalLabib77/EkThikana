@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/financial_transaction.dart';
 import 'firestore_service.dart';
@@ -277,7 +279,36 @@ class FinancialService {
       batch.delete(financialRef);
     }
 
-    await batch.commit();
+    // ---- TEMP DIAGNOSTIC (Phase-7 debug): print auth token claims + payload
+    // summary so we can see WHICH field the financial_transactions rule is
+    // rejecting. Remove after the root cause is identified.
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final tok = await user?.getIdTokenResult(true);
+      debugPrint('=== BAZAR SAVE DIAG ===');
+      debugPrint('uid             : ${user?.uid}');
+      debugPrint('email           : ${user?.email}');
+      debugPrint('email_verified  : ${user?.emailVerified}');
+      debugPrint('claims          : ${tok?.claims}');
+      debugPrint('purchased       : $purchased');
+      debugPrint('price           : $price');
+      debugPrint('mirrorWrites    : $purchased && $price > 0');
+    } catch (diagErr, st) {
+      debugPrint('BAZAR DIAG ERR   : $diagErr');
+      debugPrint('STACK            : $st');
+    }
+    // ---- END TEMP DIAGNOSTIC ----
+
+    try {
+      await batch.commit();
+    } on FirebaseException catch (fe, st) {
+      debugPrint('=== BAZAR SAVE FIREBASE ERR ===');
+      debugPrint('code    : ${fe.code}');
+      debugPrint('message : ${fe.message}');
+      debugPrint('plugin  : ${fe.plugin}');
+      debugPrint('stack   : $st');
+      rethrow;
+    }
     return sourceRef.id;
   }
 

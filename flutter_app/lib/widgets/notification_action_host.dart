@@ -6,6 +6,7 @@ import '../screens/life/medicine_screen.dart';
 import '../services/financial_service.dart';
 import '../services/notification_service.dart';
 
+import '../core/page_route.dart';
 class NotificationActionHost extends StatefulWidget {
   const NotificationActionHost({
     super.key,
@@ -50,7 +51,7 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
     final nav = AppNavigation.navigatorKey.currentState;
     if (nav != null) {
       nav.push(
-        MaterialPageRoute(builder: (_) => const MedicineScreen()),
+        GochanoRoute.to(builder: (_) => const MedicineScreen()),
       );
       // Let the new route mount so its dialogs/snackbars use the new context.
       await Future<void>.delayed(const Duration(milliseconds: 50));

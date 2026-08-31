@@ -238,6 +238,11 @@ class _MessageBubble extends StatelessWidget {
               url,
               height: 160,
               fit: BoxFit.cover,
+              // Decode to thumbnail resolution (2x the 160 logical px)
+              // instead of full camera resolution — saves ~90% memory
+              // for chat attachments that can be 4-12 MB originals.
+              cacheWidth: 320,
+              semanticLabel: 'Attached image',
               errorBuilder: (_, _, _) => Text('Could not load image.'),
             ),
           ),

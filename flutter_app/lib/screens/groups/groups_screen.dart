@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../services/firestore_service.dart';
 import 'group_detail_screen.dart';
 
+import '../../core/page_route.dart';
 class GroupsScreen extends StatelessWidget {
   const GroupsScreen({super.key});
 
@@ -198,7 +199,7 @@ class GroupsScreen extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    GochanoRoute.to(
                       builder: (_) => GroupDetailScreen(
                         groupId: doc.id,
                         group: data,

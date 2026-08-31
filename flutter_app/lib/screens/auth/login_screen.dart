@@ -7,6 +7,7 @@ import '../../core/ui.dart';
 import '../../services/auth_service.dart';
 import 'register_screen.dart';
 
+import '../../core/page_route.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -88,19 +89,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x14000000),
-                            blurRadius: 18,
-                            offset: Offset(0, 6),
-                          ),
-                        ],
+                        boxShadow: EkShadows.hero,
                       ),
                       padding: const EdgeInsets.all(10),
                       child: Image.asset(
                         'assets/branding/Gochano.png',
                         fit: BoxFit.contain,
                         gaplessPlayback: true,
+                        semanticLabel: 'Gochano logo',
                       ),
                     ),
                   ),
@@ -182,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? null
                         : () => Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            GochanoRoute.to(
                               builder: (_) => const RegisterScreen(),
                             ),
                           ),

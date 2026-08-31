@@ -30,6 +30,33 @@ class MedicineNotificationAction {
 class NotificationService {
   NotificationService._();
 
+  // ---------------------------------------------------------------------------
+  // Channel architecture
+  // ---------------------------------------------------------------------------
+  // Two notification channels are declared on the OS so users can control each
+  // independently in Settings → Apps → Gochano → Notifications.
+  //
+  // Channel IDs are intentionally kept under the legacy `ekthikana_*` prefix
+  // (per docs/GOCHANO_BRANDING.md). Renaming these IDs would register new
+  // channels and discard the user's per-channel preferences — every existing
+  // user's mute/vibration settings would reset.
+  //
+  //   reminders   → tasks, due dates, "today" nudges
+  //   medicine    → daily medicine reminders (with Taken / Skip actions)
+  //
+  // Both channels are categorised as `reminder` so Android routes them
+  // through the correct priority lane (DND-aware, shown above notification
+  // shade content) and so accessibility services announce "Reminder" instead
+  // of "Notification".
+  static const String kChannelRemindersId = 'ekthikana_reminders';
+  static const String kChannelRemindersName = 'Gochano Reminders';
+  static const String kChannelRemindersDesc = 'Task and daily-life reminders';
+
+  static const String kChannelMedicineId = 'ekthikana_medicine';
+  static const String kChannelMedicineName = 'Gochano Medicine Reminders';
+  static const String kChannelMedicineDesc =
+      'User-confirmed medicine reminder times';
+
   static final plugin = FlutterLocalNotificationsPlugin();
   static final ValueNotifier<MedicineNotificationAction?> medicineAction =
       ValueNotifier<MedicineNotificationAction?>(null);
@@ -40,6 +67,51 @@ class NotificationService {
     // Background isolates must not write Firebase data directly. The action
     // opens the app (showsUserInterface=true); the foreground callback then
     // performs the user-confirmed operation.
+  }
+
+  /// Common AndroidNotificationDetails for both channels. Kept as a single
+  /// factory so future tweaks (e.g. sound file, vibration pattern) apply
+  /// everywhere at once and stay consistent across reminder types.
+  static AndroidNotificationDetails _details({
+    required String channelId,
+    required String channelName,
+    required String channelDescription,
+    List<AndroidNotificationAction>? actions,
+  }) {
+    return AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: channelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.reminder,
+      icon: '@drawable/ic_stat_gochano',
+      enableVibration: true,
+      playSound: true,
+      actions: actions,
+    );
+  }
+
+  /// Probe whether the OS is currently allowing us to post notifications.
+  ///
+  /// Returns null on non-Android platforms or when the plugin has not yet
+  /// been initialised.  Returns false when the user has denied
+  /// POST_NOTIFICATIONS (Android 13+) or disabled notifications for the app
+  /// at the OS level (older Android versions).
+  static Future<bool?> areNotificationsEnabled() async {
+    if (!_ready) return null;
+    final android = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return android?.areNotificationsEnabled();
+  }
+
+  /// Open the OS notification-settings screen for this app so the user can
+  /// re-grant POST_NOTIFICATIONS or re-enable a muted channel.  Returns true
+  /// if the OS accepted the request.
+  static Future<bool> openNotificationSettings() async {
+    final android = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return (await android?.requestNotificationsPermission()) ?? false;
   }
 
   static Future<void> init() async {
@@ -61,6 +133,12 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: _backgroundResponse,
     );
 
+    // First-launch permission prompt.  On Android 12 and below the OS returns
+    // granted by default; on Android 13+ (API 33) POST_NOTIFICATIONS becomes
+    // a runtime permission and the user actually sees a dialog.  We do NOT
+    // show our own pre-prompt here — that responsibility lives in
+    // `NotificationPermissionDialog`, which screens can invoke at a context-
+    // appropriate moment (e.g. when the user adds their first reminder).
     await plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
@@ -98,6 +176,16 @@ class NotificationService {
     }
   }
 
+  static int _taskNotificationId(String taskId) =>
+      taskId.hashCode & 0x7fffffff;
+
+  /// Exposed for tests so we can pin the deterministic id policy without
+  /// having to spin up the platform channel. Schedule and cancel MUST use
+  /// the same id for a given taskId or notifications leak.
+  @visibleForTesting
+  static int debugTaskNotificationId(String taskId) =>
+      _taskNotificationId(taskId);
+
   static Future<void> scheduleTask({
     required String taskId,
     required String title,
@@ -106,20 +194,48 @@ class NotificationService {
     await init();
     if (!when.isAfter(DateTime.now())) return;
 
-    final id = taskId.hashCode & 0x7fffffff;
     await plugin.zonedSchedule(
-      id: id,
+      id: _taskNotificationId(taskId),
       title: 'Gochano reminder',
       body: title,
       scheduledDate: tz.TZDateTime.from(when, tz.local),
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'ekthikana_reminders',
-          'Gochano Reminders',
-          channelDescription: 'Task and daily-life reminders',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@drawable/ic_stat_gochano',
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelRemindersId,
+          channelName: kChannelRemindersName,
+          channelDescription: kChannelRemindersDesc,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: taskId,
+    );
+  }
+
+  /// Cancel an existing reminder and (if [when] is still in the future) schedule
+  /// a new one with the same id. This is the single safe primitive for an edit
+  /// flow because it guarantees the notification id is recycled — a manual
+  /// cancel+schedule pair would risk id drift if the two helpers ever diverged.
+  ///
+  /// When [when] is null or not in the future the task is treated as cleared and
+  /// only the cancel side runs.
+  static Future<void> rescheduleTask({
+    required String taskId,
+    required String title,
+    DateTime? when,
+  }) async {
+    await init();
+    await plugin.cancel(id: _taskNotificationId(taskId));
+    if (when == null || !when.isAfter(DateTime.now())) return;
+    await plugin.zonedSchedule(
+      id: _taskNotificationId(taskId),
+      title: 'Gochano reminder',
+      body: title,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelRemindersId,
+          channelName: kChannelRemindersName,
+          channelDescription: kChannelRemindersDesc,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -180,15 +296,12 @@ class NotificationService {
           ? '$medicineName • $quantityPerDose $unit'
           : '$medicineName • $instruction',
       scheduledDate: next,
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'ekthikana_medicine',
-          'Gochano Medicine Reminders',
-          channelDescription: 'User-confirmed medicine reminder times',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@drawable/ic_stat_gochano',
-          actions: [
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelMedicineId,
+          channelName: kChannelMedicineName,
+          channelDescription: kChannelMedicineDesc,
+          actions: const [
             AndroidNotificationAction(
               'taken',
               'Taken',
@@ -222,6 +335,6 @@ class NotificationService {
 
   static Future<void> cancelTask(String taskId) async {
     await init();
-    await plugin.cancel(id: taskId.hashCode & 0x7fffffff);
+    await plugin.cancel(id: _taskNotificationId(taskId));
   }
 }

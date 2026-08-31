@@ -5,7 +5,9 @@ import 'package:pdfrx/pdfrx.dart';
 import 'app.dart';
 import 'core/app_config.dart';
 import 'core/navigation.dart';
+import 'core/theme.dart';
 import 'firebase_options.dart';
+import 'services/connectivity_service.dart';
 import 'services/notification_service.dart';
 
 const String _kLogoAsset = 'assets/branding/Gochano.png';
@@ -41,6 +43,11 @@ Future<void> main() async {
         // Swallow - app stays usable even if notification setup fails.
         return Future<void>.value();
       });
+      ConnectivityService.instance.init().catchError((_) {
+        // Swallow - the offline banner falls back to "online" if the
+        // platform channel is unavailable, so the app stays usable.
+        return Future<void>.value();
+      });
     });
   } catch (e) {
     runApp(_SetupRequiredApp(error: e));
@@ -71,18 +78,13 @@ class _SetupRequiredApp extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x14000000),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
+                        boxShadow: EkShadows.elevated,
                       ),
                       child: Image.asset(
                         _kLogoAsset,
                         fit: BoxFit.contain,
                         gaplessPlayback: true,
+                        semanticLabel: 'Gochano logo',
                       ),
                     ),
                     const SizedBox(height: 8),

@@ -133,6 +133,7 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
     return Row(
       children: [
         IconButton(
+          tooltip: 'Previous month',
           onPressed: () => moveMonth(-1),
           icon: const Icon(Icons.chevron_left),
         ),
@@ -144,6 +145,7 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
           ),
         ),
         IconButton(
+          tooltip: 'Next month',
           onPressed: () => moveMonth(1),
           icon: const Icon(Icons.chevron_right),
         ),
@@ -403,6 +405,7 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
               ),
             ),
             trailing: IconButton(
+              tooltip: showCalendar ? 'Hide calendar' : 'Show calendar',
               onPressed: () => setState(() => showCalendar = !showCalendar),
               icon: Icon(showCalendar ? Icons.expand_less : Icons.expand_more),
             ),

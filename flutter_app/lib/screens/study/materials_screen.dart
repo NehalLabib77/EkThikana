@@ -9,6 +9,7 @@ import '../../services/firestore_service.dart';
 import 'material_reader_screen.dart';
 import 'material_upload_screen.dart';
 
+import '../../core/page_route.dart';
 class MaterialsScreen extends StatelessWidget {
   const MaterialsScreen({
     super.key,
@@ -36,7 +37,7 @@ class MaterialsScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(
+          GochanoRoute.to(
             builder: (_) => MaterialUploadScreen(
               initialVisibility: groupId == null ? 'private' : 'group',
               initialGroupId: groupId,
@@ -208,7 +209,7 @@ class _MaterialCard extends StatelessWidget {
                 : null,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
+              GochanoRoute.to(
                 builder: (_) => MaterialReaderScreen(
                   materialId: docId,
                   material: data,

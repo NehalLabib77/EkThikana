@@ -32,43 +32,43 @@ class EkGradients {
   static const study = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF6B46FF), Color(0xFF8B5CF6)],
+    colors: [Color(0xFF6B46FF), Color(0xFF8457E9)],
   );
 
   static const medicine = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF16B8AD), Color(0xFF22D3B7)],
+    colors: [Color(0xFF147E6D), Color(0xFF158472)],
   );
 
   static const expense = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFF8A1E), Color(0xFFFFB55A)],
+    colors: [Color(0xFFB26015), Color(0xFF996C36)],
   );
 
   static const commute = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1B72CC), Color(0xFF4FA3F0)],
+    colors: [Color(0xFF1B72CC), Color(0xFF3B7AB4)],
   );
 
   static const bazar = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFE0388A), Color(0xFFF25BA7)],
+    colors: [Color(0xFFC9327C), Color(0xFFC14885)],
   );
 
   static const tasks = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF5B3DF5), Color(0xFF7C68FF)],
+    colors: [Color(0xFF5B3DF5), Color(0xFF6F5DE5)],
   );
 
   static const ai = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF109238), Color(0xFF22C55E)],
+    colors: [Color(0xFF0E8332), Color(0xFF16803D)],
   );
 
   static const greeting = LinearGradient(

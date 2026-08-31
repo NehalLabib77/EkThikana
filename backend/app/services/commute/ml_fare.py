@@ -25,28 +25,17 @@ class MLFarePredictionService:
         self.crowd = CrowdFareRepository()
         self._models: dict[str, dict[str, Any]] = {}
 
-    def _approved_counts(self, mode: str) -> tuple[int, int]:
-        if not self.crowd.client:
+    def _approved_counts(self, mode):
+        if not self.crowd.enabled:
             return 0, 0
         try:
-            all_rows = (
-                self.crowd.client.table("user_fare_reports")
-                .select("report_id", count="exact")
-                .eq("moderation_status", "approved")
-                .execute()
-            )
-            mode_rows = (
-                self.crowd.client.table("user_fare_reports")
-                .select("report_id", count="exact")
-                .eq("moderation_status", "approved")
-                .eq("transport_mode", mode)
-                .execute()
-            )
-            return int(getattr(all_rows, "count", 0) or 0), int(getattr(mode_rows, "count", 0) or 0)
+            total = self.crowd.count_approved()
+            per_mode = self.crowd.count_approved(mode=mode)
+            return int(total or 0), int(per_mode or 0)
         except Exception:
             return 0, 0
 
-    def enabled_for(self, mode: str) -> bool:
+    def enabled_for(self, mode):
         if mode not in {"rickshaw", "cng"}:
             return False
         total, per_mode = self._approved_counts(mode)
@@ -55,7 +44,7 @@ class MLFarePredictionService:
             and per_mode >= self.settings.commute_ml_min_mode_reports
         )
 
-    def _load(self, mode: str) -> dict[str, Any] | None:
+    def _load(self, mode):
         if mode in self._models:
             return self._models[mode]
         if not self.enabled_for(mode):
@@ -76,13 +65,13 @@ class MLFarePredictionService:
     def predict(
         self,
         *,
-        mode: str,
-        distance_km: float,
-        trip_minutes: float | None = None,
-        traffic_level: str = "unknown",
-        hour: int = 12,
-        weekday: int = 0,
-    ) -> dict[str, Any] | None:
+        mode,
+        distance_km,
+        trip_minutes=None,
+        traffic_level="unknown",
+        hour=12,
+        weekday=0,
+    ):
         bundle = self._load(mode)
         if not bundle:
             return None
@@ -118,3 +107,6 @@ class MLFarePredictionService:
             "confidence": "Medium",
             "model": "GradientBoostingRegressor quantile",
         }
+
+
+__all__ = ["MLFarePredictionService"]

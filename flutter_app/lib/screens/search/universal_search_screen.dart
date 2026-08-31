@@ -6,6 +6,7 @@ import '../../services/firestore_service.dart';
 import '../study/material_reader_screen.dart';
 import '../study/note_editor_screen.dart';
 
+import '../../core/page_route.dart';
 class UniversalSearchScreen extends StatefulWidget {
   const UniversalSearchScreen({super.key, required this.student});
 
@@ -156,7 +157,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
     if (result.type == 'Note') {
       Navigator.push(
         context,
-        MaterialPageRoute(
+        GochanoRoute.to(
           builder: (_) => NoteEditorScreen(
             noteId: result.id,
             initialData: result.data,
@@ -169,7 +170,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
     if (result.type == 'Material') {
       Navigator.push(
         context,
-        MaterialPageRoute(
+        GochanoRoute.to(
           builder: (_) => MaterialReaderScreen(
             materialId: result.id,
             material: result.data,
@@ -227,6 +228,7 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
                         ),
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: IconButton(
+                    tooltip: 'Search',
                     onPressed: busy ? null : search,
                     icon: const Icon(Icons.arrow_forward),
                   ),
