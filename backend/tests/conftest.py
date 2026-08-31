@@ -171,6 +171,61 @@ _pil_pkg.ImageOps = _pil_ops
 # ---------------------------------------------------------------------------
 
 
+_MISSING = object()
+
+
+def _field_matches(data: dict, field: str, op: str, value: Any) -> bool:
+    """Evaluate one Firestore filter against one document.
+
+    Faithfulness matters here. This helper previously treated every operator
+    other than ``==`` / ``array_contains`` as an unconditional match, so a
+    range filter matched *every* document — including documents that do not
+    have the field at all.
+
+    Real Firestore does the opposite: **a document that lacks the filtered
+    field is not returned by a range filter.** That divergence is exactly how
+    the ``/api/budget/remaining`` bug reached production. The endpoint
+    range-filtered on ``createdAtIso``, no Gochano client has ever written
+    that field, so the live query matched nothing and every student's
+    "remaining" showed their full untouched budget — while this fake happily
+    returned all the seeded rows and the test passed.
+    """
+    actual = data.get(field, _MISSING)
+
+    if op == "array_contains":
+        return actual is not _MISSING and value in (actual or [])
+    if op == "array_contains_any":
+        if actual is _MISSING:
+            return False
+        return any(v in (actual or []) for v in (value or []))
+    if op == "==":
+        return (None if actual is _MISSING else actual) == value
+    if op == "!=":
+        return actual is not _MISSING and actual != value
+    if op == "in":
+        return actual is not _MISSING and actual in (value or [])
+    if op == "not-in":
+        return actual is not _MISSING and actual not in (value or [])
+
+    if op in {"<", "<=", ">", ">="}:
+        # Range filters skip documents missing the field, and skip values that
+        # are not order-comparable with the bound.
+        if actual is _MISSING or actual is None:
+            return False
+        try:
+            if op == "<":
+                return actual < value
+            if op == "<=":
+                return actual <= value
+            if op == ">":
+                return actual > value
+            return actual >= value
+        except TypeError:
+            return False
+
+    raise AssertionError(f"FakeFirestore does not implement operator {op!r}")
+
+
 class _FakeQuery:
     def __init__(self, docs: list, field: str | None = None, op: str | None = None, value: Any = None):
         self._docs = docs
@@ -179,17 +234,10 @@ class _FakeQuery:
         self._value = value
 
     def where(self, field: str, op: str, value: Any = None):
-        matched = []
-        for doc in self._docs:
-            data = doc["data"] or {}
-            if op == "array_contains":
-                if value in (data.get(field) or []):
-                    matched.append(doc)
-            elif op == "==":
-                if data.get(field) == value:
-                    matched.append(doc)
-            else:
-                matched.append(doc)
+        matched = [
+            doc for doc in self._docs
+            if _field_matches(doc["data"] or {}, field, op, value)
+        ]
         return _FakeQuery(matched, field, op, value)
 
     def limit(self, n: int):
@@ -206,12 +254,8 @@ class _FakeQuery:
 
     def stream(self):
         for doc in self._docs:
-            data = doc["data"] or {}
-            if self._op == "==" and self._field is not None:
-                if data.get(self._field) != self._value:
-                    continue
-            if self._op == "array_contains" and self._field is not None:
-                if self._value not in (data.get(self._field) or []):
+            if self._field is not None and self._op is not None:
+                if not _field_matches(doc["data"] or {}, self._field, self._op, self._value):
                     continue
             yield doc["snap"]
 
@@ -320,15 +364,11 @@ class _FakeCollection:
 
     def where(self, field: str, op: str = "==", value: Any = None):
         bucket = self._db._collections.setdefault(self._path, {})
-        matched = []
-        for k, v in bucket.items():
-            if op == "==":
-                if v.get(field) != value:
-                    continue
-            elif op == "array_contains":
-                if value not in (v.get(field) or []):
-                    continue
-            matched.append({"snap": _Snap(_FakeDocRef(self._db, self._path, k), v), "data": v})
+        matched = [
+            {"snap": _Snap(_FakeDocRef(self._db, self._path, k), v), "data": v}
+            for k, v in bucket.items()
+            if _field_matches(v, field, op, value)
+        ]
         return _FakeQuery(matched, field, op, value)
 
     def stream(self):

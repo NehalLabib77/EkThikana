@@ -372,8 +372,13 @@ class ApiService {
         'note': note,
       }));
 
+  /// Pause / resume / complete / cancel a focus session.
+  ///
+  /// The backend route is `PATCH /api/study/focus/{focus_id}`. This used to
+  /// send POST, which FastAPI answered with 405 Method Not Allowed — so
+  /// pause, resume and finish never reached the server.
   static Future<Map<String, dynamic>> patchFocus(String focusId, String action) async =>
-      _decode(await _post('/api/study/focus/$focusId', body: {'action': action}));
+      _decode(await _patch('/api/study/focus/$focusId', body: {'action': action}));
 
   static Future<List<dynamic>> listFocus({int limit = 100}) async =>
       _decode(await _get('/api/study/focus/list', query: {'limit': '$limit'}))['items'] as List<dynamic>;

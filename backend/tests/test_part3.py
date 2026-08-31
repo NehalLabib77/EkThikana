@@ -445,6 +445,12 @@ def test_monthly_remaining_subtracts_only_confirmed(client, fake_db, fake_auth):
     # Seed ACTUAL confirmed transactions (e.g. Daily Expenses, Medicine taken).
     # Estimated commute and pending medicine are status="estimated" so they
     # MUST NOT contribute to confirmed/remaining.
+    #
+    # The rows below carry `monthKey`, which is what the Flutter
+    # `FinancialService` actually stamps on every ledger mirror. This test
+    # used to seed `createdAtIso` instead — a field no client has ever
+    # written — which is why it passed against a query that matched nothing
+    # in production.
     fake_db.seed(
         "financial_transactions",
         "tx-1",
@@ -453,7 +459,8 @@ def test_monthly_remaining_subtracts_only_confirmed(client, fake_db, fake_auth):
             "amount": 4000,
             "status": "confirmed",
             "source": "daily_expense",
-            "createdAtIso": "2026-01-10T10:00:00+00:00",
+            "monthKey": "2026-01",
+            "dateKey": "2026-01-10",
         },
     )
     fake_db.seed(
@@ -464,7 +471,8 @@ def test_monthly_remaining_subtracts_only_confirmed(client, fake_db, fake_auth):
             "amount": 4000,
             "status": "confirmed",
             "source": "medicine_taken",
-            "createdAtIso": "2026-01-12T10:00:00+00:00",
+            "monthKey": "2026-01",
+            "dateKey": "2026-01-12",
         },
     )
     fake_db.seed(
@@ -475,7 +483,21 @@ def test_monthly_remaining_subtracts_only_confirmed(client, fake_db, fake_auth):
             "amount": 999,
             "status": "estimated",
             "source": "commute",
-            "createdAtIso": "2026-01-15T10:00:00+00:00",
+            "monthKey": "2026-01",
+            "dateKey": "2026-01-15",
+        },
+    )
+    # A different month must not leak into this month's total.
+    fake_db.seed(
+        "financial_transactions",
+        "tx-4",
+        {
+            "ownerId": uid,
+            "amount": 5000,
+            "status": "confirmed",
+            "source": "daily_expense",
+            "monthKey": "2026-02",
+            "dateKey": "2026-02-03",
         },
     )
 
@@ -485,6 +507,86 @@ def test_monthly_remaining_subtracts_only_confirmed(client, fake_db, fake_auth):
     assert body["available"] == 15000
     assert body["confirmedSpending"] == 8000
     assert body["remaining"] == 7000
+
+
+def test_monthly_remaining_counts_rows_written_by_the_flutter_client(
+    client, fake_db, fake_auth
+):
+    """Regression: the ledger row shape Flutter actually writes must count.
+
+    `FinancialService._financialData` stamps ownerId/userId/type/source/
+    sourceRecordId/category/title/amount/date/dateKey/monthKey/status. It has
+    never written `createdAtIso`. While `/api/budget/remaining` range-filtered
+    on that field, the query matched zero documents for every user, so
+    `remaining` always equalled the untouched monthly budget regardless of how
+    much had been spent.
+    """
+    uid = "user-money-client-shape"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    client.post(
+        "/api/budget/monthly",
+        json={"monthKey": "2026-05", "availableAmount": 10000},
+        headers=h,
+    )
+
+    # Exactly the field set the Flutter client writes - note: no createdAtIso.
+    fake_db.seed(
+        "financial_transactions",
+        "daily_abc123",
+        {
+            "ownerId": uid,
+            "userId": uid,
+            "type": "expense",
+            "source": "daily",
+            "sourceRecordId": "abc123",
+            "category": "Lunch",
+            "title": "Rice and curry",
+            "amount": 120.0,
+            "dateKey": "2026-05-04",
+            "monthKey": "2026-05",
+            "status": "confirmed",
+        },
+    )
+
+    body = client.get("/api/budget/remaining?month_key=2026-05", headers=h).json()
+    assert body["confirmedSpending"] == 120.0, body
+    assert body["remaining"] == 9880.0, body
+    assert body["bySource"]["daily"] == 120.0, body
+
+
+def test_monthly_remaining_treats_a_legacy_row_without_status_as_confirmed(
+    client, fake_db, fake_auth
+):
+    """Rows written before the client stamped `status` must still count.
+
+    Gochano only mirrors a ledger row once the underlying expense/purchase/
+    dose/fare is real, so an untagged historical row is a confirmed one.
+    """
+    uid = "user-money-legacy"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    client.post(
+        "/api/budget/monthly",
+        json={"monthKey": "2026-06", "availableAmount": 2000},
+        headers=h,
+    )
+    fake_db.seed(
+        "financial_transactions",
+        "legacy-1",
+        {
+            "ownerId": uid,
+            "amount": 300.0,
+            "source": "bazar",
+            "monthKey": "2026-06",
+        },
+    )
+
+    body = client.get("/api/budget/remaining?month_key=2026-06", headers=h).json()
+    assert body["confirmedSpending"] == 300.0, body
+    assert body["remaining"] == 1700.0, body
 
 
 def test_monthly_remaining_returns_zero_when_no_budget(client, fake_db, fake_auth):

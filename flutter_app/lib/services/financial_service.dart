@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/financial_transaction.dart';
@@ -47,6 +46,13 @@ class FinancialService {
       'date': Timestamp.fromDate(date),
       'dateKey': dateKey(date),
       'monthKey': monthKey(date),
+      // Gochano only mirrors a ledger row once the underlying thing is real:
+      // a logged daily expense, a *purchased* bazar item, a *taken* medicine
+      // dose, a *confirmed* actual commute fare. Estimated values never reach
+      // this collection, so every row we write is confirmed. Stating it
+      // explicitly means `GET /api/budget/remaining` reads the status from
+      // the document instead of relying on its absent-field default.
+      'status': 'confirmed',
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -279,34 +285,17 @@ class FinancialService {
       batch.delete(financialRef);
     }
 
-    // ---- TEMP DIAGNOSTIC (Phase-7 debug): print auth token claims + payload
-    // summary so we can see WHICH field the financial_transactions rule is
-    // rejecting. Remove after the root cause is identified.
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      final tok = await user?.getIdTokenResult(true);
-      debugPrint('=== BAZAR SAVE DIAG ===');
-      debugPrint('uid             : ${user?.uid}');
-      debugPrint('email           : ${user?.email}');
-      debugPrint('email_verified  : ${user?.emailVerified}');
-      debugPrint('claims          : ${tok?.claims}');
-      debugPrint('purchased       : $purchased');
-      debugPrint('price           : $price');
-      debugPrint('mirrorWrites    : $purchased && $price > 0');
-    } catch (diagErr, st) {
-      debugPrint('BAZAR DIAG ERR   : $diagErr');
-      debugPrint('STACK            : $st');
-    }
-    // ---- END TEMP DIAGNOSTIC ----
-
+    // A Phase-7 debug block used to sit here. It forced a token refresh
+    // (`getIdTokenResult(true)`) on *every* bazar save — a network round trip
+    // per keystroke-driven write — and printed the signed-in email and the
+    // full set of auth claims into the device log. Both are removed: the
+    // performance cost violated spec §83 and the log contents violated §82.
     try {
       await batch.commit();
-    } on FirebaseException catch (fe, st) {
-      debugPrint('=== BAZAR SAVE FIREBASE ERR ===');
-      debugPrint('code    : ${fe.code}');
-      debugPrint('message : ${fe.message}');
-      debugPrint('plugin  : ${fe.plugin}');
-      debugPrint('stack   : $st');
+    } on FirebaseException catch (fe) {
+      // Keep the diagnosis in the log without the identity: the rule that
+      // rejected the write is the useful part.
+      debugPrint('Bazar ledger write rejected: ${fe.code}');
       rethrow;
     }
     return sourceRef.id;

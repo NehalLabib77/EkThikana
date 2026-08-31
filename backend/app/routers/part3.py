@@ -202,21 +202,30 @@ def get_remaining(
     )
     available = float((budget_snap.to_dict() or {}).get("availableAmount", 0.0)) if budget_snap.exists else 0.0
 
-    start = datetime.fromisoformat(month_key + "-01T00:00:00+00:00")
-    if start.month == 12:
-        end = start.replace(year=start.year + 1, month=1)
-    else:
-        end = start.replace(month=start.month + 1)
-
-    # Fetch all rows for the user in window — we filter status="confirmed"
-    # in Python because Firestore composite indexes aren't always present in
-    # production. `status="estimated"` rows (estimated commute, pending
-    # medicine, unpurchased bazar) are NEVER counted toward `remaining`.
+    # Select the month by the ledger's own partition key.
+    #
+    # This previously ran a range filter on ``createdAtIso``. No Gochano
+    # client has ever written that field — ``FinancialService`` stamps
+    # ``date`` / ``dateKey`` / ``monthKey`` and a ``createdAt`` Timestamp — and
+    # a Firestore range filter on an absent field matches nothing. The query
+    # therefore returned zero rows for every user, ``total_confirmed`` was
+    # always 0.0, and ``remaining`` always came back equal to the full monthly
+    # budget no matter how much the student had actually spent.
+    #
+    # ``monthKey`` is the field the client actually partitions on, it is an
+    # equality filter (no composite index beyond ownerId+monthKey), and it
+    # fixes historical rows too — which re-stamping new writes client-side
+    # would not have done. Endpoint path, request and response schema are
+    # unchanged.
+    #
+    # ``status`` is still filtered in Python: rows written before the client
+    # started stamping it are treated as confirmed, which matches how they
+    # were created (Gochano only mirrors a ledger row once the underlying
+    # daily expense / purchase / taken dose / actual fare is real).
     all_rows = (
         db.collection("financial_transactions")
         .where("ownerId", "==", user.uid)
-        .where("createdAtIso", ">=", start.isoformat())
-        .where("createdAtIso", "<", end.isoformat())
+        .where("monthKey", "==", month_key)
         .stream()
     )
 
