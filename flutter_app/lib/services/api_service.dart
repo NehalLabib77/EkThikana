@@ -447,6 +447,78 @@ class ApiService {
     });
   }
 
+  /// PostgreSQL/PostGIS-backed route planning.
+  ///
+  /// This is the richer of the two commute route endpoints. Compared with
+  /// [commuteRoute] it also resolves places against the CommuteBD dataset,
+  /// returns `recommendations` already categorised as recommended / cheapest /
+  /// fastest, and returns `transitCandidates` — real bus services whose stop
+  /// sequences connect the two places, looked up from `bus_service_stops`.
+  ///
+  /// Flutter previously called only `/api/commute/route`, so none of that
+  /// reached the user: the dataset-backed transit lookup was dead code from
+  /// the app's point of view (spec §64).
+  ///
+  /// Pass [originPlaceId]/[destinationPlaceId] from a CommuteBD place search
+  /// result when you have one — the backend needs the canonical place id to
+  /// match BRTA fare segments. Coordinates alone still work and fall back to
+  /// map-only routing.
+  static Future<Map<String, dynamic>> commuteRoutes({
+    String? originPlaceId,
+    String? originName,
+    double? originLat,
+    double? originLon,
+    String? destinationPlaceId,
+    String? destinationName,
+    double? destinationLat,
+    double? destinationLon,
+  }) async {
+    return _decode(
+      await _post(
+        '/api/commute/routes',
+        body: {
+          'origin': {
+            'place_id': ?originPlaceId,
+            'name': ?originName,
+            'lat': ?originLat,
+            'lon': ?originLon,
+          },
+          'destination': {
+            'place_id': ?destinationPlaceId,
+            'name': ?destinationName,
+            'lat': ?destinationLat,
+            'lon': ?destinationLon,
+          },
+        },
+      ),
+    );
+  }
+
+  /// CommuteBD dataset place search (PostgreSQL/PostGIS).
+  ///
+  /// Returns canonical places with the `placeId` that [commuteRoutes] needs
+  /// for official BRTA fare lookup. [commuteSearch] is the wider search that
+  /// also includes free-text geocoder results.
+  static Future<Map<String, dynamic>> commutePlaceSearch(
+    String query, {
+    int limit = 15,
+  }) async =>
+      _decode(await _get(
+        '/api/commute/places/search',
+        query: {'q': query, 'limit': '$limit'},
+      ));
+
+  /// CommuteBD stops within [radiusM] of a coordinate.
+  static Future<Map<String, dynamic>> commuteNearbyStops({
+    required double lat,
+    required double lng,
+    int radiusM = 1500,
+  }) async =>
+      _decode(await _get(
+        '/api/commute/nearby-stops',
+        query: {'lat': '$lat', 'lng': '$lng', 'radius_m': '$radiusM'},
+      ));
+
   static Future<Map<String, dynamic>> reportCommuteFare({
     required String originText,
     required String destinationText,
