@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/app_config.dart';
 import 'core/design_system/gochano_theme.dart';
@@ -41,6 +42,16 @@ class GochanoApp extends StatelessWidget {
           darkTheme: GochanoTheme.dark(),
           themeMode: themeMode,
           locale: locale.locale,
+          // Without these, Flutter falls back to DefaultMaterialLocalizations,
+          // which covers English only -- so every AppBar, TextField, dialog
+          // and bottom sheet threw "No MaterialLocalizations found" the
+          // moment the app was switched to Bangla. English worked, which is
+          // exactly why it survived review.
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           supportedLocales: [
             for (final value in GochanoLocale.values) value.locale,
           ],
