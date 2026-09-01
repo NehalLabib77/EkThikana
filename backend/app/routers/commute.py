@@ -12,6 +12,8 @@ from app.database.repositories.fare_report_repository import insert_fare_report
 from app.schemas import CommuteFareReportRequest, CommuteRouteRequest, CommuteRoutesRequest
 from app.services.commute.data_repository import get_commute_repository
 from app.services.commute.fare_engine import FareEngine
+from app.services.commute.fare_quality import duplicate_key, validate_report
+from app.services.commute.ml_status import readiness as ml_readiness
 from app.services.commute.routing import Coordinate, get_routing_provider
 from app.services.commute.service import get_commute_service
 
@@ -94,6 +96,22 @@ def report_fare(
     if body.trip_minutes is not None and not (1 <= body.trip_minutes <= 720):
         raise HTTPException(status_code=400, detail="Trip duration is invalid")
 
+    # Physics and the shipped fare rules, checked before the report can ever
+    # count as evidence. A rejected report is refused with the actual reason
+    # rather than a generic "invalid", so the student can fix a typo.
+    verdict = validate_report(
+        mode=body.transport_mode,
+        fare_tk=float(body.fare_paid_tk),
+        distance_km=body.route_distance_km,
+        trip_minutes=body.trip_minutes,
+        passenger_count=body.passenger_count,
+    )
+    if verdict.rejected:
+        raise HTTPException(
+            status_code=400,
+            detail=verdict.reasons[0] if verdict.reasons else "Fare report is not plausible",
+        )
+
     rounded_origin = (
         f"{body.origin_lat:.4f},{body.origin_lon:.4f}"
         if body.origin_lat is not None and body.origin_lon is not None
@@ -104,13 +122,18 @@ def report_fare(
         if body.destination_lat is not None and body.destination_lon is not None
         else body.destination_text.strip().lower()
     )
-    minute_bucket = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
-    dedupe = hashlib.sha256(
-        (
-            f"{user.uid}|{body.transport_mode}|{rounded_origin}|"
-            f"{rounded_destination}|{body.fare_paid_tk:.2f}|{minute_bucket}"
-        ).encode("utf-8")
-    ).hexdigest()
+    # An hour-wide window, not a minute-wide one. The duplicates that
+    # actually occur are double taps and retries after a timeout, and a
+    # minute bucket lets a retry at 12:00:59 land in a different bucket from
+    # the original at 12:00:58 -- the exact case this key exists to stop.
+    dedupe = duplicate_key(
+        user_id_hash=user.uid,
+        mode=body.transport_mode,
+        origin=rounded_origin,
+        destination=rounded_destination,
+        fare_tk=float(body.fare_paid_tk),
+        when=datetime.now(timezone.utc),
+    )
 
     row = {
         "user_id_hash": hashlib.sha256(user.uid.encode("utf-8")).hexdigest(),
@@ -149,8 +172,18 @@ def report_fare(
         "accepted": True,
         "reportId": inserted.get("reportId"),
         "moderationStatus": inserted.get("moderationStatus"),
+        # A plausible-but-unusual fare is kept and flagged rather than
+        # discarded: an unusually expensive route is exactly the thing a
+        # student wants warning about later.
+        "quality": verdict.to_dict(),
         "message": "Thank you. The report is pending moderation and is not published as truth yet.",
     }
+
+
+@router.get("/ml-status")
+def ml_status(user: CurrentUser = Depends(get_current_user)):
+    """How far the fare model is from being trainable, with real counts."""
+    return ml_readiness()
 
 
 @router.get("/data-status")

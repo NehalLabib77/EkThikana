@@ -79,3 +79,9 @@ backend/.env
 
 # B2 credentials pasted in by the owner. Never commit.
 /.txt
+
+# Reference OCR projects supplied for study, not part of the build.
+Bangla-OCR-main.zip
+bengali_word_ocr-main.zip
+Bangla-OCR-main/
+bengali_word_ocr-main/

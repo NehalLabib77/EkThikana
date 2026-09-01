@@ -290,15 +290,13 @@ class FareEngine:
 
         for option in options:
             option["badges"] = []
+        # One option can hold several badges -- the cheapest ride is often
+        # also the recommended one, and it says so rather than being listed
+        # twice. Both arms of the old conditionals here did the same thing,
+        # which made the branching read as if some case were handled.
         recommended["badges"].append("Recommended")
-        if cheapest is not recommended:
-            cheapest["badges"].append("Cheapest")
-        else:
-            cheapest["badges"].append("Cheapest")
-        if fastest is not recommended and fastest is not cheapest:
-            fastest["badges"].append("Fastest")
-        else:
-            fastest["badges"].append("Fastest")
+        cheapest["badges"].append("Cheapest")
+        fastest["badges"].append("Fastest")
 
         options.sort(key=lambda o: (0 if "Recommended" in o["badges"] else 1, o["_score"]))
         for option in options:

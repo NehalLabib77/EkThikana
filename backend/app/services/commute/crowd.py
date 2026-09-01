@@ -9,6 +9,7 @@ from sqlalchemy import and_, func, select
 from app.core.config import get_settings
 from app.database.connection import get_sessionmaker
 from app.database.models import UserFareReport
+from app.services.commute.fare_quality import remove_outliers
 
 
 def percentile(values, p):
@@ -112,16 +113,25 @@ class CrowdFareRepository:
             return 0
 
     def aggregate(self, *, mode, origin_text=None, destination_text=None):
-        fares = self.approved_fares(
+        raw = self.approved_fares(
             mode=mode,
             origin_text=origin_text,
             destination_text=destination_text,
         )
+        # One mistyped Tk 5,000 in a sample of thirty Tk 30 fares moves the
+        # q75 a student is shown far more than it should. Prune first, then
+        # judge confidence on what actually remains as evidence -- counting
+        # the discarded reports towards confidence would be the same
+        # over-claim in a different place.
+        pruned = remove_outliers(raw)
+        fares = pruned.kept
+
         confidence = confidence_for_sample_count(len(fares))
         if confidence is None:
             return None
         return {
             "sampleCount": len(fares),
+            "outliersRemoved": pruned.removed_count,
             "q25": round(percentile(fares, 0.25) / 5) * 5,
             "median": round(median(fares) / 5) * 5,
             "q75": round(percentile(fares, 0.75) / 5) * 5,
