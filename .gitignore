@@ -85,3 +85,7 @@ Bangla-OCR-main.zip
 bengali_word_ocr-main.zip
 Bangla-OCR-main/
 bengali_word_ocr-main/
+
+# Reference tessdata repo supplied for study; ben.traineddata is installed
+# on the server by the Dockerfile, not from here.
+tessdata-main/

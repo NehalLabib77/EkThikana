@@ -135,35 +135,50 @@ _install_stub(
     attrs={"convert_from_bytes": lambda *a, **k: []},
 )
 
-# PIL — provide the attributes pypdf probes at import time
-_pil_pkg = types.ModuleType("PIL")
-_pil_pkg.__path__ = []  # mark as package so PIL.Image can live under it
-_pil_pkg.__version__ = "0.0-fake"
-_pil_pkg.isImageFile = lambda *a, **k: False
-sys.modules["PIL"] = _pil_pkg
-_pil_image = types.ModuleType("PIL.Image")
-_pil_image.__version__ = "0.0-fake"
-_pil_image.open = lambda *a, **k: None
-_pil_image.new = lambda *a, **k: None
-sys.modules["PIL.Image"] = _pil_image
-_pil_pkg.Image = _pil_image
+# PIL — use the real Pillow when it is installed, which it is in both the
+# Docker image and any normal dev environment. The stub below exists only so
+# `app.main` can still be imported somewhere Pillow genuinely is not
+# available. Stubbing it unconditionally, as this used to, meant no test could
+# ever exercise the real image preprocessing.
+try:  # pragma: no cover - exercised by which branch the environment takes
+    import PIL  # noqa: F401
+    import PIL.Image  # noqa: F401
+    import PIL.ImageDraw  # noqa: F401
+    import PIL.ImageEnhance  # noqa: F401
+    import PIL.ImageFilter  # noqa: F401
+    import PIL.ImageOps  # noqa: F401
+except Exception:  # pragma: no cover - only on an install without Pillow
+    _pil_pkg = types.ModuleType("PIL")
+    _pil_pkg.__path__ = []  # mark as package so PIL.Image can live under it
+    _pil_pkg.__version__ = "0.0-fake"
+    _pil_pkg.isImageFile = lambda *a, **k: False
+    sys.modules["PIL"] = _pil_pkg
+    _pil_image = types.ModuleType("PIL.Image")
+    _pil_image.__version__ = "0.0-fake"
+    _pil_image.open = lambda *a, **k: None
+    _pil_image.new = lambda *a, **k: None
+    sys.modules["PIL.Image"] = _pil_image
+    _pil_pkg.Image = _pil_image
 
-_pil_enhance = types.ModuleType("PIL.ImageEnhance")
-_pil_enhance.Contrast = lambda image: types.SimpleNamespace(enhance=lambda factor: image)
-sys.modules["PIL.ImageEnhance"] = _pil_enhance
-_pil_pkg.ImageEnhance = _pil_enhance
+    _pil_enhance = types.ModuleType("PIL.ImageEnhance")
+    _pil_enhance.Contrast = lambda image: types.SimpleNamespace(
+        enhance=lambda factor: image
+    )
+    sys.modules["PIL.ImageEnhance"] = _pil_enhance
+    _pil_pkg.ImageEnhance = _pil_enhance
 
-_pil_filter = types.ModuleType("PIL.ImageFilter")
-_pil_filter.SHARPEN = object()
-sys.modules["PIL.ImageFilter"] = _pil_filter
-_pil_pkg.ImageFilter = _pil_filter
+    _pil_filter = types.ModuleType("PIL.ImageFilter")
+    _pil_filter.SHARPEN = object()
+    _pil_filter.MedianFilter = lambda size=3: object()
+    sys.modules["PIL.ImageFilter"] = _pil_filter
+    _pil_pkg.ImageFilter = _pil_filter
 
-_pil_ops = types.ModuleType("PIL.ImageOps")
-_pil_ops.exif_transpose = lambda image: image
-_pil_ops.grayscale = lambda image: image
-_pil_ops.autocontrast = lambda image, cutoff=0: image
-sys.modules["PIL.ImageOps"] = _pil_ops
-_pil_pkg.ImageOps = _pil_ops
+    _pil_ops = types.ModuleType("PIL.ImageOps")
+    _pil_ops.exif_transpose = lambda image: image
+    _pil_ops.grayscale = lambda image: image
+    _pil_ops.autocontrast = lambda image, cutoff=0: image
+    sys.modules["PIL.ImageOps"] = _pil_ops
+    _pil_pkg.ImageOps = _pil_ops
 
 
 # ---------------------------------------------------------------------------
@@ -560,6 +575,17 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     # --- OCR (used by /api/prescriptions/extract) ---
     import app.services.ocr_service as ocr_mod
 
+    def _fake_extraction(data, content_type):
+        # An OCR result with no recognition attached, which is exactly what a
+        # PDF text layer produces. Tests that care about confidence build
+        # their own RecognitionResult instead of relying on this.
+        return ocr_mod.Extraction(
+            text=f"fake-text-bytes={len(data)}",
+            recognition=None,
+            source="ocr",
+        )
+
+    monkeypatch.setattr(ocr_mod, "extract", _fake_extraction)
     monkeypatch.setattr(
         ocr_mod,
         "extract_text",
@@ -576,12 +602,36 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     # hermetic even after other tests have already imported the router.
     import app.routers.prescriptions as _rx_mod
 
+    if hasattr(_rx_mod, "extract"):
+        monkeypatch.setattr(_rx_mod, "extract", _fake_extraction)
     if hasattr(_rx_mod, "extract_text"):
         monkeypatch.setattr(
             _rx_mod,
             "extract_text",
             lambda data, content_type: f"fake-text-bytes={len(data)}",
         )
+
+    # Tesseract is not installed in CI, and the route now refuses to run
+    # without it rather than returning confident-looking nonsense. Report a
+    # working engine so these tests exercise the review-only contract they
+    # are actually about; `test_ocr_pipeline` covers the refusal itself.
+    import app.services.ocr.languages as _lang_mod
+
+    monkeypatch.setattr(
+        _lang_mod,
+        "status",
+        lambda: {
+            "available": True,
+            "reason": None,
+            "tesseractVersion": "5.0.0-test",
+            "installedLanguages": ["ben", "eng"],
+            "missingRequired": [],
+            "missingRecommended": [],
+            "language": "eng+ben",
+            "bengaliSupported": True,
+            "message": "English and Bengali text recognition are both available.",
+        },
+    )
     if hasattr(_rx_mod, "candidate_lines"):
         monkeypatch.setattr(
             _rx_mod,

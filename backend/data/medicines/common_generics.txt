@@ -1,0 +1,289 @@
+# Common generic (INN) medicine names, used only to *suggest* a correction
+# when OCR produces something close to one of them.
+#
+# What this list is
+# -----------------
+# International Nonproprietary Names for medicines commonly dispensed in
+# Bangladesh. These are real generic names, not brand names and not invented
+# entries.
+#
+# What this list is NOT
+# ---------------------
+# It is not complete, and it is not authoritative. A name that does not appear
+# here means only "not in this list" -- never "not a real medicine". Nothing
+# in the app may treat absence from this file as evidence of anything, and no
+# name is ever rewritten automatically on the strength of a match. The list
+# exists to offer the reader a possible correction to confirm or reject.
+#
+# Maintaining it: one lowercase generic name per line, blank lines and lines
+# starting with '#' ignored. Do not add brand names -- a brand match would
+# suggest replacing what the doctor actually wrote.
+
+# --- analgesics, antipyretics, anti-inflammatory ---
+paracetamol
+acetaminophen
+ibuprofen
+naproxen
+diclofenac
+aceclofenac
+ketorolac
+etoricoxib
+indomethacin
+mefenamic acid
+tramadol
+aspirin
+
+# --- antibiotics and antimicrobials ---
+amoxicillin
+ampicillin
+flucloxacillin
+cloxacillin
+azithromycin
+clarithromycin
+erythromycin
+cefixime
+cefuroxime
+cephradine
+ceftriaxone
+cefaclor
+ciprofloxacin
+levofloxacin
+moxifloxacin
+ofloxacin
+doxycycline
+metronidazole
+tinidazole
+secnidazole
+nitrofurantoin
+cotrimoxazole
+gentamicin
+amikacin
+meropenem
+linezolid
+vancomycin
+clindamycin
+rifampicin
+isoniazid
+pyrazinamide
+ethambutol
+
+# --- antifungals and antivirals ---
+fluconazole
+itraconazole
+ketoconazole
+terbinafine
+griseofulvin
+nystatin
+acyclovir
+valacyclovir
+oseltamivir
+
+# --- antihistamines and respiratory ---
+cetirizine
+levocetirizine
+fexofenadine
+loratadine
+desloratadine
+chlorpheniramine
+hydroxyzine
+montelukast
+salbutamol
+salmeterol
+formoterol
+ipratropium
+tiotropium
+budesonide
+fluticasone
+beclometasone
+theophylline
+doxophylline
+ambroxol
+bromhexine
+guaifenesin
+
+# --- gastrointestinal ---
+omeprazole
+esomeprazole
+pantoprazole
+rabeprazole
+lansoprazole
+ranitidine
+famotidine
+domperidone
+metoclopramide
+ondansetron
+sucralfate
+mebeverine
+drotaverine
+hyoscine
+loperamide
+lactulose
+bisacodyl
+ursodeoxycholic acid
+rifaximin
+
+# --- cardiovascular ---
+amlodipine
+nifedipine
+diltiazem
+verapamil
+atenolol
+bisoprolol
+metoprolol
+carvedilol
+propranolol
+nebivolol
+losartan
+valsartan
+telmisartan
+olmesartan
+irbesartan
+candesartan
+enalapril
+lisinopril
+ramipril
+captopril
+hydrochlorothiazide
+furosemide
+torsemide
+spironolactone
+indapamide
+atorvastatin
+rosuvastatin
+simvastatin
+fenofibrate
+clopidogrel
+warfarin
+rivaroxaban
+apixaban
+isosorbide mononitrate
+isosorbide dinitrate
+digoxin
+ivabradine
+
+# --- endocrine and metabolic ---
+metformin
+glimepiride
+gliclazide
+glibenclamide
+sitagliptin
+vildagliptin
+linagliptin
+empagliflozin
+dapagliflozin
+pioglitazone
+insulin
+levothyroxine
+carbimazole
+methimazole
+propylthiouracil
+alendronate
+calcitriol
+cholecalciferol
+
+# --- neurology and psychiatry ---
+amitriptyline
+nortriptyline
+fluoxetine
+sertraline
+escitalopram
+paroxetine
+fluvoxamine
+venlafaxine
+duloxetine
+mirtazapine
+bupropion
+alprazolam
+clonazepam
+diazepam
+lorazepam
+bromazepam
+zolpidem
+olanzapine
+risperidone
+quetiapine
+aripiprazole
+haloperidol
+lithium carbonate
+sodium valproate
+valproic acid
+carbamazepine
+oxcarbazepine
+levetiracetam
+lamotrigine
+phenytoin
+phenobarbital
+topiramate
+gabapentin
+pregabalin
+donepezil
+memantine
+sumatriptan
+flunarizine
+levodopa
+carbidopa
+baclofen
+tizanidine
+
+# --- vitamins, minerals, supplements ---
+folic acid
+ferrous sulphate
+ferrous fumarate
+calcium carbonate
+zinc sulphate
+thiamine
+riboflavin
+pyridoxine
+cyanocobalamin
+ascorbic acid
+tocopherol
+magnesium sulphate
+potassium chloride
+
+# --- corticosteroids and immunology ---
+prednisolone
+methylprednisolone
+dexamethasone
+hydrocortisone
+deflazacort
+betamethasone
+mometasone
+azathioprine
+methotrexate
+hydroxychloroquine
+sulfasalazine
+cyclosporine
+colchicine
+allopurinol
+febuxostat
+
+# --- urology and reproductive health ---
+tamsulosin
+finasteride
+dutasteride
+sildenafil
+tadalafil
+oxybutynin
+solifenacin
+clomifene
+medroxyprogesterone
+norethisterone
+levonorgestrel
+misoprostol
+mifepristone
+tranexamic acid
+
+# --- ophthalmic and topical ---
+timolol
+latanoprost
+brimonidine
+dorzolamide
+olopatadine
+mupirocin
+fusidic acid
+clotrimazole
+miconazole
+permethrin
+ivermectin
+calamine
+silver sulfadiazine

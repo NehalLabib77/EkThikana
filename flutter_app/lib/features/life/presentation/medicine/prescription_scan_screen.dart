@@ -48,6 +48,14 @@ class _PrescriptionScanScreenState extends State<PrescriptionScanScreen> {
   String _fileName = '';
   String _rawText = '';
   String _warning = '';
+
+  /// How well the page was actually read, straight from Tesseract's own
+  /// per-word confidence. Empty until a scan has run.
+  Map<String, dynamic> _quality = const {};
+
+  /// What the server's recogniser can do — notably whether Bengali is
+  /// installed, because without it Bengali instructions are missed.
+  Map<String, dynamic> _engine = const {};
   String _error = '';
   Uint8List? _lastBytes;
   List<Map<String, dynamic>> _candidates = const [];
@@ -93,6 +101,8 @@ class _PrescriptionScanScreenState extends State<PrescriptionScanScreen> {
       _error = '';
       _rawText = '';
       _warning = '';
+      _quality = const {};
+      _engine = const {};
       _candidates = const [];
     });
 
@@ -106,6 +116,12 @@ class _PrescriptionScanScreenState extends State<PrescriptionScanScreen> {
         _busy = false;
         _rawText = result['rawText']?.toString() ?? '';
         _warning = result['warning']?.toString() ?? '';
+        _quality = (result['quality'] as Map?)
+                ?.map((k, v) => MapEntry(k.toString(), v)) ??
+            const {};
+        _engine = (result['engine'] as Map?)
+                ?.map((k, v) => MapEntry(k.toString(), v)) ??
+            const {};
         _candidates = ((result['medicines'] as List?) ?? const [])
             .whereType<Map>()
             .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
@@ -139,7 +155,7 @@ class _PrescriptionScanScreenState extends State<PrescriptionScanScreen> {
   /// medical instruction the student must turn into actual clock times
   /// themselves (spec §57). Any shorthand found is passed through as text in
   /// the instruction field so they can see it while choosing.
-  Future<void> _review(Map<String, dynamic> candidate) async {
+  Future<void> _review(Map<String, dynamic> candidate, {String? useName}) async {
     final instruction = <String>{
       candidate['dose']?.toString() ?? '',
       candidate['instruction']?.toString() ?? '',
@@ -151,7 +167,10 @@ class _PrescriptionScanScreenState extends State<PrescriptionScanScreen> {
       GochanoRoute.to(
         builder: (_) => MedicineFormScreen(
           initialData: {
-            'name': candidate['name']?.toString() ?? '',
+            // Whatever is used here was either read from the page or
+            // explicitly chosen by the reader. Nothing is substituted for
+            // them.
+            'name': useName ?? candidate['name']?.toString() ?? '',
             'instruction': instruction,
           },
           ocrSourceText: candidate['sourceText']?.toString() ?? '',
@@ -247,6 +266,9 @@ class _PrescriptionScanScreenState extends State<PrescriptionScanScreen> {
         const _HowThisWorksNotice(),
 
         if (_hasResult) ...[
+          const SizedBox(height: GochanoSpacing.md),
+          _ReadQuality(quality: _quality, engine: _engine),
+
           SectionHeader(
             title: GochanoLanguage.text(
               'Possible medicines',
@@ -304,6 +326,8 @@ class _PrescriptionScanScreenState extends State<PrescriptionScanScreen> {
                   _CandidateRow(
                     candidate: candidate,
                     onReview: () => _review(candidate),
+                    onUseSuggestion: (name) =>
+                        _review(candidate, useName: name),
                   ),
               ],
             ),
@@ -400,13 +424,22 @@ class _HowThisWorksNotice extends StatelessWidget {
 }
 
 class _CandidateRow extends StatelessWidget {
-  const _CandidateRow({required this.candidate, required this.onReview});
+  const _CandidateRow({
+    required this.candidate,
+    required this.onReview,
+    required this.onUseSuggestion,
+  });
 
   final Map<String, dynamic> candidate;
   final VoidCallback onReview;
 
+  /// Opens the review form with the suggested spelling instead of the one
+  /// that was read. Only ever runs because the reader tapped it.
+  final ValueChanged<String> onUseSuggestion;
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final name = candidate['name']?.toString() ?? '';
     final dose = candidate['dose']?.toString() ?? '';
     final hints = ((candidate['scheduleHints'] as List?) ?? const [])
@@ -418,24 +451,303 @@ class _CandidateRow extends StatelessWidget {
         .where((e) => e.trim().isNotEmpty)
         .toList();
 
-    return GochanoListRow(
-      illustration: GochanoArt.featureMedicine,
-      accent: context.colors.medicine,
-      title: name.isEmpty
-          ? GochanoLanguage.text('Unnamed line', 'নামহীন লাইন')
-          : name,
-      subtitle: dose.isEmpty ? null : dose,
-      metadata: [
-        ...hints,
-        // Explicit clock values are shown as read, and still are not
-        // pre-filled as reminders — the student sets those.
-        ...explicitTimes,
-      ],
-      trailing: TextButton(
-        onPressed: onReview,
-        child: Text(GochanoLanguage.text('Review', 'যাচাই')),
-      ),
+    final band = (candidate['nameConfidence'] as Map?)?['band']?.toString();
+    final suggestion = (candidate['suggestion'] as Map?)
+        ?.map((k, v) => MapEntry(k.toString(), v));
+    final knownGeneric = candidate['recognisedAsKnownGeneric'] == true;
+
+    return AppCard(
       onTap: onReview,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GochanoIllustrationTile(
+                GochanoArt.featureMedicine,
+                accent: colors.medicine,
+                plateSize: 40,
+              ),
+              const SizedBox(width: GochanoSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Always the text that was actually read. A silently
+                    // corrected medicine name is the one mistake this screen
+                    // must never make.
+                    Text(
+                      name.isEmpty
+                          ? GochanoLanguage.text('Unnamed line', 'নামহীন লাইন')
+                          : name,
+                      style: context.type.cardHeading,
+                    ),
+                    if (dose.isNotEmpty)
+                      Text(dose, style: context.type.bodySecondary),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: onReview,
+                child: Text(GochanoLanguage.text('Review', 'যাচাই')),
+              ),
+            ],
+          ),
+
+          if (hints.isNotEmpty || explicitTimes.isNotEmpty) ...[
+            const SizedBox(height: GochanoSpacing.xxs),
+            Text(
+              // Explicit clock values are shown as read and are still not
+              // pre-filled as reminders — the student sets those.
+              [...hints, ...explicitTimes].join(' · '),
+              style: context.type.caption,
+            ),
+          ],
+
+          const SizedBox(height: GochanoSpacing.xs),
+          Wrap(
+            spacing: GochanoSpacing.xxs,
+            runSpacing: GochanoSpacing.xxs,
+            children: [
+              if (band != null) _ConfidenceBadge(band: band),
+              if (knownGeneric)
+                GochanoBadge(
+                  label: GochanoLanguage.text(
+                    'Known generic name',
+                    'পরিচিত জেনেরিক নাম',
+                  ),
+                  tone: GochanoBadgeTone.info,
+                ),
+            ],
+          ),
+
+          // A question, never a correction. Tapping is the only thing that
+          // changes the name, and the reader does the tapping.
+          if (suggestion != null) ...[
+            const SizedBox(height: GochanoSpacing.xs),
+            Container(
+              padding: const EdgeInsets.all(GochanoSpacing.sm),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: GochanoRadius.mdAll,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    GochanoLanguage.text(
+                      'Did you mean "${suggestion['suggested']}"?',
+                      '"${suggestion['suggested']}" বোঝাতে চেয়েছেন?',
+                    ),
+                    style: context.type.body,
+                  ),
+                  Text(
+                    GochanoLanguage.text(
+                      'Only you can decide. Check the prescription itself '
+                      'before changing a medicine name.',
+                      'সিদ্ধান্ত শুধু আপনার। ওষুধের নাম বদলানোর আগে '
+                      'প্রেসক্রিপশনটি নিজে দেখে নিন।',
+                    ),
+                    style: context.type.caption,
+                  ),
+                  const SizedBox(height: GochanoSpacing.xxs),
+                  Wrap(
+                    children: [
+                      TextButton(
+                        onPressed: () => onUseSuggestion(
+                          suggestion['suggested'].toString(),
+                        ),
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Use this spelling',
+                            'এই বানানটি ব্যবহার করুন',
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: onReview,
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Keep as read',
+                            'যেমন পড়া হয়েছে রাখুন',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
+  }
+}
+
+/// How confidently *this name* was read, from Tesseract's own per-word
+/// confidence.
+///
+/// Deliberately a phrase rather than a percentage: the underlying score is an
+/// ordering, not a calibrated probability, and "87%" on a misread medicine
+/// name would imply a precision it does not have.
+class _ConfidenceBadge extends StatelessWidget {
+  const _ConfidenceBadge({required this.band});
+
+  final String band;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, tone) = switch (band) {
+      'high' => (
+          GochanoLanguage.text('Read clearly', 'স্পষ্ট পড়া গেছে'),
+          GochanoBadgeTone.success,
+        ),
+      'medium' => (
+          GochanoLanguage.text('Check this one', 'এটি যাচাই করুন'),
+          GochanoBadgeTone.warning,
+        ),
+      'low' => (
+          GochanoLanguage.text('Hard to read', 'পড়তে কষ্ট হয়েছে'),
+          GochanoBadgeTone.error,
+        ),
+      _ => (
+          GochanoLanguage.text('Not measured', 'মাপা হয়নি'),
+          GochanoBadgeTone.neutral,
+        ),
+    };
+    return GochanoBadge(label: label, tone: tone);
+  }
+}
+
+/// How well the whole page was read, and what the engine could actually do.
+///
+/// Shown above the medicine list because it changes how much of that list to
+/// trust. A page read badly is not a page with fewer medicines on it.
+class _ReadQuality extends StatelessWidget {
+  const _ReadQuality({required this.quality, required this.engine});
+
+  final Map<String, dynamic> quality;
+  final Map<String, dynamic> engine;
+
+  @override
+  Widget build(BuildContext context) {
+    if (quality.isEmpty) return const SizedBox.shrink();
+
+    final colors = context.colors;
+    final band = quality['band']?.toString() ?? 'unknown';
+    final fromPdfText = quality['source']?.toString() == 'pdf_text';
+    final bengaliMissing =
+        engine.isNotEmpty && engine['bengaliSupported'] != true;
+
+    final (message, tone) = fromPdfText
+        ? (
+            GochanoLanguage.text(
+              'Read from the text inside the PDF, so the words below are '
+              'exact.',
+              'পিডিএফের ভেতরের লেখা থেকে পড়া, তাই নিচের শব্দগুলো হুবহু।',
+            ),
+            GochanoBadgeTone.success,
+          )
+        : switch (band) {
+            'high' => (
+                GochanoLanguage.text(
+                  'This page was read clearly. Still check each medicine '
+                  'against the prescription.',
+                  'পাতাটি স্পষ্ট পড়া গেছে। তবুও প্রতিটি ওষুধ প্রেসক্রিপশনের '
+                  'সঙ্গে মিলিয়ে নিন।',
+                ),
+                GochanoBadgeTone.success,
+              ),
+            'medium' => (
+                GochanoLanguage.text(
+                  'Parts of this page were hard to read. Check every medicine '
+                  'and dose carefully.',
+                  'পাতার কিছু অংশ পড়তে কষ্ট হয়েছে। প্রতিটি ওষুধ ও ডোজ ভালো করে '
+                  'যাচাই করুন।',
+                ),
+                GochanoBadgeTone.warning,
+              ),
+            'low' => (
+                GochanoLanguage.text(
+                  'This page was hard to read, so medicines may be wrong or '
+                  'missing. A clearer, well-lit photo usually helps.',
+                  'পাতাটি পড়তে কষ্ট হয়েছে, তাই ওষুধ ভুল বা বাদ পড়তে পারে। আরও '
+                  'পরিষ্কার, ভালো আলোয় তোলা ছবি সাধারণত কাজে দেয়।',
+                ),
+                GochanoBadgeTone.error,
+              ),
+            _ => (
+                GochanoLanguage.text(
+                  'How clearly this page was read could not be measured.',
+                  'পাতাটি কতটা স্পষ্ট পড়া গেছে তা মাপা যায়নি।',
+                ),
+                GochanoBadgeTone.neutral,
+              ),
+          };
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Text(
+                GochanoLanguage.text('Read quality', 'পড়ার মান'),
+                style: context.type.label,
+              ),
+              const SizedBox(width: GochanoSpacing.xxs),
+              GochanoBadge(label: _bandLabel(band, fromPdfText), tone: tone),
+            ],
+          ),
+          const SizedBox(height: GochanoSpacing.xxs),
+          Text(message, style: context.type.bodySecondary),
+
+          // Without the Bengali pack, Bengali instructions are not misread —
+          // they are simply not read at all. Saying so beats dropping them
+          // silently.
+          if (bengaliMissing) ...[
+            const SizedBox(height: GochanoSpacing.xs),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.translate_rounded,
+                  size: GochanoSizes.iconSm,
+                  color: colors.warning,
+                ),
+                const SizedBox(width: GochanoSpacing.xxs),
+                Expanded(
+                  child: Text(
+                    GochanoLanguage.text(
+                      'Bengali text recognition is unavailable on the server, '
+                      'so Bengali instructions were not read.',
+                      'সার্ভারে বাংলা লেখা শনাক্তকরণ নেই, তাই বাংলায় লেখা '
+                      'নির্দেশনা পড়া হয়নি।',
+                    ),
+                    style: context.type.caption.copyWith(color: colors.warning),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _bandLabel(String band, bool fromPdfText) {
+    if (fromPdfText) return GochanoLanguage.text('Exact text', 'হুবহু লেখা');
+    return switch (band) {
+      'high' => GochanoLanguage.text('Clear', 'স্পষ্ট'),
+      'medium' => GochanoLanguage.text('Mixed', 'মিশ্র'),
+      'low' => GochanoLanguage.text('Poor', 'দুর্বল'),
+      _ => GochanoLanguage.text('Unknown', 'অজানা'),
+    };
   }
 }

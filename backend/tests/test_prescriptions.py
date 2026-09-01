@@ -139,10 +139,10 @@ def test_extract_returns_candidates_and_warning_without_saving(
             "lineIndex": 2,
         },
     ]
-    monkeypatch.setattr(ocr_mod, "parse_medicine_candidates", lambda text: sample)
+    monkeypatch.setattr(ocr_mod, "parse_medicine_candidates", lambda text, recognition=None: sample)
     # The router bound parse_medicine_candidates at import time; patch the
     # router's local reference too.
-    monkeypatch.setattr(rx_mod, "parse_medicine_candidates", lambda text: sample)
+    monkeypatch.setattr(rx_mod, "parse_medicine_candidates", lambda text, recognition=None: sample)
 
     # Seed the auth profile FIRST (so get_current_user passes), THEN
     # snapshot — the assertion below proves the extract endpoint did not
