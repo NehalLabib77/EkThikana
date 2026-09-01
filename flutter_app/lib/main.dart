@@ -96,6 +96,8 @@ class _SetupRequiredApp extends StatelessWidget {
                         _kLogoAsset,
                         fit: BoxFit.contain,
                         gaplessPlayback: true,
+                        // Drawn at ~64 logical px inside an 80 px plate.
+                        cacheWidth: 512,
                         semanticLabel: 'Gochano logo',
                       ),
                     ),

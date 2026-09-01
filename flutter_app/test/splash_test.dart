@@ -22,9 +22,18 @@ void main() {
     await tester.pump();
 
     final image = tester.widget<Image>(find.byType(Image));
-    expect((image.image as AssetImage).assetName,
-        'assets/branding/Gochano.png');
+    // `cacheWidth` wraps the provider in a ResizeImage, so unwrap before
+    // asserting. The intent is "the splash shows the brand asset", which the
+    // decode hint does not change.
+    final provider = image.image;
+    final asset = provider is ResizeImage ? provider.imageProvider : provider;
+    expect((asset as AssetImage).assetName, 'assets/branding/Gochano.png');
     expect(image.semanticLabel, isNotNull);
+
+    // And the decode hint itself is load-bearing: the master artwork is 1254
+    // square but drawn at most 240 logical px, so decoding it at full size
+    // costs about 6 MB of RAM for nothing.
+    expect(provider, isA<ResizeImage>());
   });
 
   testWidgets('fires onReady exactly once', (tester) async {

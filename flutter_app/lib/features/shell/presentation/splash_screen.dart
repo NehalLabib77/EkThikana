@@ -92,6 +92,8 @@ class _GochanoSplashScreenState extends State<GochanoSplashScreen> {
                   height: 180,
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
+                  // Capped at 240 logical px by the ConstrainedBox above.
+                  cacheWidth: 1024,
                   semanticLabel: 'Gochano logo',
                 ),
               ),

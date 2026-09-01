@@ -237,6 +237,10 @@ class _BrandMark extends StatelessWidget {
         'assets/branding/Gochano.png',
         fit: BoxFit.contain,
         gaplessPlayback: true,
+        // Drawn at ~64 logical px. The master artwork is 1254 square, which
+        // would decode to roughly 6 MB of RAM; 512 is still far above the
+        // physical size on a 4x display, so nothing looks different.
+        cacheWidth: 512,
         semanticLabel: '${AppConfig.appName} logo',
       ),
     );
