@@ -430,6 +430,111 @@ class FinancialService {
         .snapshots();
   }
 
+  /// Delete a medicine and every trace of it: scheduled doses and any
+  /// expense-mirror rows that were created when a dose was marked taken.
+  ///
+  /// Firestore batches are capped at 500 operations, so the work is split
+  /// into chunks of at most 200 deletes (one medicine delete plus up to 199
+  /// dose + mirror deletes per batch). A chronic-medicine user with years of
+  /// history needs many batches; this method walks until everything is gone.
+  ///
+  /// Cascade behaviour:
+  ///   * ``medicines/{medicineId}`` is removed.
+  ///   * Every ``medicine_doses`` row whose ``medicineId`` matches is
+  ///     removed.
+  ///   * Every ``financial_transactions`` row whose
+  ///     ``source == 'medicine'`` AND whose deterministic ``sourceRecordId``
+  ///     equals a removed dose id is removed (a no-op delete on a doc that
+  ///     was never written is permitted by the financial_transactions
+  ///     delete rule; ``batch.delete`` on a non-existing doc is safe).
+  ///
+  /// ``medicineId`` must belong to the current user. If the medicine is
+  /// missing the call still succeeds (no-op) so the UI can call this from
+  /// a list that just streamed a stale snapshot.
+  static Future<void> deleteMedicine(String medicineId) async {
+    if (medicineId.isEmpty) {
+      throw Exception('Medicine id is required.');
+    }
+
+    final medicineRef = db.collection('medicines').doc(medicineId);
+    final medicineSnap = await medicineRef.get();
+    if (!medicineSnap.exists) {
+      // Already gone. Treat as success so the UI can call this defensively.
+      return;
+    }
+    final medicineData = medicineSnap.data() ?? const <String, dynamic>{};
+    if (medicineData['ownerId'] != uid) {
+      // Firestore rules would refuse anyway; fail fast with a clearer
+      // message instead of the generic "permission-denied".
+      throw Exception('You can only delete your own medicines.');
+    }
+
+    // Walk every dose for this medicine, paging with ``startAfter`` so a
+    // chronic-medicine user with thousands of doses is not capped at the
+    // page-size limit.
+    const pageSize = 200;
+    const maxOpsPerBatch = 200; // 1 medicine + up to 199 dose+mirror pairs.
+
+    QueryDocumentSnapshot<Map<String, dynamic>>? cursor;
+
+    while (true) {
+      var query = db
+          .collection('medicine_doses')
+          .where('ownerId', isEqualTo: uid)
+          .where('medicineId', isEqualTo: medicineId)
+          .orderBy(FieldPath.documentId)
+          .limit(pageSize);
+
+      if (cursor != null) {
+        query = query.startAfter([cursor]);
+      }
+
+      final snap = await query.get();
+      if (snap.docs.isEmpty) {
+        break;
+      }
+
+      // Two deletes per dose (dose row + mirror transaction). Cap each
+      // batch so the 500-operation Firestore limit is never approached.
+      final pairs = <List<DocumentReference<Map<String, dynamic>>>>[];
+      for (final doseDoc in snap.docs) {
+        pairs.add([
+          doseDoc.reference,
+          db
+              .collection('financial_transactions')
+              .doc(transactionId('medicine', doseDoc.id)),
+        ]);
+      }
+
+      var batch = db.batch();
+      var opsInBatch = 0;
+
+      for (final pair in pairs) {
+        if (opsInBatch + 2 > maxOpsPerBatch) {
+          await batch.commit();
+          batch = db.batch();
+          opsInBatch = 0;
+        }
+        batch.delete(pair[0]);
+        batch.delete(pair[1]);
+        opsInBatch += 2;
+      }
+
+      await batch.commit();
+
+      // We page until we get a short page (< pageSize), which is the
+      // only signal Firestore gives that no more docs exist.
+      if (snap.docs.length < pageSize) {
+        break;
+      }
+      cursor = snap.docs.last;
+    }
+
+    // Finally, remove the medicine itself. A direct delete is a single op
+    // so it does not need batching.
+    await medicineRef.delete();
+  }
+
   static Future<String> recordCommuteTrip({
     required String origin,
     required String destination,

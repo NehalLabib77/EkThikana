@@ -42,16 +42,36 @@ service cloud.firestore {
     }
 
     function ownedUpdate() {
+      // Either the existing doc already belongs to this user, OR it is a
+      // legacy/unowned doc that this user's write claims by setting
+      // ownerId == request.auth.uid. Once claimed, ownership cannot move
+      // (request.resource.data.ownerId must equal resource.data.ownerId
+      // when both are present). This unblocks "mark Taken / Skip" on
+      // medicine_doses that pre-date the ownerId column without ever
+      // granting write access to a doc owned by someone else.
       return verified()
-        && resource.data.ownerId == request.auth.uid
-        && request.resource.data.ownerId == resource.data.ownerId;
+        && (
+          resource.data.ownerId == request.auth.uid
+          || (resource.data.ownerId == null
+              && request.resource.data.ownerId == request.auth.uid)
+        )
+        && (
+          resource.data.ownerId == null
+          || request.resource.data.ownerId == resource.data.ownerId
+        );
     }
 
     // -------- PART 3 helpers --------
+    // The group's admin set is stored as the list `adminIds` (plural),
+    // mirroring the backend write in routers/groups.py:47. An earlier
+    // version of this rule read a singular `adminId` and compared with
+    // `==`, which silently denied every admin because a list never
+    // equals a string. With the `in` check on the array we match the
+    // truth on disk and let an admin actually moderate their group.
     function isGroupAdmin(groupId) {
       return isStudent()
         && groupId is string
-        && request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.adminId;
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
     }
 
     function groupHasChatEnabled(groupId) {

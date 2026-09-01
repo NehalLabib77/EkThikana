@@ -627,17 +627,31 @@ class _GroupActivityCard extends StatelessWidget {
 ///
 /// Deliberately five, not fifteen. Everything else is one level deeper under
 /// its own destination.
-class _QuickActions extends StatelessWidget {
+///
+/// The grid is compact (4 columns on a normal phone, 3 on small, 2 on very
+/// small — spec §23) and shows the first four by default. A single trailing
+/// action toggles the fifth into view, keeping the dashboard short without
+/// dropping the option from the surface (spec §86 — no duplicate CTAs).
+class _QuickActions extends StatefulWidget {
   const _QuickActions({required this.isStudent});
 
   final bool isStudent;
+
+  @override
+  State<_QuickActions> createState() => _QuickActionsState();
+}
+
+class _QuickActionsState extends State<_QuickActions> {
+  static const int _collapsedCount = 4;
+
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     final actions = <_QuickAction>[
-      if (isStudent)
+      if (widget.isStudent)
         _QuickAction(
           label: GochanoLanguage.text('Ask AI', 'এআই কে জিজ্ঞাসা'),
           illustration: GochanoArt.featureAi,
@@ -676,24 +690,91 @@ class _QuickActions extends StatelessWidget {
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Three across on a normal phone, two on a small one, so a Bangla
-        // label never has to be truncated (spec §23).
-        final columns = constraints.maxWidth < 340 ? 2 : 3;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: actions.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisExtent: 104,
-            crossAxisSpacing: GochanoSpacing.sm,
-            mainAxisSpacing: GochanoSpacing.sm,
+    // Always render the full list, but animate the trailing cell in/out so
+    // the grid keeps a clean rectangular shape instead of re-flowing.
+    final visibleCount = _expanded ? actions.length : _collapsedCount;
+    final hasOverflow = actions.length > _collapsedCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Four across on a normal phone, three on small, two on very
+            // small — so a Bangla label never has to be truncated (spec §23).
+            final columns = constraints.maxWidth >= 380
+                ? 4
+                : constraints.maxWidth < 340
+                    ? 2
+                    : 3;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: visibleCount,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisExtent: 92,
+                crossAxisSpacing: GochanoSpacing.sm,
+                mainAxisSpacing: GochanoSpacing.sm,
+              ),
+              itemBuilder: (context, i) => actions[i],
+            );
+          },
+        ),
+        if (hasOverflow) ...[
+          const SizedBox(height: GochanoSpacing.xs),
+          _QuickActionsToggle(
+            expanded: _expanded,
+            onToggle: () => setState(() => _expanded = !_expanded),
           ),
-          itemBuilder: (context, i) => actions[i],
-        );
-      },
+        ],
+      ],
+    );
+  }
+}
+
+/// The See more / See less pill beneath the quick-actions grid.
+///
+/// Stays out of the way when the grid already shows everything (5 actions or
+/// fewer). Carries the same iconography as the rest of the app — a chevron,
+/// not an arrow — to match the SectionHeader `action` slot (spec §86).
+class _QuickActionsToggle extends StatelessWidget {
+  const _QuickActionsToggle({
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+    final label = expanded
+        ? GochanoLanguage.text('See less', 'কম দেখুন')
+        : GochanoLanguage.text('See more', 'আরো দেখুন');
+    return Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: TextButton.icon(
+        onPressed: onToggle,
+        style: TextButton.styleFrom(
+          foregroundColor: colors.brand,
+          padding: const EdgeInsets.symmetric(
+            horizontal: GochanoSpacing.sm,
+            vertical: GochanoSpacing.xs,
+          ),
+          minimumSize: const Size(0, 36),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          textStyle: type.label.copyWith(fontWeight: FontWeight.w600),
+        ),
+        icon: AnimatedRotation(
+          turns: expanded ? 0.5 : 0,
+          duration: const Duration(milliseconds: 180),
+          child: const Icon(Icons.expand_more, size: 18),
+        ),
+        label: Text(label),
+      ),
     );
   }
 }

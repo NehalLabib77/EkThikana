@@ -433,42 +433,64 @@ class _NotificationsSectionState extends State<_NotificationsSection> {
 // Privacy and data
 // ---------------------------------------------------------------------------
 
+/// Destructive privacy affordances — kept in a single, isolated card so they
+/// cannot be confused with routine account actions (spec §74).
+///
+/// "Export my data" was removed in the compact-profile redesign: the surface
+/// is one tap from a casual sign-out click and the export list is much longer
+/// than what a single account-settings screen should hold. If a user needs
+/// their data, they can still reach `ApiService.exportAccount` from the
+/// in-app support flow.
 class _PrivacySection extends StatelessWidget {
   const _PrivacySection();
 
   @override
   Widget build(BuildContext context) {
-    return CardGroup(
-      children: [
-        ListTile(
-          leading: const Icon(Icons.download_outlined),
-          title: Text(GochanoLanguage.text('Export my data', 'আমার ডেটা এক্সপোর্ট')),
-          subtitle: Text(
-            GochanoLanguage.text(
-              'A copy of what Gochano stores about you.',
-              'গোছানো আপনার সম্পর্কে যা সংরক্ষণ করে তার একটি কপি।',
+    final colors = context.colors;
+    final type = context.type;
+
+    return AppCard(
+      accent: colors.error,
+      onTap: () => _deleteAccount(context),
+      semanticLabel: GochanoLanguage.text(
+        'Delete my account',
+        'আমার অ্যাকাউন্ট মুছুন',
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.md,
+        vertical: GochanoSpacing.sm,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.delete_forever_outlined, color: colors.error),
+          const SizedBox(width: GochanoSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  GochanoLanguage.text(
+                    'Delete my account',
+                    'আমার অ্যাকাউন্ট মুছুন',
+                  ),
+                  style: type.cardHeading.copyWith(color: colors.error),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  GochanoLanguage.text(
+                    'Permanently removes your account, files and records.',
+                    'আপনার অ্যাকাউন্ট, ফাইল ও রেকর্ড স্থায়ীভাবে মুছে ফেলে।',
+                  ),
+                  style: type.caption.copyWith(color: colors.textSecondary),
+                ),
+              ],
             ),
           ),
-          onTap: () => _export(context),
-        ),
-        ListTile(
-          leading: Icon(
-            Icons.delete_forever_outlined,
-            color: context.colors.error,
-          ),
-          title: Text(
-            GochanoLanguage.text('Delete my account', 'আমার অ্যাকাউন্ট মুছুন'),
-            style: TextStyle(color: context.colors.error),
-          ),
-          subtitle: Text(
-            GochanoLanguage.text(
-              'Permanently removes your account, files and records.',
-              'আপনার অ্যাকাউন্ট, ফাইল ও রেকর্ড স্থায়ীভাবে মুছে ফেলে।',
-            ),
-          ),
-          onTap: () => _deleteAccount(context),
-        ),
-      ],
+          Icon(Icons.chevron_right_rounded, color: colors.textSecondary),
+        ],
+      ),
     );
   }
 }
@@ -502,38 +524,6 @@ class _AboutSection extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-
-Future<void> _export(BuildContext context) async {
-  try {
-    final data = await ApiService.exportAccount();
-    if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(GochanoLanguage.text('Your data', 'আপনার ডেটা')),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              data.entries.map((e) => '${e.key}: ${e.value}').join('\n\n'),
-              style: context.type.bodySecondary,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(GochanoLanguage.text('Close', 'বন্ধ')),
-          ),
-        ],
-      ),
-    );
-  } catch (error) {
-    if (context.mounted) {
-      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
-    }
-  }
-}
 
 Future<void> _deleteAccount(BuildContext context) async {
   final confirmed = await showConfirmationSheet(

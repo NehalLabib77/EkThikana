@@ -145,12 +145,9 @@ class _TasksViewState extends State<TasksView> {
                   'আপনি যেসব কাজ শেষ করবেন সেগুলো এখানে দেখা যাবে।',
                 ),
             },
-            actionLabel: _filter == TaskFilter.completed
-                ? null
-                : GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
-            onAction: _filter == TaskFilter.completed
-                ? null
-                : () => showAddTaskSheet(context),
+            // Spec §25: the floating Add button is the only entry-point.
+            // EmptyState used to render its own "Add task" button too,
+            // which placed two identical CTAs on the same empty screen.
           );
         }
 

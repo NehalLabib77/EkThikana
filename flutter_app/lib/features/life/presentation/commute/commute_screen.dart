@@ -512,7 +512,6 @@ class _FareCard extends StatelessWidget {
     final fareHigh = (option['fareHigh'] as num?)?.toDouble() ?? 0;
     final fareType = option['fareType']?.toString() ?? '';
     final source = option['source']?.toString() ?? '';
-    final confidence = option['confidence']?.toString() ?? '';
     final warning = option['warning']?.toString() ?? '';
     final transfers = (option['transfers'] as num?)?.toInt() ?? 0;
     final badges = ((option['badges'] as List?) ?? const [])
@@ -590,21 +589,16 @@ class _FareCard extends StatelessWidget {
             ),
           ],
 
-          // Where the number came from. This is the part that keeps an
-          // estimate from reading like an official fare.
-          if (source.isNotEmpty || confidence.isNotEmpty) ...[
+// Where the number came from. This is the part that keeps an
+          // estimate from reading like an official fare. The literal
+          // confidence label ("Authoritative" / "Low") was debug-shaped
+          // metadata that surfaced in production cards; the strength of a
+          // fare is already implied by `fareType` and the badge, so we now
+          // show only the human-readable source string (e.g.
+          // "MRT Line 6 official schedule").
+          if (source.isNotEmpty) ...[
             const SizedBox(height: GochanoSpacing.xs),
-            Text(
-              [
-                if (source.isNotEmpty) source,
-                if (confidence.isNotEmpty)
-                  GochanoLanguage.text(
-                    'Confidence: $confidence',
-                    'নির্ভরযোগ্যতা: $confidence',
-                  ),
-              ].join(' · '),
-              style: context.type.caption,
-            ),
+            Text(source, style: context.type.caption),
           ],
 
           if (warning.isNotEmpty) ...[

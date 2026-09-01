@@ -270,7 +270,9 @@ class ApiService {
   }
 
   static Future<List<dynamic>> studyPlan() async =>
-      _decode(await _post('/api/study/plan', body: {'max_items': 8}))['items'] as List<dynamic>;
+      (_decode(await _post('/api/study/plan', body: {'max_items': 8}))['items']
+              as List<dynamic>?) ??
+          <dynamic>[];
 
   static Future<void> reportContent({
     required String targetType,
@@ -385,7 +387,9 @@ class ApiService {
   /// This used to send `limit`, which the route does not declare; FastAPI
   /// ignored it and always applied the default 30-day window.
   static Future<List<dynamic>> listFocus({int days = 30}) async =>
-      _decode(await _get('/api/study/focus/list', query: {'days': '$days'}))['items'] as List<dynamic>;
+      (_decode(await _get('/api/study/focus/list', query: {'days': '$days'}))
+              ['items'] as List<dynamic>?) ??
+      <dynamic>[];
 
   static Future<Map<String, dynamic>> getStudyStats() async =>
       _decode(await _get('/api/study/stats'));
@@ -409,7 +413,8 @@ class ApiService {
       }));
 
   static Future<List<dynamic>> listOffline() async =>
-      _decode(await _get('/api/offline/list'))['items'] as List<dynamic>;
+      (_decode(await _get('/api/offline/list'))['items'] as List<dynamic>?) ??
+      <dynamic>[];
 
   static Future<void> removeOffline(String materialId) async {
     _decode(await _delete('/api/offline/remove/$materialId'));

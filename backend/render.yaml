@@ -36,7 +36,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-3.7-flash
+        value: gemini-2.5-flash
       - key: MAX_UPLOAD_MB
         value: "15"
       - key: USER_STORAGE_LIMIT_MB
