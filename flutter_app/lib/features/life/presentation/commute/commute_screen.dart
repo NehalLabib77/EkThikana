@@ -84,6 +84,44 @@ class _CommuteScreenState extends State<CommuteScreen> {
     });
   }
 
+  /// A map point for [place], or null when its coordinates are unknown.
+  ///
+  /// Most CommuteBD dataset places ship with `geocode_status: pending`, so a
+  /// chosen place often has no coordinates on the device. The server resolves
+  /// them when routes are requested; until then the pin is simply omitted
+  /// rather than guessed at.
+  static LatLng? _pointFor(CommutePlace? place) {
+    final lat = place?.lat;
+    final lon = place?.lon;
+    return (lat == null || lon == null) ? null : LatLng(lat, lon);
+  }
+
+  String _previewCaption() {
+    final pinned = [_pointFor(_origin), _pointFor(_destination)]
+        .whereType<LatLng>()
+        .length;
+
+    if (_origin == null || _destination == null) {
+      return GochanoLanguage.text(
+        'Choose the other place to plan a journey.',
+        'যাত্রাপথ পরিকল্পনা করতে অন্য স্থানটিও বেছে নিন।',
+      );
+    }
+    if (pinned == 2) {
+      return GochanoLanguage.text(
+        'Your start and destination. Tap Find routes for the journey between '
+        'them.',
+        'আপনার শুরু ও গন্তব্য। এদের মধ্যে যাত্রাপথ দেখতে "রুট খুঁজুন" চাপুন।',
+      );
+    }
+    return GochanoLanguage.text(
+      'Only part of this trip can be shown yet — the exact spot for the other '
+      'place is worked out when you tap Find routes.',
+      'এখনো যাত্রার একাংশ দেখানো যাচ্ছে — অন্য স্থানটির সঠিক অবস্থান '
+      '"রুট খুঁজুন" চাপলে বের করা হয়।',
+    );
+  }
+
   Future<void> _findRoutes() async {
     final origin = _origin;
     final destination = _destination;
@@ -152,6 +190,20 @@ class _CommuteScreenState extends State<CommuteScreen> {
             ),
             onPressed: _canSearch ? _findRoutes : null,
           ),
+
+          // The map sits directly under the button so the two places are
+          // visible while they are being chosen, not only after a search
+          // succeeds. Once results arrive the journey map replaces it.
+          if (_result == null && (_origin != null || _destination != null)) ...[
+            const SizedBox(height: GochanoSpacing.md),
+            CommuteRouteMap(
+              polyline: const [],
+              origin: _pointFor(_origin),
+              destination: _pointFor(_destination),
+            ),
+            const SizedBox(height: GochanoSpacing.xxs),
+            Text(_previewCaption(), style: context.type.caption),
+          ],
 
           if (_error.isNotEmpty) ...[
             const SizedBox(height: GochanoSpacing.lg),

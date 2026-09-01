@@ -97,8 +97,15 @@ class OsrmNominatimProvider(MapRoutingProvider):
                     "Accept-Language": "en,bn;q=0.8",
                 },
             )
+        if response.status_code == 429:
+            # Public Nominatim allows roughly one call a second. A raw status
+            # code told the student nothing they could act on.
+            raise RuntimeError(
+                "The map lookup service is busy right now. Wait a few seconds "
+                "and try again."
+            )
         if response.status_code >= 400:
-            raise RuntimeError(f"Geocoding provider error ({response.status_code})")
+            raise RuntimeError(f"Map lookup failed ({response.status_code})")
         items = response.json()
         return [
             {

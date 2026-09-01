@@ -281,7 +281,13 @@ class FinancialService {
         },
         SetOptions(merge: true),
       );
-    } else {
+    } else if (id != null) {
+      // Only an *existing* item can have left a mirror row behind. A brand
+      // new item has no ledger row to clear, and asking to delete one that
+      // has never existed used to fail the security rule -- which rejected
+      // the whole batch, so an item could not be added at all unless it was
+      // marked purchased. That is why adding to the list appeared to require
+      // "Already purchased".
       batch.delete(financialRef);
     }
 

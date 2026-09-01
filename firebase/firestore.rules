@@ -217,7 +217,20 @@ service cloud.firestore {
         && request.resource.data.amount is number
         && request.resource.data.amount >= 0;
 
-      allow read, delete: if verified() && resource.data.ownerId == request.auth.uid;
+      allow read: if verified() && resource.data.ownerId == request.auth.uid;
+
+      // Deleting a mirror row that was never written must be a no-op, not a
+      // denial. A bazar item added but not yet purchased, and a dose marked
+      // skipped or missed, both clear a mirror row that may never have
+      // existed -- and because that delete rides in the same batch as the
+      // item write, a denial here rejected the *whole batch*. The student
+      // could not add an unpurchased item or skip a dose at all, and the
+      // failure surfaced as "You do not have access to this item".
+      //
+      // Permitting a delete when `resource == null` grants nothing: there is
+      // no document to remove and no data to read.
+      allow delete: if verified()
+        && (resource == null || resource.data.ownerId == request.auth.uid);
 
       allow update: if verified()
         && resource.data.ownerId == request.auth.uid

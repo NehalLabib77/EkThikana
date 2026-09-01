@@ -7,6 +7,7 @@ from typing import Any
 from app.schemas import CommutePlaceInput, CommuteRoutesRequest
 from app.services.commute import journey_service
 from app.services.commute.fare_engine import FareEngine
+from app.services.commute.graph_builder import load_coordinates
 from app.services.commute.routing import Coordinate, MapRoutingProvider, get_routing_provider
 from app.database.repositories.postgres_repository import CommutePostgresRepository
 
@@ -43,6 +44,40 @@ class CommuteService:
             "results": self.repo.nearby_stops(lat, lon, radius_m),
         }
 
+    #: Geocoded coordinates keyed by the name that was looked up. Process-wide
+    #: on purpose: a place's coordinates do not change between requests, and
+    #: the public geocoder's rate limit is the binding constraint here.
+    _geocode_cache: dict[str, tuple[float, float] | None] = {}
+
+    async def _geocode_once(self, name: str) -> tuple[float, float] | None:
+        """Geocode a place name at most once per process.
+
+        Returns None when the provider cannot answer -- including when it
+        rate-limits us. A failed lookup for one endpoint must not take down
+        the whole route request; the caller reports which place could not be
+        located, which is far more useful than a provider status code.
+
+        A negative result is cached too. Re-asking a rate-limited provider for
+        a name it has already refused is how a single failure turns into a
+        sustained one.
+        """
+        key = name.strip().lower()
+        if key in self._geocode_cache:
+            return self._geocode_cache[key]
+
+        try:
+            external = await self.routing.search(name, limit=1)
+        except Exception as exc:
+            logger.warning("Geocoding failed for %r: %s", name, exc)
+            self._geocode_cache[key] = None
+            return None
+
+        result = (
+            (float(external[0]["lat"]), float(external[0]["lon"])) if external else None
+        )
+        self._geocode_cache[key] = result
+        return result
+
     async def _resolve_input(self, item: CommutePlaceInput) -> dict[str, Any]:
         place: dict[str, Any] | None = None
         if item.place_id:
@@ -68,17 +103,34 @@ class CommuteService:
             except Exception:
                 lon = None
 
-        # Many imported place rows are intentionally pending geocoding. If
-        # coordinates are missing, resolve only the coordinates through the
-        # configured real geocoder; retain the canonical dataset place id.
+        # Every place row in the shipped dataset is marked
+        # `geocode_status: pending`, so *nothing* has coordinates in the
+        # database. Sending each one to the public Nominatim endpoint meant a
+        # geocode on every single route request, and Nominatim rate-limits at
+        # roughly one call a second -- which is why planning a trip returned
+        # "Geocoding provider error (429)".
+        #
+        # `place_coordinates.csv` already holds coordinates derived from the
+        # OSM master for 154 of those places. Reading them here removes the
+        # network call entirely for anything the derivation covered.
+        if (lat is None or lon is None) and place_id:
+            derived = load_coordinates().get(str(place_id))
+            if derived:
+                lat, lon = derived
+
+        # Only genuinely unknown places reach the geocoder now, and the
+        # answers are cached so the same place is never looked up twice.
         if (lat is None or lon is None) and name:
-            external = await self.routing.search(name, limit=1)
+            external = await self._geocode_once(name)
             if external:
-                lat = float(external[0]["lat"])
-                lon = float(external[0]["lon"])
+                lat, lon = external
 
         if lat is None or lon is None:
-            raise ValueError(f"Coordinates are unavailable for {name or place_id or 'selected place'}")
+            label = name or place_id or "the selected place"
+            raise ValueError(
+                f"Could not find where {label} is on the map. "
+                "Try a nearby landmark instead."
+            )
         return {
             "placeId": place_id,
             "name": name or place_id or "Selected place",
