@@ -7,7 +7,7 @@ from typing import Any
 from app.schemas import CommutePlaceInput, CommuteRoutesRequest
 from app.services.commute import journey_service
 from app.services.commute.fare_engine import FareEngine
-from app.services.commute.graph_builder import load_coordinates
+from app.services.commute.graph_builder import load_coordinates, load_mapped_places
 from app.services.commute.routing import Coordinate, MapRoutingProvider, get_routing_provider
 from app.database.repositories.postgres_repository import CommutePostgresRepository
 
@@ -34,6 +34,46 @@ class CommuteService:
             "source": "postgres",
             "query": query,
             "results": self.repo.search_places(query, limit=limit),
+        }
+
+    def mapped_places(
+        self,
+        *,
+        limit: int = 500,
+        north: float | None = None,
+        south: float | None = None,
+        east: float | None = None,
+        west: float | None = None,
+    ) -> dict[str, Any]:
+        """Places that can be shown as pins on a map.
+
+        Served from the derived coordinate asset rather than the database:
+        every place row ships with `geocode_status: pending`, so the database
+        knows no coordinates at all and a map built from it would be empty.
+
+        A bounding box keeps the payload proportional to what the student is
+        actually looking at. `available` is false when the asset is missing,
+        so the app can say the map has no data instead of showing a blank
+        map and implying there is nothing there.
+        """
+        places = load_mapped_places()
+
+        if None not in (north, south, east, west):
+            places = tuple(
+                place
+                for place in places
+                if south <= float(place["lat"]) <= north
+                and west <= float(place["lon"]) <= east
+            )
+
+        capped = places[: max(1, min(limit, 2000))]
+        return {
+            "available": bool(load_mapped_places()),
+            "source": "derived from the CommuteBD OpenStreetMap master",
+            "count": len(capped),
+            "totalWithCoordinates": len(load_mapped_places()),
+            "truncated": len(capped) < len(places),
+            "places": list(capped),
         }
 
     def nearby_stops(self, lat: float, lon: float, radius_m: int = 1500) -> dict[str, Any]:

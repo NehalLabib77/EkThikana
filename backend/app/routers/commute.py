@@ -210,6 +210,30 @@ def search_places_supabase(
         raise HTTPException(status_code=503, detail="CommuteBD place search is unavailable")
 
 
+@router.get("/places/map")
+def mapped_places(
+    limit: int = Query(default=500, ge=1, le=2000),
+    north: float | None = Query(default=None, ge=-90, le=90),
+    south: float | None = Query(default=None, ge=-90, le=90),
+    east: float | None = Query(default=None, ge=-180, le=180),
+    west: float | None = Query(default=None, ge=-180, le=180),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Places with known coordinates, for picking a trip straight off a map.
+
+    Needs no database: the coordinates are derived from the OpenStreetMap
+    master because the shipped place rows have none.
+    """
+    try:
+        return get_commute_service().mapped_places(
+            limit=limit, north=north, south=south, east=east, west=west
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=503, detail="CommuteBD map places are unavailable"
+        )
+
+
 @router.get("/nearby-stops")
 def nearby_stops(
     lat: float = Query(ge=-90, le=90),

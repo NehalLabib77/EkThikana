@@ -30,6 +30,7 @@ import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../home/presentation/home_screen.dart' show formatTaka;
+import 'commute_map_picker.dart';
 import 'commute_place_picker.dart';
 import 'commute_route_map.dart';
 import 'fare_report_sheet.dart';
@@ -84,42 +85,18 @@ class _CommuteScreenState extends State<CommuteScreen> {
     });
   }
 
-  /// A map point for [place], or null when its coordinates are unknown.
-  ///
-  /// Most CommuteBD dataset places ship with `geocode_status: pending`, so a
-  /// chosen place often has no coordinates on the device. The server resolves
-  /// them when routes are requested; until then the pin is simply omitted
-  /// rather than guessed at.
-  static LatLng? _pointFor(CommutePlace? place) {
-    final lat = place?.lat;
-    final lon = place?.lon;
-    return (lat == null || lon == null) ? null : LatLng(lat, lon);
-  }
-
-  String _previewCaption() {
-    final pinned = [_pointFor(_origin), _pointFor(_destination)]
-        .whereType<LatLng>()
-        .length;
-
-    if (_origin == null || _destination == null) {
-      return GochanoLanguage.text(
-        'Choose the other place to plan a journey.',
-        'যাত্রাপথ পরিকল্পনা করতে অন্য স্থানটিও বেছে নিন।',
-      );
-    }
-    if (pinned == 2) {
-      return GochanoLanguage.text(
-        'Your start and destination. Tap Find routes for the journey between '
-        'them.',
-        'আপনার শুরু ও গন্তব্য। এদের মধ্যে যাত্রাপথ দেখতে "রুট খুঁজুন" চাপুন।',
-      );
-    }
-    return GochanoLanguage.text(
-      'Only part of this trip can be shown yet — the exact spot for the other '
-      'place is worked out when you tap Find routes.',
-      'এখনো যাত্রার একাংশ দেখানো যাচ্ছে — অন্য স্থানটির সঠিক অবস্থান '
-      '"রুট খুঁজুন" চাপলে বের করা হয়।',
-    );
+  /// Fills one end of the trip from a place tapped on the map.
+  void _pickFromMap(CommutePlace place, CommuteEndpoint end) {
+    setState(() {
+      if (end == CommuteEndpoint.origin) {
+        _origin = place;
+      } else {
+        _destination = place;
+      }
+      // A new endpoint invalidates the previous answer.
+      _result = null;
+      _error = '';
+    });
   }
 
   Future<void> _findRoutes() async {
@@ -191,18 +168,16 @@ class _CommuteScreenState extends State<CommuteScreen> {
             onPressed: _canSearch ? _findRoutes : null,
           ),
 
-          // The map sits directly under the button so the two places are
-          // visible while they are being chosen, not only after a search
-          // succeeds. Once results arrive the journey map replaces it.
-          if (_result == null && (_origin != null || _destination != null)) ...[
+          // The map *is* the picker: a trip can be chosen by looking at it
+          // rather than by knowing what a place is called. It stays until
+          // there are results, which bring their own journey map.
+          if (_result == null) ...[
             const SizedBox(height: GochanoSpacing.md),
-            CommuteRouteMap(
-              polyline: const [],
-              origin: _pointFor(_origin),
-              destination: _pointFor(_destination),
+            CommuteMapPicker(
+              origin: _origin,
+              destination: _destination,
+              onPicked: _pickFromMap,
             ),
-            const SizedBox(height: GochanoSpacing.xxs),
-            Text(_previewCaption(), style: context.type.caption),
           ],
 
           if (_error.isNotEmpty) ...[
@@ -211,22 +186,6 @@ class _CommuteScreenState extends State<CommuteScreen> {
               compact: true,
               message: _error,
               onRetry: _canSearch ? _findRoutes : null,
-            ),
-          ],
-
-          if (_result == null && _error.isEmpty && !_searching) ...[
-            const SizedBox(height: GochanoSpacing.xl),
-            EmptyState(
-              compact: true,
-              illustration: GochanoArt.emptyCommute,
-              title: GochanoLanguage.text(
-                'Plan a trip',
-                'একটি যাত্রা পরিকল্পনা করুন',
-              ),
-              message: GochanoLanguage.text(
-                'Choose where you are starting from and where you are going.',
-                'কোথা থেকে শুরু করছেন এবং কোথায় যাচ্ছেন তা বেছে নিন।',
-              ),
             ),
           ],
 

@@ -36,7 +36,11 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-3.7-flash
+        # Must name a model your API key can actually call. `gemini-3.7-flash`
+        # was set here and is not a real model, so every AI request came back
+        # as a provider error. Keep this in step with the default in
+        # app/core/config.py.
+        value: gemini-2.5-flash
       - key: MAX_UPLOAD_MB
         value: "15"
       - key: USER_STORAGE_LIMIT_MB

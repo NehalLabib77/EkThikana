@@ -131,6 +131,52 @@ def load_coordinates() -> dict[str, tuple[float, float]]:
     return out
 
 
+@lru_cache(maxsize=1)
+def load_mapped_places() -> tuple[dict[str, object], ...]:
+    """Places we can actually put on a map, with their names.
+
+    The shipped dataset marks every place `geocode_status: pending`, so the
+    database has no coordinates at all -- which is why a map picker cannot be
+    built from it. `place_coordinates.csv` is the derivation that fixes that,
+    and it already carries the display name beside each coordinate, so this
+    needs no database round trip and works even when Postgres is unreachable.
+
+    Returns an empty tuple when the asset has not been generated. The caller
+    reports that the map has nothing to show rather than inventing pins.
+    """
+    path = DERIVED / "place_coordinates.csv"
+    if not path.exists():
+        return ()
+
+    out: list[dict[str, object]] = []
+    with path.open(encoding="utf-8-sig") as handle:
+        for row in csv.DictReader(handle):
+            name = (row.get("name_en") or "").strip()
+            if not name:
+                # A pin with no name is an internal id on a map. Skip it.
+                continue
+            try:
+                lat = float(row["latitude"])
+                lon = float(row["longitude"])
+            except (TypeError, ValueError, KeyError):
+                continue
+            out.append(
+                {
+                    "placeId": row.get("node_id"),
+                    "name": name,
+                    "lat": lat,
+                    "lon": lon,
+                    "kind": row.get("node_kind") or "place",
+                    "featureType": row.get("osm_fclass") or "",
+                    # How the coordinate was matched to the name. Surfaced so
+                    # a loosely-matched pin is not presented as a survey-grade
+                    # location.
+                    "matchQuality": row.get("match_quality") or "",
+                }
+            )
+    return tuple(out)
+
+
 def _num(value, default: float = 0.0) -> float:
     try:
         if value is None or value == "":

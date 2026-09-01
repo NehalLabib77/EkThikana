@@ -512,6 +512,19 @@ class ApiService {
         query: {'q': query, 'limit': '$limit'},
       ));
 
+  /// CommuteBD places that have a map location, for picking a trip off the
+  /// map rather than by typing a name.
+  ///
+  /// Served from coordinates derived from the OpenStreetMap master, because
+  /// the shipped place rows are all `geocode_status: pending` and carry none.
+  static Future<Map<String, dynamic>> commuteMapPlaces({
+    int limit = 500,
+  }) async =>
+      _decode(await _get(
+        '/api/commute/places/map',
+        query: {'limit': '$limit'},
+      ));
+
   /// CommuteBD stops within [radiusM] of a coordinate.
   static Future<Map<String, dynamic>> commuteNearbyStops({
     required double lat,

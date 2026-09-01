@@ -395,7 +395,10 @@ class FinancialService {
       SetOptions(merge: true),
     );
 
-    if (status == 'taken' && cost > 0) {
+    // Only a *taken* dose with a real price mirrors into the ledger.
+    final mirrors = status == 'taken' && cost > 0;
+
+    if (mirrors) {
       batch.set(
         financialRef,
         {
@@ -412,11 +415,26 @@ class FinancialService {
         },
         SetOptions(merge: true),
       );
-    } else {
-      batch.delete(financialRef);
     }
 
+    // Recording the dose is the real operation. Clearing the mirror row is
+    // derived cleanup, so it runs *after* the commit rather than inside the
+    // batch: a dose with no price (the common case -- most medicines carry no
+    // unit price) used to ask the batch to delete a mirror row that had never
+    // been written, which the security rule denied and which therefore threw
+    // away the dose record too. Marking anything Taken or Skipped failed with
+    // "You do not have access to this item".
     await batch.commit();
+
+    if (!mirrors) {
+      try {
+        await financialRef.delete();
+      } on FirebaseException catch (fe) {
+        // A row that never existed is nothing to clean up. The dose is
+        // already saved, so this must not surface as a failure.
+        debugPrint('Medicine ledger mirror not cleared: ${fe.code}');
+      }
+    }
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> medicineDoseHistory(
