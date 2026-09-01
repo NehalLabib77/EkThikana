@@ -7,18 +7,21 @@
 //     `wifi_off` icon, and a localized "You are offline…" message.
 //   - The banner carries a Semantics label so TalkBack reads it once at
 //     the top of every screen flip (a11y contract from P3-1).
-//   - The banner text follows the EkLanguage.bangla notifier.
-//   - The visible / hidden states are keyed so AnimatedSwitcher can run
-//     a clean slide transition.
+//   - The banner text follows the active GochanoLanguage locale.
+//   - The visible / hidden states are keyed, and the swap is instant: the
+//     banner used to cross-fade over 220ms, which is decorative motion on a
+//     status indicator whose job is to be noticed at once (spec §11).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:gochano/core/language.dart';
+import 'package:gochano/core/design_system/gochano_theme.dart';
+import 'package:gochano/core/localization/gochano_language.dart';
 import 'package:gochano/services/connectivity_service.dart';
 import 'package:gochano/widgets/offline_banner.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
+      theme: GochanoTheme.light(),
       home: Scaffold(body: child),
     );
 
@@ -28,6 +31,7 @@ void main() {
       // state into the next one. `debugForceValue` is the test-only hook
       // documented on ConnectivityService.
       ConnectivityService.instance.debugForceValue(true);
+      GochanoLanguage.current.value = GochanoLocale.english;
     });
 
   testWidgets('renders zero-height placeholder when online', (tester) async {
@@ -49,21 +53,21 @@ void main() {
     expect(find.byKey(const Key('offline-banner-surface')), findsOneWidget);
     expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
 
-    // English default — banner copy is bilingual via EkLanguage.
+    // English default — banner copy is bilingual via GochanoLanguage.
     expect(find.textContaining('You are offline'), findsOneWidget);
   });
 
   testWidgets('renders Bangla copy when language is switched to বাংলা',
       (tester) async {
     ConnectivityService.instance.debugForceValue(false);
-    EkLanguage.bangla.value = true;
+    GochanoLanguage.current.value = GochanoLocale.bangla;
     await tester.pumpWidget(_wrap(const OfflineBanner()));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('অফলাইন'), findsOneWidget);
 
     // Reset so subsequent tests see the English copy.
-    EkLanguage.bangla.value = false;
+    GochanoLanguage.current.value = GochanoLocale.english;
   });
 
   testWidgets('banner has a single Semantics container with offline label',

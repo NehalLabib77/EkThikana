@@ -25,7 +25,6 @@ import '../../../core/page_route.dart';
 import '../../../models/financial_transaction.dart';
 import '../../../services/financial_service.dart';
 import '../../../services/firestore_service.dart';
-import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../life/domain/medicine_schedule.dart';

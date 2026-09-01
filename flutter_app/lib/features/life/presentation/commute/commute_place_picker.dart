@@ -16,6 +16,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
@@ -81,10 +82,73 @@ class _PlacePickerState extends State<_PlacePicker> {
   Timer? _debounce;
 
   bool _searching = false;
+  bool _locating = false;
   String _error = '';
   List<CommutePlace> _datasetResults = const [];
   List<CommutePlace> _mapResults = const [];
   bool _hasSearched = false;
+
+  /// Resolves the device's current position into a usable origin.
+  ///
+  /// Each failure gets its own sentence, because "location unavailable" is
+  /// useless: services off, permission denied and permission permanently
+  /// denied each need a different action from the student (spec §76).
+  Future<void> _useCurrentLocation() async {
+    setState(() {
+      _locating = true;
+      _error = '';
+    });
+
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw const _LocationFailure.servicesOff();
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw const _LocationFailure.deniedForever();
+      }
+      if (permission == LocationPermission.denied) {
+        throw const _LocationFailure.denied();
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(
+        CommutePlace(
+          name: GochanoLanguage.text('Current location', 'বর্তমান লোকেশন'),
+          lat: position.latitude,
+          lon: position.longitude,
+        ),
+      );
+    } on _LocationFailure catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _locating = false;
+        _error = failure.message;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _locating = false;
+        _error = friendlyErrorMessage(
+          error,
+          fallback: GochanoLanguage.text(
+            'Could not get your location. Try searching for a place instead.',
+            'আপনার লোকেশন পাওয়া যায়নি। পরিবর্তে একটি স্থান খুঁজে দেখুন।',
+          ),
+        );
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -220,6 +284,28 @@ class _PlacePickerState extends State<_PlacePicker> {
                     onChanged: _onChanged,
                     onSubmitted: _search,
                   ),
+                  const SizedBox(height: GochanoSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _locating ? null : _useCurrentLocation,
+                      icon: const Icon(
+                        Icons.my_location_rounded,
+                        size: GochanoSizes.iconSm,
+                      ),
+                      label: Text(
+                        _locating
+                            ? GochanoLanguage.text(
+                                'Finding you…',
+                                'আপনাকে খোঁজা হচ্ছে…',
+                              )
+                            : GochanoLanguage.text(
+                                'Use my current location',
+                                'আমার বর্তমান লোকেশন',
+                              ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -341,4 +427,31 @@ class _PlaceRow extends StatelessWidget {
       onTap: onTap,
     );
   }
+}
+
+
+/// A location failure that already carries a sentence for the student.
+class _LocationFailure implements Exception {
+  const _LocationFailure.servicesOff() : _kind = 'servicesOff';
+  const _LocationFailure.denied() : _kind = 'denied';
+  const _LocationFailure.deniedForever() : _kind = 'deniedForever';
+
+  final String _kind;
+
+  String get message => switch (_kind) {
+        'servicesOff' => GochanoLanguage.text(
+            'Location is turned off on this phone. Turn it on and try again.',
+            'এই ফোনে লোকেশন বন্ধ আছে। চালু করে আবার চেষ্টা করুন।',
+          ),
+        'deniedForever' => GochanoLanguage.text(
+            'Location permission is blocked. Allow it for Gochano in Android '
+            'settings, or search for a place instead.',
+            'লোকেশন অনুমতি ব্লক করা আছে। Android সেটিংসে গোছানোর জন্য অনুমতি দিন, অথবা একটি স্থান খুঁজুন।',
+          ),
+        _ => GochanoLanguage.text(
+            'Location permission was not given. You can still search for a '
+            'place.',
+            'লোকেশন অনুমতি দেওয়া হয়নি। আপনি চাইলে স্থান খুঁজে নিতে পারেন।',
+          ),
+      };
 }

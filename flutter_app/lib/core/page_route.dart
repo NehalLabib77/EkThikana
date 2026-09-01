@@ -1,66 +1,30 @@
 import 'package:flutter/material.dart';
 
-import 'design_tokens.dart';
-
-/// Branded page route used by every cross-screen navigation.
+/// The route every cross-screen navigation in Gochano uses.
 ///
-/// Why this exists:
-///   - Default `MaterialPageRoute` on Android uses a left/right slide that
-///     feels generic and ignores our seed color. We want the entire app to
-///     feel like one product.
-///   - Every screen in the app currently calls `MaterialPageRoute(builder:
-///     (_) => …)` (~45 call-sites). Centralising the transition here means
-///     every push animates the same way and theme tokens stay authoritative.
+/// This used to be a `PageRouteBuilder` with a bespoke fade + 24dp rise and
+/// its own duration and curve tokens — a small motion-design system of its
+/// own. Spec §11 rules that out explicitly: no custom page transitions, no
+/// decorative fade or slide entrances, and "do not create a motion-design
+/// system". What is left is the platform's own transition, which §11 permits
+/// as "standard Android/Flutter framework behavior that is unavoidable for
+/// core interaction".
 ///
-/// Behaviour:
-///   - Forward push: new screen fades + slides up ~24 dp.
-///   - Reverse (pop): mirrored.
-///   - Duration / curve: [EkMotion.medium] / [EkMotion.enter] / [EkMotion.exit].
-///   - `fullscreenDialog: true` flips the slide axis to vertical (slides up
-///     from the bottom) so "open as modal" intent still reads visually
-///     distinct (e.g. `MedicineFormScreen` push-from-list).
-class GochanoPageRoute<T> extends PageRouteBuilder<T> {
+/// The wrapper is kept rather than replaced with bare `MaterialPageRoute` at
+/// ~45 call sites, for two reasons:
+///   * `GochanoRoute.to(builder: …)` already reads at every call site, so
+///     nothing has to change to get the corrected behaviour;
+///   * it stays the one place a future transition decision would be made,
+///     instead of that decision being spread across the app again.
+class GochanoPageRoute<T> extends MaterialPageRoute<T> {
   GochanoPageRoute({
-    required WidgetBuilder builder,
+    required super.builder,
     super.settings,
     super.fullscreenDialog,
-  }) : super(
-          transitionDuration: EkMotion.medium,
-          reverseTransitionDuration: EkMotion.medium,
-          opaque: true,
-          pageBuilder: (ctx, anim, secondaryAnim) => builder(ctx),
-          transitionsBuilder: (ctx, anim, secondaryAnim, child) {
-            final curved = CurvedAnimation(
-              parent: anim,
-              curve: EkMotion.enter,
-              reverseCurve: EkMotion.exit,
-            );
-
-            // For modal-style routes we slide up from the bottom; for the
-            // default forward push we slide up by a small offset so the new
-            // screen feels like it is *rising into* the foreground rather
-            // than sliding sideways.
-            final beginOffset = fullscreenDialog
-                ? const Offset(0, 1)
-                : const Offset(0, 0.06);
-
-            final slide = Tween<Offset>(
-              begin: beginOffset,
-              end: Offset.zero,
-            ).animate(curved);
-
-            return FadeTransition(
-              opacity: curved,
-              child: SlideTransition(
-                position: slide,
-                child: child,
-              ),
-            );
-          },
-        );
+  });
 }
 
-/// Convenience accessor for `GochanoPageRoute` so call-sites read like
+/// Convenience accessor so call sites read like
 /// `GochanoRoute.to(builder: (_) => const AiAssistantScreen())`.
 class GochanoRoute {
   const GochanoRoute._();

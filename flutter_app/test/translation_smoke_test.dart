@@ -1,7 +1,7 @@
 // Translation smoke test.
 //
 // Scans every .dart file under lib/ at runtime (we use a build-time embed of
-// the file list), extracts every `EkLanguage.text(en, bn)` literal call-site,
+// the file list), extracts every `GochanoLanguage.text(en, bn)` literal call-site,
 // and asserts:
 //   * both EN and BN sides are non-empty,
 //   * EN does not contain Bengali script characters (U+0980..U+09FF,
@@ -15,7 +15,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('EkLanguage.text literals are bilingual and non-empty', () async {
+  test('GochanoLanguage.text literals are bilingual and non-empty', () async {
     final lib = Directory('lib');
     if (!lib.existsSync()) {
       markTestSkipped('lib/ not present (run from flutter_app)');
@@ -35,7 +35,7 @@ void main() {
     }
 
     expect(findings, isNotEmpty,
-        reason: 'Expected to find EkLanguage.text() call-sites under lib/.');
+        reason: 'Expected to find GochanoLanguage.text() call-sites under lib/.');
 
     final empty = findings.where((f) => f.en.isEmpty || f.bn.isEmpty).toList();
     final swapped = findings
@@ -52,7 +52,7 @@ void main() {
         .toList();
 
     final summary = StringBuffer()
-      ..writeln('Scanned ${findings.length} literal EkLanguage.text() '
+      ..writeln('Scanned ${findings.length} literal GochanoLanguage.text() '
           'call-sites under lib/.')
       ..writeln('  empty:           ${empty.length}')
       ..writeln('  swapped (BN in EN): ${swapped.length}')
@@ -112,7 +112,7 @@ final RegExp _nonSharedBengali =
     RegExp(r'[\u0980-\u09F2\u09F4-\u09FF]');
 final RegExp _interp = RegExp(r'\$\{[^}]*\}');
 final RegExp _callSite = RegExp(
-  r'EkLanguage\.text\(',
+  r'GochanoLanguage\.text\(',
 );
 
 List<_Finding> _extractCallSites(String text, String path) {

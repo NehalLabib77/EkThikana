@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/navigation.dart';
-import '../core/ui.dart';
-import '../screens/life/medicine_screen.dart';
+import '../shared/states/gochano_states.dart';
+import '../shared/widgets/gochano_controls.dart';
+import '../features/life/presentation/medicine/medicine_screen.dart';
 import '../services/financial_service.dart';
 import '../services/notification_service.dart';
 
@@ -76,7 +77,7 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
           );
         }
       } catch (e) {
-        if (context.mounted) showError(context, e);
+        if (context.mounted) showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
       }
       return;
     }
@@ -146,7 +147,7 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
           );
         }
       } catch (e) {
-        if (context.mounted) showError(context, e);
+        if (context.mounted) showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
       }
     }
     quantity.dispose();

@@ -4,8 +4,10 @@ import 'package:pdfrx/pdfrx.dart';
 
 import 'app.dart';
 import 'core/app_config.dart';
+import 'core/design_system/gochano_spacing.dart';
+import 'core/localization/gochano_language.dart';
 import 'core/navigation.dart';
-import 'core/theme.dart';
+import 'core/settings/gochano_appearance.dart';
 import 'firebase_options.dart';
 import 'services/connectivity_service.dart';
 import 'services/notification_service.dart';
@@ -34,6 +36,16 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Restore the saved language and appearance *before* the first frame, so
+    // the app does not paint in English/system and then visibly flip to the
+    // student's choice. Both restores swallow their own failures and fall
+    // back to the default, so neither can block startup.
+    await Future.wait([
+      GochanoLanguage.restore(),
+      GochanoAppearance.restore(),
+    ]);
+
     runApp(const GochanoApp());
     // Defer non-critical platform setup so the first frame paints sooner.
     // Notifications aren't required for the app to be usable, and the
@@ -78,7 +90,7 @@ class _SetupRequiredApp extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: EkShadows.elevated,
+                        boxShadow: GochanoShadows.overlay,
                       ),
                       child: Image.asset(
                         _kLogoAsset,

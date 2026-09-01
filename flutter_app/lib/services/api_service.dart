@@ -380,8 +380,12 @@ class ApiService {
   static Future<Map<String, dynamic>> patchFocus(String focusId, String action) async =>
       _decode(await _patch('/api/study/focus/$focusId', body: {'action': action}));
 
-  static Future<List<dynamic>> listFocus({int limit = 100}) async =>
-      _decode(await _get('/api/study/focus/list', query: {'limit': '$limit'}))['items'] as List<dynamic>;
+  /// Recent focus sessions within the last [days] (backend accepts 1..365).
+  ///
+  /// This used to send `limit`, which the route does not declare; FastAPI
+  /// ignored it and always applied the default 30-day window.
+  static Future<List<dynamic>> listFocus({int days = 30}) async =>
+      _decode(await _get('/api/study/focus/list', query: {'days': '$days'}))['items'] as List<dynamic>;
 
   static Future<Map<String, dynamic>> getStudyStats() async =>
       _decode(await _get('/api/study/stats'));

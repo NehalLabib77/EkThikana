@@ -17,6 +17,7 @@
 // lookup never reached a user (spec §64).
 
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
@@ -30,6 +31,7 @@ import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../home/presentation/home_screen.dart' show formatTaka;
 import 'commute_place_picker.dart';
+import 'commute_route_map.dart';
 import 'fare_report_sheet.dart';
 
 class CommuteScreen extends StatefulWidget {
@@ -317,9 +319,21 @@ class _Results extends StatelessWidget {
         .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
         .toList();
 
-    final originName = (result['origin'] as Map?)?['name']?.toString() ?? '';
-    final destinationName =
-        (result['destination'] as Map?)?['name']?.toString() ?? '';
+    final originMap = result['origin'] as Map?;
+    final destinationMap = result['destination'] as Map?;
+    final originName = originMap?['name']?.toString() ?? '';
+    final destinationName = destinationMap?['name']?.toString() ?? '';
+
+    LatLng? point(Map? place) {
+      final lat = (place?['lat'] as num?)?.toDouble();
+      final lon = (place?['lon'] as num?)?.toDouble();
+      return (lat == null || lon == null) ? null : LatLng(lat, lon);
+    }
+
+    final geometry = ((result['polyline'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,6 +341,12 @@ class _Results extends StatelessWidget {
         SectionHeader(
           title: GochanoLanguage.text('Your trip', 'আপনার যাত্রা'),
         ),
+        CommuteRouteMap(
+          polyline: geometry,
+          origin: point(originMap),
+          destination: point(destinationMap),
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
         Row(
           children: [
             Expanded(

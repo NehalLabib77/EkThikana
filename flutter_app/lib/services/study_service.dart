@@ -16,6 +16,14 @@ class FocusSession {
   final String id;
   final String label;
   final int plannedMinutes;
+
+  /// Seconds of focus accumulated across run/pause cycles.
+  ///
+  /// The backend calls this `accumulatedSeconds` on every response
+  /// (`/study/focus/start`, `PATCH /study/focus/{id}`, `/study/focus/list`).
+  /// This model used to read `elapsedSeconds` / `elapsed_seconds`, which no
+  /// response has ever contained, so the value silently fell back to 0 and
+  /// every finished session showed as zero minutes of focus.
   final int elapsedSeconds;
   final String status; // running | paused | completed | cancelled
   final String dayKey;
@@ -40,7 +48,7 @@ class FocusSession {
       id: readStr('id', 'id'),
       label: readStr('label', 'label'),
       plannedMinutes: readInt('plannedMinutes', 'planned_minutes', 25),
-      elapsedSeconds: readInt('elapsedSeconds', 'elapsed_seconds'),
+      elapsedSeconds: readInt('accumulatedSeconds', 'accumulated_seconds'),
       status: readStr('status', 'status'),
       dayKey: readStr('dayKey', 'day_key'),
       monthKey: readStr('monthKey', 'month_key'),
@@ -104,8 +112,13 @@ class StudyService {
     return FocusSession.fromJson(raw);
   }
 
-  static Future<List<FocusSession>> list({int limit = 100}) async {
-    final raw = await ApiService.listFocus(limit: limit);
+  /// Recent focus sessions.
+  ///
+  /// [days] is the window the backend actually accepts (1..365). The previous
+  /// signature took a `limit`, which `/study/focus/list` does not declare —
+  /// FastAPI dropped it and always returned the default 30-day window.
+  static Future<List<FocusSession>> list({int days = 30}) async {
+    final raw = await ApiService.listFocus(days: days);
     return raw
         .whereType<Map<String, dynamic>>()
         .map(FocusSession.fromJson)

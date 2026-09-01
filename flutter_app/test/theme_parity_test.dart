@@ -1,107 +1,157 @@
-// P3-8 theme parity smoke test.
+// Light/dark parity for the Gochano design system (spec §17, §18).
 //
-// Pins the light/dark contract that the Gochano theme exposes so a
-// future regression (forgetting pageTransitionsTheme on dark, deleting
-// the legacy brutalist helper, hardcoding raw Color(0x...) literals
-// in screens) is caught at PR time rather than at runtime.
+// Dark mode used to be a per-screen problem: `EkColors.card`, `EkColors.text`
+// and raw hex literals were written directly into screens, so a screen was
+// light-mode-correct and dark-mode-broken until someone noticed. The colour
+// system is now a `ThemeExtension`, which makes parity a property of the
+// tokens rather than of each screen — and these tests check the tokens.
 
-import "dart:io";
+import 'dart:io';
 
-import "package:flutter/material.dart";
-import "package:flutter_test/flutter_test.dart";
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
-import "package:gochano/core/theme.dart";
+import 'package:gochano/core/design_system/gochano_colors.dart';
+import 'package:gochano/core/design_system/gochano_spacing.dart';
+import 'package:gochano/core/design_system/gochano_theme.dart';
+
+/// WCAG relative contrast between two opaque colours.
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final lighter = la > lb ? la : lb;
+  final darker = la > lb ? lb : la;
+  return (lighter + 0.05) / (darker + 0.05);
+}
 
 void main() {
-  group("EkTheme.light", () {
-    final light = EkTheme.light();
-
-    test("is a Material3 theme", () {
-      expect(light.useMaterial3, isTrue);
+  group('Both themes define every role', () {
+    test('the extension is registered on light and dark', () {
+      expect(GochanoTheme.light().extension<GochanoColors>(),
+          same(GochanoColors.light));
+      expect(GochanoTheme.dark().extension<GochanoColors>(),
+          same(GochanoColors.dark));
     });
 
-    test("seeds the brand purple", () {
-      expect(light.colorScheme.primary, EkColors.purple);
-    });
-
-    test("exposes a pageTransitionsTheme", () {
-      expect(light.pageTransitionsTheme, isNotNull);
-      expect(
-        light.pageTransitionsTheme.builders[TargetPlatform.android],
-        isA<PredictiveBackPageTransitionsBuilder>(),
-      );
-    });
-  });
-
-  group("EkTheme.dark", () {
-    final dark = EkTheme.dark();
-
-    test("is a Material3 dark theme", () {
-      expect(dark.useMaterial3, isTrue);
-      expect(dark.brightness, Brightness.dark);
-    });
-
-    test("exposes the same pageTransitionsTheme as light", () {
-      final light = EkTheme.light();
-      expect(
-        dark.pageTransitionsTheme.builders[TargetPlatform.android],
-        equals(light.pageTransitionsTheme.builders[TargetPlatform.android]),
-      );
-    });
-
-    test("maps the scaffold background to EkColors.bgDark", () {
-      expect(dark.scaffoldBackgroundColor, EkColors.bgDark);
+    test('light and dark differ on every surface and text role', () {
+      const l = GochanoColors.light;
+      const d = GochanoColors.dark;
+      final pairs = <String, (Color, Color)>{
+        'background': (l.background, d.background),
+        'surface': (l.surface, d.surface),
+        'surfaceVariant': (l.surfaceVariant, d.surfaceVariant),
+        'surfaceElevated': (l.surfaceElevated, d.surfaceElevated),
+        'border': (l.border, d.border),
+        'divider': (l.divider, d.divider),
+        'textPrimary': (l.textPrimary, d.textPrimary),
+        'textSecondary': (l.textSecondary, d.textSecondary),
+        'textTertiary': (l.textTertiary, d.textTertiary),
+        'illustrationPaper': (l.illustrationPaper, d.illustrationPaper),
+      };
+      for (final entry in pairs.entries) {
+        expect(entry.value.$1, isNot(entry.value.$2),
+            reason: '${entry.key} is identical in both themes');
+      }
     });
   });
 
-  group("EkShadows", () {
-    test("elevated has the standard blur 12 / y 4 profile", () {
-      expect(EkShadows.elevated, hasLength(1));
-      expect(EkShadows.elevated.first.blurRadius, 12);
-      expect(EkShadows.elevated.first.offset, const Offset(0, 4));
+  group('Contrast floors', () {
+    test('primary and secondary text clear 4.5:1 on every surface', () {
+      for (final c in [GochanoColors.light, GochanoColors.dark]) {
+        for (final surface in [c.background, c.surface, c.surfaceVariant, c.surfaceElevated]) {
+          expect(_contrast(c.textPrimary, surface), greaterThanOrEqualTo(4.5));
+          expect(_contrast(c.textSecondary, surface), greaterThanOrEqualTo(4.5));
+        }
+      }
     });
 
-    test("hero has the stronger blur 18 / y 6 profile", () {
-      expect(EkShadows.hero, hasLength(1));
-      expect(EkShadows.hero.first.blurRadius, 18);
-      expect(EkShadows.hero.first.offset, const Offset(0, 6));
+    test('tertiary text clears the 3:1 large/secondary floor', () {
+      for (final c in [GochanoColors.light, GochanoColors.dark]) {
+        for (final surface in [c.background, c.surface]) {
+          expect(_contrast(c.textTertiary, surface), greaterThanOrEqualTo(3.0));
+        }
+      }
+    });
+
+    test('text on the brand colour is readable', () {
+      for (final c in [GochanoColors.light, GochanoColors.dark]) {
+        expect(_contrast(c.onBrand, c.brand), greaterThanOrEqualTo(4.5));
+      }
+    });
+
+    test('feature accents are readable on their own surface', () {
+      for (final c in [GochanoColors.light, GochanoColors.dark]) {
+        for (final accent in [
+          c.study,
+          c.ai,
+          c.expense,
+          c.medicine,
+          c.commute,
+          c.community,
+        ]) {
+          expect(_contrast(accent, c.surface), greaterThanOrEqualTo(3.0),
+              reason: 'accent $accent on ${c.surface}');
+        }
+      }
     });
   });
 
-  group("Static guards", () {
-    test("legacy brutalist widget has been removed", () {
-      final file = File("lib/screens/home/widgets/brutalist.dart");
-      expect(file.existsSync(), isFalse,
-          reason: "brutalist.dart is dead since the bento migration");
+  group('Surface ordering', () {
+    test('dark surfaces step up from the background (spec §18)', () {
+      const d = GochanoColors.dark;
+      expect(d.background.computeLuminance(),
+          lessThan(d.surface.computeLuminance()));
+      expect(d.surface.computeLuminance(),
+          lessThan(d.surfaceElevated.computeLuminance()));
     });
 
-    test("app.dart wires ThemeMode.system", () {
-      final src = File("lib/app.dart").readAsStringSync();
-      expect(src.contains("ThemeMode.system"), isTrue,
-          reason: "system theme mode is required for dark parity");
+    test('light scaffold is tinted so white cards read as raised (spec §17)',
+        () {
+      const l = GochanoColors.light;
+      expect(l.background.computeLuminance(),
+          lessThan(l.surface.computeLuminance()));
+    });
+  });
+
+  group('Static guards', () {
+    test('the legacy design layer is gone', () {
+      for (final path in const [
+        'lib/core/theme.dart',
+        'lib/core/design_tokens.dart',
+        'lib/core/language.dart',
+        'lib/core/ui.dart',
+        'lib/widgets/gochano_primitives.dart',
+        'lib/widgets/bento',
+        'lib/screens',
+      ]) {
+        expect(
+          FileSystemEntity.typeSync(path),
+          FileSystemEntityType.notFound,
+          reason: '$path was superseded by the Gochano design system',
+        );
+      }
     });
 
-    test("screens no longer hardcode the elevation shadow literal", () {
+    test('the shadow colour literal lives in exactly one place', () {
       final offenders = <String>[];
-      final lib = Directory("lib");
-      for (final entity in lib.listSync(recursive: true)) {
-        if (entity is! File || !entity.path.endsWith(".dart")) continue;
-        // Allow the token files that own the literal: the legacy
-        // `core/theme.dart` and the Gochano design-system shadow token.
-        if (entity.path.endsWith("theme.dart")) continue;
-        if (entity.path.endsWith("gochano_spacing.dart")) continue;
-        final content = entity.readAsStringSync();
-        if (content.contains("Color(0x14000000)")) {
+      for (final entity in Directory('lib').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        if (entity.path.endsWith('gochano_spacing.dart')) continue;
+        if (entity.readAsStringSync().contains('Color(0x14000000)')) {
           offenders.add(entity.path);
         }
       }
-      expect(
-        offenders,
-        isEmpty,
-        reason: "use EkShadows.elevated/hero instead of raw literal: "
-            "$offenders",
-      );
+      expect(offenders, isEmpty,
+          reason: 'use GochanoShadows.color instead of the literal: $offenders');
+      expect(GochanoShadows.color, const Color(0x14000000));
+    });
+
+    test('app.dart drives themeMode from the saved appearance preference', () {
+      // The app used to hardcode ThemeMode.system with no way to change it;
+      // spec §72 requires an Appearance setting.
+      final src = File('lib/app.dart').readAsStringSync();
+      expect(src.contains('GochanoAppearanceScope'), isTrue);
+      expect(src.contains('themeMode: themeMode'), isTrue);
     });
   });
 }
-
