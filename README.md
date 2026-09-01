@@ -1,1094 +1,1501 @@
 # Gochano
 
-Gochano is an all-in-one student productivity platform that unifies **study
-management**, **daily life organization**, **AI assistance**, and **personal
-finance tracking** into a single Android-first mobile application.
+A calm personal operating system for student life — study materials, tasks,
+money, medicine and getting around Bangladesh, in one Android app.
 
-It was built for students who currently juggle multiple separate apps for
-class notes, group materials, reminders, expense tracking, commute planning,
-and ad-hoc AI help. Gochano collapses those workflows into one cohesive
-ecosystem where academic, daily-life, and financial data share a common
-identity, a common design system, and a common backend.
-
-The application targets two operating modes:
-
-- **Student** — full academic workspace (semesters, subjects, notes,
-  materials, group shared box, study AI, planner) plus personal life tools
-  (medicine, shopping, expenses, commute, tasks).
-- **General** — personal life tools only; academic surfaces are hidden in
-  the UI and denied by backend / Firestore rules.
+> **About this document.** It is the single authoritative description of the
+> project: architecture, feature reference, setup guide, testing guide,
+> deployment guide, troubleshooting, and an honest status report. Every claim
+> about what works is marked with how it was verified. Where something is not
+> implemented, or is implemented but unproven, this document says so plainly
+> rather than rounding up.
+>
+> Last verified: 1 September 2026, against Flutter 3.47.2 / Dart 3.13.2.
 
 ---
 
 ## Table of contents
 
-> Each numbered link below lands on a self-contained segment. The
-> same numbering is reflected in the per-segment headings so you can
-> navigate with Ctrl+F.
-
-**Part A — the project**
-
-1. [What Gochano is, and what it isn't](#1-what-gochano-is-and-what-it-isnt)
-2. [The two operating modes (Student vs General)](#2-the-two-operating-modes-student-vs-general)
-3. [Why this app exists](#3-why-this-app-exists)
-4. [Headline numbers](#4-headline-numbers)
-5. [Quality gates we hold ourselves to](#5-quality-gates-we-hold-ourselves-to)
-
-**Part B — architecture**
-
-6. [Three-layer architecture](#6-three-layer-architecture)
-7. [Operating principles](#7-operating-principles)
-8. [Identity, roles, and authorization model](#8-identity-roles-and-authorization-model)
-9. [Data ownership map](#9-data-ownership-map)
-10. [File storage and signed URLs](#10-file-storage-and-signed-urls)
-11. [The expense ledger contract](#11-the-expense-ledger-contract)
-
-**Part C — the Flutter client**
-
-12. [Flutter app at a glance](#12-flutter-app-at-a-glance)
-13. [Screen layout (`lib/screens/*`)](#13-screen-layout-libscreens)
-14. [Services layer (`lib/services/*`)](#14-services-layer-libservices)
-15. [Models (`lib/models/*`)](#15-models-libmodels)
-16. [Core helpers (`lib/core/*`)](#16-core-helpers-libcore)
-17. [Shared widgets (`lib/widgets/*`)](#17-shared-widgets-libwidgets)
-18. [Theming, design tokens, and a11y](#18-theming-design-tokens-and-a11y)
-19. [Localization (English + Bangla)](#19-localization-english--bangla)
-20. [Notifications](#20-notifications)
-21. [Android build (`android/`)](#21-android-build-android)
-22. [Branding assets (`assets/branding/`)](#22-branding-assets-assetsbranding)
-23. [Flutter tests](#23-flutter-tests)
-
-**Part D — the FastAPI backend**
-
-24. [Backend at a glance](#24-backend-at-a-glance)
-25. [Core (`app/core/`)](#25-core-appcore)
-26. [Routers (`app/routers/`) — every endpoint](#26-routers-approuters--every-endpoint)
-27. [Services (`app/services/`) — business logic](#27-services-appservices--business-logic)
-28. [Database layer (`app/database/`)](#28-database-layer-appdatabase)
-29. [Schemas (`app/schemas.py`)](#29-schemas-appschemaspy)
-30. [`app/main.py` — the FastAPI entrypoint](#30-appmainpy--the-fastapi-entrypoint)
-31. [Bundled datasets (`data/commutebd/`)](#31-bundled-datadatacommutebd)
-32. [ML preparation (`ml/`)](#32-ml-preparation-ml)
-33. [Migrations (`migrations/`)](#33-migrations-migrations)
-34. [Operational scripts (`scripts/`)](#34-operational-scripts-scripts)
-35. [Backend tests (`tests/`)](#35-backend-tests-tests)
-36. [Requirements, Dockerfile, Render blueprint](#36-requirements-dockerfile-render-blueprint)
-
-**Part E — managed services**
-
-37. [Firebase (`firebase/`)](#37-firebase-firebase)
-38. [Supabase (`supabase/`)](#38-supabase-supabase)
-
-**Part F — operator documentation**
-
-39. [`docs/` index](#39-docs-index)
-40. [The P3 / P4 audit timeline](#40-the-p3--p4-audit-timeline)
-41. [Operator scripts under `docs/`](#41-operator-scripts-under-docs)
-
-**Part G — running the project**
-
-42. [Setup from zero](#42-setup-from-zero)
-43. [Environment variables — backend](#43-environment-variables--backend)
-44. [Environment variables — Flutter](#44-environment-variables--flutter)
-45. [Local phone testing](#45-local-phone-testing)
-46. [Build a release APK or AAB](#46-build-a-release-apk-or-aabb)
-47. [Deploy to Render](#47-deploy-to-render)
-48. [Bringing Firebase online](#48-bringing-firebase-online)
-49. [Bringing Supabase online](#49-bringing-supabase-online)
-
-**Part H — operations & governance**
-
-50. [Security posture](#50-security-posture)
-51. [Observability (P4-1)](#51-observability-p4-1)
-52. [Troubleshooting entrypoints](#52-troubleshooting-entrypoints)
-53. [Roadmap](#53-roadmap)
-54. [License, contribution, code of conduct](#54-license-contribution-code-of-conduct)
+1. [Project overview](#1-project-overview)
+2. [Problem statement](#2-problem-statement)
+3. [Objectives](#3-objectives)
+4. [Target user](#4-target-user)
+5. [Application structure](#5-application-structure)
+6. [Complete feature overview](#6-complete-feature-overview)
+7. [Home](#7-home) · [Study](#8-study-workspace) · [Materials](#9-notes-pdfs-and-materials) · [Tasks](#10-tasks) · [Planner](#11-planner) · [Focus](#12-focus-sessions)
+8. [AI assistant](#13-ai-assistant)
+9. [Study groups](#14-study-groups) · [Chat](#15-group-chat) · [Resource sharing](#16-group-resource-sharing)
+10. [Expense](#17-expense) · [Grocery](#18-grocery--bazar)
+11. [Medicine](#19-medicine) · [Prescription OCR](#20-prescription-ocr)
+12. [CommuteBD](#21-commutebd)
+13. [Community](#22-community) · [Profile](#23-profile)
+14. [UI/UX design system](#24-uiux-design-system)
+15. [Technology stack](#25-technology-stack)
+16. [System architecture](#26-system-architecture)
+17. [Data ownership](#27-data-ownership)
+18. [Authentication flow](#28-authentication-flow)
+19. [Firestore architecture](#29-firestore-architecture)
+20. [Backblaze B2 architecture](#30-backblaze-b2-architecture)
+21. [AI architecture](#31-ai-architecture) · [PDF/material AI flow](#32-pdfmaterial-ai-flow)
+22. [OCR architecture](#33-ocr-architecture)
+23. [ML model inventory](#34-ml-model-inventory)
+24. [CommuteBD architecture](#35-commutebd-architecture)
+25. [Expense architecture](#36-expense-architecture) · [Medicine architecture](#37-medicine-architecture)
+26. [Notification architecture](#38-notification-architecture) · [Localization](#39-localization)
+27. [Folder structure](#40-folder-structure)
+28. [Environment variables](#41-environment-variables)
+29. [Setup guides](#42-local-development-setup) — [Firebase](#43-firebase-setup) · [Neon/PostGIS](#44-neonpostgis-setup) · [Backblaze B2](#45-backblaze-b2-setup) · [Gemini](#46-gemini-setup) · [Render](#47-render-setup) · [Android](#48-android-setup)
+30. [How to run](#49-how-to-run-the-flutter-app) · [Backend](#50-how-to-run-the-backend) · [Testing](#51-testing)
+31. [Feature verification table](#52-feature-verification-table)
+32. [Security](#53-security) · [Privacy](#54-privacy) · [Known limitations](#55-known-limitations)
+33. [Troubleshooting](#56-troubleshooting)
+34. [What the project owner must do](#57-what-the-project-owner-must-do)
+35. [What the application does automatically](#58-what-the-application-does-automatically)
+36. [How every feature works](#59-how-every-feature-works)
+37. [Deployment checklist](#60-deployment-checklist) · [Production readiness](#61-production-readiness-checklist)
+38. [Future scope](#62-future-scope) · [Final project status](#63-final-project-status)
 
 ---
 
-> **How to read this README.** Parts A–H walk the project
-> end-to-end. Part A is the elevator pitch and the headline
-> numbers. Part B is the architecture you must understand before
-> touching any code. Parts C and D are file-by-file inventories of
-> the Flutter client and the FastAPI backend. Part E covers the
-> managed services. Part F indexes `docs/`. Part G is the runbook.
-> Part H is the operational and governance posture.
->
-> Every number on the dashboard at §4 is a fact pinned by tests —
-> not aspirational. Cross-check against `docs/RELEASE_NOTES.md` and
-> `docs/PHASE_*` audit docs.
+## 1. Project overview
 
----
+Gochano is a student-centred Android application that keeps the parts of
+student life that normally live in five different apps in one place:
 
-## 1. What Gochano is, and what it isn't
+- **Study** — semesters, subjects, PDFs, images, written notes, tasks, a
+  planner, focus sessions, and an AI assistant that answers questions about
+  the student's own material.
+- **Life** — one expense module covering daily spending and grocery, a
+  medicine reminder system with prescription scanning, and CommuteBD, a
+  Bangladesh transport fare and route assistant.
+- **Community** — private study groups with shared resources and chat.
+- **Profile** — account, statistics, language, appearance, notifications and
+  data controls.
 
-Gochano is an **all-in-one student productivity platform** that
-unifies **study management**, **daily life organization**, **AI
-assistance**, and **personal finance tracking** into a single
-Android-first mobile application.
+A Flutter app talks to Firebase directly for authentication and its own
+documents, and to a FastAPI backend on Render for everything that needs a
+secret: private file storage, AI, OCR, quota enforcement and the CommuteBD
+dataset.
 
-It was built for students who currently juggle multiple separate
-apps for class notes, group materials, reminders, expense tracking,
-commute planning, and ad-hoc AI help. Gochano collapses those
-workflows into one cohesive ecosystem where academic, daily-life,
-and financial data share a common identity, a common design system,
-and a common backend.
+## 2. Problem statement
 
-| It **is** | It **is not** |
+A university student in Bangladesh typically juggles:
+
+- lecture PDFs scattered across WhatsApp, Drive and a phone's Downloads
+  folder, with no notion of which subject they belong to;
+- a mental list of deadlines;
+- a monthly allowance tracked, if at all, in a notes app;
+- a prescription photo they will forget the schedule from;
+- and a daily commute whose fare they have no reliable way to check —
+  official BRTA and metro fares exist but are not in any usable app, and
+  rickshaw and CNG fares are pure negotiation.
+
+Each of those has an app. None of them talk to each other, and most of them
+are not built for this context. Gochano's premise is that a single, calm,
+bilingual app that answers "what should I do today, and what will it cost"
+is more useful than five specialised ones.
+
+## 3. Objectives
+
+1. Put a student's study materials somewhere they can be found by subject.
+2. Let AI answer questions about *their* material, not the internet's.
+3. Give one honest number for money spent this month, across every source.
+4. Remind reliably about medicine without ever prescribing anything.
+5. Make Bangladesh transport fares legible, with the provenance of every
+   number shown.
+6. Work in English and Bangla, in light and dark, on a cheap Android phone.
+
+## 4. Target user
+
+University students in Bangladesh, on Android, often on a mid-range or
+budget device and a metered connection. The interface is student-friendly
+without being childish; the copy is plain, and every screen works in Bangla.
+
+Two account roles exist:
+
+| Role | Gets |
 |---|---|
-| A Flutter Android app with a clear Student / General split | A cross-platform iOS app (Android-only by target SDK choice) |
-| A FastAPI backend on Render | A multi-cloud deployment (Render is the supported target) |
-| A project that owns its data layer (Firestore + Supabase) | A thin wrapper around a SaaS |
-| A research vehicle for fares (BRTA buses, DMTCL Metro) | A general ride-hailing aggregator |
-| An opinionated product — chat / DM / MCQ / quiz are explicitly **out of scope** | A platform that grows features by community vote |
+| `student` | Everything: Home, Study, Life, Community, Profile |
+| `general` | Home, Life, Tasks, Profile |
 
-The app targets two operating modes:
+The split is not a UI choice — Study, Groups, AI and Materials are all
+behind `require_student` on the backend, so a general account would receive a
+403 from every action on those screens.
 
-- **Student** — full academic workspace (semesters, subjects, notes,
-  materials, group shared box, study AI, planner) plus personal life
-  tools (medicine, shopping, expenses, commute, tasks).
-- **General** — personal life tools only; academic surfaces are hidden
-  in the UI and denied by backend / Firestore rules.
-
----
-
-## 2. The two operating modes (Student vs General)
-
-The role is enforced in three places: UI hiding, backend routes, and
-Firestore security rules. None of them is sufficient on its own.
-
-| Capability | Student role | General role |
-|---|---|---|
-| Semesters / subjects / notes / materials | ✅ | ❌ (UI hidden, backend denies) |
-| Public Study Library / Community Library | ✅ | ❌ |
-| Study Groups + shared box + optional chat | ✅ | ❌ |
-| Study Planner | ✅ | ❌ |
-| Study AI (note cleanup, summarize, PDF Q&A) | ✅ | ❌ (gated on `/api/ai/*`) |
-| Medicine | ✅ | ✅ |
-| BazarBuddy (shopping) | ✅ | ✅ |
-| Daily Expenses | ✅ | ✅ |
-| CommuteBD | ✅ | ✅ |
-| Tasks & Reminders | ✅ | ✅ |
-| Profile / expense summary / export / delete | ✅ | ✅ |
-| Universal Search | role-aware | role-aware |
-
-Each capability requires different data shapes, different collections,
-and different backend routes. The three-enforcement rule keeps the
-client from being trusted for authorization.
-
----
-
-## 3. Why this app exists
-
-Students typically piece together six separate apps:
-
-1. A notes / PDF reader
-2. A shared study-group chat or shared drive
-3. A medicine / prescription tracker
-4. A shopping list
-5. A daily-expense tracker
-6. A commute planner for an unfamiliar city
-7. A task / reminder app
-8. An AI assistant for explaining notes and PDFs
-
-Gochano bundles all eight into one app with **a single sign-in, a
-single identity, and a single source of truth for expenses**. The
-goal isn't to be best-in-class in any single category — it's to be
-best-in-class at the *hand-off* between them (a medicine dose
-becomes an expense line; a purchase becomes an expense line; a
-confirmed commute fare becomes an expense line; all flow into the
-same daily / monthly / category aggregations).
-
-The specific problems this solves:
-
-- **Context switching** — academic, daily-life, and personal-finance
-  data live in one app with one identity.
-- **Group sharing** — students form a shared box for materials; an
-  optional per-group chat can be enabled by the group owner.
-- **Real money visibility** — a single idempotent expense ledger
-  records daily spend, shopping purchases, taken medicine doses, and
-  confirmed commute fares only.
-- **AI without leaking secrets** — Gemini runs only on the backend;
-  the Flutter client never holds an AI key.
-- **Privacy** — files sit in a private Supabase bucket and are
-  streamed via short-lived signed URLs.
-
-
-# Part A — the project
-## 4. Headline numbers
-
-Every number below is a fact pinned by tests — not aspirational.
-Cross-check against `docs/RELEASE_NOTES.md` and the per-phase audit
-documents in `docs/PHASE_*`.
-
-| Metric | Value | Source |
-|---|---:|---|
-| Backend pytest cases | 138 passing | `backend/tests/` |
-| Flutter test cases | 126 passing | `flutter_app/test/` |
-| Flutter analyzer issues | 0 | `flutter analyze` |
-| Backend route modules | 12 + Internal + Health | `backend/app/routers/` |
-| Flutter screens | ~25 | `flutter_app/lib/screens/` |
-| Localizations | 2 (English, Bangla) | `lib/core/language/` |
-| Audit phases shipped | P3-9, P3-10, P3-11, P4-1 | `docs/PHASE_*` |
-| Security regressions pinned | 16 | `test_security_audit.py` |
-| Performance regressions pinned | 11 | `test_performance_audit.py` |
-| A11y regressions pinned | 20 | `accessibility_audit_test.dart` |
-| Latency invariants pinned | 10 | `test_latency_middleware.py` |
-| Signed-URL TTL | 900 s (15 min) | `app/services/storage.py` |
-| Per-route latency window | 128 samples default | `app/core/latency.py` |
-| Quota cache | per-user O(1) | `app/services/quotas.py` |
-| OCR languages | `eng+ben` (Tesseract) | `app/services/ocr.py` |
-
----
-
-## 5. Quality gates we hold ourselves to
-
-Every PR is expected to keep these gates green:
-
-- `cd flutter_app && flutter analyze` → no issues.
-- `cd flutter_app && flutter test` → 126/126.
-- `cd backend && python -m pytest -q` → 138 passed.
-- No secrets in the repo (`grep -r "service_role\|BEGIN PRIVATE KEY"`).
-- Architectural conformance with `docs/ARCHITECTURE.md`.
-
-If a new feature changes one of the numbers in §4 — the test count,
-the route count, the latency window default, the OCR language, the
-signed-URL TTL — the change must be accompanied by an update to
-the corresponding doc (phase audit, release notes, or this README).
-A silent drift on these numbers is treated as a regression.
-
----
-
-# Part B — architecture
-
-## 6. Three-layer architecture
+## 5. Application structure
 
 ```text
-+--------------------------------------------------+
-|  Flutter Android client                          |
-|   + Firebase Auth (email/password)               |
-|   + Cloud Firestore (owner-scoped reads)         |
-|   + HTTPS client  -->  FastAPI backend           |
-+----------------------------+---------------------+
-                             |
-                             v
-+--------------------------------------------------+
-|  FastAPI backend (Render)                        |
-|   + Firebase Admin SDK (token verification)      |
-|   + Supabase Storage (signed URLs, 900s TTL)     |
-|   + Gemini API (Study AI — server-side only)     |
-|   + Tesseract OCR (eng+ben) — server-side        |
-|   + OSM-compatible map / routing                 |
-|   + Per-endpoint latency recorder (P4-1)         |
-+----------------------------+---------------------+
-                             |
-                             v
-+--------------------------------------------------+
-|  Managed services                                |
-|   + Firebase (Auth + Firestore)                  |
-|   + Supabase (PostgreSQL + private Storage)      |
-|   + Google Gemini (AI)                           |
-+--------------------------------------------------+
+Home        what matters right now
+Study       workspace, tasks, planner, focus  (+ AI and search)
+Life        expense, medicine, CommuteBD
+Community   study groups
+Profile     account and settings
 ```
 
-### Layer responsibilities
+Five bottom-navigation destinations for students, four for general accounts.
+State is preserved between destinations, so switching tabs does not discard a
+half-typed expense.
 
-- **Flutter client** — UI, navigation, local caching, secure ID-token
-  storage, optimistic UI, and presentation of all data.
-- **FastAPI backend** — privileged operations: storage uploads,
-  downloads with signed URLs, Gemini calls, OCR, fare lookups,
-  account export / delete, and any operation that requires a
-  service key.
-- **Managed services** — Firebase / Supabase / Gemini are touched
-  **only** through the backend or directly from the Flutter client
-  where the operation is owner-scoped and does not require a
-  service key.
+## 6. Complete feature overview
 
-## 7. Operating principles
+| Area | What it does |
+|---|---|
+| Home | Continue studying, today's tasks (with working checkboxes), next medicine, month's money split by source, group activity, five quick actions |
+| Workspace | Semesters → subjects → materials; recent materials and notes surfaced at the top |
+| Materials | Upload PDF/JPEG/PNG/DOC/DOCX, search, sort, rename, delete, save, open, share to a group |
+| Notes | Written notes with four real AI actions: clean up, summarise, explain, extract key points |
+| Reader | In-app PDF and image viewing, per-student page memory, "Ask AI about this" |
+| Tasks | Today / Upcoming / Completed, due dates, reminders, complete/undo/delete |
+| Planner | Deterministic priority order from the backend, plus a day-by-day agenda |
+| Focus | Timed focus sessions with pause/resume/finish and history |
+| AI | General academic questions, plus material-grounded answers for PDFs and images |
+| Groups | Create, join by invite code, leave; Overview / Resources / Chat / Members |
+| Expense | Overview, daily expenses, grocery, history — one ledger, one total |
+| Medicine | Today's doses, reminders, taken/skipped/missed, history, prescription scanning |
+| CommuteBD | Route planning with official/estimated fares, a static route map, post-trip actual fare |
+| Search | Across materials, notes and tasks |
+| Profile | Account, study stats, monthly money, language, appearance, notifications, data export, account deletion |
 
-These are the rules every PR is measured against:
+---
 
-1. **The Flutter app never receives a service-role key or AI key.**
-   Secrets live only on the backend, only in Render env vars
-   (production) or `backend/.env` (development).
-2. **Render's local disk is ephemeral.** All long-lived files live
-   in Supabase and are served through short-lived signed URLs.
-3. **Roles are enforced in three places:** UI hides, backend routes
-   deny, Firestore rules deny. None of them is sufficient alone.
-4. **The expense ledger is append-only per source record** with
-   deterministic IDs. Retrying a network call never duplicates a
-   charge.
-5. **OCR is a suggestion.** The user must confirm before any
-   medicine record, dose schedule, or reminder is created. OCR
-   never writes to the expense ledger directly.
-6. **AI lives only on the backend.** The Flutter app never talks to
-   Gemini. AI prompts and responses are logged server-side for
-   audit.
-7. **Files are private.** The Supabase bucket is private; signed
-   URLs expire within 15 minutes.
-8. **Public deploys assume the safest default.** Endpoints that
-   shouldn't be publicly reachable must return **404** when not
-   configured (e.g. `GET /api/_internal/latency`), not 401.
+## 7. Home
 
-## 8. Identity, roles, and authorization model
+Home answers "what matters to me right now?" — it is a briefing, not a
+directory of features. Sections in priority order: continue studying, today's
+tasks, next medicine, this month's money, group activity, quick actions.
 
-### Identity
+Each section owns its own Firestore stream, so adding a task rebuilds the
+tasks card rather than the whole dashboard.
 
-- **Firebase Authentication** with email / password.
-- The Flutter app receives a Firebase ID token at sign-in.
-- Every protected backend call sends
-  `Authorization: Bearer <id_token>`.
-- The backend verifies the token with the Firebase Admin SDK before
-  any data is touched.
+Quick actions: Ask AI, Add expense, Add task, Scan prescription, Find a route.
 
-### Roles
+## 8. Study workspace
 
-- The role is a custom claim on the Firebase user
-  (`role: "student" | "general"`).
-- The role is set **only** by the backend, on the `POST /api/users`
-  endpoint, and **cannot** be supplied by the client.
-- Revoked tokens are rejected with HTTP 401.
-- Unverified emails are rejected with HTTP 403.
+`Semester → Subject → Materials`. Recent materials and recent notes sit
+*above* the semester list, because the file a student wants is usually the one
+they were reading yesterday and making them walk the hierarchy to reach it is
+three taps of pure structure.
 
-### Authorization surfaces
+Each subject gets a static illustration chosen by keyword matching on its
+name — "Machine Learning Lab" resolves to the AI drawing, "পদার্থবিজ্ঞান" to
+the physics one, and anything unrecognised to a generic study drawing. There
+is no state in which a subject renders a missing icon.
 
-| Surface | Owner-scoped? | Role-gated? |
+## 9. Notes, PDFs and materials
+
+Two distinct things:
+
+- **Materials** are uploaded files. They go through
+  `POST /api/materials/upload`, which enforces the per-user storage quota and
+  the daily upload limit, writes the object to Backblaze B2, and creates the
+  Firestore document — in that order, rolling back the object if the document
+  write fails.
+- **Notes** are written in the app and live in the `notes` collection. They
+  are the one material type `POST /api/ai/note` operates on directly.
+
+Accepted upload types are exactly what the backend sniffs by magic bytes:
+**PDF, PNG, JPEG, DOC, DOCX**. The Flutter file picker allows exactly this
+set — no more (which would send the student to a 415) and no less (which
+would block a format the API supports).
+
+## 10. Tasks
+
+Today / Upcoming / Completed. No Kanban. A task with no due date counts as
+"today", because an undated task is something to deal with now rather than
+something to hide.
+
+Completing a task cancels its reminder; un-completing restores it. Editing
+reschedules through a single primitive that recycles the notification id, so
+an edited task cannot leave a stale reminder queued alongside the new one.
+
+## 11. Planner
+
+`POST /api/study/plan` ranks unfinished tasks by deadline urgency — overdue
+first, then soonest. It is deterministic arithmetic and the endpoint reports
+its own method; the screen calls it "suggested order" rather than dressing it
+up as a recommendation engine. Below it is a plain day-by-day agenda of dated
+tasks.
+
+## 12. Focus sessions
+
+Start, pause, resume, finish, cancel, and a history list. The elapsed clock
+ticks locally, but the authoritative total is whatever the backend returns on
+pause/finish, since it is the side that knows about run/pause cycles across
+devices.
+
+## 13. AI assistant
+
+The distinction the UI makes visible is **General AI** vs **Material Context
+AI**. With a material in context there is a chip reading `Using:
+Database_Normalization.pdf` with an × to remove it, and the suggested actions
+change to ones that only make sense with a document.
+
+Which endpoint is called follows from the context rather than from a mode
+switch:
+
+| Context | Endpoint |
+|---|---|
+| none | `POST /api/ai/note` (general academic question) |
+| PDF | `POST /api/ai/pdf-question` |
+| image | `POST /api/ai/image-question` |
+
+Routing uses the MIME type **and** the file name, so a material saved without
+a `mimeType` still reaches the right endpoint. Anything unrecognised goes to
+the multimodal endpoint, never to the PDF extractor, which hard-rejects
+non-PDFs.
+
+Processing shows a static labelled progress bar and a sentence — "Reading
+your material…". There are no typing dots, no bouncing indicator and no
+glowing orb.
+
+## 14. Study groups
+
+Create a group (you become admin and get an invite code), join with a code,
+or leave. Each group has four tabs — **Overview**, **Resources**, **Chat**,
+**Members** — rather than one overloaded screen.
+
+## 15. Group chat
+
+`GET`/`POST /api/groups/{id}/chat`. Both are member-only server-side; the
+POST additionally requires the group's `chatEnabled` flag, which a group admin
+controls. The UI mirrors those rules, but the enforcement is on the server —
+a non-member gets a 403, not just a hidden button.
+
+Messages arrive newest-first and are reversed for display so the thread reads
+top to bottom.
+
+## 16. Group resource sharing
+
+Two kinds of shared resource:
+
+- **Files** — uploaded through the same authenticated `/api/materials/upload`
+  the private library uses, so quota accounting and the file-type check are
+  identical. Visibility `group`, `groupId` set.
+- **Notes** — written in the app with visibility `group`.
+
+Chat attachments go through the same material pipeline and are handed to the
+recipient as a signed URL, so a chat attachment gets the same private storage
+and the same quota accounting as everything else.
+
+## 17. Expense
+
+**One** financial module. Previously "Daily Expenses" and "BazarBuddy" sat in
+Life as unrelated top-level products, which meant there was no single answer
+to "how much did I spend". Expense is now one screen with four tabs:
+
+| Tab | Contents |
+|---|---|
+| Overview | Monthly available, spent, remaining (with a determinate bar), today's total, spending by source, recent entries |
+| Daily | Today's daily expenses, add/edit/delete |
+| Grocery | The bazar list |
+| History | Every ledger entry, grouped by day |
+
+All four read the same `financial_transactions` ledger, so the number on
+Overview is always the sum of what the other tabs show.
+
+Daily expense categories are stored identifiers, not labels — `Breakfast /
+Nasta`, `Lunch`, `Snacks`, `Dinner`, `Other` — and are preserved
+byte-for-byte from the previous version, because they are the values on every
+historical document.
+
+## 18. Grocery / Bazar
+
+Workflow: item → unit price → quantity → automatic total → purchased /
+pending. The live total is shown before saving so the arithmetic is checkable.
+
+Ledger rules, verified by reading `FinancialService`:
+
+| Action | Ledger effect |
+|---|---|
+| Mark purchased (price > 0) | Writes one row at the deterministic id `bazar_{itemId}` |
+| Retry after a failure | Overwrites the same id — **cannot duplicate** |
+| Un-purchase | Deletes that row |
+| Delete the item | Deletes item and row together — **no orphan** |
+
+## 19. Medicine
+
+Today's doses, the next reminder with Taken/Skip buttons, taken/skipped/missed
+counts, a full history, and both ways to add a medicine.
+
+**Manual entry is primary and always available.** Scanning is secondary. A
+student is never forced through OCR to record a medicine.
+
+The one hard rule in the medicine form: **Gochano never guesses a reminder
+time.** At least one time must be entered by the student before the form
+saves. A frequency shorthand read off a prescription is passed through as
+text for them to read while choosing — turning "1+0+1" into clock times is a
+medical decision.
+
+Every screen in this feature carries: *"Gochano does not provide medical
+advice. It only reminds you of the times you saved and records what you
+mark."*
+
+## 20. Prescription OCR
+
+### What it actually is
+
+| Layer | Implementation |
+|---|---|
+| **A. OCR engine** | **Tesseract** via `pytesseract`, `eng+ben` when the Bangla language data is installed, `eng` otherwise |
+| **B. Preprocessing** | Pillow — EXIF transpose, upscale to ≥2200px, grayscale, autocontrast, contrast boost, sharpen. PSM 6, retried with PSM 11 when the first pass extracts under 25 characters |
+| **C. PDF handling** | `pypdf` text extraction first; `pdf2image` renders pages 1–3 at 220 dpi and OCRs them when the text layer yields under 40 characters |
+| **D. Parser** | **Regex and keyword rules** — dose patterns (`500 mg`), frequency shorthand (`1+0+1`, `BD`, `TDS`, `HS`, `PRN`), dosage-form prefixes (`Tab`, `Cap`, `Syr`), meal instructions in English and Bangla, explicit clock times |
+| **E. AI structured extraction** | **Not used.** No Gemini call exists in this path |
+| **F. Custom ML model** | **Does not exist.** No model artifact, no training script, no inference |
+
+The UI says "read from your prescription", never "AI detected", and shows
+**no confidence percentage** — a rule-based parser has no calibrated
+confidence, and inventing one would be exactly the fabrication the spec
+forbids.
+
+Flow: upload → OCR → candidate lines → **student reviews and corrects** →
+**student sets the times** → save. Nothing on the scan screen writes a
+medicine, a dose, a schedule or a reminder.
+
+## 21. CommuteBD
+
+`From → To → Find routes → Recommended / Cheapest / Fastest`.
+
+Every fare card states where its number came from and how much to trust it:
+
+| Badge | Meaning |
+|---|---|
+| **Official** | A BRTA stop-pair fare or a metro station-pair fare, looked up from the dataset |
+| **Reported by riders** | Aggregated from moderated crowd fare reports |
+| **Historical rule** | The government CNG meter rule, with its effective date and a warning to verify |
+| **Estimated** | Distance-based |
+
+Results also include a **static route map** (OpenStreetMap tiles, the OSRM
+polyline, origin and destination pins — the line does not animate) and real
+bus services connecting the two stops from the CommuteBD dataset.
+
+Post-trip, the student can record what they **actually** paid. That amount —
+not the estimate — becomes an expense, through a deterministic transaction id
+so a retry cannot double-charge them. Sharing the figure with the crowd
+dataset is a separate opt-in switch, and it is stored *pending moderation*;
+the backend does not publish it as truth.
+
+## 22. Community
+
+Community in Gochano is **study groups**. There is no posts/comments backend
+in this project — no endpoints, no Firestore collection — so the app does not
+pretend otherwise: no empty feed, no "Coming Soon" placeholder. What exists
+and works is groups, resources, chat and members.
+
+## 23. Profile
+
+Account · Study statistics · Monthly money · Language · Appearance ·
+Notifications · Privacy and data · About · Sign out.
+
+Developer configuration (API base URL, Firebase project id, build flags) is
+deliberately not shown.
+
+The Notifications section says plainly when the OS has notifications turned
+off, because in that state reminders silently do nothing.
+
+---
+
+## 24. UI/UX design system
+
+Gochano uses **Clean Minimalism** on a Material 3 foundation: Material
+supplies the interaction model (ripples, focus traversal, field semantics,
+dialog and sheet anatomy, Talk-back plumbing); Gochano supplies the look —
+flat surfaces, hairline borders, one type scale, restrained accent colour.
+
+### Tokens
+
+| Token file | Contents |
+|---|---|
+| `gochano_colors.dart` | ~30 semantic roles as a `ThemeExtension`, resolved via `context.colors` |
+| `gochano_typography.dart` | One role-named type scale (`pageTitle`, `cardHeading`, `body`, `statistic`…) with Bangla-safe line heights |
+| `gochano_spacing.dart` | The 4/8/12/16/20/24/32/40 ladder, four radii, one shadow token, touch-target minimums |
+| `gochano_theme.dart` | ThemeData for light and dark, built entirely from the above |
+
+Screens never write a hex literal. A test fails the build if one appears
+outside the token files.
+
+### Static illustrations
+
+About **60 drawings** live in `gochano_art.dart` as inline SVG bodies, all in
+one stroke language: a 96×96 viewBox, stroke width 3.4, round caps and joins,
+soft simplified geometry with no faces and no mascots.
+
+Each drawing is painted from exactly three theme colour slots — `{ink}`,
+`{fill}`, `{paper}` — substituted at build time. `{paper}` is white in light
+mode and a dark surface in dark mode, which is what stops illustrations
+punching white holes through a dark screen. The previous `assets/*.svg` set
+hardcoded `fill="#FFFFFF"` and had exactly that bug.
+
+They are drawn rather than shipped as assets: one reviewable place for the
+whole visual language, no raster weight, no pixelation, project-owned so
+there is no third-party asset licence to track. Coverage: 12 subject icons,
+6 file types, 19 feature icons, 10 transport modes, 13 empty/status states.
+
+### Light and dark
+
+Dark mode is a designed palette, not an inversion. Surfaces step *up* in
+lightness from a dark neutral background; accents are desaturated so they do
+not glow. Light mode uses a slightly tinted scaffold so white cards read as
+raised without needing a shadow.
+
+Both are verified by test: primary and secondary text clear **4.5:1** on
+every surface in both themes, tertiary text clears 3:1, and every status
+colour clears 4.5:1 on its own soft background.
+
+### Motion
+
+**Decorative animation is intentionally not part of this design.** This is a
+deliberate design decision, not an omission.
+
+Removed during the rebuild: a custom fade + 24dp-rise page transition with
+its own duration and curve tokens; a 360 ms splash logo fade; a 220 ms
+cross-fade on the offline banner; `ScaleTap` (press-scale), `AnimatedFadeIn`
+and `StaggeredList` (cascading entrances); and an animated loading ring.
+
+What remains is the platform's own page transition, which is unavoidable for
+core interaction. Loading is a static labelled progress bar with a sentence
+saying what is happening, and a real percentage wherever one is known.
+
+A static test fails on any `AnimatedX` / `FadeTransition` / `SlideTransition`
+/ `Hero` / `Lottie` / `Rive` usage in `lib/`, on `AnimationController` outside
+a `TabController`, and on a custom page route.
+
+### Accessibility
+
+- Every `Image.asset` and `Image.network` carries a `semanticLabel`; every
+  `IconButton` carries a tooltip. Both are enforced by test.
+- Minimum touch target 48dp.
+- Status is never carried by colour alone — every badge pairs a colour with
+  an icon and a word.
+- Stat cards announce "label: value" as one node rather than reading a bare
+  number.
+
+---
+
+## 25. Technology stack
+
+| Layer | Technology |
+|---|---|
+| App | Flutter 3.47.2 / Dart 3.13.2, Material 3, Android |
+| Auth | Firebase Authentication (email/password, verification required) |
+| App data | Cloud Firestore |
+| Backend | Python 3.11+, FastAPI, Uvicorn/Gunicorn, Docker |
+| Relational / geo | Neon PostgreSQL + PostGIS |
+| Private files | **Backblaze B2** (S3-compatible API via boto3) |
+| AI | Google Gemini |
+| OCR | Tesseract (`pytesseract`), Pillow, `pdf2image`, `pypdf` |
+| Routing / geocoding | OSRM + Nominatim (OpenStreetMap) |
+| Maps | `flutter_map` + OpenStreetMap tiles |
+| Hosting | Render |
+| Languages | English, Bangla |
+
+## 26. System architecture
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│                  Flutter Android app                     │
+│  features/ (home, study, life, community, profile, …)    │
+│  core/design_system · core/localization · shared/        │
+└───────────┬──────────────────────────────┬───────────────┘
+            │                              │
+   Firebase Auth (ID token)        Cloud Firestore (direct,
+            │                       rules-enforced, owner-scoped)
+            │
+            ▼   Authorization: Bearer <Firebase ID token>
+┌──────────────────────────────────────────────────────────┐
+│              FastAPI backend  (Render, Docker)           │
+│                                                          │
+│  core/auth       verify token · email verified · role    │
+│  routers/        materials · ai · groups · prescriptions │
+│                  study · part3 · commute · account       │
+│  services/       storage(B2) · ai(Gemini) · ocr · pdf    │
+│                  commute/{fare_engine, routing, ml_fare} │
+└──┬──────────┬──────────┬───────────┬──────────┬──────────┘
+   │          │          │           │          │
+   ▼          ▼          ▼           ▼          ▼
+Firebase   Backblaze   Google     Neon        OSRM /
+Admin +    B2          Gemini     PostgreSQL  Nominatim
+Firestore  (private)              + PostGIS   (OpenStreetMap)
++ FCM
+```
+
+**The client never holds a secret.** Every credential — the B2 keys, the
+Gemini key, the database URL, the Firebase service account — lives only in
+the backend's environment.
+
+## 27. Data ownership
+
+| Data | Lives in | Written by |
 |---|---|---|
-| Notes / materials (own) | ✅ (Firestore rules) | Student-only for academic |
-| Public Study Library | server-authoritative | Student-only |
-| Expense ledger | backend-authoritative | both roles |
-| Medicine, Bazar, Commute, Tasks | owner-scoped | both roles |
-| File uploads/downloads | signed URL | server-issued |
-
-## 9. Data ownership map
-
-| Data | Owner | Storage | Read path | Write path |
-|---|---|---|---|---|
-| Auth identity | user | Firebase Auth | server only | server only |
-| User profile | user | Firestore `users/{uid}` | owner | server only |
-| Semesters / subjects / notes | user | Firestore | owner | owner |
-| Materials (files) | user | Supabase Storage | owner via signed URL | owner |
-| Public Library | Gochano | Firestore | Student role | server only |
-| Community Library | contributors | Firestore | Student role | contributor |
-| Study Groups | group members | Firestore | members | members |
-| Group shared box | group members | Supabase Storage + Firestore | members | members |
-| Expenses | user | Firestore `expenses/{uid}/...` | owner | server (idempotent) |
-| Medicine | user | Firestore | owner | owner |
-| Bazar | user | Firestore | owner | owner |
-| Commute fare history | user | Firestore | owner | server (on confirm) |
-| Tasks | user | Firestore | owner | owner |
-
-## 10. File storage and signed URLs
-
-- Files are stored in the private Supabase bucket `ekthikana-files`.
-- Uploads are mediated by the backend: the Flutter client sends
-  bytes to the backend, which puts them in the bucket under a path
-  scoped to the user or the group.
-- Reads are mediated by **signed URLs** minted by the backend, with
-  a TTL of **≤ 15 minutes** (900 s). The Flutter client downloads
-  the bytes through this URL, never with the service-role key.
-- Render's local disk is **not** used as permanent storage; the
-  bucket is the source of truth.
-
-## 11. The expense ledger contract
-
-This is the most subtle invariant in the project. The expense ledger
-is **not** "user-pressed-an-add-button." It is a derived view of:
-
-- **Taken** medicine doses (with their snapshot unit price).
-- **Purchased** shopping items.
-- **Confirmed** commute fares (`actual_paid_bdt`, not the estimated
-  fare).
-
-All three sources push into the same expense collection under
-`expenses/{uid}/...`. To prevent duplicate charges on retry:
-
-- The expense record's ID is **deterministic** — it's derived from
-  the source ID (the dose ID, the purchase ID, the commute ID).
-- The Flutter client treats "create dose" / "confirm purchase" /
-  "confirm fare" as a single network round-trip; the backend either
-  succeeds or the client retries — never twice.
-- This is the reason OCR is **never** an expense trigger: the user
-  must confirm "take this dose" before any expense row is written.
-
----
-
-# Part C — the Flutter client
-
-## 12. Flutter app at a glance
-
-- **Material 3** throughout, with a documented design-token system
-  in `lib/core/design_tokens.dart`.
-- **Single `MaterialApp`** with role-aware routing; the bottom-nav
-  shell hides academic surfaces for General users.
-- **All secret-bearing state lives on the backend.** The Flutter
-  client holds only: Firebase ID token (in secure storage),
-  Supabase signed URLs (transient), Firestore client config
-  (public), and the `API_BASE_URL` build-time define.
-- **`flutter analyze` is clean** (0 warnings, 0 infos).
-
-## 13. Screen layout (`lib/screens/`)
-
-| Subfolder | Screens |
-|---|---|
-| `auth/` | login, register, verify-email, auth gate |
-| `home/` | dashboard, bottom-nav shell, splash handoff |
-| `study/` | semesters list, semester detail, subject detail, notes, materials, PDF reader, AI assistant, planner |
-| `groups/` | groups list, group detail (shared box, optional chat) |
-| `tasks/` | tasks list, task detail, reminders |
-| `life/` | medicine list, medicine detail, prescription-OCR camera, bazar list, bazar detail, expenses, expense detail, commute map, commute result, commute history |
-| `profile/` | profile, expense summary, JSON export, account deletion |
-| `search/` | role-aware universal search |
-| `system/` | splash |
-
-Each `screens/<area>/*.dart` file is a single screen with a single
-`StatefulWidget` or `StatelessWidget`; cross-screen widgets live in
-`lib/widgets/`.
-
-## 14. Services layer (`lib/services/`)
-
-The services layer owns all network and persistence calls. Screens
-should not import `package:http` or `package:cloud_firestore`
-directly — they call services.
-
-| Service | Responsibility |
-|---|---|
-| `api_service.dart` | HTTPS wrapper around all FastAPI endpoints; sends `Authorization: Bearer <id_token>`; parses JSON |
-| `auth_service.dart` | Firebase email/password sign-in / sign-up; token refresh; email verification gate |
-| `firestore_service.dart` | Direct Firestore reads (notes, library, groups, expenses, ...) with the rules taking care of authorization |
-| `financial_service.dart` | Expense aggregation helpers (daily, monthly, category, yearly) |
-| `notification_service.dart` | `flutter_local_notifications` setup; per-dose and per-task reminder scheduling |
-
-## 15. Models (`lib/models/`)
-
-Plain Dart data classes that mirror the JSON shapes used by the
-backend. Models are immutable, `==`-comparable, and serialize to /
-from JSON via `fromJson` / `toJson`.
-
-Examples: `Medicine`, `DoseRecord`, `BazarItem`, `Expense`,
-`CommuteFareEstimate`, `CommuteRoute`, `Material`, `Note`,
-`Subject`, `Semester`, `StudyGroup`, `StudyTask`, `UserProfile`, ...
-
-## 16. Core helpers (`lib/core/`)
-
-- `core/config.dart` — runtime constants (bucket name, collection
-  names; the API base URL is from `--dart-define`).
-- `core/design_tokens.dart` — color, typography, spacing tokens.
-  **Single source of truth** for visual design.
-- `core/theme.dart` — `ThemeData` builder from the tokens.
-- `core/language/` — `EkLanguage` bilingual literals + loader
-  (English + Bangla).
-- `core/navigation.dart` — route names and `onGenerateRoute` for
-  typed navigation.
-- `core/ui/` — `BrandedLoader`, `NotificationHost`, etc.
-
-## 17. Shared widgets (`lib/widgets/`)
-
-- `branded_loader.dart` — Gochano-branded progress indicator used
-  everywhere a screen awaits network state.
-- `notification_host.dart` — SnackBar / banner dispatcher so
-  screens emit consistent, accessible feedback.
-- `gradient_hero_card.dart`, `module_tile.dart` — the design system
-  pieces that compose the dashboard, with AA-contrast white text
-  pinned by tests.
-
-## 18. Theming, design tokens, and a11y
-
-- All colors come from `core/design_tokens.dart`. Widgets do
-  **not** hardcode hex literals.
-- Module gradients (Study / Expenses / Medicine / Commute / Bazar /
-  Tasks / AI) were darkened along one end-stop each, with hue
-  drift asserted ≤ 0.5° in `docs/contrast_delta.ps1`. White text on
-  every gradient clears WCAG AA body-text contrast (4.5:1).
-- Every logo carries `semanticLabel: "Gochano logo"`.
-- Every icon-only `IconButton` carries a `tooltip:`. The
-  `audit_iconbuttons.ps1` script verifies this statically.
-- `GestureDetector` usages that require a label are wrapped in
-  `Semantics(button: true, label: "...")`. The `audit_gestures.ps1`
-  script verifies coverage.
-
-## 19. Localization (English + Bangla)
-
-- `lib/core/language/ek_strings.dart` is the master literal table.
-- `EkLanguage.text` is a synchronous bilingual literal map with
-  both languages filled in (asserted non-empty + equal entry count
-  by `translation_smoke_test.dart`).
-- Switching languages does not require an app restart — the
-  `Locale` flip is reactive through `MaterialApp`.
-
-## 20. Notifications
-
-- Powered by `flutter_local_notifications`; **local-only** (no FCM
-  in this codebase).
-- Medicine reminder rules route through the same engine as task
-  reminders.
-- Notification taps deep-link back into the relevant Medicine
-  screen via the `NotificationHost` widget.
-
-## 21. Android build (`android/`)
-
-- `compileSdk` / `targetSdk` 34, `minSdk` 24.
-- Standard `flutter_app/android/` Gradle layout.
-- `key.properties.example` documents the keystore path /
-  `storePassword` / `keyAlias` / `keyPassword` slots for release.
-  `key.properties` itself is in `.gitignore`.
-- `local.properties` is generated by `flutter pub get`; do not
-  commit.
-
-## 22. Branding assets (`assets/branding/`)
-
-- `gochano_logo.svg` — primary brand mark.
-- `gochano_logo_dark.svg` — dark-mode variant.
-- `app_icon_*.png` — Android launcher icons in all density buckets.
-- Never committed as raw hex / brand colors; everything
-  theme-related flows through `design_tokens.dart`.
-
-## 23. Flutter tests
-
-Located under `flutter_app/test/`:
-
-- `test/theme_parity_test.dart` — pins design-token usage across
-  screens (~16 tests).
-- `test/translation_smoke_test.dart` — every English literal has a
-  non-empty Bengali counterpart (~70 tests).
-- `test/a11y/accessibility_audit_test.dart` — icon-button labels,
-  semantic labels on logos, gradient contrast at 4.5:1, gesture
-  semantics (20 tests, P3-11).
-- `test/` also contains contract tests for the financial ledger,
-  medicine rules, bazar purchase flow, and commute fare engine.
-
-The full Flutter suite runs from `flutter_app/` with `flutter test`.
-
----
-
-# Part D — the FastAPI backend
-
-## 24. Backend at a glance
-
-- **Python 3.11+** (developed against 3.14; declared minimum is 3.11).
-- **FastAPI** on **Uvicorn**, deployed on Render via Docker.
-- **Firebase Admin** for token verification and Firestore.
-- **Supabase Python client** for Storage (signed URLs, bucket ops).
-- **`httpx.AsyncClient`** pooled at module scope for AI gateway calls.
-- **`pypdf` + `pdf2image` + `pytesseract`** for OCR / PDF text.
-- **Tesseract `eng+ben`** for prescription OCR.
-- **OSM-compatible** routing for CommuteBD maps.
-- **Per-endpoint latency recorder** (`app/core/latency.py`, P4-1).
-
-## 25. Core (`app/core/`)
-
-| File | Purpose |
-|---|---|
-| `config.py` | Pydantic-flavoured settings dataclass. Reads env vars: `APP_ENV`, Firebase, Supabase, Gemini, `OCR_LANG`, `CORS_ORIGINS`, `INTERNAL_METRICS_TOKEN` (P4-1) |
-| `firebase_admin.py` | Lazy-init Firebase Admin SDK; avoids booting a credential at import time |
-| `auth.py` | Bearer token extractor; verifies ID tokens; returns `(uid, claims, role)` |
-| `latency.py` | `LatencyRecorder` (bounded ring buffer, nearest-rank percentiles), `latency_middleware`, `GET /api/_internal/latency` token-gated endpoint (P4-1) |
-| `security.py` | CORS, role-gating decorators, request-scoped helpers |
-| `errors.py` | Single error-shaping module — every router goes through this for consistent JSON error bodies |
-
-## 26. Routers (`app/routers/`) — every endpoint
-
-Each `.py` file under `app/routers/` is a single `APIRouter`,
-mounted in `main.py` with explicit `prefix=` and `tags=`.
-
-| Router | Prefix | Tags | What it owns |
-|---|---|---|---|
-| `health.py` | `/api` | Health | `GET /api/health` |
-| `me.py` | `/api` | Account | `GET /api/me` (current user profile) |
-| `materials.py` | `/api/materials` | Materials | Materials CRUD, signed-URL minting |
-| `groups.py` | `/api/groups` | Groups | Groups CRUD, member add/remove, shared-box file ops |
-| `study.py` | `/api/study` | Study | Semesters / subjects / notes / planner CRUD |
-| `ai.py` | `/api/ai` | AI | Gemini-backed endpoints (`note_cleanup`, `summarize`, `pdf_qa`, planner assist) — Student-only |
-| `prescriptions.py` | `/api/prescriptions` | Prescriptions | OCR endpoint (`POST /api/prescriptions/parse`) |
-| `commute.py` | `/api/commute` | Commute | Fare estimation, route, fare-confirm (writes expense) |
-| `account.py` | `/api` | Account | JSON export, account deletion |
-| `reports.py` | `/api/reports` | Moderation | User/content reporting (Student-public surfaces) |
-| `part3.py` | `/api` | PART3 | Cumulative endpoint set brought in by P3 |
-| `latency.py` (internal) | (root) | Internal | `GET /api/_internal/latency` — gated by `X-Internal-Token` |
-
-Total **16 routes** after P4-1 (was 15). Health probe and the
-internal snapshot endpoint are the only two non-versioned paths.
-
-## 27. Services (`app/services/`) — business logic
-
-Services hold the business rules that routers call. Routers stay
-thin — request parsing, auth checks, service dispatch, response
-shaping.
-
-| Service / subpackage | Responsibility |
-|---|---|
-| `services/storage.py` | Supabase Storage wrapper; upload bytes, mint signed URLs (TTL 900s), delete |
-| `services/firestore_repo.py` | Typed access to Firestore collections (users, expenses, materials, notes, ...) |
-| `services/quotas.py` | Per-user quota cache + quota checks (O(1) reads after P3-10) |
-| `services/ocr.py` | Tesseract `eng+ben` wrapper around `pdf2image` + `pytesseract` |
-| `services/ai_gateway.py` | Gemini client with module-level pooled `httpx.AsyncClient` |
-| `services/pdf.py` | `pypdf`-based PDF text extraction with page tracking |
-| `services/commute/` | Fare engine subpackage — deterministic BRTA / Metro lookups, crowd-sourced Rickshaw / CNG fares with source+confidence labels, ML fare blending |
-| `services/expenses.py` | Expense ledger writer; deterministic IDs from source IDs |
-| `services/account.py` | Account export (JSON), account deletion (cascade across collections + storage) |
-
-## 28. Database layer (`app/database/`)
-
-- SQLAlchemy + Alembic for the Supabase Postgres side (a small
-  number of tables — mainly the commute fare datasets and ML
-  feature snapshots; the rest of the app is Firestore).
-- Migrations live under `migrations/` and `supabase/migrations/`.
-- The Postgres layer is **read-mostly** at runtime; writes happen
-  through the backend only.
-
-## 29. Schemas (`app/schemas.py`)
-
-- Pydantic models for every request / response body.
-- Routers annotate their handlers with these schemas; FastAPI
-  generates the OpenAPI spec from them.
-
-## 30. `app/main.py` — the FastAPI entrypoint
-
-The route table is constructed in a fixed order:
-
-1. CORS middleware
-2. **P4-1 latency middleware** (`app.middleware("http")(latency_middleware)`)
-3. Health router
-4. **P4-1 internal router** (`/api/_internal/latency`, between health and `me`)
-5. Account `/me` router
-6. Materials router
-7. Groups router
-8. AI router (Student-gated)
-9. Prescriptions router (OCR endpoint)
-10. Study router
-11. Commute router
-12. PART3 cumulative router
-13. Reports router
-14. Account (export / delete) router
-
-The latency middleware measures `time.perf_counter()` before and
-after every request, records the elapsed time into the global
-`LatencyRecorder`, and emits one INFO log line per request
-**except** for `/api/health` (kept out so liveness probes don't
-drown the log pipeline).
-
-## 31. Bundled datasets (`data/commutebd/`)
-
-JSON / CSV files for the deterministic Bangladesh transit fare
-engine:
-
-- BRTA bus fare table (distance-band → BDT fare).
-- DMTCL Metro fare table (station-to-station → BDT fare).
-- Rickshaw / CNG crowd source samples (raw, ML-shaped).
-
-Loaded at backend startup and indexed in memory for O(1) lookups.
-
-## 32. ML preparation (`ml/`)
-
-- `ml/train_fare_models.py` — entrypoint for retraining the
-  Rickshaw / CNG fare models off the crowd-source data.
-- The ML pipeline is **opt-in**: the deterministic BRTA / Metro
-  fare engines always work; the ML fare blending only activates
-  when a trained model checkpoint is present.
-
-## 33. Migrations (`migrations/`)
-
-SQL files for the Supabase Postgres side. Applied in lexicographic
-order by the Supabase CLI:
-
-- `001_gochano_commutebd_production.sql` — the BRTA / Metro fare
-  tables, indexed for sub-millisecond lookup.
-
-Other migration files live under `supabase/migrations/`.
-
-## 34. Operational scripts (`scripts/`)
-
-- `import_commutebd_to_supabase.py` — one-shot importer from
-  `data/commutebd/*.json|csv` into the Supabase Postgres tables.
-
-## 35. Backend tests (`tests/`)
-
-| File | Count | Source |
-|---|---:|---|
-| `tests/test_health.py` | 6 | baseline |
-| `tests/test_auth_and_roles.py` | 18 | baseline |
-| `tests/test_materials.py` | 14 | baseline |
-| `tests/test_commute_postgres.py` | 9 | baseline |
-| `tests/test_ocr_parser.py` | 11 | baseline |
-| `tests/test_part3.py` | 28 | baseline |
-| `tests/test_quotas.py` | 15 | baseline |
-| `tests/test_security_audit.py` | 16 | **P3-9** |
-| `tests/test_performance_audit.py` | 11 | **P3-10** |
-| `tests/test_latency_middleware.py` | 10 | **P4-1** |
-| **Total** | **138** | |
-
-The test harness lives in `tests/conftest.py` (~661 lines). It
-installs **`FakeFirestore`, `FakeAuth`, `FakeSupabaseStorage`,
-`FakeTransaction`** on `sys.modules` before `app.main` is imported,
-so the production code paths run against hermetic fakes. The
-`client` fixture monkey-patches every external collaborator
-(Firebase, Storage, OCR, PDF, AI service stubs) at runtime, then
-yields a `TestClient(fastapi_app)`.
-
-## 36. Requirements, Dockerfile, Render blueprint
-
-- `requirements.txt` — runtime deps (`fastapi`, `uvicorn[standard]`,
-  `firebase-admin`, `supabase`, `httpx`, `pypdf`, `pdf2image`,
-  `pytesseract`, `pillow`, `sqlalchemy`, `pydantic`, ...).
-- `requirements-ml.txt` — adds `scikit-learn`, `numpy`, `pandas`
-  for the optional ML fare blending path.
-- `Dockerfile` — production image; installs Tesseract + Bengali
-  language pack + Poppler + Python deps; runs Uvicorn.
-- `render.yaml` — Render blueprint: web service, env vars (with
-  secrets redacted), healthcheck on `/api/health`.
-
----
-
-# Part E — managed services
-
-## 37. Firebase (`firebase/`)
-
-Two files:
-
-- `firestore.rules` — security rules: role immutability,
-  server-only writes on sensitive collections, owner-scoped reads.
-  The client is **never** the authorization authority.
-- `firestore.indexes.json` — composite indexes required by the
-  queries in `app/routers/*.py` and the Flutter screens. Without
-  these the relevant queries fall back to full-collection scans.
-
-Reproducible deploy:
-
-```bash
-firebase use
-firebase deploy --only firestore:rules,firestore:indexes
+| Accounts, sign-in, email verification | Firebase Auth | Flutter (Auth SDK) |
+| User profile, role | Firestore `users` | Flutter on sign-up; backend on privileged writes |
+| Semesters, subjects, tasks, notes | Firestore | Flutter, owner-scoped |
+| Material metadata | Firestore `materials` | Backend only |
+| **Material file bytes** | **Backblaze B2** (private) | Backend only |
+| Groups, membership, chat | Firestore | Backend only |
+| Expenses, bazar, medicine, doses, trips | Firestore | Flutter, owner-scoped |
+| Central ledger `financial_transactions` | Firestore | Flutter, in the same batch as its source record |
+| Monthly budget | Firestore, under `users/{uid}/monthly_budget` | Backend |
+| Focus sessions | Firestore, under `users/{uid}/focus_sessions` | Backend |
+| AI usage quota | Firestore `ai_usage` | Backend |
+| CommuteBD dataset, fare reports | Neon PostgreSQL + PostGIS | Backend (reports), operator (import) |
+| Notification schedule | Device-local (`flutter_local_notifications`) | Flutter |
+
+## 28. Authentication flow
+
+```text
+Flutter → Firebase Auth: email + password
+       → email verification link (required)
+       → Firebase ID token
+       → Authorization: Bearer <token>  on every backend call
+                    │
+Backend  core/auth.get_verified_identity:
+         · verify_id_token(check_revoked=True)
+         · reject if email_verified is false            → 403
+         · load users/{uid}; reject if missing          → 403
+         · reject unless role ∈ {student, general}      → 403
+         · require_student on Study/AI/Groups/Materials → 403
 ```
 
-## 38. Supabase (`supabase/`)
+Firestore rules apply the same gates independently, so a compromised client
+cannot read another student's documents even if it bypasses the backend.
 
-- `config.toml` — local Supabase CLI config (mirror of the project
-  settings).
-- `migrations/` — SQL migrations applied to the project's Postgres
-  database.
+## 29. Firestore architecture
 
-Two Supabase artefacts exist in production:
+Collections: `users`, `semesters`, `subjects`, `tasks`, `notes`, `materials`,
+`material_state`, `page_notes`, `saved_materials` (subcollection),
+`groups`, `group_messages`, `daily_expenses`, `bazar_items`,
+`financial_transactions`, `medicines`, `medicine_doses`, `commute_trips`,
+`ai_usage`, plus `monthly_budget` and `focus_sessions` subcollections under
+`users/{uid}`.
 
-1. **A private Storage bucket** named `ekthikana-files`.
-2. **A Postgres database** with the commute fare tables.
+`firebase/firestore.rules` (24 match blocks) enforces: signed in, email
+verified, `ownerId == request.auth.uid` for personal documents, student role
+for study documents, and group membership for group-visibility documents.
 
-The service-role key exists **only** in Render env vars. The
-Flutter app receives signed URLs only.
+## 30. Backblaze B2 architecture
 
----
+```text
+Flutter (multipart, Bearer token)
+   → FastAPI /api/materials/upload
+      · require_student
+      · magic-byte type sniff (PDF/PNG/JPEG/DOC/DOCX)
+      · per-user storage quota + daily upload limit
+      · sanitize filename; key = users/{uid}/{uuid}_{name}
+      → B2 put_object   (private bucket, S3-compatible API)
+      → Firestore materials document
+        (rolls the B2 object back if this write fails)
 
-# Part F — operator documentation
+Reading:
+Flutter → /api/materials/{id}/url
+      · ownership OR group-membership OR public check
+      → presigned GET, ≤15 minutes, inline or attachment
+```
 
-## 39. `docs/` index
+The bucket must be **private**. A public B2 bucket hands out permanent
+unauthenticated URLs, which would defeat the per-request ownership checks.
 
-| File | Purpose |
+If any `B2_*` variable is missing the storage service raises rather than
+falling back to another provider — an ambiguous runtime storage target is
+precisely what must not happen. The startup banner logs the active target and
+warns if the now-inert `FIREBASE_STORAGE_BUCKET` is still set.
+
+> **Migration note.** Before this rebuild the runtime file store was Firebase
+> Storage, despite the stated architecture naming Backblaze B2. The backend
+> now speaks B2. **Files uploaded before the switch are still in the Firebase
+> Storage bucket and are not migrated by this change** — see
+> [Known limitations](#55-known-limitations).
+
+## 31. AI architecture
+
+```text
+Flutter → Bearer token → FastAPI /api/ai/*
+   · require_student
+   · daily quota: atomic Firestore transaction on ai_usage/{uid}_{yyyymmdd}
+   · material permission check (owner / group member / public)
+   · fetch bytes from B2
+   · extract text (pypdf) or attach image inline
+   · OCR fallback when a PDF has no usable text layer
+   → Gemini generateContent
+   → classified error or answer
+```
+
+Gemini failures are classified rather than passed through: quota exhaustion →
+429 "try again later", bad key → 503 "configuration error", model not found →
+503, timeout → 504, provider 5xx → 502. The client maps each to a sentence.
+
+Shared `httpx.AsyncClient` per process keeps the TLS handshake warm.
+
+## 32. PDF/material AI flow
+
+```text
+PDF question
+  → pypdf extract_pdf_text(page?)
+  → if the result is under 40 characters:
+        pdf2image renders pages 1-3 at 220 dpi
+        → Tesseract OCR                          ← image-only PDF path
+  → if still empty: 422 "No extractable PDF text"
+  → else: prompt scoped to that text → Gemini
+```
+
+The image-only/scanned PDF case is handled, and it reuses the same OCR
+pipeline as prescription scanning rather than a second implementation.
+
+## 33. OCR architecture
+
+See [§20](#20-prescription-ocr). In short: **Tesseract + Pillow preprocessing
++ pdf2image + a regex/keyword parser. No Gemini in this path. No custom ML
+model.**
+
+## 34. ML model inventory
+
+This section is mandatory and is written to be checkable.
+
+### 34.1 Commute fare model
+
+```text
+Name:            Commute quantile fare model (rickshaw, CNG)
+Purpose:         Predict a low/median/high fare band for negotiated modes
+Model file:      models/commute/{mode}_quantiles.joblib   — DOES NOT EXIST
+Framework:       scikit-learn GradientBoostingRegressor (quantile loss)
+Input features:  distance_km, trip_minutes, traffic_level_encoded, hour, weekday
+Output:          {low, median, high} rounded to ৳5, labelled "estimated"
+Trainer:         backend/ml/train_fare_models.py        — EXISTS, runnable
+Training data:   data/commutebd/ml/fare_training_template.csv
+                 — HEADER ONLY, 0 rows
+Loader:          app/services/commute/ml_fare.py MLFarePredictionService._load
+Backend service: FareEngine (rickshaw and CNG branches only)
+Endpoint:        POST /api/commute/routes, POST /api/commute/route
+Flutter feature: CommuteBD fare cards
+Runtime status:  NOT AVAILABLE — see below
+```
+
+**Why it is not available.** Three independent gates, all currently closed:
+
+1. **No training data.** The training CSV is a header row and nothing else.
+2. **No model artifact.** `download_bytes("models/commute/…joblib")` has
+   nothing to fetch.
+3. **An activation gate.** Even with an artifact, `enabled_for(mode)` requires
+   ≥500 approved crowd reports overall and ≥150 for that mode
+   (`COMMUTE_ML_MIN_TOTAL_REPORTS` / `COMMUTE_ML_MIN_MODE_REPORTS`).
+
+`predict()` therefore returns `None` on every call and the fare engine falls
+through to crowd statistics, then to the historical CNG meter rule or the
+distance baseline. **Gochano does not currently use machine learning to
+predict fares, and no screen claims it does.**
+
+This is the honest outcome, not a gap to paper over: the repository does not
+contain enough real data to train a meaningful model, and fabricating
+training rows to be able to claim "ML" would produce a model that is worse
+than the deterministic rules it would replace.
+
+The pipeline is genuinely complete and correct — trainer, features, loader,
+inference, rounding, fallback and activation policy. What it needs is
+moderated real fare reports, which the app now collects.
+
+### 34.2 Prescription ML model
+
+```text
+Status: DOES NOT EXIST.
+```
+
+No artifact, no trainer, no loader, no inference, anywhere in the repository.
+Prescription extraction is Tesseract OCR plus a rule-based parser. Nothing in
+the UI describes it as ML or AI.
+
+### 34.3 Repository-wide model search
+
+Searched for `.pkl .pickle .joblib .onnx .pt .pth .tflite .h5 .keras` and for
+`sklearn`, `tensorflow`, `torch`, `xgboost`, `lightgbm`, `catboost`,
+`model.predict`, `load_model`, `joblib.load`, `pickle.load`.
+
+**Result: zero model artifacts in the repository.** The only ML code is the
+commute fare trainer and its loader described above.
+
+## 35. CommuteBD architecture
+
+### Dataset (Neon PostgreSQL + PostGIS)
+
+| Table | Rows | Purpose |
+|---|---|---|
+| `brta_fare_segments` | 15,606 | Official BRTA stop-pair fares |
+| `bus_service_stops` | 3,190 | Which services stop where, in order |
+| `brta_graph_edges` | 2,398 | Directed stop adjacency along a route |
+| `brta_route_stops` | 1,311 | Stop sequence per route |
+| `places` | 387 | Canonical places with coordinates |
+| `stop_aliases` | 301 | Alternate names |
+| `metro_fares` | 272 | Official metro station-pair fares |
+| `bus_services` | 156 | Named bus services |
+| `brta_routes` | 112 | Route definitions |
+| `rickshaw_auto_estimated_fares` | 20 | Distance baselines |
+| `fare_rules` | 7 | Per-km and meter rules |
+| `metro_stations` | 17 | MRT stations |
+
+### Routing — what actually executes
+
+```text
+POST /api/commute/routes
+  → resolve origin/destination against `places`
+       (falls back to Nominatim geocoding when a place has no coordinates)
+  → OSRM /route/v1/driving  → distance, duration, polyline
+  → FareEngine.options(...)  → per-mode fare candidates, ranked
+  → repo.bus_route_via_services(originId, destinationId)
+       → SQL over bus_service_stops: services whose stop sequence
+         contains both places in the right order
+  → recommendations (recommended / cheapest / fastest) + transitCandidates
+```
+
+### Dijkstra — verified status
+
+> **There is no Dijkstra implementation in this repository, and no
+> shortest-path search of any kind executes at runtime.**
+
+Verified by searching the entire repository for `dijkstra`, `shortest_path`,
+`networkx`, `heapq`, and priority-queue constructions: **zero matches in
+application code.** The only hits are the *name* of the `brta_graph_edges`
+table.
+
+What exists instead:
+
+- **OSRM** computes the point-to-point driving path. OSRM itself uses
+  contraction hierarchies internally, but that is a third-party service, not
+  Gochano's code, and calling it "our Dijkstra" would be false.
+- **`brta_graph_edges`** (2,398 rows) is a genuine adjacency list — the raw
+  material a graph search would need — but nothing reads it as a graph.
+- **`bus_route_via_services`** is a SQL stop-sequence lookup, not a graph
+  traversal. It finds direct services, plus one-transfer options for official
+  BRTA fares.
+
+This is a **documented absence, not a disconnected feature**. Spec §64
+distinguishes "Dijkstra exists but is bypassed" (repair the wiring) from "it
+does not exist" (say so). This is the second case: there is no implementation
+to reconnect. Writing one would be new work, not a repair, and it is recorded
+in [Future scope](#62-future-scope).
+
+### Fare reliability
+
+| Mode | Method | Label |
+|---|---|---|
+| Bus | `brta_fare_segments` stop-pair lookup, direct or one transfer | Official |
+| Metro | `metro_fares` station-pair lookup | Official |
+| CNG | Moderated crowd aggregate → *(ML gate, closed)* → government meter rule | Reported by riders / Historical rule |
+| Rickshaw | Moderated crowd aggregate → *(ML gate, closed)* → distance baseline | Reported by riders / Estimated |
+| Walk | Distance ÷ 4.5 km/h, under 2.5 km | Free |
+
+Ranking blends time, fare, walking distance, transfer count and a confidence
+penalty; the top result is badged Recommended, plus Cheapest and Fastest.
+
+## 36. Expense architecture
+
+One central ledger, `financial_transactions`, written **in the same Firestore
+batch** as the source record it mirrors. Four sources feed it:
+
+| Source | Row written when |
 |---|---|
-| `START_HERE.md` | Single onboarding entrypoint — points at the right doc for each task |
-| `FINAL_SETUP_GUIDE.md` | Recommended first-run guide |
-| `ARCHITECTURE.md` | Deep dive into the three-layer architecture |
-| `DATA_MODEL.md` | Firestore + Postgres schema, field-by-field |
-| `API_REFERENCE.md` | Every backend endpoint with request / response shapes |
-| `ANDROID_SETUP.md` | How to build and sign the Android release |
-| `ANDROID_NOTIFICATIONS.md` | Notification setup + permission flow |
-| `FIREBASE_SETUP.md` | Project creation, Auth, Firestore, deploy |
-| `STORAGE_SETUP.md` | Supabase Storage bucket setup |
-| `RENDER_DEPLOY.md` | Render service + env vars + healthcheck |
-| `PRODUCTION_CHECKLIST.md` | Pre-launch sign-off |
-| `SECURITY_PRIVACY.md` | Full security posture + privacy disclosures |
-| `TROUBLESHOOTING.md` | Symptom → fix index |
-| `GOCHANO_BRANDING.md` | Logo usage, color tokens, fonts |
-| `BUILD_VALIDATION.md` | CI gate rationale |
-| `FIREBASE_STORAGE_OPTION.md` | Why Supabase Storage rather than Firebase Storage |
-| `WHAT_I_NEED_FROM_YOU.md` | Operator-facing checklist for first deploy |
-| `AUDIT_REPORT.md` | Pre-P3 audit (superseded by phase docs) |
-| `FINAL_AUDIT.md` | Pre-P3 audit (superseded by phase docs) |
-| `PHASE_3_9_SECURITY_AUDIT.md` | 16 invariants pinned |
-| `PHASE_3_10_PERFORMANCE_AUDIT.md` | 11 invariants pinned |
-| `PHASE_3_11_ACCESSIBILITY_AUDIT.md` | 20 invariants pinned |
-| `PHASE_4_1_LATENCY_MIDDLEWARE.md` | 10 invariants pinned |
-| `FINAL_AUDIT_REPORT.md` | Cross-cutting summary of P3 |
-| `RELEASE_NOTES.md` | User-visible + developer-visible P3 / P4 changes |
+| `daily` | A daily expense is saved |
+| `bazar` | A bazar item is marked purchased with a price > 0 |
+| `medicine` | A dose is marked **taken** (cost = quantity × unit price) |
+| `commute` | A trip's **actual** fare is confirmed by the student |
 
-Two supplementary docs cover project-state snapshots:
+Every row uses a deterministic id, `{source}_{sourceRecordId}`, so a retry
+overwrites rather than duplicates, and reversing the source action deletes the
+row rather than leaving an orphan.
 
-- `CURRENT_PROJECT_MAP.md` — current state of the codebase.
-- `CHANGE_PLAN.md` — intended sequencing of upcoming phases.
+Estimated values never enter the ledger. A skipped or missed dose, an
+unpurchased item and an estimated commute fare all write nothing.
 
-## 40. The P3 / P4 audit timeline
+`GET /api/budget/remaining` selects the month by `monthKey` and subtracts
+confirmed spending from the monthly budget.
 
-| Phase | Theme | Files added | Tests pinned | Doc |
-|---|---|---|---|---|
-| P3-9 | Security audit | `test_security_audit.py` | 16 | `PHASE_3_9_SECURITY_AUDIT.md` |
-| P3-10 | Performance audit | `test_performance_audit.py` | 11 | `PHASE_3_10_PERFORMANCE_AUDIT.md` |
-| P3-11 | Accessibility audit | `accessibility_audit_test.dart` | 20 | `PHASE_3_11_ACCESSIBILITY_AUDIT.md` |
-| P3-12 | Consolidation | — | 0 | `FINAL_AUDIT_REPORT.md`, `RELEASE_NOTES.md` |
-| P4-1 | Observability (latency) | `test_latency_middleware.py` + `app/core/latency.py` | 10 | `PHASE_4_1_LATENCY_MIDDLEWARE.md` |
+## 37. Medicine architecture
 
-Net: +57 backend + Flutter test cases, 4 phase documents, 1 new
-internal endpoint.
+`medicines` holds the definition (name, strength, instruction, quantity per
+dose, unit, price, times, start/end dates, active, paused). `medicine_doses`
+holds one document per scheduled dose per day, at the deterministic id
+`{medicineId}_{yyyymmdd}_{hhmm}` — which is what makes marking a dose
+idempotent.
 
-## 41. Operator scripts under `docs/`
+Today's schedule is derived by a shared domain module, so Home and the
+Medicine hub cannot disagree about what the next dose is. A dose still
+`pending` more than an hour after its time is treated as missed.
 
-- `docs/contrast.ps1`, `docs/contrast_v2.ps1` — WCAG ratio scans
-  for module gradient stops.
-- `docs/contrast_search.ps1` — automatic search for the smallest
-  darkening factor that puts every stop past 4.5:1.
-- `docs/contrast_medicine.ps1` — secondary scan for the medicine
-  module.
-- `docs/contrast_dark.ps1` — dark-mode counterpart of `contrast.ps1`.
-- `docs/contrast_delta.ps1` — verifies hue drift ≤ 0.5° for the
-  darkened stops.
-- `docs/audit_iconbuttons.ps1` — static scan asserting every
-  `IconButton` carries a `tooltip:`.
-- `docs/audit_gestures.ps1` — static scan asserting gesture-only
-  widgets are wrapped in `Semantics`.
+## 38. Notification architecture
 
-These exist so the accessibility and brand audits are repeatable
-without manual spreadsheet work.
+Local notifications via `flutter_local_notifications` + `timezone`, on two
+Android channels: reminders and medicine.
 
----
+- **Task reminders** — one-shot at the due time. Deterministic id derived from
+  the task id; `rescheduleTask` cancels and re-arms in one primitive.
+- **Medicine reminders** — daily repeating per medicine per time.
+- Completing a task cancels its reminder; editing reschedules it.
+- Android 13+ `POST_NOTIFICATIONS` is requested by `NotificationService`.
+- The medicine form and Profile both report when the OS has notifications
+  off, because scheduling silently no-ops in that state.
 
-# Part G — running the project
+FCM is initialised through Firebase Admin on the backend but **no server-push
+notification is currently sent**; all reminders are device-local.
 
-## 42. Setup from zero
+## 39. Localization
 
-These instructions assume Windows / macOS / Linux with Flutter and
-Python 3.11+ installed.
+English and Bangla, one language shown at a time.
 
-```bash
-# 1. Backend (local)
+`GochanoLanguage.text(en, bn)` keeps both strings adjacent in the source, so a
+translation cannot be silently forgotten when a screen is edited. The choice
+is persisted to `SharedPreferences` and restored before the first frame, and
+`GochanoLanguageScope` rebuilds the app from the root on change — so no
+subtree can be left rendering the previous language.
+
+A test scans every call site and fails on an empty side, Bengali script in the
+English string, or an untranslated duplicate.
+
+## 40. Folder structure
+
+```text
+flutter_app/lib/
+├── app.dart                     MaterialApp + language/appearance scopes
+├── main.dart                    bootstrap
+├── core/
+│   ├── design_system/           colors · typography · spacing · theme
+│   │                            art (60 drawings) · illustration renderer
+│   ├── localization/            persisted EN/BN
+│   ├── settings/                persisted light/dark/system
+│   ├── app_config · navigation · page_route
+├── shared/
+│   ├── widgets/                 scaffold, app bar, cards, buttons, rows, menus
+│   └── states/                  loading · empty · error · friendlyErrorMessage
+├── features/
+│   ├── auth/  shell/  home/
+│   ├── study/     workspace · materials · notes · ai · planner · focus
+│   ├── life/      domain/ · expense/ · medicine/ · commute/
+│   ├── tasks/  community/  profile/  search/
+├── services/                    api · auth · firestore · financial ·
+│                                notification · offline · connectivity · study
+├── models/  widgets/            ledger model; language toggle, banners
+
+backend/
+├── app/
+│   ├── main.py                  app + startup banner + JSON error handler
+│   ├── core/                    auth · config · firebase · latency · utils
+│   ├── routers/                 materials · ai · groups · prescriptions ·
+│   │                            study · part3 · commute · account · reports
+│   ├── services/                storage_service (B2) · ai_service (Gemini) ·
+│   │                            ocr_service · pdf_service · permission_service
+│   │                            commute/{fare_engine, routing, ml_fare, crowd}
+│   └── database/                SQLAlchemy models + repositories
+├── data/commutebd/              CSV/JSON dataset + ML policy
+├── ml/train_fare_models.py      quantile fare trainer
+├── migrations/ alembic/         schema
+└── tests/                       156 tests
+
+docs/RUNBOOK_POSTGRES_BASELINE.md   operational runbook (kept)
+firebase/                            firestore.rules + indexes
+```
+
+## 41. Environment variables
+
+Backend only. **Never place any of these in Flutter.** Names only — no values.
+
+```text
+APP_ENV
+CORS_ORIGINS
+INTERNAL_METRICS_TOKEN
+
+FIREBASE_PROJECT_ID
+FIREBASE_SERVICE_ACCOUNT_B64
+
+DATABASE_URL
+
+B2_BUCKET_NAME
+B2_ENDPOINT_URL
+B2_REGION
+B2_KEY_ID
+B2_APPLICATION_KEY
+
+GEMINI_API_KEY
+GEMINI_MODEL
+
+MAX_UPLOAD_MB
+USER_STORAGE_LIMIT_MB
+UPLOAD_DAILY_LIMIT
+SIGNED_URL_TTL_SECONDS
+AI_DAILY_LIMIT
+
+ROUTING_PROVIDER
+OSRM_BASE_URL
+NOMINATIM_BASE_URL
+ROUTING_USER_AGENT
+COMMUTE_ML_MIN_TOTAL_REPORTS
+COMMUTE_ML_MIN_MODE_REPORTS
+```
+
+**Obsolete — remove from your environment:**
+
+```text
+SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_BUCKET   inert
+FIREBASE_STORAGE_BUCKET                                    inert (warns at startup)
+```
+
+The Flutter app takes exactly one build-time value:
+
+```text
+--dart-define=API_BASE_URL=https://your-service.onrender.com
+```
+
+## 42. Local development setup
+
+Prerequisites: Flutter **≥ 3.38** (developed on 3.47.2), Android Studio + SDK
+34, JDK 17, Python 3.11+, Git, Node.js (for the Firebase CLI).
+
+```powershell
+flutter doctor            # resolve every red X first
+```
+
+```powershell
+# Backend
 cd backend
 python -m venv .venv
-# Windows
-.venv\Scripts\Activate.ps1
-# macOS / Linux
-source .venv/bin/activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# Optional ML deps
-pip install -r requirements-ml.txt
-
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+copy .env.example .env    # then fill it in
+uvicorn app.main:app --reload
 ```
 
-```bash
-# 2. Flutter app (local)
+```powershell
+# App
 cd flutter_app
 flutter pub get
-flutterfire configure         # writes firebase_options.dart
-flutter run --dart-define=API_BASE_URL=https://YOUR-SERVICE.onrender.com
+flutter run --dart-define=API_BASE_URL=http://YOUR_PC_IP:8000
 ```
 
-## 43. Environment variables — backend
+On a physical phone, `127.0.0.1` is the phone itself — use your PC's Wi-Fi
+IP, or `adb reverse tcp:8000 tcp:8000`.
 
-Set in Render's dashboard or `backend/.env` for local. **Never
-commit secrets.**
+## 43. Firebase setup
 
-| Variable | Purpose |
-|---|---|
-| `APP_ENV` | `production` / `staging` / `development` |
-| `FIREBASE_PROJECT_ID` | Firebase project id (matches FlutterFire config) |
-| `FIREBASE_SERVICE_ACCOUNT_B64` | Base64 of Firebase service-account JSON |
-| `SUPABASE_URL` | Supabase project URL or bare project ref |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (server only) |
-| `SUPABASE_BUCKET` | Private bucket name (default `ekthikana-files`) |
-| `GEMINI_API_KEY` | Gemini key (server only) |
-| `GEMINI_MODEL` | Optional. Default Gemini model id |
-| `OCR_LANG` | Tesseract language (default `eng+ben`) |
-| `CORS_ORIGINS` | Comma-separated allow-list |
-| `INTERNAL_METRICS_TOKEN` | **P4-1.** When set, `GET /api/_internal/latency` returns the snapshot. When unset (the default), the endpoint returns 404. |
-| `GOCHANO_LATENCY_WINDOW` | **P4-1.** Optional integer; per-route sample window. Default 128. |
-
-## 44. Environment variables — Flutter
-
-Passed at build time as `--dart-define`:
-
-| Variable | Purpose |
-|---|---|
-| `API_BASE_URL` | Render HTTPS URL — required in release builds |
-
-## 45. Local phone testing
-
-The Flutter app on a physical Android phone cannot reach
-`127.0.0.1`. Two options:
-
-- **Use `adb reverse`**:
-
-  ```bash
-  adb reverse tcp:8000 tcp:8000
-  flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000
-  ```
-
-- **Use the Render URL.** Cleanest for QA across real devices.
-
-## 46. Build a release APK or AAB
-
-```bash
-# APK for sideload testing
-flutter build apk --release \
-  --dart-define=API_BASE_URL=https://YOUR-SERVICE.onrender.com
-
-# AAB for Play Store
-flutter build appbundle --release \
-  --dart-define=API_BASE_URL=https://YOUR-SERVICE.onrender.com
-```
-
-Sign the bundle with your own upload key. See
-[`docs/ANDROID_SETUP.md`](docs/ANDROID_SETUP.md) for keystore prep.
-
-## 47. Deploy to Render
-
-1. Push to a private GitHub repo.
-2. Render → **New → Web Service** → connect the repo.
-3. **Root directory:** `backend`.
-4. **Runtime:** Docker (image from `backend/Dockerfile`).
-5. Import `backend/render.yaml` as a blueprint, or set env vars
-   manually.
-6. Confirm `GET /api/health` returns `200 OK` after deploy.
-
-## 48. Bringing Firebase online
-
-1. In the Firebase console, reuse the existing Gochano project (or
-   create a new one — the FlutterFire project id is referenced in
-   `flutter_app/firebase.json`).
-2. Enable **Authentication → Sign-in method → Email / Password**.
-3. Create the **Firestore** database in production mode, in a
-   region close to your Render service.
-4. From the repo root:
-
-   ```bash
-   firebase use
-   firebase deploy --only firestore:rules,firestore:indexes
+1. Firebase console → your project (the checked-in config uses
+   `gochano-a30c8`; reuse it rather than creating another).
+2. **Authentication → Email/Password → Enable.**
+3. **Firestore Database → Create**, production mode, region near Render.
+4. Configure the app:
+   ```powershell
+   cd flutter_app
+   dart pub global activate flutterfire_cli
+   flutterfire configure     # Android, app id com.ekthikana.ekthikana
    ```
+5. Deploy rules and indexes from the repo root:
+   ```powershell
+   firebase use --add
+   firebase deploy --only firestore
+   ```
+6. **Service account** → Project settings → Service accounts → Generate new
+   private key. Convert to one-line base64 and set it as
+   `FIREBASE_SERVICE_ACCOUNT_B64`:
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\service-account.json"))
+   ```
+7. Authentication → Templates → verify the email-verification template
+   mentions Gochano.
 
-## 49. Bringing Supabase online
+Cloud Storage is **not** needed — files live in Backblaze B2.
 
-1. Create the Supabase project.
-2. **Storage → New bucket** named `ekthikana-files`,
-   visibility **Private**.
-3. Apply the SQL in `supabase/migrations/*` to the production
-   database.
-4. Copy the **Project URL** and the **`service_role` key** into
-   Render env vars.
+## 44. Neon/PostGIS setup
 
----
+1. Create a Neon project and database.
+2. Enable PostGIS: `CREATE EXTENSION IF NOT EXISTS postgis;`
+3. Set `DATABASE_URL` (psycopg2 form:
+   `postgresql+psycopg2://user:pass@host/db?sslmode=require`).
+4. Apply the schema (`backend/migrations/`, `backend/alembic/`).
+5. Import the CommuteBD dataset from `backend/data/commutebd/core_dataset/`.
+6. Verify:
+   ```powershell
+   python backend/scripts/verify_postgres_schema.py
+   ```
+   and `GET /api/commute/data-status`.
 
-# Part H — operations & governance
+When `DATABASE_URL` is unset the backend falls back to in-memory SQLite so
+tests and local development still run — CommuteBD endpoints then return 503.
 
-## 50. Security posture
+## 45. Backblaze B2 setup
 
-- **Never** commit `.env`, service-account JSON, Supabase
-  `service_role` keys, or Gemini keys.
-- All secrets stay in Render env vars or local `backend/.env`.
-- The Flutter app receives only the Firebase ID token and the
-  public Render URL.
-- Service-role Supabase access exists only on the backend.
-- Downloads use short-lived signed URLs (TTL ≤ 15 minutes).
-- Roles are enforced in both UI (hiding) and backend / Firestore
-  rules (denying) — the client is never trusted for authorization.
-- Prescription OCR is a suggestion only; the user must confirm
-  before any medicine record, dose schedule, or reminder is saved.
-- The Gemini API is never invoked from the Flutter app.
-- Render's local disk is **not** used as permanent storage.
-- Production builds must point at the Render HTTPS URL — never at
-  `http://127.0.0.1`.
+1. Create a Backblaze account and a bucket — **Private**, not Public.
+2. Note the S3-compatible endpoint shown for the bucket, e.g.
+   `https://s3.us-west-004.backblazeb2.com`, and its region
+   (`us-west-004`).
+3. App Keys → Add a New Application Key, scoped to that bucket, with read and
+   write. Copy the **keyID** and the **applicationKey** — the secret is shown
+   once.
+4. Set in the backend environment:
+   ```text
+   B2_BUCKET_NAME       your-bucket
+   B2_ENDPOINT_URL      https://s3.us-west-004.backblazeb2.com
+   B2_REGION            us-west-004
+   B2_KEY_ID            your-key-id
+   B2_APPLICATION_KEY   your-application-key
+   ```
+5. Restart and check the startup log for
+   `storage=backblaze-b2 bucket=… region=…`. If it says `<UNCONFIGURED …>`,
+   the named variable is missing.
 
-For the full posture — including role-immutability tests,
-signed-URL TTL pinning, and the unverified-email gate — see
-[`docs/SECURITY_PRIVACY.md`](docs/SECURITY_PRIVACY.md).
+Keep the bucket private. Lifecycle rules are optional; the backend deletes
+objects when a material is deleted or an account is removed.
 
-## 51. Observability (P4-1)
+## 46. Gemini setup
 
-- A small in-process `LatencyRecorder` (`app/core/latency.py`)
-  tracks per-route wall-clock latency with a bounded ring buffer
-  (default 128 samples).
-- Every request contributes one sample, keyed on
-  `(method, route-template)`. The percentile set (p50 / p95 /
-  p99 / mean) is computed via nearest-rank, clamped at `n-1`.
-- Aggregates are exposed at `GET /api/_internal/latency`, gated by
-  the `X-Internal-Token` header. When `INTERNAL_METRICS_TOKEN` is
-  unset (the default) the endpoint returns **404**, so a public
-  Render deploy never accidentally exposes the snapshot.
-- `/api/health` does **not** emit a per-request INFO log line, so
-  the liveness probe doesn't drown the log pipeline.
-- The quantile formula is pinned by 10 regression tests in
-  `backend/tests/test_latency_middleware.py`. A refactor that
-  flips to linear interpolation would change p95 from 190 → 195 on
-  the pinned input and fail loudly — the change is then
-  intentional.
+1. Create an API key in Google AI Studio.
+2. Set `GEMINI_API_KEY` and `GEMINI_MODEL` in the backend environment only.
+3. Without a key, everything except AI actions works; AI returns a clear
+   "Unable to connect to the AI service" message rather than hanging.
 
-## 52. Troubleshooting entrypoints
+`GEMINI_MODEL` must name a model your key can call. If it is wrong the
+backend returns 503 "Gemini model configuration error" and logs the reason.
 
-- Symptom catalogues by category: `docs/TROUBLESHOOTING.md`.
-- "What does my doctor / operator / lawyer need to see?": the
-  per-topic docs in the `docs/` index (§39).
-- "Why doesn't this rule match?": `docs/FIREBASE_SETUP.md` →
-  firestore rules test command.
-- "Why is my p95 high?": `GET /api/_internal/latency` after setting
-  `INTERNAL_METRICS_TOKEN`, then `docs/PHASE_4_1_LATENCY_MIDDLEWARE.md`
-  §5 for interpreting the response.
+## 47. Render setup
 
-## 53. Roadmap
+1. Push to a private GitHub repository.
+2. Render → New → Web Service → connect the repo.
+3. Root directory `backend`, runtime **Docker**.
+4. Health check path `/api/health`.
+5. Add every variable from [§41](#41-environment-variables), or use
+   `backend/render.yaml` as a blueprint.
+6. Free instances sleep; the app uses long client timeouts and shows "Render
+   may be waking up" rather than a generic failure.
 
-Possible future improvements:
+## 48. Android setup
 
-- **Per-route latency histograms over time (P4-2).** A ring buffer
-  of recent snapshots to enable drift detection. P4-1 ships the
-  point-in-time snapshot.
-- **`lifespan` context manager for clean shutdown of pooled
-  clients.** Currently the AI gateway's `httpx.AsyncClient` has no
-  graceful shutdown path; matters more as we add pooled clients.
-- **OCR request-deduplication cache.** The OCR endpoint
-  (`/api/prescriptions/parse`) repeats work across concurrent
-  identical uploads; a 30-second TTL keying on the file hash would
-  cut billable OCR calls by ~40% in the common case.
-- **ML-based fare prediction.** Per-route learned fare blending on
-  top of the deterministic BRTA / Metro lookup, off the
-  `ml/train_fare_models.py` pipeline.
-- **Better OCR accuracy.** On-device fallback and richer Bengali
-  parsing for prescription text.
-- **More AI capabilities.** Controlled summarization of uploaded
-  materials, study-plan assistance, AI-assisted revision notes.
-- **Offline-first sync.** Full Firestore-backed offline queue with
-  conflict resolution for notes and materials.
-- **More productivity features.** Calendar export, recurring tasks,
-  richer study statistics, shared household expenses within the
-  spending-only contract.
-- **Localization.** Extend the existing English / Bangla toggle to
-  additional languages.
+- SDK Platform 34, Build-Tools 34.0.0, Platform-Tools, command-line tools.
+- Gradle JDK 17.
+- Application id `com.ekthikana.ekthikana` — do not change it after the first
+  Play Console upload.
+- `POST_NOTIFICATIONS` is declared in the manifest and requested at runtime.
+- Release signing: generate your own upload key and keep it out of the repo.
 
-Explicit non-goals: chat / DM / MCQ / quiz / live-transport
-(real-time vehicle tracking) features are **out of scope**.
+## 49. How to run the Flutter app
 
-## 54. License, contribution, code of conduct
+```powershell
+cd flutter_app
+flutter pub get
+flutter run --dart-define=API_BASE_URL=https://your-service.onrender.com
+```
 
-### License
+Build a debug APK:
 
-This repository is provided **as-is** for the Gochano project.
-Unless a `LICENSE` file is added, all rights are reserved by the
-project owner.
+```powershell
+flutter build apk --debug --dart-define=API_BASE_URL=https://your-service.onrender.com
+```
 
-### Contribution
+Release bundle for Play:
 
-Pull requests are welcome. Before opening a PR:
+```powershell
+flutter build appbundle --release --dart-define=API_BASE_URL=https://your-service.onrender.com
+```
 
-1. Run `flutter analyze` and `flutter test` from `flutter_app/`.
-2. Run `pytest -q` from `backend/`.
-3. Keep architectural decisions consistent with
-   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
-   [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md).
-4. Never introduce secrets, service-role keys, or live data dumps
-   to the repository.
-5. Do not add chat / DM / MCQ / quiz / live-transport features —
-   they are explicitly out of scope.
+`API_BASE_URL` is required; without it the app shows a configuration screen
+instead of failing at the first request.
 
-### Code of conduct
+## 50. How to run the backend
 
-Be respectful, be precise, keep changes focused. Small surgical
-patches are preferred over large speculative rewrites.
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload
+```
 
----
+Then open `http://127.0.0.1:8000/api/health` and `/docs`.
 
-<sub>Gochano — study, life, and finance in one app. 138 backend
-tests, 126 Flutter tests, 0 analyzer issues, 16 API surface
-areas, 7 named module gradients, 1 design system, 1 source of
-truth for expenses.</sub>
+The startup log prints one line naming the active database, storage target
+and AI model — the fastest way to confirm a deployment is pointed where you
+think it is.
+
+## 51. Testing
+
+**These are the results of runs performed on 1 September 2026, not
+historical numbers.**
+
+```powershell
+cd backend && .\.venv\Scripts\python.exe -m pytest -q
+```
+```text
+156 passed, 1 warning
+```
+
+```powershell
+cd flutter_app && flutter analyze && flutter test
+```
+```text
+Analyzing flutter_app... No issues found!
+00:03 +126: All tests passed!
+```
+
+What the suites cover:
+
+| Suite | Covers |
+|---|---|
+| `test_b2_storage` | B2 upload keys, presigned TTL cap, disposition, idempotent delete, fail-loud on missing config |
+| `test_part3` | Budget/remaining maths including the client's real document shape and cross-month isolation |
+| `test_security_audit` | Path traversal on upload, signed-URL TTL and V4, role gates |
+| `test_materials`, `test_ai_question`, `test_prescriptions` | Upload/permission/AI/OCR routes |
+| `test_commute_postgres` | Dataset repository queries |
+| `api_contract_test` | Every Flutter API call matches a real route **and method** |
+| `design_system_test` | Illustration integrity, subject/file/transport mapping, 4.5:1 contrast, error-copy safety |
+| `theme_parity_test` | Light/dark parity, contrast floors, legacy layer removed |
+| `accessibility_audit_test` | semanticLabel/tooltip coverage, **no decorative animation**, no hex literals |
+| `translation_smoke_test` | Every bilingual literal is complete and actually translated |
+| `financial_ledger_test`, `notification_policy_test` | Ledger and reminder rules |
+
+**Not covered by automated tests:** anything requiring a live credential —
+real Gemini calls, real B2 round-trips, real Firestore rules evaluation, real
+OSRM/Nominatim responses, and on-device notification delivery. Those need the
+manual pass in [§60](#60-deployment-checklist).
+
+## 52. Feature verification table
+
+Status vocabulary: **Verified locally** (exercised by an automated test or by
+reading the executing code path end to end) · **Requires production
+configuration** (correct in code, needs a live credential to prove) ·
+**Working with limitation** · **Not available**.
+
+| Feature | Status | Implementation | Dependency | Limitations |
+|---|---|---|---|---|
+| Register / login / logout | Verified locally | Firebase Auth | Firebase | Email verification required before any data access |
+| Session restore, invalid token | Verified locally | AuthGate + `verify_id_token(check_revoked)` | Firebase | — |
+| Semesters, subjects | Verified locally | Firestore, owner-scoped | Firestore | — |
+| Material upload | Requires production configuration | `/api/materials/upload` → B2 | B2 | Types limited to PDF/PNG/JPEG/DOC/DOCX by backend sniffing |
+| Material open / download | Requires production configuration | Presigned B2 GET ≤15 min | B2 | DOC/DOCX open in an external app |
+| Rename / delete / save | Verified locally | Backend routes, owner-checked | Firestore, B2 | — |
+| Recent + saved materials | Verified locally | Firestore | Firestore | A bookmark to a deleted material shows as Unavailable |
+| Text notes + 4 AI actions | Requires production configuration | `notes` + `/api/ai/note` | Gemini | — |
+| Universal search | Verified locally | Client-side over owner streams | Firestore | Capped at 300 docs per collection |
+| AI general question | Requires production configuration | `/api/ai/note` | Gemini key | 30/day per user by default |
+| AI PDF question | Requires production configuration | `/api/ai/pdf-question` | Gemini, B2 | — |
+| AI image-only/scanned PDF | Requires production configuration | pdf2image + Tesseract fallback | Tesseract in image | Needs `poppler` + Tesseract in the Docker image |
+| AI image question | Requires production configuration | `/api/ai/image-question` | Gemini, B2 | — |
+| AI quota + provider failure | Verified locally | Firestore transaction; classified errors | — | — |
+| Tasks add/edit/complete/undo/delete | Verified locally | Firestore | Firestore | — |
+| Task reminders | Requires production configuration | `flutter_local_notifications` | Android permission | Silently inert if the OS denies notifications; the UI says so |
+| Planner | Verified locally | `/api/study/plan` | Firestore | Deterministic ranking, not a model |
+| Focus start/pause/resume/finish/history | Verified locally | `/api/study/focus/*` | Firestore | HTTP-method bug fixed in this rebuild |
+| Groups create/join/leave/members | Requires production configuration | `/api/groups/*` | Firestore | Student role only |
+| Group chat | Requires production configuration | `/api/groups/{id}/chat` | Firestore | Member-only; needs `chatEnabled`; poll-on-send, no live stream |
+| Group resources (files + notes) | Requires production configuration | `/api/materials/upload` + `notes` | B2, Firestore | — |
+| Unauthorized resource prevention | Verified locally | Backend checks + Firestore rules | — | Covered by `test_security_audit` |
+| Monthly money / remaining | Verified locally | `/api/budget/*` | Firestore | Query bug fixed in this rebuild |
+| Daily expense add/edit/delete | Verified locally | Batched source + ledger write | Firestore | — |
+| Grocery + ledger mirror | Verified locally | Deterministic `bazar_{id}` row | Firestore | — |
+| Duplicate prevention (all sources) | Verified locally | Deterministic transaction ids | Firestore | — |
+| Medicine manual add | Verified locally | Firestore | Firestore | At least one reminder time is required |
+| Medicine taken/skipped/missed/history | Verified locally | `medicine_doses` deterministic ids | Firestore | — |
+| Medicine reminders | Requires production configuration | Daily repeating local notifications | Android permission | — |
+| Prescription OCR | Requires production configuration | Tesseract + Pillow + regex parser | Tesseract + poppler | Accuracy varies; no confidence score is shown because none is computed |
+| Prescription custom ML | **Not available** | — | — | Does not exist; not claimed anywhere |
+| Commute place search | Requires production configuration | `/api/commute/search` | Neon, Nominatim | Falls back to dataset-only if the geocoder fails |
+| Commute route + fares | Requires production configuration | `/api/commute/routes` | Neon, OSRM | Now called by the app; previously unreachable |
+| Route map | Requires production configuration | `flutter_map` + OSM tiles | Network | Static line, no animation |
+| Official bus/metro fares | Requires production configuration | Dataset lookup | Neon | Only for stop pairs present in the dataset |
+| **Dijkstra / shortest path** | **Not available** | — | — | No implementation exists anywhere in the repository |
+| **Commute fare ML** | **Not available** | Trainer + loader exist | — | No training data (0 rows), no artifact, activation gate closed |
+| Post-trip actual fare → expense | Verified locally | Deterministic `commute_{id}` row | Firestore | Estimates never enter the ledger |
+| Crowd fare report | Requires production configuration | `/api/commute/fare-report` | Neon | Stored pending moderation, not published |
+| Community | Working with limitation | Study groups | Firestore | No posts/comments backend exists |
+| Profile, language, appearance | Verified locally | SharedPreferences + Firestore | — | Both persist across restarts |
+| Data export / account deletion | Requires production configuration | `/api/account/*` | Firestore, B2 | Deletion removes B2 objects too |
+| English / Bangla | Verified locally | `GochanoLanguage` + root rebuild | — | Covered by `translation_smoke_test` |
+| Light / dark | Verified locally | `ThemeExtension` tokens | — | Contrast floors covered by test |
+| Offline behaviour | Working with limitation | Firestore cache + offline banner | — | Reads are cached; writes need a connection |
+
+## 53. Security
+
+- Every protected route requires a Firebase ID token, verified with
+  `check_revoked=True`, plus a verified email and a valid role.
+- Study, AI, Groups and Materials additionally require the `student` role.
+- Firestore rules enforce the same gates independently of the backend.
+- Upload filenames are sanitized and keys are locked under `users/{uid}/`;
+  a path-traversal attempt is covered by a test.
+- Signed URLs are V4 presigned GETs, capped at 15 minutes regardless of what
+  `SIGNED_URL_TTL_SECONDS` is set to.
+- Per-user storage quota, daily upload limit and daily AI limit are enforced
+  server-side.
+- Secrets exist only in the backend environment. The app holds one non-secret
+  build value, `API_BASE_URL`.
+- In production the global exception handler returns a generic message; the
+  traceback goes to the Render log.
+- Removed during this rebuild: a debug block that forced a token refresh on
+  every bazar save and printed the signed-in email and full auth claims to
+  the device log.
+
+## 54. Privacy
+
+- Fare reports are stored with a hashed user id, never the raw uid, and are
+  held pending moderation rather than published.
+- Group member rows show display names only; email and other profile fields
+  stay private to the account that owns them.
+- Prescription images are processed and not retained beyond the material
+  record the student chooses to keep.
+- Data export and account deletion are available in Profile; deletion removes
+  Firestore documents and B2 objects.
+- No analytics or third-party tracking SDK is present.
+
+## 55. Known limitations
+
+1. **Backblaze B2 has not been exercised against a live bucket.** The
+   implementation and its 16 tests are complete, but no real upload,
+   presigned download or delete has been performed. This is the single
+   highest-risk item to verify first.
+2. **Files uploaded before this rebuild are still in Firebase Storage.**
+   Switching the provider does not move existing objects. Either migrate the
+   objects and rewrite `filePath` on each material document, or accept that
+   pre-migration materials will 404. There is no migration script in the repo.
+3. **No Dijkstra or multimodal graph routing.** OSRM provides the driving
+   path; bus options come from a stop-sequence lookup. A true multimodal
+   walk→bus→metro→rickshaw itinerary is not computed.
+4. **Commute fare ML is unavailable** — no training data, no artifact, and an
+   activation gate that needs 500 moderated reports.
+5. **No Community feed.** Community is study groups.
+6. **Group chat does not stream.** It reloads on send and on pull-to-refresh;
+   a new message from someone else appears on the next refresh.
+7. **Gemini, Neon, OSRM and Nominatim are unverified against live
+   credentials** in this environment.
+8. **Notification delivery is unverified on a physical device.**
+9. **Public OSRM/Nominatim endpoints have no SLA** and rate-limit. Self-host
+   or use a paid provider before public release.
+10. **Universal search is client-side** over the first 300 documents per
+    collection — fine for a student's own data, not a general search index.
+11. **Bangla OCR needs the `ben` Tesseract language pack** in the Docker
+    image; without it the backend silently falls back to English only.
+12. **DOCX detection is by ZIP signature**, which also matches `.pptx` and
+    `.xlsx`. Such a file would upload and be labelled DOCX.
+
+## 56. Troubleshooting
+
+**"Backend URL is not configured"** — run with
+`--dart-define=API_BASE_URL=…`.
+
+**"Cannot reach the Gochano backend"** — on a physical phone `127.0.0.1` is
+the phone. Use your PC's Wi-Fi IP or `adb reverse tcp:8000 tcp:8000`. On
+Render, the free instance may be waking; retry after a few seconds.
+
+**Uploads fail with a 5xx** — check the startup log. If it reads
+`storage=backblaze-b2 <UNCONFIGURED: missing …>`, the named `B2_*` variable is
+absent. If it reads a bucket but uploads still fail, check the application
+key is scoped to that bucket with write permission.
+
+**Files that used to open now 404** — expected for materials uploaded before
+the B2 switch; see [Known limitations](#55-known-limitations) item 2.
+
+**`permission-denied` on the first Firestore read** — the account's email is
+not verified. Rules block data access until it is.
+
+**"Your profile is missing"** — the `users/{uid}` document was not created.
+Sign out and register again.
+
+**AI returns "Unable to connect to the AI service"** — `GEMINI_API_KEY` is
+empty or invalid, or `GEMINI_MODEL` names a model the key cannot call. The
+Render log has the classified reason.
+
+**AI on a scanned PDF returns "could not extract enough text"** — the OCR
+fallback ran and still found nothing. Check `tesseract-ocr` and `poppler-utils`
+are installed in the Docker image.
+
+**CommuteBD returns 503** — `DATABASE_URL` is unset or the dataset is not
+imported. Check `GET /api/commute/data-status`.
+
+**Route search returns no fares** — the route resolved but neither place is a
+CommuteBD dataset place, so no official fare table applies. Pick a place from
+the "CommuteBD places" section of the picker.
+
+**Reminders never appear** — Android notification permission is denied.
+Profile → Notifications shows this and links to system settings.
+
+**`flutter pub get` fails on the SDK constraint** — the project needs Flutter
+≥ 3.38. Run `flutter upgrade`.
+
+## 57. What the project owner must do
+
+Nothing in this list can be done from the source code. Each item needs your
+account, your billing decision or your credential.
+
+1. **Create a private Backblaze B2 bucket and application key**, and set the
+   five `B2_*` variables in Render. *(Highest priority — uploads, downloads
+   and material-backed AI all fail without it.)*
+2. **Decide what to do about pre-existing files in Firebase Storage** —
+   migrate them to B2 and update each material's `filePath`, or accept that
+   they will 404.
+3. **Remove the obsolete variables** `SUPABASE_*` and
+   `FIREBASE_STORAGE_BUCKET` from Render.
+4. **Verify the Firebase project** — Email/Password enabled, Firestore
+   created, rules and indexes deployed, `FIREBASE_SERVICE_ACCOUNT_B64` set.
+5. **Verify the Neon database** — PostGIS enabled, schema applied, CommuteBD
+   dataset imported, `DATABASE_URL` set. Confirm with
+   `GET /api/commute/data-status`.
+6. **Add your Gemini API key** and confirm `GEMINI_MODEL` is a model your key
+   can call.
+7. **Confirm the Docker image contains `tesseract-ocr` (with `ben` for
+   Bangla) and `poppler-utils`** — prescription OCR and scanned-PDF AI both
+   depend on them.
+8. **Test on a real Android device**: register → verify email → upload a PDF →
+   open it → ask AI about it → scan a prescription → set a medicine reminder
+   and confirm it fires → plan a commute → record an actual fare → check the
+   expense total.
+9. **Replace the public OSRM/Nominatim endpoints** with a self-hosted or
+   paid provider, and set a real contact address in `ROUTING_USER_AGENT`.
+10. **Generate a signed release App Bundle** and keep the upload key outside
+    the repository.
+11. **Provide your app identity for Play**: developer name, support email,
+    privacy-policy URL, terms URL, store listing, screenshots, content
+    rating.
+
+## 58. What the application does automatically
+
+You do **not** need to do any of these by hand:
+
+- Verify the Firebase ID token, email verification and role on every request.
+- Enforce the storage quota, daily upload limit and daily AI limit.
+- Sanitize filenames and scope object keys to the signed-in user.
+- Mint short-lived presigned URLs after an ownership or membership check.
+- Roll back the uploaded object if the metadata write fails.
+- Fall back to OCR when a PDF has no usable text layer.
+- Mirror confirmed spending into the central ledger in the same batch as its
+  source record, with a deterministic id that makes retries safe.
+- Delete the ledger row when the source action is reversed.
+- Mark a dose missed an hour after its time.
+- Cancel a task reminder when the task is completed, and re-arm it on undo.
+- Fall back from crowd fares to rules to distance baselines, labelling each.
+- Store fare reports pending moderation with a hashed user id.
+- Restore language and appearance before the first frame.
+- Cache Firestore reads for offline viewing and show the offline banner.
+- Delete B2 objects and Firestore documents on account deletion.
+
+## 59. How every feature works
+
+**Create a semester** — Study → Workspace → Semesters → Add.
+**Add a subject** — the semester card's ⋯ menu → Add subject.
+**Upload a PDF** — Study → Workspace → a subject → the + button → choose a
+file → Upload.
+**Create a note** — Study → Workspace → Notes → Write.
+**Ask AI about a material** — open it → the ✨ button; or a material row's ⋯
+menu → "Ask AI about this". Remove the context with the × on the Using chip
+to ask a general question instead.
+**Create a group** — Community → New group → Create.
+**Join a group** — Community → New group → Join with a code.
+**Chat** — open the group → Chat. If it says chat is off, the group admin
+turns it on from the ⋯ menu.
+**Share a PDF or note to a group** — open the group → Resources → Share.
+**Create a task** — Study → Tasks → Add task, or Home → Add task. Set a due
+date to get a reminder.
+**Plan study** — Study → Planner.
+**Start a focus session** — Study → Focus → pick a length → Start focus.
+**Add an expense** — Home → Add expense, or Life → Expense → the + button.
+**Use Grocery** — Life → Expense → Grocery → Add. Enter unit price and
+quantity; the total is calculated. Tick the checkbox when you buy it — that
+is what records the expense.
+**Set your monthly money** — Life → Expense → Overview → Available, or
+Profile → Monthly money.
+**Add a medicine manually** — Life → Medicine → Add medicine. Add at least
+one reminder time.
+**Scan a prescription** — Life → Medicine → Scan → take a photo or upload.
+**Verify OCR results** — tap Review on a candidate, correct the name, dose
+and instruction, **set the times yourself**, then Save.
+**Mark Taken / Skipped** — Life → Medicine, on the next-reminder card or any
+dose row's ⋯ menu.
+**Use CommuteBD** — Life → CommuteBD → pick From and To → Find routes.
+Choosing a place from "CommuteBD places" unlocks official fares.
+**Submit an actual fare** — on a fare card, "I took this — record actual
+fare". Enter what you paid; that becomes your expense.
+**Search** — Study → the magnifier.
+**Change language or theme** — Profile → Language / Appearance.
+
+## 60. Deployment checklist
+
+- [ ] Private B2 bucket created; `B2_*` set; startup log shows the bucket
+- [ ] `SUPABASE_*` and `FIREBASE_STORAGE_BUCKET` removed from the environment
+- [ ] Firebase: Email/Password on, Firestore created, rules + indexes deployed
+- [ ] `FIREBASE_SERVICE_ACCOUNT_B64` set and decoding at startup
+- [ ] Neon: PostGIS on, schema applied, dataset imported
+- [ ] `GET /api/commute/data-status` returns data
+- [ ] `GEMINI_API_KEY` and a valid `GEMINI_MODEL` set
+- [ ] Docker image has `tesseract-ocr` (+ `ben`) and `poppler-utils`
+- [ ] Render health check `/api/health` passing
+- [ ] `CORS_ORIGINS` set to your real origins, not `*`
+- [ ] `ROUTING_USER_AGENT` has a real contact address
+- [ ] App built with the production `API_BASE_URL`
+- [ ] Signed release App Bundle produced; upload key stored safely
+- [ ] Real-device pass through the flow in [§57](#57-what-the-project-owner-must-do) item 8
+
+## 61. Production readiness checklist
+
+| Area | State |
+|---|---|
+| Code quality | `flutter analyze` clean; 126 Flutter + 156 backend tests pass |
+| Design system | One system; light/dark verified; contrast floors tested |
+| Motion policy | No decorative animation; enforced by test |
+| Localization | EN/BN complete and tested; persisted |
+| Accessibility | Labels and tooltips enforced; 48dp targets; status never colour-only |
+| Security | Token + role + rules; quotas; sanitized keys; TTL-capped URLs |
+| Error handling | No raw exception reaches the UI; enforced by test |
+| Dead code | 58 superseded files removed after import-graph analysis |
+| **B2 storage** | **Implemented and unit-tested; never run against a live bucket** |
+| **Legacy file migration** | **Not done — pre-migration files stay in Firebase Storage** |
+| **Live integrations** | **Gemini, Neon, OSRM, FCM unverified in this environment** |
+| **Device testing** | **Not performed** |
+
+**This project is not "production ready" until the live-integration and
+device items above are done.** Everything that can be verified without a
+production credential has been.
+
+## 62. Future scope
+
+1. **Migrate existing Firebase Storage objects to B2** with a one-off script
+   that rewrites each material's `filePath`.
+2. **Multimodal routing with a real shortest-path search.** The dataset
+   already has the adjacency list (`brta_graph_edges`, 2,398 edges) and the
+   fare tables. A Dijkstra or A* over a graph whose edge weights blend time,
+   fare and transfer penalty would produce genuine walk→bus→metro→rickshaw
+   itineraries. This is the single largest missing capability.
+3. **Train the fare model** once moderation has approved 500+ reports; the
+   trainer, features, loader and activation gate are ready.
+4. **Live group chat** via a Firestore snapshot listener.
+5. **A community feed**, if it is wanted — it would need new backend
+   endpoints, rules and moderation.
+6. **Server-push notifications** through the already-initialised FCM.
+7. **Offline write queue** so an expense recorded on the bus syncs later.
+8. **Self-hosted OSRM/Nominatim.**
+
+## 63. Final project status
+
+Gochano is a working, coherent student application with a single design
+system, a verified test suite, and a backend whose integrations are correct
+in code.
+
+**What this rebuild changed.** The frontend was rebuilt from the ground up:
+a token-based Clean Minimalist design system with ~60 project-owned static
+illustrations, five-destination navigation, a briefing-style Home, a unified
+Expense module replacing two disconnected ones, and honest OCR and fare UI.
+All decorative animation was removed and is now blocked by test. 58
+superseded files were deleted after verifying, feature by feature, that
+nothing was lost.
+
+**Four real bugs were found by end-to-end tracing and fixed:**
+
+1. Focus pause/resume/finish sent POST to a PATCH-only route — every action
+   returned 405 and never reached the server.
+2. "Remaining money" always showed the full budget, because the endpoint
+   range-filtered on a field no client has ever written.
+3. Focus session elapsed time always read 0, because the client parsed
+   `elapsedSeconds` while the server sends `accumulatedSeconds`.
+4. The PostGIS-backed commute endpoint — with dataset place resolution,
+   ranked options and real bus services — was never called by the app.
+
+A fifth issue was in the test infrastructure itself: the fake Firestore
+treated range filters as unconditional matches, which is what let bug 2 pass
+CI. That is fixed too, so the class of bug cannot hide again.
+
+**What is honestly not there.** There is no Dijkstra implementation and no
+shortest-path search — a documented absence, not a disconnected feature.
+There is no commute fare ML model and no data to train one. There is no
+custom prescription ML model; prescription reading is Tesseract plus a rule
+parser, and the UI says exactly that and shows no invented confidence score.
+There is no community feed.
+
+**What remains before release** is not code: a live Backblaze B2 bucket, a
+decision about pre-existing files, verified Gemini and Neon credentials, and
+a real-device pass. Those are listed concretely in
+[§57](#57-what-the-project-owner-must-do).
