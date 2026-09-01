@@ -647,6 +647,11 @@ See [§20](#20-prescription-ocr). In short: **Tesseract + Pillow preprocessing
 + pdf2image + a regex/keyword parser. No Gemini in this path. No custom ML
 model.**
 
+The system dependencies are already provisioned: `backend/Dockerfile`
+installs `tesseract-ocr`, `tesseract-ocr-eng`, `tesseract-ocr-ben` and
+`poppler-utils`. `backend/ml/` is deliberately not copied into the image —
+the fare trainer is an offline tool, not a runtime dependency.
+
 ## 34. ML model inventory
 
 This section is mandatory and is written to be checkable.
@@ -1167,7 +1172,7 @@ configuration** (correct in code, needs a live credential to prove) ·
 | Universal search | Verified locally | Client-side over owner streams | Firestore | Capped at 300 docs per collection |
 | AI general question | Requires production configuration | `/api/ai/note` | Gemini key | 30/day per user by default |
 | AI PDF question | Requires production configuration | `/api/ai/pdf-question` | Gemini, B2 | — |
-| AI image-only/scanned PDF | Requires production configuration | pdf2image + Tesseract fallback | Tesseract in image | Needs `poppler` + Tesseract in the Docker image |
+| AI image-only/scanned PDF | Requires production configuration | pdf2image + Tesseract fallback | Gemini, B2 | Tesseract and poppler are already in the Dockerfile |
 | AI image question | Requires production configuration | `/api/ai/image-question` | Gemini, B2 | — |
 | AI quota + provider failure | Verified locally | Firestore transaction; classified errors | — | — |
 | Tasks add/edit/complete/undo/delete | Verified locally | Firestore | Firestore | — |
@@ -1185,7 +1190,7 @@ configuration** (correct in code, needs a live credential to prove) ·
 | Medicine manual add | Verified locally | Firestore | Firestore | At least one reminder time is required |
 | Medicine taken/skipped/missed/history | Verified locally | `medicine_doses` deterministic ids | Firestore | — |
 | Medicine reminders | Requires production configuration | Daily repeating local notifications | Android permission | — |
-| Prescription OCR | Requires production configuration | Tesseract + Pillow + regex parser | Tesseract + poppler | Accuracy varies; no confidence score is shown because none is computed |
+| Prescription OCR | Requires production configuration | Tesseract + Pillow + regex parser | Tesseract + poppler (in the image) | Accuracy unmeasured; no confidence score is shown because none is computed |
 | Prescription custom ML | **Not available** | — | — | Does not exist; not claimed anywhere |
 | Commute place search | Requires production configuration | `/api/commute/search` | Neon, Nominatim | Falls back to dataset-only if the geocoder fails |
 | Commute route + fares | Requires production configuration | `/api/commute/routes` | Neon, OSRM | Now called by the app; previously unreachable |
@@ -1259,8 +1264,10 @@ configuration** (correct in code, needs a live credential to prove) ·
    or use a paid provider before public release.
 10. **Universal search is client-side** over the first 300 documents per
     collection — fine for a student's own data, not a general search index.
-11. **Bangla OCR needs the `ben` Tesseract language pack** in the Docker
-    image; without it the backend silently falls back to English only.
+11. **Bangla OCR quality is unmeasured.** The `ben` language pack is
+    installed in the Docker image and the code requests `eng+ben` when it is
+    available, but no accuracy testing has been done on real Bangla
+    prescriptions.
 12. **DOCX detection is by ZIP signature**, which also matches `.pptx` and
     `.xlsx`. Such a file would upload and be labelled DOCX.
 
@@ -1311,7 +1318,7 @@ Profile → Notifications shows this and links to system settings.
 ## 57. What the project owner must do
 
 Nothing in this list can be done from the source code. Each item needs your
-account, your billing decision or your credential.
+account, your billing decision, your credential or a physical device.
 
 1. **Create a private Backblaze B2 bucket and application key**, and set the
    five `B2_*` variables in Render. *(Highest priority — uploads, downloads
@@ -1328,9 +1335,10 @@ account, your billing decision or your credential.
    `GET /api/commute/data-status`.
 6. **Add your Gemini API key** and confirm `GEMINI_MODEL` is a model your key
    can call.
-7. **Confirm the Docker image contains `tesseract-ocr` (with `ben` for
-   Bangla) and `poppler-utils`** — prescription OCR and scanned-PDF AI both
-   depend on them.
+7. *(Already done — no action needed.)* The Docker image installs
+   `tesseract-ocr`, `tesseract-ocr-eng`, `tesseract-ocr-ben` and
+   `poppler-utils`, which is everything prescription OCR and the scanned-PDF
+   AI fallback need. Verified by reading `backend/Dockerfile`.
 8. **Test on a real Android device**: register → verify email → upload a PDF →
    open it → ask AI about it → scan a prescription → set a medicine reminder
    and confirm it fires → plan a commute → record an actual fare → check the
@@ -1412,7 +1420,7 @@ fare". Enter what you paid; that becomes your expense.
 - [ ] Neon: PostGIS on, schema applied, dataset imported
 - [ ] `GET /api/commute/data-status` returns data
 - [ ] `GEMINI_API_KEY` and a valid `GEMINI_MODEL` set
-- [ ] Docker image has `tesseract-ocr` (+ `ben`) and `poppler-utils`
+- [x] Docker image has `tesseract-ocr` (+ `eng`, `ben`) and `poppler-utils` — already in `backend/Dockerfile`
 - [ ] Render health check `/api/health` passing
 - [ ] `CORS_ORIGINS` set to your real origins, not `*`
 - [ ] `ROUTING_USER_AGENT` has a real contact address
