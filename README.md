@@ -336,25 +336,135 @@ mark."*
 
 | Layer | Implementation |
 |---|---|
-| **A. OCR engine** | **Tesseract** via `pytesseract`, `eng+ben` when the Bangla language data is installed, `eng` otherwise |
-| **B. Preprocessing** | Pillow — EXIF transpose, upscale to ≥2200px, grayscale, autocontrast, contrast boost, sharpen. PSM 6, retried with PSM 11 when the first pass extracts under 25 characters |
-| **C. PDF handling** | `pypdf` text extraction first; `pdf2image` renders pages 1–3 at 220 dpi and OCRs them when the text layer yields under 40 characters |
-| **D. Parser** | **Regex and keyword rules** — dose patterns (`500 mg`), frequency shorthand (`1+0+1`, `BD`, `TDS`, `HS`, `PRN`), dosage-form prefixes (`Tab`, `Cap`, `Syr`), meal instructions in English and Bangla, explicit clock times |
-| **E. AI structured extraction** | **Not used.** No Gemini call exists in this path |
-| **F. Custom ML model** | **Does not exist.** No model artifact, no training script, no inference |
+| **A. OCR engine** | **Tesseract** via `pytesseract`. The language string is chosen from what is *actually installed*: `eng+ben` when the Bangla pack is present, `eng` when it is not, and the app is told which |
+| **B. Preprocessing** | Pillow + NumPy. Several candidate renderings per page — normalised, contrast-boosted, Otsu-binarised, median-denoised, and deskewed when the page is tilted — recognised across page-segmentation modes 6, 4 and 11 |
+| **C. Variant selection** | **Measured, not chosen in advance.** Every variant is scored on Tesseract's own per-word confidence and the best-scoring read wins. A clean read short-circuits the remaining passes |
+| **D. Skew and rotation** | Projection-profile deskew over ±8°, refined to 0.25°. A page that is already straight is not rotated at all — resampling costs sharpness it cannot repay. The four right-angle orientations are tried only when the upright read fails entirely |
+| **E. PDF handling** | `pypdf` text extraction first; `pdf2image` renders pages 1–3 at 220 dpi and OCRs them when the text layer yields under 40 characters |
+| **F. Parser** | **Regex and keyword rules** — dose patterns (`500 mg`), frequency shorthand (`1+0+1`, `BD`, `TDS`, `HS`, `PRN`), dosage-form prefixes (`Tab`, `Cap`, `Syr`), meal instructions in English and Bangla, explicit clock times |
+| **G. Name review** | Fuzzy match against a shipped list of generic (INN) names, **suggest-only** |
+| **H. AI structured extraction** | **Optional, off by default** (`?useModel=true`). Regroups the OCR text and may not add to it — every field is re-checked word by word against the source and dropped if absent |
+| **I. Custom ML model** | **Does not exist.** No model artifact, no training script, no inference |
 
-The UI says "read from your prescription", never "AI detected", and shows
-**no confidence percentage** — a rule-based parser has no calibrated
-confidence, and inventing one would be exactly the fabrication the spec
-forbids.
+### Confidence is measured, never invented
 
-Flow: upload → OCR → candidate lines → **student reviews and corrects** →
-**student sets the times** → save. Nothing on the scan screen writes a
-medicine, a dose, a schedule or a reminder.
+Every number comes from Tesseract's `image_to_data` output. Where Tesseract
+reports no usable words, the answer is **unknown** — not a default, not the
+page average, not a plausible-looking percentage.
+
+The bands are deliberately coarse. Tesseract's raw score is a per-word
+character-classifier confidence: meaningful as an *ordering*, not calibrated
+as a probability. Presenting "82.4%" beside a misread medicine name would
+imply a precision the number does not have, so the UI says **Read clearly /
+Check this one / Hard to read**, and **Not measured** when it does not know.
+
+Each medicine carries the confidence for *its own name*, not the page
+average, and `None` when that name cannot be traced back to recognised words.
+
+### A medicine name is never silently corrected
+
+This is the single most dangerous thing this codebase could do. *Clobazam*
+auto-corrected to *clonazepam* is a different drug, a different indication and
+a different dose — and the patient would never see that it happened.
+
+So `app/services/ocr/medicine_names.py` **suggests** and never replaces. The
+name rendered is always the text that was read; a match appears as a question
+with two explicit answers ("Use this spelling" / "Keep as read"). Four guards
+decide whether a suggestion is safe to show at all:
+
+1. A high similarity floor — consistent with an OCR slip, not a different word.
+2. The first letter must survive. Nearly every dangerous confusion between
+   two real drugs starts differently; OCR slips rarely do.
+3. **Ambiguity suppresses it.** If two known medicines are similarly close,
+   there is no way to tell which was meant, and the alphabetically luckier one
+   is not an answer.
+4. Comparable length. "Cef" is close to many things and identifies none.
+
+Absence from the list means nothing at all: `backend/data/medicines/common_generics.txt`
+holds generic names only, and most prescriptions in Bangladesh are written as
+brand names. "No suggestion" is the ordinary case.
+
+### Bengali is verified, not assumed
+
+An English-only Tesseract does not *fail* on a Bengali prescription — it
+returns confident-looking Latin nonsense, which is the worst possible failure
+mode for a medicine list. So `GET /api/prescriptions/ocr-status` reports what
+is installed, `/extract` refuses rather than guessing when English is missing,
+and the app states plainly when Bengali instructions could not be read.
+
+The Docker image already provisions this: `tesseract-ocr`,
+`tesseract-ocr-eng`, `tesseract-ocr-ben`, `poppler-utils`.
+
+### Verified end to end
+
+`scripts/verify_prescription_ocr.py` runs the real engine over real pixels.
+Against Tesseract 5.4.0 with `eng+ben`, on a rendered prescription tilted
+−2.5° with sensor noise:
+
+```text
+detected skew correction   +2.50 deg
+winning variant            normalised      psm 6      eng+ben
+confidence                 94 (high)
+4 medicine candidates, all matched to known generic names
+  Amlodipine   dose=''        confidence=96 (high)   hints: 1+0+0
+  Omeprazole   dose='20mg'    confidence=96 (high)   hints: 1-0-1, before food
+  Metformin    dose='500mg'   confidence=96 (high)   hints: 1+0+1, রাতে
+  Paracetamol  dose='500mg'   confidence=95 (high)   hints: SOS
+```
+
+The Bengali instruction `রাতে` was recognised and attached to the right
+medicine. **That is a rendered page, not a photograph** — it verifies the
+pipeline end to end and says nothing about handwriting accuracy. Pass real
+images as arguments to test those.
+
+Two bugs surfaced only by running the real engine:
+
+- A garbled dose was absorbed into the name. `5mg` misread as `omg` produced
+  `Amlodipine omg`; text ending in a dose unit is a dose, not part of a name.
+- A short page was discarded entirely. The ranking score zeroes anything
+  shorter than a prescription — right for ranking, wrong as a test of
+  existence. A crop of just the medicine list, or one Bengali instruction
+  line, read perfectly at 94% and came back as "nothing was recognised".
+
+### The flow is still review-only
+
+Upload → OCR → candidates → **student reviews and corrects** → **student sets
+the times** → save. Nothing on the scan screen writes a medicine, a dose, a
+schedule or a reminder. A frequency shorthand like `1+0+1` is a medical
+instruction, not a set of clock times, and is passed through as text so the
+student can see it while choosing their own.
 
 ## 21. CommuteBD
 
 `From → To → Find routes → Recommended / Cheapest / Fastest`.
+
+CommuteBD is a **multimodal journey planner**, not a distance-and-fare
+calculator. A search runs a real Dijkstra over the transport graph and returns
+complete origin-to-destination journeys, including the first and last mile —
+the walk or rickshaw ride from where you actually are to the stop where the
+network begins.
+
+The results screen uses two complementary representations, because they
+answer different questions:
+
+- **A static map** — where am I going. One line per leg, walking dashed and
+  rides solid, captioned as straight lines between stops rather than passed
+  off as road geometry. A leg whose stops have no coordinates still appears
+  in the timeline; it is simply not drawn, and the map says so.
+- **A step-by-step timeline** — what exactly do I do. Every stop is a real
+  place name, every leg carries an instruction the student can act on
+  ("Board MRT Line 6 at Mirpur 10 Metro Station and get off at Farmgate"),
+  and a change of transport is its own step with its own time cost.
+
+Recommended, Cheapest and Fastest are three genuinely different searches over
+one graph, not one result relabelled three times. Each is shown with the fare
+and time that distinguish it, plus how it compares to the recommended one
+("৳16 cheaper, 27 min slower") and, where there is something real to say, why
+the recommendation was made.
+
+**No internal identifier is ever displayed.** A step reading `A1` or
+`node_123` is impossible by construction — the graph refuses to build a node
+without a human-readable name.
 
 Every fare card states where its number came from and how much to trust it:
 
@@ -643,9 +753,26 @@ pipeline as prescription scanning rather than a second implementation.
 
 ## 33. OCR architecture
 
-See [§20](#20-prescription-ocr). In short: **Tesseract + Pillow preprocessing
-+ pdf2image + a regex/keyword parser. No Gemini in this path. No custom ML
-model.**
+See [§20](#20-prescription-ocr). In short: **Tesseract across several
+preprocessing variants, the best-scoring read chosen by Tesseract's own
+per-word confidence, a regex/keyword parser, and suggest-only medicine-name
+matching. No custom ML model. The Gemini structuring pass is optional, off by
+default, and may only regroup text OCR already read.**
+
+Module layout:
+
+```text
+app/services/ocr/
+  languages.py       what Tesseract can actually read on this server
+  preprocess.py      Otsu, denoise, deskew, orientation — Pillow + NumPy only
+  recognition.py     runs the variants, reports real per-word confidence
+  medicine_names.py  suggest a spelling, never apply one
+  structuring.py     optional model pass, grounded against the OCR text
+app/services/ocr_service.py   parser and review candidates
+```
+
+OpenCV is deliberately not a dependency: it roughly doubles the Docker image
+for a page skew the projection-profile method already handles.
 
 The system dependencies are already provisioned: `backend/Dockerfile`
 installs `tesseract-ocr`, `tesseract-ocr-eng`, `tesseract-ocr-ben` and
@@ -698,6 +825,29 @@ The pipeline is genuinely complete and correct — trainer, features, loader,
 inference, rounding, fallback and activation policy. What it needs is
 moderated real fare reports, which the app now collects.
 
+**You can check this rather than take it on trust.** `GET
+/api/commute/ml-status` and `scripts/commute_ml_status.py` read the real
+approved-report counts and state them against the thresholds, naming every
+blocker with its actual shortfall. The thresholds are reported *alongside* the
+counts, so quietly lowering one to manufacture a green light would show up in
+the output.
+
+An unreachable database reports **unknown**, never zero. "We have no reports"
+and "we cannot see how many reports we have" are different facts, and only one
+of them is a reason to keep collecting. Run locally, with no `DATABASE_URL`,
+the script prints exactly that:
+
+```text
+Commute fare model readiness
+  status     UNKNOWN (database_unavailable)
+  note       The report database is not configured, so the approved-report
+             count cannot be read. Model readiness is unknown, not zero.
+  fares today are rule-based and crowdsourced estimates only
+```
+
+A static test also asserts that no rule-based branch of the fare engine can
+describe itself as a model prediction.
+
 ### 34.2 Prescription ML model
 
 ```text
@@ -747,35 +897,86 @@ POST /api/commute/routes
   → repo.bus_route_via_services(originId, destinationId)
        → SQL over bus_service_stops: services whose stop sequence
          contains both places in the right order
-  → recommendations (recommended / cheapest / fastest) + transitCandidates
+  → journey_service.plan(...)   → Dijkstra over the transport graph
+       → Recommended / Cheapest / Fastest complete journeys
+  → recommendations + transitCandidates + journeyPlanning + journeys
 ```
+
+The response is additive: `recommendations` and `transitCandidates` are
+unchanged, and `journeyPlanning` / `journeys` are new keys beside them. A
+routing failure cannot break fare lookup — the planner is wrapped, and reports
+`available: false` with a reason rather than taking the endpoint down.
 
 ### Dijkstra — verified status
 
-> **There is no Dijkstra implementation in this repository, and no
-> shortest-path search of any kind executes at runtime.**
+> **A real Dijkstra shortest-path search now executes at runtime**, in
+> `app/services/commute/graph.py`. This section previously recorded its
+> absence; it was implemented rather than claimed.
 
-Verified by searching the entire repository for `dijkstra`, `shortest_path`,
-`networkx`, `heapq`, and priority-queue constructions: **zero matches in
-application code.** The only hits are the *name* of the `brta_graph_edges`
-table.
+What runs:
 
-What exists instead:
+- **State is `(node, arrival_mode)`, not just `node`.** Pricing a transfer
+  requires knowing what you arrived on, so the search relaxes over mode-aware
+  states. A plain node-keyed search cannot represent "changing here costs ten
+  minutes" at all.
+- **Three weight functions over one graph.** `RECOMMENDED` minimises a
+  generalised cost (time valued at ৳1.5/min, plus a transfer penalty and a
+  walk-discomfort multiplier), `CHEAPEST` minimises fare, `FASTEST` minimises
+  time. They are genuinely different searches, not one result relabelled
+  three ways — and when two objectives do find the same journey it is
+  returned once carrying both labels.
+- **Non-negative weights, enforced.** `Edge.__post_init__` raises on a
+  negative minute, fare or distance. Dijkstra's correctness depends on that
+  precondition, so it is a constructor check rather than a comment.
+- **Practicality filtering.** Per-leg and total walking caps, a minimum
+  hired-vehicle leg, and a leg-count ceiling, all in one documented
+  `RoutingPolicy` dataclass.
 
-- **OSRM** computes the point-to-point driving path. OSRM itself uses
-  contraction hierarchies internally, but that is a third-party service, not
-  Gochano's code, and calling it "our Dijkstra" would be false.
-- **`brta_graph_edges`** (2,398 rows) is a genuine adjacency list — the raw
-  material a graph search would need — but nothing reads it as a graph.
-- **`bus_route_via_services`** is a SQL stop-sequence lookup, not a graph
-  traversal. It finds direct services, plus one-transfer options for official
-  BRTA fares.
+**No internal identifier can reach a student.** `TransportGraph.add_node`
+refuses a node with a blank name, so a step that renders as `A1` or
+`node_123` is impossible by construction rather than by convention. A Flutter
+test greps the rendered timeline for those patterns as a second line of
+defence.
 
-This is a **documented absence, not a disconnected feature**. Spec §64
-distinguishes "Dijkstra exists but is bypassed" (repair the wiring) from "it
-does not exist" (say so). This is the second case: there is no implementation
-to reconnect. Writing one would be new work, not a repair, and it is recorded
-in [Future scope](#62-future-scope).
+Verified against the real dataset with `scripts/verify_commute_routing.py`:
+
+```text
+nodes                 404
+edges                 5221
+nodes with location   154   (derived from OSM; the dataset ships none)
+walking transfers     212
+planned               3/3 Dhaka trips
+```
+
+Sample real output, Mirpur 10 → Farmgate:
+
+```text
+[RECOMMENDED / FASTEST]  25 min  ~30 Tk  6.1 km  2 transfers
+  Walk -> Metro -> Walk
+  About 26 minutes faster than the cheapest option for around ৳16 more.
+  * Mirpur 10 area
+  |   Walk about 30 m to Mirpur 10 Metro Station.
+  * Mirpur 10 Metro Station
+  |   Board MRT Line 6 at Mirpur 10 Metro Station and get off at Farmgate
+  |   Metro Station.   5.9 km - 12 min - ~30 Tk (official)
+  * Farmgate Metro Station
+[CHEAPEST]  52 min  ~14 Tk   Walk -> Bus -> Walk
+```
+
+Mohammadpur → Kamalapur produces a genuine five-mode journey:
+`Rickshaw -> Bus -> Walk -> Metro -> Walk`.
+
+Two bugs were found only by running against the real data, not by reading the
+code: metro fares were being summed per consecutive station hop (৳100 for a
+trip that costs ৳30 — fixed by pricing station *pairs*), and a merged
+multi-edge walking leg reported the first edge's distance ("Walk about 0 m"
+for 800 m).
+
+**What is still missing.** Only 154 of 404 nodes have coordinates, because
+the shipped dataset has `geocode_status: pending` for all 387 places;
+`scripts/build_commute_geocode_asset.py` derives what it can from OSM. Nodes
+without coordinates still route — they simply cannot be drawn on the map, and
+the map says so rather than interpolating a line.
 
 ### Fare reliability
 
@@ -787,8 +988,38 @@ in [Future scope](#62-future-scope).
 | Rickshaw | Moderated crowd aggregate → *(ML gate, closed)* → distance baseline | Reported by riders / Estimated |
 | Walk | Distance ÷ 4.5 km/h, under 2.5 km | Free |
 
+A journey's headline certainty is its **weakest** leg. One official metro
+fare cannot make a negotiated rickshaw fare in the same trip look official.
+
 Ranking blends time, fare, walking distance, transfer count and a confidence
 penalty; the top result is badged Recommended, plus Cheapest and Fastest.
+
+### Fare report quality control
+
+Crowd reports are only useful if the obviously-impossible ones never enter
+the dataset. `app/services/commute/fare_quality.py` checks each submission
+against physics and against the shipped `fare_rules.csv`, with every band
+attributed to the rule it came from:
+
+| Check | Example rejected |
+|---|---|
+| Absolute fare range per mode | ৳5 for a 20 km CNG trip; a ৳250 metro fare against the published ৳100 cap |
+| Implied speed | 30 km in 20 minutes on a rickshaw |
+| Passenger count | 40 passengers in a CNG |
+| Paid walking | any fare on a `walk` trip |
+
+Fares that are steep but possible are **flagged, not discarded** — an
+unusually expensive route is exactly what a student wants warning about.
+
+Before aggregation, `remove_outliers` prunes on the **median absolute
+deviation**. A mean-and-sigma rule is dragged by the very outlier it is
+looking for, so one mistyped ৳5,000 among thirty ৳30 fares would widen the
+band enough to hide itself. Samples under four are left alone: with three
+points there is not enough information to call any of them wrong.
+
+The duplicate window is one hour, not one minute. The old minute-wide bucket
+let a retry at 12:01:02 miss the original at 12:00:58 — precisely the case
+the constraint existed to stop.
 
 ## 36. Expense architecture
 
@@ -861,7 +1092,7 @@ flutter_app/lib/
 ├── main.dart                    bootstrap
 ├── core/
 │   ├── design_system/           colors · typography · spacing · theme
-│   │                            art (60 drawings) · illustration renderer
+│   │                            art (61 drawings) · illustration renderer
 │   ├── localization/            persisted EN/BN
 │   ├── settings/                persisted light/dark/system
 │   ├── app_config · navigation · page_route
@@ -883,14 +1114,27 @@ backend/
 │   ├── core/                    auth · config · firebase · latency · utils
 │   ├── routers/                 materials · ai · groups · prescriptions ·
 │   │                            study · part3 · commute · account · reports
-│   ├── services/                storage_service (B2) · ai_service (Gemini) ·
-│   │                            ocr_service · pdf_service · permission_service
-│   │                            commute/{fare_engine, routing, ml_fare, crowd}
+│   ├── services/                storage_service (B2) · legacy_storage
+│   │                            (read-only) · storage_provider ·
+│   │                            ai_service · pdf_service ·
+│   │                            permission_service
+│   │        ocr/{languages, preprocess, recognition, medicine_names,
+│   │             structuring} + ocr_service (regex parser)
+│   │        commute/{graph, graph_builder, journey, journey_service,
+│   │                 fare_engine, fare_quality, ml_status, ml_fare,
+│   │                 crowd, routing}
 │   └── database/                SQLAlchemy models + repositories
-├── data/commutebd/              CSV/JSON dataset + ML policy
-├── ml/train_fare_models.py      quantile fare trainer
+├── data/commutebd/              CSV/JSON dataset + ML policy + derived
+│                                place coordinates
+├── data/medicines/              generic-name list for OCR suggestions
+├── ml/train_fare_models.py      quantile fare trainer (no data yet)
 ├── migrations/ alembic/         schema
-└── tests/                       156 tests
+├── scripts/                     verify_b2_live · verify_commute_routing ·
+│                                verify_prescription_ocr ·
+│                                commute_ml_status ·
+│                                migrate_firebase_to_b2 ·
+│                                build_commute_geocode_asset
+└── tests/                       334 tests
 
 docs/RUNBOOK_POSTGRES_BASELINE.md   operational runbook (kept)
 firebase/                            firestore.rules + indexes
@@ -1120,7 +1364,7 @@ historical numbers.**
 cd backend && .\.venv\Scripts\python.exe -m pytest -q
 ```
 ```text
-156 passed, 1 warning
+334 passed, 1 warning
 ```
 
 ```powershell
@@ -1128,14 +1372,60 @@ cd flutter_app && flutter analyze && flutter test
 ```
 ```text
 Analyzing flutter_app... No issues found!
-00:03 +126: All tests passed!
+00:03 +174: All tests passed!
 ```
 
 ```powershell
 flutter build apk --debug --dart-define=API_BASE_URL=https://example.invalid
 ```
 ```text
-√ Built buildpp\outputslutter-apkpp-debug.apk    (194 MB debug build)
+Built build/app/outputs/flutter-apk/app-debug.apk    (223 MB debug build)
+```
+
+### Verification scripts
+
+Unit tests prove the code does what it says. These run it against the real
+data and the real services, which is a different claim:
+
+| Script | What it proves | Needs |
+|---|---|---|
+| `scripts/verify_commute_routing.py` | The shipped CSVs build a graph that plans usable journeys | nothing |
+| `scripts/verify_prescription_ocr.py` | The OCR pipeline reads a page end to end | Tesseract on PATH |
+| `scripts/verify_b2_live.py` | 13 checks against the real bucket, including that it is private | B2 credentials |
+| `scripts/commute_ml_status.py` | The fare model's real distance from being trainable | `DATABASE_URL` |
+| `scripts/migrate_firebase_to_b2.py` | A dry-run report of what a migration would copy | both buckets |
+
+Results of the runs on 1 September 2026:
+
+```text
+verify_commute_routing.py   404 nodes, 5,221 edges, 3/3 Dhaka trips planned
+verify_prescription_ocr.py  Tesseract 5.4.0, eng+ben, 4/4 medicines, 94 (high)
+verify_b2_live.py           13/13 against bucket Gochano-2026 (us-east-005)
+commute_ml_status.py        UNKNOWN - no DATABASE_URL on this machine
+migrate_firebase_to_b2.py   no legacy bucket configured; nothing to migrate
+```
+
+### Running the OCR verification locally
+
+The Docker image installs Tesseract and both language packs, so the deployed
+service needs nothing extra. To run `verify_prescription_ocr.py` on Windows:
+
+```powershell
+winget install --id UB-Mannheim.TesseractOCR --source winget
+$env:PATH = "C:/Program Files/Tesseract-OCR;$env:PATH"
+```
+
+That installer ships `eng` and `osd` only. For Bengali, put `ben.traineddata`
+somewhere writable and point Tesseract at it - the UB-Mannheim build installs
+into `Program Files`, which needs administrator rights to write to:
+
+```powershell
+$dst = "$env:LOCALAPPDATA/gochano-tessdata"
+New-Item -ItemType Directory -Force -Path $dst
+Copy-Item "C:/Program Files/Tesseract-OCR/tessdata/*.traineddata" $dst
+Copy-Item "./ben.traineddata" $dst          # from the tessdata repository
+$env:TESSDATA_PREFIX = $dst
+tesseract --list-langs                      # expect ben, eng, osd
 ```
 
 ### Build environment notes
@@ -1222,19 +1512,31 @@ configuration** (correct in code, needs a live credential to prove) ·
 | Medicine manual add | Verified locally | Firestore | Firestore | At least one reminder time is required |
 | Medicine taken/skipped/missed/history | Verified locally | `medicine_doses` deterministic ids | Firestore | — |
 | Medicine reminders | Requires production configuration | Daily repeating local notifications | Android permission | — |
-| Prescription OCR | Requires production configuration | Tesseract + Pillow + regex parser | Tesseract + poppler (in the image) | Accuracy unmeasured; no confidence score is shown because none is computed |
+| Prescription OCR | Verified locally | Multi-variant Tesseract, best read chosen by real per-word confidence, regex parser | Tesseract + poppler (in the image) | Verified end to end on a rendered page (4/4 medicines, 94 high); handwriting accuracy is unmeasured |
 | Prescription custom ML | **Not available** | — | — | Does not exist; not claimed anywhere |
+| Prescription name suggestions | Verified locally | Fuzzy match against shipped generic names | — | Suggest-only; a name is never rewritten automatically |
+| Prescription model structuring | Working with limitation | Optional Gemini regrouping, off by default | Gemini key | Every field is re-checked against the OCR text and dropped if absent |
+| OCR engine status | Verified locally | `/api/prescriptions/ocr-status` | — | Reports installed languages; `/extract` refuses rather than guessing |
 | Commute place search | Requires production configuration | `/api/commute/search` | Neon, Nominatim | Falls back to dataset-only if the geocoder fails |
 | Commute route + fares | Requires production configuration | `/api/commute/routes` | Neon, OSRM | Now called by the app; previously unreachable |
-| Route map | Requires production configuration | `flutter_map` + OSM tiles | Network | Static line, no animation |
+| Route overview map | Requires production configuration | `flutter_map` + OSM tiles, OSRM polyline | Network | Static line, no animation |
 | Official bus/metro fares | Requires production configuration | Dataset lookup | Neon | Only for stop pairs present in the dataset |
-| **Dijkstra / shortest path** | **Not available** | — | — | No implementation exists anywhere in the repository |
+| **Dijkstra / shortest path** | Verified locally | `commute/graph.py`, over `(node, arrival_mode)` states | — | 404 nodes, 5,221 edges; 3/3 Dhaka trips planned against the shipped CSVs |
+| Multimodal journey planning | Verified locally | `journey_service.plan` — Recommended / Cheapest / Fastest | Neon | Three distinct searches over one graph, deduplicated |
+| First and last mile | Verified locally | `attach_endpoint` — walk / rickshaw / CNG by distance | — | Endpoints beyond 4 km of the network report outside-coverage |
+| Journey timeline + map | Verified locally | `journey_view.dart` | Network for tiles | Straight lines between stops, not road geometry; legs without coordinates are listed but not drawn |
 | **Commute fare ML** | **Not available** | Trainer + loader exist | — | No training data (0 rows), no artifact, activation gate closed |
+| Fare model readiness report | Verified locally | `/api/commute/ml-status`, `commute_ml_status.py` | `DATABASE_URL` to read real counts | Reports UNKNOWN, never zero, when the database is unreachable |
+| Fare report quality control | Verified locally | `commute/fare_quality.py` | — | Impossible fares refused with a reason; steep-but-possible ones flagged, not discarded |
+| Crowd fare outlier pruning | Verified locally | Median-absolute-deviation filter before aggregation | — | Samples under four are left alone |
 | Post-trip actual fare → expense | Verified locally | Deterministic `commute_{id}` row | Firestore | Estimates never enter the ledger |
 | Crowd fare report | Requires production configuration | `/api/commute/fare-report` | Neon | Stored pending moderation, not published |
 | Community | Working with limitation | Study groups | Firestore | No posts/comments backend exists |
 | Profile, language, appearance | Verified locally | SharedPreferences + Firestore | — | Both persist across restarts |
 | Data export / account deletion | Requires production configuration | `/api/account/*` | Firestore, B2 | Deletion removes B2 objects too |
+| B2 live validation | Verified against the live bucket | `scripts/verify_b2_live.py` | B2 credentials | 13/13, including a check that the bucket is private |
+| Legacy file migration | Working with limitation | `scripts/migrate_firebase_to_b2.py` | Both buckets | Dry run by default; never deletes a source object; unverifiable here without a legacy bucket |
+| Storage provider resolution | Verified locally | `storage_provider.resolve` | — | Records name their bucket; unlabelled ones are probed once and the answer recorded |
 | English / Bangla | Verified locally | `GochanoLanguage` + root rebuild | — | Covered by `translation_smoke_test` |
 | Light / dark | Verified locally | `ThemeExtension` tokens | — | Contrast floors covered by test |
 | Offline behaviour | Working with limitation | Firestore cache + offline banner | — | Reads are cached; writes need a connection |
@@ -1273,34 +1575,50 @@ configuration** (correct in code, needs a live credential to prove) ·
 
 ## 55. Known limitations
 
-1. **Backblaze B2 has not been exercised against a live bucket.** The
-   implementation and its 16 tests are complete, but no real upload,
-   presigned download or delete has been performed. This is the single
-   highest-risk item to verify first.
-2. **Files uploaded before this rebuild are still in Firebase Storage.**
-   Switching the provider does not move existing objects. Either migrate the
-   objects and rewrite `filePath` on each material document, or accept that
-   pre-migration materials will 404. There is no migration script in the repo.
-3. **No Dijkstra or multimodal graph routing.** OSRM provides the driving
-   path; bus options come from a stop-sequence lookup. A true multimodal
-   walk→bus→metro→rickshaw itinerary is not computed.
-4. **Commute fare ML is unavailable** — no training data, no artifact, and an
-   activation gate that needs 500 moderated reports.
-5. **No Community feed.** Community is study groups.
-6. **Group chat does not stream.** It reloads on send and on pull-to-refresh;
-   a new message from someone else appears on the next refresh.
+Ordered by how much they should worry you.
+
+1. **Handwritten prescriptions are unmeasured.** The OCR pipeline is verified
+   end to end against a *rendered* page, which proves the plumbing and says
+   nothing about handwriting. Doctors' handwriting is the hard case and no
+   accuracy figure exists for it. The confidence bands are what make this
+   survivable: a poor read reports itself as one rather than presenting a
+   confident-looking medicine list.
+2. **Bangla OCR quality is only spot-checked.** `ben.traineddata` is
+   installed and `eng+ben` is requested when available; a Bengali instruction
+   line was recognised at 94 in verification. On a mixed-script page the
+   winning variant is chosen for the page as a whole, so a Bengali line can
+   still be missed when a Latin-optimised segmentation mode scores highest
+   overall. Missed, not misread — nothing invents a translation.
+3. **Only 154 of 404 transport nodes have coordinates.** The shipped dataset
+   has `geocode_status: pending` for all 387 places, so coordinates are
+   derived from OSM by name matching. Nodes without them still route; they
+   just cannot be drawn, and the map says so instead of interpolating.
+4. **Journey map lines are schematic.** They connect stop coordinates, not
+   road geometry, because the dataset holds stops and not street shapes. The
+   caption states this. It is not turn-by-turn navigation.
+5. **Commute fare ML is unavailable** — no training data (0 rows), no
+   artifact, and an activation gate needing 500 moderated reports overall and
+   150 per mode. `scripts/commute_ml_status.py` reports the real distance
+   from those thresholds rather than asserting it.
+6. **The legacy Firebase migration is unverified against a live legacy
+   bucket.** The script, its idempotency, its read-back verification and its
+   resume are covered by 29 tests, and a dry run executes correctly, but no
+   real object has been copied because this environment has no
+   `FIREBASE_STORAGE_BUCKET`. Run the dry run first, read the report, then
+   `--apply`.
 7. **Gemini, Neon, OSRM and Nominatim are unverified against live
-   credentials** in this environment.
+   credentials** in this environment. Backblaze B2 *is* verified — 13/13
+   checks against the real bucket, including that it is private.
 8. **Notification delivery is unverified on a physical device.**
-9. **Public OSRM/Nominatim endpoints have no SLA** and rate-limit. Self-host
-   or use a paid provider before public release.
-10. **Universal search is client-side** over the first 300 documents per
+9. **No Community feed.** Community is study groups. There is no
+   posts/comments backend and no screen claims one.
+10. **Group chat does not stream.** It reloads on send and on pull-to-refresh;
+    a message from someone else appears on the next refresh.
+11. **Public OSRM/Nominatim endpoints have no SLA** and rate-limit. Self-host
+    or use a paid provider before public release.
+12. **Universal search is client-side** over the first 300 documents per
     collection — fine for a student's own data, not a general search index.
-11. **Bangla OCR quality is unmeasured.** The `ben` language pack is
-    installed in the Docker image and the code requests `eng+ben` when it is
-    available, but no accuracy testing has been done on real Bangla
-    prescriptions.
-12. **DOCX detection is by ZIP signature**, which also matches `.pptx` and
+13. **DOCX detection is by ZIP signature**, which also matches `.pptx` and
     `.xlsx`. Such a file would upload and be labelled DOCX.
 
 ## 56. Troubleshooting
@@ -1352,14 +1670,24 @@ Profile → Notifications shows this and links to system settings.
 Nothing in this list can be done from the source code. Each item needs your
 account, your billing decision, your credential or a physical device.
 
-1. **Create a private Backblaze B2 bucket and application key**, and set the
-   five `B2_*` variables in Render. *(Highest priority — uploads, downloads
-   and material-backed AI all fail without it.)*
-2. **Decide what to do about pre-existing files in Firebase Storage** —
-   migrate them to B2 and update each material's `filePath`, or accept that
-   they will 404.
-3. **Remove the obsolete variables** `SUPABASE_*` and
-   `FIREBASE_STORAGE_BUCKET` from Render.
+1. **Set the five `B2_*` variables in Render.** The bucket itself is already
+   created and validated — `scripts/verify_b2_live.py` passes 13/13 against
+   `Gochano-2026` in `us-east-005`, including a check that it is private.
+   Re-run that script against your own deployment before trusting it.
+2. **Migrate pre-existing Firebase Storage files.** There is now a script for
+   this:
+   ```powershell
+   cd backend
+   $env:FIREBASE_STORAGE_BUCKET = "your-old-bucket"
+   .\.venv\Scripts\python.exe scripts/migrate_firebase_to_b2.py           # dry run
+   .\.venv\Scripts\python.exe scripts/migrate_firebase_to_b2.py --apply
+   ```
+   Read the dry-run report first. The script **never deletes a source
+   object**; deleting the originals is a separate decision for you to make
+   after confirming every file serves from B2.
+3. **Keep `FIREBASE_STORAGE_BUCKET` set until migration is finished**, then
+   remove it — that is how the backend knows there is no legacy bucket left
+   to consult. `SUPABASE_*` can be removed now.
 4. **Verify the Firebase project** — Email/Password enabled, Firestore
    created, rules and indexes deployed, `FIREBASE_SERVICE_ACCOUNT_B64` set.
 5. **Verify the Neon database** — PostGIS enabled, schema applied, CommuteBD
@@ -1370,16 +1698,29 @@ account, your billing decision, your credential or a physical device.
 7. *(Already done — no action needed.)* The Docker image installs
    `tesseract-ocr`, `tesseract-ocr-eng`, `tesseract-ocr-ben` and
    `poppler-utils`, which is everything prescription OCR and the scanned-PDF
-   AI fallback need. Verified by reading `backend/Dockerfile`.
-8. **Test on a real Android device**: register → verify email → upload a PDF →
+   AI fallback need. Confirm it on your deployment with
+   `GET /api/prescriptions/ocr-status` — it reports the Tesseract version and
+   the installed languages, so a missing Bengali pack shows up as a fact
+   rather than as bad output.
+8. **Check the fare-model readiness on the deployed instance**, where a
+   `DATABASE_URL` exists: `GET /api/commute/ml-status`, or
+   `scripts/commute_ml_status.py`. It prints the real approved-report count
+   against the 500/150 thresholds. Do not lower those thresholds to switch
+   the model on — the output reports them beside the counts precisely so that
+   would be visible.
+9. **Test on a real Android device**: register → verify email → upload a PDF →
    open it → ask AI about it → scan a prescription → set a medicine reminder
-   and confirm it fires → plan a commute → record an actual fare → check the
-   expense total.
-9. **Replace the public OSRM/Nominatim endpoints** with a self-hosted or
-   paid provider, and set a real contact address in `ROUTING_USER_AGENT`.
-10. **Generate a signed release App Bundle** and keep the upload key outside
+   and confirm it fires → plan a commute → follow the journey timeline →
+   record an actual fare → check the expense total.
+10. **Photograph real prescriptions, including handwritten ones**, and run
+    them through `scripts/verify_prescription_ocr.py <image>`. That is the
+    one gap automated testing cannot close, and the results should decide
+    whether the confidence thresholds in `recognition.py` need moving.
+11. **Replace the public OSRM/Nominatim endpoints** with a self-hosted or
+    paid provider, and set a real contact address in `ROUTING_USER_AGENT`.
+12. **Generate a signed release App Bundle** and keep the upload key outside
     the repository.
-11. **Provide your app identity for Play**: developer name, support email,
+13. **Provide your app identity for Play**: developer name, support email,
     privacy-policy URL, terms URL, store listing, screenshots, content
     rating.
 
@@ -1502,18 +1843,19 @@ production credential has been.
 ## 63. Final project status
 
 Gochano is a working, coherent student application with a single design
-system, a verified test suite, and a backend whose integrations are correct
-in code.
+system, 508 automated tests, and a backend whose integrations are correct in
+code and — for storage and routing — verified against real data and a real
+bucket.
 
-**What this rebuild changed.** The frontend was rebuilt from the ground up:
-a token-based Clean Minimalist design system with 61 project-owned static
+**What the rebuild changed.** The frontend was rebuilt from the ground up: a
+token-based Clean Minimalist design system with 61 project-owned static
 illustrations, five-destination navigation, a briefing-style Home, a unified
 Expense module replacing two disconnected ones, and honest OCR and fare UI.
 All decorative animation was removed and is now blocked by test. 58
 superseded files were deleted after verifying, feature by feature, that
 nothing was lost.
 
-**Four real bugs were found by end-to-end tracing and fixed:**
+**Six real bugs were found by end-to-end tracing and fixed:**
 
 1. Focus pause/resume/finish sent POST to a PATCH-only route — every action
    returned 405 and never reached the server.
@@ -1523,19 +1865,37 @@ nothing was lost.
    `elapsedSeconds` while the server sends `accumulatedSeconds`.
 4. The PostGIS-backed commute endpoint — with dataset place resolution,
    ranked options and real bus services — was never called by the app.
+5. Every accented `AppCard` in a scrolling list threw *"BoxConstraints forces
+   an infinite height"*, including the Recommended fare card. The accent rule
+   is a `stretch` Row, and a ListView hands its children an unbounded height.
+6. The test infrastructure itself: the fake Firestore treated range filters
+   as unconditional matches, which is what let bug 2 pass CI. Fixed, so that
+   class of bug cannot hide again.
 
-A fifth issue was in the test infrastructure itself: the fake Firestore
-treated range filters as unconditional matches, which is what let bug 2 pass
-CI. That is fixed too, so the class of bug cannot hide again.
+**Four more were found only by running against real data**, not by reading
+code: metro fares summed per station hop (৳100 for a ৳30 trip), a merged
+walking leg reporting "about 0 m" for 800 m, a garbled dose absorbed into a
+medicine name, and a short-but-perfect OCR read discarded as unreadable.
 
-**What is honestly not there.** There is no Dijkstra implementation and no
-shortest-path search — a documented absence, not a disconnected feature.
-There is no commute fare ML model and no data to train one. There is no
-custom prescription ML model; prescription reading is Tesseract plus a rule
-parser, and the UI says exactly that and shows no invented confidence score.
-There is no community feed.
+**What is now genuinely there.** A real Dijkstra over `(node, arrival_mode)`
+states, planning complete multimodal journeys with first and last mile across
+404 nodes and 5,221 edges — verified on 3/3 Dhaka trips against the shipped
+dataset, with a step-by-step timeline and a map in the app. Prescription OCR
+that tries several preprocessing variants and reports Tesseract's real
+per-word confidence, verified end to end at 94 (high) on a rendered page.
+Fare-report quality control that refuses the impossible and flags the merely
+unusual. Backblaze B2, validated 13/13 against the live bucket. A migration
+utility for legacy Firebase files that copies and never deletes.
 
-**What remains before release** is not code: a live Backblaze B2 bucket, a
-decision about pre-existing files, verified Gemini and Neon credentials, and
-a real-device pass. Those are listed concretely in
+**What is honestly not there.** There is no commute fare ML model and no data
+to train one — `scripts/commute_ml_status.py` reports the real distance from
+the threshold rather than asserting it, and no rule-based estimate anywhere
+describes itself as a prediction. There is no custom prescription ML model.
+There is no community feed. Handwriting accuracy is unmeasured, and the
+confidence bands exist so a bad read reports itself as one.
+
+**What remains before release** is mostly not code: live Gemini and Neon
+credentials, the legacy-file migration run against your real bucket, a
+real-device pass, and photographs of actual prescriptions to calibrate the
+OCR thresholds. Those are listed concretely in
 [§57](#57-what-the-project-owner-must-do).
