@@ -89,3 +89,7 @@ bengali_word_ocr-main/
 # Reference tessdata repo supplied for study; ben.traineddata is installed
 # on the server by the Dockerfile, not from here.
 tessdata-main/
+
+# Migration progress file, written by scripts/migrate_firebase_to_b2.py
+backend/.migration_state.json
+backend/.migration_state.json.tmp

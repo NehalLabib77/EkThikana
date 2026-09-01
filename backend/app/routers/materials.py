@@ -10,7 +10,8 @@ from app.core.config import get_settings
 from app.core.firebase import get_firestore
 from app.core.utils import detect_supported_file_type, keywords, safe_filename
 from app.services.permission_service import get_material_for_user
-from app.services.storage_service import create_signed_url, delete_file, upload_bytes
+from app.services import storage_provider
+from app.services.storage_service import delete_file, upload_bytes
 
 router = APIRouter()
 
@@ -178,6 +179,8 @@ async def upload_material(
                 "title": title.strip(),
                 "fileName": filename,
                 "filePath": object_path,
+                # Stated at write time so no read ever has to work it out.
+                storage_provider.FIELD: storage_provider.B2,
                 "mimeType": mime,
                 "sizeBytes": len(raw),
                 "visibility": visibility,
@@ -221,9 +224,28 @@ def material_url(
     user: CurrentUser = Depends(require_student),
 ):
     data = get_material_for_user(material_id, user)
-    url = create_signed_url(data["filePath"], download=download)
+
+    # While the Firebase-to-B2 migration is in flight a file may be in either
+    # bucket, so the record says which and that statement is honoured. Trying
+    # B2 and silently falling back would hide a real B2 outage behind a slow
+    # success, and hide an incomplete migration behind an apparent one.
+    resolved = storage_provider.resolve(data)
+    if resolved.missing:
+        raise HTTPException(status_code=404, detail="This file is no longer available")
+
+    url = storage_provider.signed_url_for(resolved, download=download)
     if not url:
         raise HTTPException(status_code=502, detail="Could not create signed URL")
+
+    if resolved.should_persist:
+        # Worked out by probing. Record it so no later read has to probe.
+        try:
+            get_firestore().collection("materials").document(material_id).update(
+                {storage_provider.FIELD: resolved.provider}
+            )
+        except Exception:
+            # Losing the label costs one probe next time, not correctness.
+            pass
 
     if download:
         get_firestore().collection("materials").document(material_id).update(
@@ -415,6 +437,7 @@ async def replace_material_file(
         get_firestore().collection("materials").document(material_id).update(
             {
                 "filePath": new_path,
+                storage_provider.FIELD: storage_provider.B2,
                 "fileName": filename,
                 "mimeType": mime,
                 "sizeBytes": len(raw),

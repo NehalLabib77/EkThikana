@@ -255,6 +255,11 @@ def test_signed_url_uses_v4_version(client, fake_db, fake_auth, monkeypatch):
     The fake storage's ``create_signed_url`` echoes its arguments into
     the URL query string; we patch it to capture the keyword args so we
     can assert the V4 contract directly.
+
+    Patched on ``storage_service`` rather than on the router: signed URLs are
+    now minted through ``storage_provider``, which picks the bucket the record
+    names. That is also the more durable place to pin this -- it holds however
+    the route reaches storage.
     """
     captured: dict = {}
 
@@ -264,9 +269,9 @@ def test_signed_url_uses_v4_version(client, fake_db, fake_auth, monkeypatch):
         captured.setdefault("version", "v4")
         return "http://fake/captured"
 
-    import app.routers.materials as mat_mod
+    import app.services.storage_service as storage_mod
 
-    monkeypatch.setattr(mat_mod, "create_signed_url", _capture)
+    monkeypatch.setattr(storage_mod, "create_signed_url", _capture)
 
     owner = "v4-owner"
     seed_profile(fake_db, owner, role="student")

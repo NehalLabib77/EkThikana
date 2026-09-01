@@ -10,6 +10,7 @@ from app.services.ai_service import generate, generate_multimodal
 from app.services.pdf_service import extract_pdf_text
 from app.services.ocr_service import extract_text as ocr_extract_text
 from app.services.permission_service import get_material_for_user
+from app.services import storage_provider
 from app.services.storage_service import download_bytes
 
 router = APIRouter()
@@ -67,7 +68,7 @@ async def pdf_question(
     if "pdf" not in (material.get("mimeType") or "").lower() and not material.get("fileName", "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Material is not a PDF")
 
-    raw = download_bytes(material["filePath"])
+    raw = _material_bytes(material)
     mime_type = material.get("mimeType") or "application/pdf"
     try:
         text = extract_pdf_text(raw, page=body.page)
@@ -115,7 +116,7 @@ async def image_question(
     # an oversized image both wastes quota and risks 413 from the upstream.
     settings = get_settings()
     max_bytes = max(1, int(getattr(settings, "ai_image_max_bytes", 6 * 1024 * 1024)))
-    raw = download_bytes(material["filePath"])
+    raw = _material_bytes(material)
     if not raw:
         raise HTTPException(status_code=422, detail="Empty image")
     if len(raw) > max_bytes:
@@ -154,3 +155,19 @@ async def image_question(
     ]
     answer = await generate_multimodal(user.uid, parts)
     return {"answer": answer}
+
+
+def _material_bytes(material: dict) -> bytes:
+    """Fetch a material's bytes from whichever bucket the record names.
+
+    Raises rather than returning empty bytes: an unreadable file must not
+    reach the model as an empty document, which would produce a confident
+    answer about nothing.
+    """
+    resolved = storage_provider.resolve(material)
+    if resolved.missing:
+        raise HTTPException(status_code=404, detail="This file is no longer available")
+    data = storage_provider.download_for(resolved)
+    if data is None:
+        raise HTTPException(status_code=502, detail="Could not read this file")
+    return data

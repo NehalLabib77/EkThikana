@@ -176,6 +176,46 @@ def create_signed_url(path: str, *, download: bool = False) -> str:
     )
 
 
+def object_exists(path: str) -> bool:
+    """Whether ``path`` is present in the B2 bucket.
+
+    A HEAD, not a GET: the migration checks this once per file and downloading
+    every object just to learn it is already there would move the whole
+    library twice.
+
+    Returns False on a missing object. Anything else -- a network failure, bad
+    credentials -- is re-raised, because "we could not ask" must not be
+    mistaken for "it is not there". Treating an outage as absence would make
+    the migration re-upload the entire library.
+    """
+    if not path:
+        return False
+    bucket = _bucket()
+    try:
+        bucket.client.head_object(Bucket=bucket.name, Key=path)
+        return True
+    except ClientError as exc:
+        code = str(exc.response.get("Error", {}).get("Code", ""))
+        if code in {"404", "NoSuchKey", "NotFound"}:
+            return False
+        raise
+
+
+def object_size(path: str) -> int | None:
+    """Size in bytes, or None when the object is not there."""
+    if not path:
+        return None
+    bucket = _bucket()
+    try:
+        head = bucket.client.head_object(Bucket=bucket.name, Key=path)
+        return int(head.get("ContentLength") or 0)
+    except ClientError as exc:
+        code = str(exc.response.get("Error", {}).get("Code", ""))
+        if code in {"404", "NoSuchKey", "NotFound"}:
+            return None
+        raise
+
+
 def download_bytes(path: str) -> bytes:
     bucket = _bucket()
     response = bucket.client.get_object(Bucket=bucket.name, Key=path)
