@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from typing import Any
 
 from app.schemas import CommutePlaceInput, CommuteRoutesRequest
+from app.services.commute import journey_service
 from app.services.commute.fare_engine import FareEngine
 from app.services.commute.routing import Coordinate, MapRoutingProvider, get_routing_provider
 from app.database.repositories.postgres_repository import CommutePostgresRepository
+
+logger = logging.getLogger("gochano.commute")
 
 
 class CommuteService:
@@ -129,6 +133,29 @@ class CommuteService:
             except Exception:
                 transit_candidates = []
 
+        # Multimodal journey planning over the transport graph. This is
+        # additive: `recommendations` (per-mode fare options for the whole
+        # trip) keeps its existing shape and meaning, and `journeys` adds the
+        # complete origin-to-destination itineraries. A client that has not
+        # been updated is unaffected.
+        journeys: dict[str, Any] = {"available": False, "reason": "not_attempted",
+                                    "journeys": []}
+        try:
+            journeys = journey_service.plan(
+                self.repo,
+                origin_name=str(origin["name"]),
+                origin_lat=float(origin["lat"]),
+                origin_lon=float(origin["lon"]),
+                destination_name=str(destination["name"]),
+                destination_lat=float(destination["lat"]),
+                destination_lon=float(destination["lon"]),
+            )
+        except Exception:
+            # A routing failure must not take down fare lookup, which is
+            # useful on its own.
+            logger.exception("Multimodal journey planning failed")
+            journeys = {"available": False, "reason": "planner_error", "journeys": []}
+
         return {
             "origin": origin,
             "destination": destination,
@@ -139,6 +166,14 @@ class CommuteService:
             "liveTraffic": False,
             "recommendations": self._recommendations(options),
             "transitCandidates": transit_candidates,
+            "journeyPlanning": {
+                "available": journeys.get("available", False),
+                "reason": journeys.get("reason"),
+                "outsideCoverage": journeys.get("outsideCoverage"),
+                "coverageRadiusKm": journeys.get("coverageRadiusKm"),
+                "graph": journeys.get("graph"),
+            },
+            "journeys": journeys.get("journeys", []),
             "dataSource": "postgres",
             "disclaimer": (
                 "Route time is a map estimate without fabricated live traffic. "

@@ -28,6 +28,7 @@ from app.core.config import get_settings
 from app.database.connection import get_sessionmaker
 from app.database.models import (
     BrtaFareSegment,
+    BrtaGraphEdge,
     BrtaRoute,
     BrtaRouteStop,
     BusService,
@@ -993,6 +994,95 @@ class CommutePostgresRepository:
 
     def rickshaw_distance_fallback(self, distance_km: float) -> dict[str, Any] | None:
         return self._legacy_fallback.rickshaw_distance_fallback(distance_km)
+
+    # ------------------------------------------------------------------
+    # Multimodal routing graph
+    # ------------------------------------------------------------------
+    def load_graph_data(self):
+        """Everything the multimodal router needs, in one pass.
+
+        The graph is built once and cached by `journey_service`, so this runs
+        on a cold start rather than per request. Reading whole tables is the
+        right shape here: the dataset is a few thousand rows and a shortest
+        path needs the *whole* network, not a neighbourhood of it.
+        """
+        from app.services.commute.graph_builder import GraphData, load_coordinates
+
+        with self._session() as session:
+            places = [
+                {"place_id": r.place_id, "name_en": r.name_en}
+                for r in session.execute(select(Place)).scalars()
+            ]
+            brta_edges = [
+                {
+                    "from_place_id": r.from_place_id,
+                    "to_place_id": r.to_place_id,
+                    "segment_distance_km": _to_float(r.distance_km),
+                    "route_id": r.route_id,
+                }
+                for r in session.execute(select(BrtaGraphEdge)).scalars()
+            ]
+            brta_fares = [
+                {
+                    "from_place_id": r.from_place_id,
+                    "to_place_id": r.to_place_id,
+                    "fare_tk": _to_float(r.fare_tk),
+                }
+                for r in session.execute(
+                    select(BrtaFareSegment).where(BrtaFareSegment.fare_tk.is_not(None))
+                ).scalars()
+            ]
+            service_stops = [
+                {
+                    "service_id": r.service_id,
+                    "stop_sequence": r.stop_sequence,
+                    "canonical_place_id": r.canonical_place_id,
+                }
+                for r in session.execute(
+                    select(BusServiceStop).where(
+                        BusServiceStop.canonical_place_id.is_not(None)
+                    )
+                ).scalars()
+            ]
+            services = [
+                {"service_id": r.service_id, "operator_name_en": r.operator_name_en}
+                for r in session.execute(select(BusService)).scalars()
+            ]
+            metro_stations = [
+                {
+                    "station_id": r.station_id,
+                    "name_en": r.name_en,
+                    "station_order": r.station_order,
+                    "line_id": r.line_id,
+                }
+                for r in session.execute(
+                    select(MetroStation).where(
+                        or_(
+                            MetroStation.live_routing_enabled.is_(True),
+                            MetroStation.live_routing_enabled.is_(None),
+                        )
+                    )
+                ).scalars()
+            ]
+            metro_fares = [
+                {
+                    "from_station_id": r.from_station_id,
+                    "to_station_id": r.to_station_id,
+                    "single_journey_fare_tk": _to_float(r.single_journey_fare_tk),
+                }
+                for r in session.execute(select(MetroFare)).scalars()
+            ]
+
+        return GraphData(
+            places=places,
+            brta_edges=brta_edges,
+            brta_fares=brta_fares,
+            service_stops=service_stops,
+            services=services,
+            metro_stations=metro_stations,
+            metro_fares=metro_fares,
+            coordinates=load_coordinates(),
+        )
 
 
 __all__ = ["COMMUTE_TABLES", "CommutePostgresRepository"]
