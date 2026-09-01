@@ -416,7 +416,7 @@ outside the token files.
 
 ### Static illustrations
 
-About **60 drawings** live in `gochano_art.dart` as inline SVG bodies, all in
+**61 drawings** live in `gochano_art.dart` as inline SVG bodies, all in
 one stroke language: a 96×96 viewBox, stroke width 3.4, round caps and joins,
 soft simplified geometry with no faces and no mascots.
 
@@ -1474,7 +1474,7 @@ system, a verified test suite, and a backend whose integrations are correct
 in code.
 
 **What this rebuild changed.** The frontend was rebuilt from the ground up:
-a token-based Clean Minimalist design system with ~60 project-owned static
+a token-based Clean Minimalist design system with 61 project-owned static
 illustrations, five-destination navigation, a briefing-style Home, a unified
 Expense module replacing two disconnected ones, and honest OCR and fare UI.
 All decorative animation was removed and is now blocked by test. 58
