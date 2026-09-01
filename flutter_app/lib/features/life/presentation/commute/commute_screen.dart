@@ -33,6 +33,8 @@ import '../../../home/presentation/home_screen.dart' show formatTaka;
 import 'commute_place_picker.dart';
 import 'commute_route_map.dart';
 import 'fare_report_sheet.dart';
+import 'journey_models.dart';
+import 'journey_view.dart';
 
 class CommuteScreen extends StatefulWidget {
   const CommuteScreen({super.key});
@@ -368,8 +370,20 @@ class _Results extends StatelessWidget {
           ],
         ),
 
+        // The multimodal planner: the actual journey, step by step. Shown
+        // above the per-mode fare estimates because "how do I get there"
+        // comes before "what would each mode cost".
+        JourneyPlanSection(plan: JourneyPlan.fromResponse(result)),
+
         SectionHeader(
-          title: GochanoLanguage.text('Ways to get there', 'যাওয়ার উপায়'),
+          title: GochanoLanguage.text(
+            'Fare estimates by mode',
+            'যানবাহনভেদে আনুমানিক ভাড়া',
+          ),
+          subtitle: GochanoLanguage.text(
+            'A single-mode trip end to end, for comparison',
+            'তুলনার জন্য শুরু থেকে শেষ পর্যন্ত এক যানবাহনে',
+          ),
         ),
         if (options.isEmpty)
           EmptyState(
@@ -496,7 +510,7 @@ class _FareCard extends StatelessWidget {
                     _fareRange(fareLow, fareHigh),
                     style: context.type.statisticSmall,
                   ),
-                  _FareTypeBadge(fareType: fareType),
+                  JourneyFareBadge(fareType: fareType),
                 ],
               ),
             ],
@@ -602,42 +616,6 @@ class _FareCard extends StatelessWidget {
         'Fastest' => GochanoLanguage.text('Fastest', 'দ্রুততম'),
         _ => badge,
       };
-}
-
-/// Names the provenance of a fare in one word (spec §68).
-class _FareTypeBadge extends StatelessWidget {
-  const _FareTypeBadge({required this.fareType});
-
-  final String fareType;
-
-  @override
-  Widget build(BuildContext context) {
-    if (fareType.isEmpty || fareType == 'none') return const SizedBox.shrink();
-
-    final (label, tone) = switch (fareType) {
-      'official' => (
-          GochanoLanguage.text('Official', 'সরকারি'),
-          GochanoBadgeTone.success,
-        ),
-      'crowdsourced' => (
-          GochanoLanguage.text('Reported by riders', 'যাত্রীদের তথ্য'),
-          GochanoBadgeTone.info,
-        ),
-      'historical' => (
-          GochanoLanguage.text('Historical rule', 'পুরোনো নিয়ম'),
-          GochanoBadgeTone.warning,
-        ),
-      _ => (
-          GochanoLanguage.text('Estimated', 'আনুমানিক'),
-          GochanoBadgeTone.neutral,
-        ),
-    };
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: GochanoBadge(label: label, tone: tone),
-    );
-  }
 }
 
 class _TransitRow extends StatelessWidget {

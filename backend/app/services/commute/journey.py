@@ -62,6 +62,18 @@ class JourneyLeg:
     instruction: str
     is_transfer_from_previous: bool
     transfer_minutes: float = 0.0
+    # Endpoint coordinates, so the map can draw the shape the timeline
+    # describes. None when the dataset has no coordinates for that stop --
+    # the leg still routes and still renders as a step, it just cannot be
+    # drawn. Nothing is interpolated to fill the gap.
+    from_lat: float | None = None
+    from_lon: float | None = None
+    to_lat: float | None = None
+    to_lon: float | None = None
+
+    @property
+    def is_mappable(self) -> bool:
+        return None not in (self.from_lat, self.from_lon, self.to_lat, self.to_lon)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,6 +92,10 @@ class JourneyLeg:
             "instruction": self.instruction,
             "isTransfer": self.is_transfer_from_previous,
             "transferMinutes": int(round(self.transfer_minutes)),
+            "fromLat": self.from_lat,
+            "fromLon": self.from_lon,
+            "toLat": self.to_lat,
+            "toLon": self.to_lon,
         }
 
 
@@ -224,8 +240,10 @@ def path_to_journey(path: RoutePath, graph: TransportGraph) -> Journey:
 
     for run in merged:
         first, last = run[0], run[-1]
-        from_name = graph.nodes[first.from_node].name
-        to_name = graph.nodes[last.to_node].name
+        from_node = graph.nodes[first.from_node]
+        to_node = graph.nodes[last.to_node]
+        from_name = from_node.name
+        to_name = to_node.name
 
         distance = sum(e.distance_km for e in run)
         minutes = sum(e.minutes for e in run)
@@ -251,6 +269,10 @@ def path_to_journey(path: RoutePath, graph: TransportGraph) -> Journey:
                 instruction=_instruction(first, from_name, to_name, distance),
                 is_transfer_from_previous=is_transfer,
                 transfer_minutes=transfer_time,
+                from_lat=from_node.lat,
+                from_lon=from_node.lon,
+                to_lat=to_node.lat,
+                to_lon=to_node.lon,
             )
         )
         previous_mode = first.mode

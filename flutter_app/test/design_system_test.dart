@@ -16,6 +16,52 @@ import 'package:gochano/shared/states/gochano_states.dart';
 import 'package:gochano/shared/widgets/gochano_surfaces.dart';
 
 void main() {
+  group('AppCard', () {
+    testWidgets('an accented card survives an unbounded height',
+        (tester) async {
+      // The accent rule is a `CrossAxisAlignment.stretch` Row, and stretch
+      // needs a bounded height. A card in a ListView is handed an unbounded
+      // one, so without an IntrinsicHeight every accented card in a
+      // scrolling list threw "BoxConstraints forces an infinite height" --
+      // which is where the Recommended fare card lives.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GochanoTheme.light(),
+          home: Scaffold(
+            body: ListView(
+              children: const [
+                AppCard(accent: Color(0xFF0066CC), child: Text('accented')),
+                AppCard(child: Text('plain')),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('accented'), findsOneWidget);
+      expect(find.text('plain'), findsOneWidget);
+    });
+
+    testWidgets('an accented card also works with a bounded height',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GochanoTheme.light(),
+          home: Scaffold(
+            body: SizedBox(
+              height: 120,
+              child: AppCard(accent: Color(0xFF0066CC), child: Text('fixed')),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('fixed'), findsOneWidget);
+    });
+  });
+
   group('Illustration catalogue', () {
     test('every drawing uses only the three theme colour slots', () {
       // A hardcoded colour is the exact defect the old

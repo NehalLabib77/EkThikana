@@ -198,12 +198,19 @@ class AppCard extends StatelessWidget {
     Widget content = Padding(padding: padding, child: child);
 
     if (accent != null) {
-      content = Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(width: 3, color: accent),
-          Expanded(child: content),
-        ],
+      // IntrinsicHeight is load-bearing, not decoration. `stretch` needs a
+      // bounded height to stretch to, and a card in a ListView or a
+      // SingleChildScrollView is handed an unbounded one -- which threw
+      // "BoxConstraints forces an infinite height" for every accented card
+      // in a scrolling list, including the Recommended fare card.
+      content = IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 3, color: accent),
+            Expanded(child: content),
+          ],
+        ),
       );
     }
 
