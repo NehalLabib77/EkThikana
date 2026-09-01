@@ -1131,6 +1131,38 @@ Analyzing flutter_app... No issues found!
 00:03 +126: All tests passed!
 ```
 
+```powershell
+flutter build apk --debug --dart-define=API_BASE_URL=https://example.invalid
+```
+```text
+√ Built buildpp\outputslutter-apkpp-debug.apk    (194 MB debug build)
+```
+
+### Build environment notes
+
+Two toolchain problems were hit and fixed while producing that APK. Both are
+environmental rather than defects in this project's code, but they will hit
+anyone building it fresh:
+
+1. **Android SDK Platform 36 is required.** Flutter 3.47 targets it; a
+   machine set up for the older SDK 34 fails with *"Failed to install the
+   following SDK components: platforms;android-36"*. Fix:
+   ```powershell
+   sdkmanager --licenses          # accept all
+   sdkmanager "platforms;android-36"
+   ```
+   `JAVA_HOME` must be set for `sdkmanager` to run — the Android Studio JBR
+   at `C:\Program Files\Android\Android Studio\jbr` works.
+
+2. **Kotlin incremental compilation breaks the file_picker plugin.**
+   `:android_file_picker:compileDebugKotlin` aborts with *"Could not close
+   incremental caches … class-fq-name-to-source.tab"*, reproducibly, from a
+   clean build directory with no daemon running. The failure is inside the
+   plugin's own Kotlin compile, not in Gochano code.
+   `android/gradle.properties` therefore sets `kotlin.incremental=false`,
+   with a comment explaining why. Revisit when `file_picker` or the Kotlin
+   Gradle plugin is next upgraded.
+
 What the suites cover:
 
 | Suite | Covers |
@@ -1432,7 +1464,7 @@ fare". Enter what you paid; that becomes your expense.
 
 | Area | State |
 |---|---|
-| Code quality | `flutter analyze` clean; 126 Flutter + 156 backend tests pass |
+| Code quality | `flutter analyze` clean; 126 Flutter + 156 backend tests pass; debug APK builds |
 | Design system | One system; light/dark verified; contrast floors tested |
 | Motion policy | No decorative animation; enforced by test |
 | Localization | EN/BN complete and tested; persisted |
