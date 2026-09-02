@@ -11,6 +11,7 @@ Idempotency contract:
 """
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -26,6 +27,8 @@ from app.schemas import (
     MonthlyBudgetRequest,
     OfflineRegisterRequest,
 )
+
+logger = logging.getLogger("gochano.part3")
 
 router = APIRouter()
 
@@ -222,12 +225,37 @@ def get_remaining(
     # started stamping it are treated as confirmed, which matches how they
     # were created (Gochano only mirrors a ledger row once the underlying
     # daily expense / purchase / taken dose / actual fare is real).
-    all_rows = (
-        db.collection("financial_transactions")
-        .where("ownerId", "==", user.uid)
-        .where("monthKey", "==", month_key)
-        .stream()
-    )
+    # Two equality filters need a composite index on
+    # (ownerId, monthKey). It is declared in firestore.indexes.json, but a
+    # project where that was never deployed answers with FAILED_PRECONDITION
+    # -- and the screen then showed "Not set" whether the student had set an
+    # amount or not, which reads exactly like saving being broken.
+    #
+    # So the indexed query is tried first and a single-field query is the
+    # fallback, with the month filtered in Python. One student's ledger is a
+    # few hundred rows at most, so the fallback is cheap; it just should not
+    # be the normal path, which is why the index is still declared.
+    try:
+        all_rows = list(
+            db.collection("financial_transactions")
+            .where("ownerId", "==", user.uid)
+            .where("monthKey", "==", month_key)
+            .stream()
+        )
+    except Exception as exc:
+        logger.warning(
+            "budget/remaining composite query unavailable (%s); "
+            "falling back to an owner-only query. Deploy firestore.indexes.json "
+            "to restore the indexed path.",
+            type(exc).__name__,
+        )
+        all_rows = [
+            snap
+            for snap in db.collection("financial_transactions")
+            .where("ownerId", "==", user.uid)
+            .stream()
+            if (snap.to_dict() or {}).get("monthKey") == month_key
+        ]
 
     confirmed_by_source: dict[str, float] = defaultdict(float)
     total_confirmed = 0.0

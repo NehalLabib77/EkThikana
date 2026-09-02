@@ -59,7 +59,7 @@ class ProfileScreen extends StatelessWidget {
           ],
 
           const SizedBox(height: GochanoSpacing.lg),
-          const _SettingsCard(),
+          _SettingsCard(isStudent: role == 'student'),
 
           const SizedBox(height: GochanoSpacing.md),
           const _DangerCard(),
@@ -386,7 +386,11 @@ class _SettingsRow extends StatelessWidget {
 }
 
 class _SettingsCard extends StatefulWidget {
-  const _SettingsCard();
+  const _SettingsCard({required this.isStudent});
+
+  /// Monthly money is a student-only endpoint (`require_student`), so the row
+  /// is hidden rather than shown and then failing with a 403.
+  final bool isStudent;
 
   @override
   State<_SettingsCard> createState() => _SettingsCardState();
@@ -421,15 +425,16 @@ class _SettingsCardState extends State<_SettingsCard> {
           builder: (context, mode, _) {
             return CardGroup(
               children: [
-                _SettingsRow(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
-                  value: GochanoLanguage.text(
-                    'How much you have to spend this month.',
-                    'এই মাসে আপনার কাছে কত টাকা আছে।',
+                if (widget.isStudent)
+                  _SettingsRow(
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
+                    value: GochanoLanguage.text(
+                      'How much you have to spend this month.',
+                      'এই মাসে আপনার কাছে কত টাকা আছে।',
+                    ),
+                    onTap: () => showMonthlyBudgetSheet(context),
                   ),
-                  onTap: () => showMonthlyBudgetSheet(context),
-                ),
                 _SettingsRow(
                   icon: Icons.language_rounded,
                   title: GochanoLanguage.text('Language', 'ভাষা'),
