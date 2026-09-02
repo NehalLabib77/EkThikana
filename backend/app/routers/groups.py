@@ -1,3 +1,4 @@
+import logging
 import secrets
 import string
 from datetime import datetime, timezone
@@ -13,6 +14,12 @@ from app.schemas import (
     GroupCreate,
     GroupJoin,
 )
+
+logger = logging.getLogger("gochano.groups")
+
+#: Sorts a message with no timestamp last, instead of raising when the
+#: comparison meets a None.
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 router = APIRouter()
 
@@ -221,13 +228,39 @@ def list_chat_messages(
     if not _is_member(data, user.uid):
         raise HTTPException(status_code=403, detail="Members only")
 
-    rows = (
-        db.collection("group_messages")
-        .where("groupId", "==", group_id)
-        .order_by("createdAt", direction=firestore.Query.DESCENDING)
-        .limit(limit)
-        .stream()
-    )
+    # An equality filter plus an order_by on a different field needs a
+    # composite index on (groupId, createdAt DESC). That index was missing
+    # from firestore.indexes.json entirely, so this query answered
+    # FAILED_PRECONDITION and the whole chat tab failed to load. The index is
+    # declared now; this fallback means a project that has not deployed it yet
+    # still gets its messages.
+    try:
+        rows = list(
+            db.collection("group_messages")
+            .where("groupId", "==", group_id)
+            .order_by("createdAt", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+    except Exception as exc:
+        logger.warning(
+            "group chat composite query unavailable (%s); sorting in Python. "
+            "Deploy firestore.indexes.json to restore the indexed path.",
+            type(exc).__name__,
+        )
+        unsorted = list(
+            db.collection("group_messages")
+            .where("groupId", "==", group_id)
+            .stream()
+        )
+        # Newest first, matching the indexed query. Messages without a
+        # timestamp sort last rather than breaking the comparison.
+        unsorted.sort(
+            key=lambda snap: (snap.to_dict() or {}).get("createdAt") or _EPOCH,
+            reverse=True,
+        )
+        rows = unsorted[:limit]
+
     out = []
     for r in rows:
         d = r.to_dict() or {}

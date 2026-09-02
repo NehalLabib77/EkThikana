@@ -32,6 +32,7 @@ import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../home/presentation/home_screen.dart' show formatTaka;
 import '../../life/presentation/expense/monthly_budget_sheet.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -399,10 +400,51 @@ class _SettingsCard extends StatefulWidget {
 class _SettingsCardState extends State<_SettingsCard> {
   bool? _notificationsEnabled;
 
+  /// The month's amount, or null while unread. Kept separate from "zero" so
+  /// a failed read is never shown as "not set".
+  double? _budget;
+  bool _budgetFailed = false;
+
   @override
   void initState() {
     super.initState();
     _checkNotifications();
+    if (widget.isStudent) _loadBudget();
+  }
+
+  Future<void> _loadBudget() async {
+    try {
+      final body = await ApiService.getMonthlyBudget(DateTime.now());
+      if (!mounted) return;
+      setState(() {
+        _budget = (body['availableAmount'] as num?)?.toDouble() ?? 0;
+        _budgetFailed = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Says so rather than claiming nothing is set.
+      setState(() => _budgetFailed = true);
+    }
+  }
+
+  String get _budgetLabel {
+    if (_budgetFailed) {
+      return GochanoLanguage.text(
+        'Could not load it just now. Tap to try again.',
+        'এখন লোড করা যায়নি। আবার চেষ্টা করতে চাপ দিন।',
+      );
+    }
+    final amount = _budget;
+    if (amount == null) {
+      return GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…');
+    }
+    if (amount <= 0) {
+      return GochanoLanguage.text(
+        'Not set yet — tap to set the amount for this month.',
+        'এখনো ঠিক করা হয়নি — এই মাসের পরিমাণ দিতে চাপ দিন।',
+      );
+    }
+    return formatTaka(amount);
   }
 
   Future<void> _checkNotifications() async {
@@ -429,11 +471,15 @@ class _SettingsCardState extends State<_SettingsCard> {
                   _SettingsRow(
                     icon: Icons.account_balance_wallet_outlined,
                     title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
-                    value: GochanoLanguage.text(
-                      'How much you have to spend this month.',
-                      'এই মাসে আপনার কাছে কত টাকা আছে।',
-                    ),
-                    onTap: () => showMonthlyBudgetSheet(context),
+                    // The amount itself, not a description of it. A row that
+                    // only said "how much you have to spend this month" gave
+                    // a student no way to tell whether what they set had
+                    // actually been saved.
+                    value: _budgetLabel,
+                    onTap: () async {
+                      final changed = await showMonthlyBudgetSheet(context);
+                      if (changed) await _loadBudget();
+                    },
                   ),
                 _SettingsRow(
                   icon: Icons.language_rounded,
@@ -464,17 +510,23 @@ class _SettingsCardState extends State<_SettingsCard> {
                         'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
                       ),
                     true => GochanoLanguage.text(
-                        'Medicine and task reminders are on.',
-                        'ওষুধ ও কাজের রিমাইন্ডার চালু আছে।',
+                        'Medicine and task reminders are on. Tap to change '
+                        'this in system settings.',
+                        'ওষুধ ও কাজের রিমাইন্ডার চালু আছে। বদলাতে সিস্টেম '
+                        'সেটিংসে যেতে চাপ দিন।',
                       ),
                     null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
                   },
-                  onTap: enabled == false
-                      ? () async {
-                          await NotificationService.openNotificationSettings();
-                          await _checkNotifications();
-                        }
-                      : null,
+                  // Always tappable. Whether reminders are on is an Android
+                  // permission, not an app setting, so the row opens the
+                  // system screen that actually controls it -- and the state
+                  // is re-checked on return so the row is never stale. A row
+                  // that only responded when already broken gave a student no
+                  // way to turn reminders back off.
+                  onTap: () async {
+                    await NotificationService.openNotificationSettings();
+                    await _checkNotifications();
+                  },
                   trailing: enabled == false
                       ? TextButton(
                           onPressed: () async {
@@ -482,10 +534,10 @@ class _SettingsCardState extends State<_SettingsCard> {
                             await _checkNotifications();
                           },
                           child: Text(
-                            GochanoLanguage.text('Enable', 'চালু করুন'),
+                            GochanoLanguage.text('Turn on', 'চালু করুন'),
                           ),
                         )
-                      : const SizedBox.shrink(),
+                      : null,
                 ),
               ],
             );

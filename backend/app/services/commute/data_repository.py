@@ -428,7 +428,7 @@ class CommuteDataRepository:
             "source": nearest.get("source_id"),
             "fareType": "unverified",
             "confidence": "Low",
-            "warning": "Low-confidence fallback from supplied synthetic/user-assumption rows.",
+            "warning": "A rough guide only. Rickshaw fares are negotiated, so agree the price before you set off.",
         }
 
 

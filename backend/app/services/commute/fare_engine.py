@@ -8,6 +8,16 @@ from app.services.commute.data_repository import get_commute_repository
 from app.services.commute.ml_fare import MLFarePredictionService
 
 
+def _rule_year(rule: dict[str, Any]) -> str:
+    """The year a fare rule took effect, for a sentence a passenger reads.
+
+    Returns just the year: "2015" tells a student the number is old, which is
+    the point, while the full "2015-11-01" reads like a database field.
+    """
+    effective = str(rule.get("effectiveFrom") or "").strip()
+    return effective[:4] if len(effective) >= 4 else "older"
+
+
 class BusFareService:
     def __init__(self, repo=None) -> None:
         self.repo = repo or get_commute_repository()
@@ -60,9 +70,15 @@ class CNGFareService:
                     "fareType": "historical",
                     "confidence": "Low",
                     "source": rule.get("source"),
+                    # Written for a passenger, not for a data pipeline. The
+                    # effective year still appears, because how old the rule
+                    # is is the whole reason to distrust the number -- but
+                    # "verify current legal rate before relying on it" asked a
+                    # student to go and check a gazette.
                     "warning": (
-                        f"Historical meter rule effective {rule.get('effectiveFrom')}; "
-                        "verify current legal rate before relying on it."
+                        f"Based on the {_rule_year(rule)} government meter rate, "
+                        "so the real fare is usually higher. Most drivers "
+                        "negotiate -- agree the price first."
                     ),
                 }
             )

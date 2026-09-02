@@ -62,7 +62,10 @@ class _BudgetFormState extends State<_BudgetForm> {
       final current = (body['availableAmount'] as num?)?.toDouble() ?? 0;
       if (!mounted) return;
       setState(() {
-        if (current > 0) {
+        // Only prefill an untouched field. The read can land after the
+        // student has started typing, and overwriting them then would be
+        // worse than not prefilling at all.
+        if (current > 0 && _amount.text.isEmpty) {
           _amount.text = current == current.roundToDouble()
               ? current.toStringAsFixed(0)
               : current.toStringAsFixed(2);
@@ -140,16 +143,12 @@ class _BudgetFormState extends State<_BudgetForm> {
               style: type.bodySecondary,
             ),
             const SizedBox(height: GochanoSpacing.md),
-            if (_loading)
-              StaticLoadingState(
-                compact: true,
-                message: GochanoLanguage.text(
-                  'Loading your budget…',
-                  'আপনার বাজেট লোড হচ্ছে…',
-                ),
-              )
-            else
-              TextField(
+            // The field is always here. It used to be replaced by a loading
+            // state until the current amount arrived, so a slow or failing
+            // read left the sheet with nothing to type into and a disabled
+            // Save -- which is exactly what "it will not take any value"
+            // looks like. Reading the current amount only prefills it.
+            TextField(
                 controller: _amount,
                 autofocus: true,
                 keyboardType:
@@ -173,12 +172,24 @@ class _BudgetFormState extends State<_BudgetForm> {
                 style: type.bodySecondary.copyWith(color: colors.error),
               ),
             ],
+            if (_loading) ...[
+              const SizedBox(height: GochanoSpacing.xs),
+              StaticLoadingState(
+                compact: true,
+                message: GochanoLanguage.text(
+                  'Checking your current amount…',
+                  'আপনার বর্তমান পরিমাণ দেখা হচ্ছে…',
+                ),
+              ),
+            ],
             const SizedBox(height: GochanoSpacing.md),
             PrimaryButton(
               label: GochanoLanguage.text('Save', 'সংরক্ষণ'),
               busy: _saving,
               busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
-              onPressed: _loading ? null : _save,
+              // Never gated on the *read*: a student who knows the figure can
+              // type it and save while the current one is still loading.
+              onPressed: _save,
             ),
           ],
         ),

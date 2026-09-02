@@ -22,6 +22,7 @@ import '../../core/design_system/gochano_illustration.dart';
 import '../../core/design_system/gochano_spacing.dart';
 import '../../core/design_system/gochano_typography.dart';
 import '../../core/localization/gochano_language.dart';
+import '../../services/api_service.dart';
 
 /// A static, labelled loading state.
 ///
@@ -323,6 +324,21 @@ String friendlyErrorMessage(Object? error, {String? fallback}) {
       'The daily AI limit has been reached. Try again tomorrow.',
       'আজকের এআই সীমা শেষ হয়েছে। আগামীকাল আবার চেষ্টা করুন।',
     );
+  }
+
+  // An ApiException's message was written for a person by construction: it is
+  // either a FastAPI `detail` string or one `_decode` composed itself. Trust
+  // it rather than running it past the dump filter below.
+  //
+  // That filter used to swallow it, and the effect was bad: `_decode` phrases
+  // a 500 as "...Open Render -> Logs to see the server traceback", the filter
+  // saw the word "traceback", judged it an exception dump, and replaced it
+  // with "Something went wrong. Please try again." Every backend 500 in the
+  // app therefore reported nothing usable -- on the Focus screen, in group
+  // chat, anywhere -- which made the real fault invisible from the device.
+  if (error is ApiException) {
+    final apiMessage = error.message.trim();
+    if (apiMessage.isNotEmpty) return apiMessage;
   }
 
   // Anything the backend deliberately wrote for a human: FastAPI `detail`
