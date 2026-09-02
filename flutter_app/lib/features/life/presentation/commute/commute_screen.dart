@@ -471,7 +471,6 @@ class _FareCard extends StatelessWidget {
     final fareHigh = (option['fareHigh'] as num?)?.toDouble() ?? 0;
     final fareType = option['fareType']?.toString() ?? '';
     final source = option['source']?.toString() ?? '';
-    final confidence = option['confidence']?.toString() ?? '';
     final warning = option['warning']?.toString() ?? '';
     final transfers = (option['transfers'] as num?)?.toInt() ?? 0;
     final badges = ((option['badges'] as List?) ?? const [])
@@ -551,19 +550,15 @@ class _FareCard extends StatelessWidget {
 
           // Where the number came from. This is the part that keeps an
           // estimate from reading like an official fare.
-          if (source.isNotEmpty || confidence.isNotEmpty) ...[
+          //
+          // The raw confidence word is deliberately not shown: the provenance
+          // badge above already says how far to trust the number, and
+          // "Confidence: Low" beside it read as a second, vaguer verdict on
+          // the same thing. The server now sends the source as a sentence
+          // rather than an id like USER_PROVIDED_ASSUMPTION.
+          if (source.isNotEmpty) ...[
             const SizedBox(height: GochanoSpacing.xs),
-            Text(
-              [
-                if (source.isNotEmpty) source,
-                if (confidence.isNotEmpty)
-                  GochanoLanguage.text(
-                    'Confidence: $confidence',
-                    'নির্ভরযোগ্যতা: $confidence',
-                  ),
-              ].join(' · '),
-              style: context.type.caption,
-            ),
+            Text(source, style: context.type.caption),
           ],
 
           if (warning.isNotEmpty) ...[

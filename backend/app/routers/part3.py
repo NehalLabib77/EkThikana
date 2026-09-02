@@ -410,7 +410,14 @@ def focus_list(
                 "note": d.get("note", ""),
             }
         )
-    return {"sessions": out[:200], "count": len(out[:200])}
+    sessions = out[:200]
+    # `items` is an additive alias for `sessions`. The app shipped reading
+    # `items`, which was always null here and threw
+    # "type 'Null' is not a subtype of type 'List<dynamic>'" on every visit to
+    # the Focus screen. The client now reads `sessions`; carrying both means
+    # an already-installed build recovers from a redeploy alone, without
+    # breaking anything that reads either name.
+    return {"sessions": sessions, "items": sessions, "count": len(sessions)}
 
 
 @router.get("/study/stats")

@@ -269,8 +269,31 @@ class ApiService {
     });
   }
 
-  static Future<List<dynamic>> studyPlan() async =>
-      _decode(await _post('/api/study/plan', body: {'max_items': 8}))['items'] as List<dynamic>;
+  /// Reads a list field from a response without ever throwing on it.
+  ///
+  /// `body['x'] as List<dynamic>` throws
+  /// `type 'Null' is not a subtype of type 'List<dynamic>'` the moment the
+  /// key is absent, null, or spelled differently from what the server sends
+  /// -- which is exactly how the Focus screen crashed. An optional list that
+  /// is not there means "nothing", and nothing is an empty list.
+  ///
+  /// [keys] are tried in order, so a response can be read across a rename
+  /// without breaking either side.
+  static List<dynamic> _listField(
+    Map<String, dynamic> body,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = body[key];
+      if (value is List) return value;
+    }
+    return const [];
+  }
+
+  static Future<List<dynamic>> studyPlan() async => _listField(
+        _decode(await _post('/api/study/plan', body: {'max_items': 8})),
+        const ['items'],
+      );
 
   static Future<void> reportContent({
     required String targetType,
@@ -384,8 +407,14 @@ class ApiService {
   ///
   /// This used to send `limit`, which the route does not declare; FastAPI
   /// ignored it and always applied the default 30-day window.
-  static Future<List<dynamic>> listFocus({int days = 30}) async =>
-      _decode(await _get('/api/study/focus/list', query: {'days': '$days'}))['items'] as List<dynamic>;
+  /// The route returns its rows under `sessions`; this read `items`, which is
+  /// always null, so every visit to the Focus screen threw
+  /// `type 'Null' is not a subtype of type 'List<dynamic>'`. Both keys are
+  /// accepted so the fix works against a backend of either vintage.
+  static Future<List<dynamic>> listFocus({int days = 30}) async => _listField(
+        _decode(await _get('/api/study/focus/list', query: {'days': '\$days'})),
+        const ['sessions', 'items'],
+      );
 
   static Future<Map<String, dynamic>> getStudyStats() async =>
       _decode(await _get('/api/study/stats'));
@@ -409,7 +438,7 @@ class ApiService {
       }));
 
   static Future<List<dynamic>> listOffline() async =>
-      _decode(await _get('/api/offline/list'))['items'] as List<dynamic>;
+      _listField(_decode(await _get('/api/offline/list')), const ['items']);
 
   static Future<void> removeOffline(String materialId) async {
     _decode(await _delete('/api/offline/remove/$materialId'));

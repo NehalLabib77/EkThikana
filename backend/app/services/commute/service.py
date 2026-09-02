@@ -7,6 +7,7 @@ from typing import Any
 from app.schemas import CommutePlaceInput, CommuteRoutesRequest
 from app.services.commute import journey_service
 from app.services.commute.fare_engine import FareEngine
+from app.services.commute.fare_labels import clean_option
 from app.services.commute.graph_builder import load_coordinates, load_mapped_places
 from app.services.commute.routing import Coordinate, MapRoutingProvider, get_routing_provider
 from app.database.repositories.postgres_repository import CommutePostgresRepository
@@ -192,7 +193,10 @@ class CommuteService:
                 category = "fastest"
             else:
                 category = "alternative"
-            results.append({**option, "category": category})
+            # Internal source ids and the raw confidence word are pipeline
+            # detail. `USER_PROVIDED_ASSUMPTION` was being printed on a fare
+            # card, which tells a student nothing they can act on.
+            results.append({**clean_option(option), "category": category})
         return results
 
     async def routes(self, body: CommuteRoutesRequest) -> dict[str, Any]:
