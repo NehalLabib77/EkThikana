@@ -1,5 +1,35 @@
 import 'api_service.dart';
 
+/// Per-session upper bound. Mirrors the ceiling used by the backend
+/// (``_FOCUS_MAX_SECONDS`` in `app/routers/part3.py`) and the backfill script
+/// (`scripts/backfill_focus_sessions_legacy.py`).
+///
+/// Historical rows sometimes carry a value that looks like minutes stored in
+/// a seconds-shaped column — the most visible symptom was a single session
+/// row reading "98h 37m" and the Profile "This month" stat reading 5917
+/// minutes (≈ 354_920 s). The backend clamps these at read time, but the
+/// client mirrors the clamp too as a defence-in-depth so a Firestore SDK
+/// offline cache or an old in-process payload cannot re-introduce the
+/// poisoned value into the UI.
+///
+/// 24 hours is well above any honest focus session and well below any
+/// plausible minutes-as-seconds pollution.
+const int _kMaxFocusSeconds = 24 * 60 * 60; // 86_400 s = 24h
+
+int _coerceFocusSeconds(Object? raw) {
+  int seconds;
+  if (raw is num) {
+    seconds = raw.toInt();
+  } else if (raw is String) {
+    seconds = int.tryParse(raw) ?? 0;
+  } else {
+    seconds = 0;
+  }
+  if (seconds < 0) return 0;
+  if (seconds > _kMaxFocusSeconds) return _kMaxFocusSeconds;
+  return seconds;
+}
+
 class FocusSession {
   const FocusSession({
     required this.id,
@@ -48,7 +78,9 @@ class FocusSession {
       id: readStr('id', 'id'),
       label: readStr('label', 'label'),
       plannedMinutes: readInt('plannedMinutes', 'planned_minutes', 25),
-      elapsedSeconds: readInt('accumulatedSeconds', 'accumulated_seconds'),
+      elapsedSeconds: _coerceFocusSeconds(
+        json['accumulatedSeconds'] ?? json['accumulated_seconds'],
+      ),
       status: readStr('status', 'status'),
       dayKey: readStr('dayKey', 'day_key'),
       monthKey: readStr('monthKey', 'month_key'),

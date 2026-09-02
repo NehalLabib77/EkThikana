@@ -15,6 +15,7 @@ import logging
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from firebase_admin import firestore
@@ -34,6 +35,17 @@ router = APIRouter()
 
 _FOCUS_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,80}$")
 
+# Per-session upper bound. A single Gochano focus session is started from the
+# app and explicitly finished by the user; the longest realistic session is
+# on the order of a few hours. Historical rows sometimes carry values that
+# look like minutes stored in a seconds-shaped column (354_920s = 5_917 min =
+# the "5917 min" pollution on the Profile study-stats card, and the
+# "98h 37m" focus history row that surfaced in the bug report). Anything
+# beyond this cap is treated as evidence of a unit/unit-mismatch and clamped
+# down to it. The clamp is read-time only — the doc is rewritten by the
+# backfill script (scripts/backfill_focus_sessions_legacy.py).
+_FOCUS_MAX_SECONDS = 24 * 60 * 60  # 86_400 s = 24h
+
 
 def _day_key(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%d")
@@ -50,6 +62,41 @@ def _parse_iso(s: str | None) -> datetime | None:
         return datetime.fromisoformat(s.replace("Z", "+00:00"))
     except Exception:
         return None
+
+
+def _coerce_focus_seconds(raw: Any) -> int:
+    """Read a focus session's accumulated seconds with two safety nets.
+
+    1. **Type coercion.** Firestore sometimes hands numeric fields back as
+       strings; tolerate that (``int("1500") -> 1500``) but keep the integer
+       floor — a half-second is not meaningful for a focus timer.
+
+    2. **Sanity clamp.** Values above [_FOCUS_MAX_SECONDS] are clamped down
+       to it. A single Gochano focus session cannot honestly exceed a day;
+       rows that do are evidence of legacy minutes-in-seconds pollution and
+       are de-fanged here so they cannot propagate into ``/study/stats`` or
+       the focus history list. The doc itself is rewritten by the backfill
+       script; this clamp is the last line of defence.
+    """
+    seconds = 0
+    if isinstance(raw, bool):
+        # ``bool`` is a subclass of ``int`` in Python; guard explicitly so
+        # ``True`` does not become "1 second" silently.
+        seconds = 0
+    elif isinstance(raw, int):
+        seconds = raw
+    elif isinstance(raw, float):
+        seconds = int(raw)
+    elif isinstance(raw, str):
+        try:
+            seconds = int(raw)
+        except ValueError:
+            seconds = 0
+    if seconds < 0:
+        return 0
+    if seconds > _FOCUS_MAX_SECONDS:
+        return _FOCUS_MAX_SECONDS
+    return seconds
 
 
 # ============================================================
@@ -351,14 +398,18 @@ def focus_patch(
                 "id": focus_id,
                 "status": "completed",
                 "completedAtIso": d.get("completedAtIso"),
-                "accumulatedSeconds": d.get("accumulatedSeconds", 0),
+                "accumulatedSeconds": _coerce_focus_seconds(
+                    d.get("accumulatedSeconds", 0)
+                ),
                 "idempotent": True,
             }
         last_resumed = _parse_iso(d.get("lastResumedAtIso"))
-        accumulated = int(d.get("accumulatedSeconds", 0))
+        accumulated = _coerce_focus_seconds(d.get("accumulatedSeconds", 0))
         if status == "running" and last_resumed is not None:
             accumulated += int((now - last_resumed).total_seconds())
             accumulated = max(accumulated, 0)
+            if accumulated > _FOCUS_MAX_SECONDS:
+                accumulated = _FOCUS_MAX_SECONDS
         ref.update(
             {
                 "status": "completed",
@@ -384,10 +435,12 @@ def focus_patch(
         if status != "running":
             raise HTTPException(status_code=409, detail=f"Cannot pause from status={status}")
         last_resumed = _parse_iso(d.get("lastResumedAtIso"))
-        accumulated = int(d.get("accumulatedSeconds", 0))
+        accumulated = _coerce_focus_seconds(d.get("accumulatedSeconds", 0))
         if last_resumed is not None:
             accumulated += int((now - last_resumed).total_seconds())
             accumulated = max(accumulated, 0)
+            if accumulated > _FOCUS_MAX_SECONDS:
+                accumulated = _FOCUS_MAX_SECONDS
         ref.update(
             {
                 "status": "paused",
@@ -431,7 +484,9 @@ def focus_list(
                 "status": d.get("status"),
                 "label": d.get("label", ""),
                 "plannedMinutes": d.get("plannedMinutes"),
-                "accumulatedSeconds": int(d.get("accumulatedSeconds", 0)),
+                "accumulatedSeconds": _coerce_focus_seconds(
+                    d.get("accumulatedSeconds", 0)
+                ),
                 "startedAtIso": d.get("startedAtIso"),
                 "completedAtIso": d.get("completedAtIso"),
                 "dayKey": d.get("dayKey"),
@@ -467,7 +522,7 @@ def study_stats(
         if d.get("status") != "completed":
             continue
         day = d.get("dayKey")
-        secs = int(d.get("accumulatedSeconds", 0) or 0)
+        secs = _coerce_focus_seconds(d.get("accumulatedSeconds", 0))
         if day:
             daily_seconds[day] += secs
             completed_days.add(day)

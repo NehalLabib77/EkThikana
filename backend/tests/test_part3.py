@@ -733,6 +733,182 @@ def test_focus_list_returns_only_user_sessions(client, fake_db, fake_auth):
 
 
 # ---------------------------------------------------------------------------
+# Legacy-data safety net (clamp impossibly large accumulatedSeconds)
+#
+# Bug background: a small number of students produced focus-session rows whose
+# accumulatedSeconds value is the duration expressed in **minutes**, not
+# seconds. The most visible symptom was a single session row reading 98h 37m
+# and a Profile "this month" stat reading 5_917 min — i.e. ~354_000 seconds,
+# which is plausible only when the writer dropped minutes into a seconds
+# column.
+#
+# These tests pin the defensive coercion: every read path now clamps anything
+# above 24h down to 24h, so a single corrupted row cannot poison /study/stats
+# or the focus history list.
+# ---------------------------------------------------------------------------
+
+
+def _seed_focus_session(db, uid: str, *, status: str, accumulated_seconds, day_key: str = "2026-09-01") -> str:
+    doc_id = "focus_legacy_test"
+    db.seed(
+        f"users/{uid}/focus_sessions",
+        doc_id,
+        {
+            "id": doc_id,
+            "ownerId": uid,
+            "status": status,
+            "label": "Legacy row",
+            "plannedMinutes": 25,
+            "accumulatedSeconds": accumulated_seconds,
+            # Mark the session complete some time today so dayKey == today is
+            # preserved across the stats walk.
+            "dayKey": day_key,
+            "startedAtIso": f"{day_key}T00:00:00+00:00",
+            "completedAtIso": f"{day_key}T00:25:00+00:00",
+        },
+    )
+    return doc_id
+
+
+def test_focus_list_clamps_impossibly_large_accumulated_seconds(
+    client, fake_db, fake_auth
+):
+    uid = "user-focus-legacy-1"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    # 354_920 seconds = 5_917 minutes = the reported "5917 min" pollution,
+    # stored in a single focus-session row.
+    _seed_focus_session(fake_db, uid, status="completed", accumulated_seconds=354_920)
+
+    resp = client.get("/api/study/focus/list", headers=h)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body["sessions"]) == 1
+    # Defensive clamp: anything above 24h (86_400s) collapses to 24h.
+    assert body["sessions"][0]["accumulatedSeconds"] == 86_400
+
+
+def test_focus_list_tolerates_string_accumulated_seconds(
+    client, fake_db, fake_auth
+):
+    uid = "user-focus-legacy-2"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    # Firestore has historically handed numeric fields back as strings on a
+    # handful of SDK versions; the reader must coerce, not throw.
+    _seed_focus_session(fake_db, uid, status="completed", accumulated_seconds="1500")
+
+    resp = client.get("/api/study/focus/list", headers=h)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["sessions"][0]["accumulatedSeconds"] == 1500
+
+
+def test_focus_list_negative_accumulated_seconds_clamped_to_zero(
+    client, fake_db, fake_auth
+):
+    uid = "user-focus-legacy-3"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    # Negative values are nonsense for a duration counter; treat as 0 rather
+    # than letting them propagate into /study/stats as a poisoned daily total.
+    _seed_focus_session(fake_db, uid, status="completed", accumulated_seconds=-300)
+
+    resp = client.get("/api/study/focus/list", headers=h)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["sessions"][0]["accumulatedSeconds"] == 0
+
+
+def test_study_stats_drops_clamped_legacy_row_under_24h(
+    client, fake_db, fake_auth
+):
+    """A 354_920-second legacy row must NOT inflate monthlyMinutes past 24h."""
+    from datetime import datetime, timezone
+
+    uid = "user-focus-legacy-stats"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    # /study/stats aggregates by the row's own ``dayKey``; to exercise
+    # todaySeconds/monthSeconds we have to land the row on today's UTC key,
+    # otherwise it lands on a historical bucket the router never returns.
+    today_key = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    _seed_focus_session(
+        fake_db,
+        uid,
+        status="completed",
+        accumulated_seconds=354_920,
+        day_key=today_key,
+    )
+
+    resp = client.get("/api/study/stats", headers=h)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # Without the clamp this would be ~5_917; the safety net caps it at 1_440.
+    assert body["todayMinutes"] == 1440
+    assert body["monthMinutes"] == 1440
+
+
+def test_focus_complete_is_idempotent_for_completed_session(
+    client, fake_db, fake_auth
+):
+    """Repeated complete calls must not double-count elapsed time.
+
+    This is the "re-finishing a session inflates the duration" defensive
+    test: the second complete must report the exact same
+    ``accumulatedSeconds`` as the first, even if the client retries on a
+    flaky network. The existing idempotency test only checks status /
+    completedAtIso, not the numeric payload.
+    """
+    uid = "user-focus-idem"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    resp = client.post("/api/study/focus/start", json={}, headers=h)
+    fid = resp.json()["id"]
+
+    first = client.patch(f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h).json()
+    second = client.patch(f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h).json()
+
+    assert first["status"] == "completed"
+    assert second["status"] == "completed"
+    assert second.get("idempotent") is True
+    assert second["accumulatedSeconds"] == first["accumulatedSeconds"]
+    # And, critically, the on-disk value did not move.
+    stored = fake_db._collections[f"users/{uid}/focus_sessions"][fid]["accumulatedSeconds"]
+    assert stored == first["accumulatedSeconds"]
+
+
+def test_focus_patch_complete_clamped_after_huge_run(
+    client, fake_db, fake_auth
+):
+    """A row whose ``lastResumedAtIso`` is years in the past must not inflate
+    accumulatedSeconds past the safety ceiling.
+
+    Without the clamp, a stuck "running" session whose resume stamp is from
+    two years ago would, on complete, add ~63_000_000 seconds to
+    accumulatedSeconds and pollute stats by months.
+    """
+    uid = "user-focus-stuck"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    resp = client.post("/api/study/focus/start", json={}, headers=h)
+    fid = resp.json()["id"]
+
+    # Backdate lastResumedAtIso to 2020 and pretend accumulatedSeconds is 0.
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {"lastResumedAtIso": "2020-01-01T00:00:00+00:00", "accumulatedSeconds": 0}
+    )
+
+    body = client.patch(f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h).json()
+    assert body["status"] == "completed"
+    assert body["accumulatedSeconds"] == 86_400  # clamped at 24h
+
+
+# ---------------------------------------------------------------------------
 # Study stats (daily/monthly minutes + streak + completed-task counts)
 # ---------------------------------------------------------------------------
 
