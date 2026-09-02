@@ -194,6 +194,21 @@ def _instruction(
     # produced "Walk about 0 m" on a 0.8 km walk.
     distance = edge.distance_km if distance_km is None else distance_km
 
+    # The origin a student typed and the nearest network node often carry the
+    # same name, which produced instructions like "Take a rickshaw to
+    # Mohammadpur" while already standing in Mohammadpur. Name the stop
+    # instead, so the step says something the reader can act on.
+    if from_name == to_name:
+        stop = f"the {to_name} stop"
+        if edge.mode is Mode.WALK:
+            metres = int(round(distance * 1000))
+            if metres < 1000:
+                return f"Walk about {max(10, round(metres / 10) * 10)} m to {stop}."
+            return f"Walk about {distance:.1f} km to {stop}."
+        if edge.mode.is_hired:
+            return f"Take a {label.lower()} about {distance:.1f} km to {stop}."
+        return f"{label} about {distance:.1f} km to {stop}."
+
     if edge.mode is Mode.WALK:
         metres = int(round(distance * 1000))
         if metres < 1000:
