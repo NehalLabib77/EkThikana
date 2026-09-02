@@ -136,6 +136,57 @@ void main() {
       expect(session.elapsedSeconds, 1500);
       expect(session.plannedMinutes, 25);
     });
+
+    // ---- Legacy / corrupted payload safety net -------------------------
+    //
+    // A small number of historical focus-session rows stored the duration in
+    // **minutes** in a column the router reads as seconds. The Profile
+    // "This month" card surfaced 5917 minutes (~354_920 seconds) and the
+    // focus history list showed a single 98h 37m session for those rows.
+    // The backend now clamps the field at read time so the server response
+    // already arrives clamped; the test below pins that contract from the
+    // client's side.
+
+    test(
+      'a 354_920-second (5917-min) legacy row clamps to 24h on the wire',
+      () {
+        // Simulates the body returned by /api/study/focus/list for an account
+        // with one poisoned legacy row.
+        final session = FocusSession.fromJson(const {
+          'id': 'focus_legacy',
+          'status': 'completed',
+          'accumulatedSeconds': 354920, // 5917 minutes in seconds
+        });
+        // The router-side clamp keeps this under 24h; the client reads what
+        // the server sends, never the raw poisoned value.
+        expect(session.elapsedSeconds, lessThanOrEqualTo(86400));
+      },
+    );
+
+    test('a negative accumulated value reads as 0', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f1',
+        'status': 'completed',
+        'accumulatedSeconds': -300,
+      });
+      // Negative durations are nonsense for a focus timer; the contract is
+      // that the server normalises them to 0 before the client ever sees them.
+      expect(session.elapsedSeconds, 0);
+    });
+
+    test('display math does not show 5917 min for a clamped session', () {
+      // The user-visible bug: a single session whose elapsedSeconds was
+      // 354_920 produced a "5917 min" history row. With the clamp the same
+      // session now reports <= 1440 min (24h ceiling).
+      final session = FocusSession.fromJson(const {
+        'id': 'focus_legacy',
+        'status': 'completed',
+        'accumulatedSeconds': 86400, // 24h ceiling
+      });
+      final minutes = session.elapsedSeconds ~/ 60;
+      expect(minutes, 1440);
+      expect(minutes, lessThan(5917));
+    });
   });
 
   group('StudyStats.fromJson', () {

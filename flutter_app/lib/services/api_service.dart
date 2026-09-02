@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/app_config.dart';
+import 'auth_service.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode});
@@ -76,6 +77,105 @@ class ApiService {
         'Accept': 'application/json',
       };
 
+  /// Returns a route string safe for dev-mode logs (no query parameters,
+  /// since query strings can carry tokens and ids). We log the *route*
+  /// shape, not the full URL, so a 403 line like
+  /// `ApiService auth retry: GET /api/materials/{id}/url after 403`
+  /// cannot accidentally include a `?download=true&token=...` blob.
+  static String _safeRoute(Uri uri) {
+    final path = uri.path;
+    return path.isEmpty ? '/' : path;
+  }
+
+  /// Dev-only log helper. Never logs request bodies, headers, tokens,
+  /// passwords, or file bytes — only method + safe route + status, so a
+  /// log capture cannot leak a Firebase ID token.
+  static void _debugLog(String message) {
+    if (kReleaseMode) return;
+    debugPrint('[ApiService] $message');
+  }
+
+  /// Central authenticated request funnel.
+  ///
+  /// Every protected JSON call (GET / POST / PATCH / DELETE) flows
+  /// through this method so the 403 → token force-refresh → single
+  /// retry policy is uniform. The caller passes a [build] closure that
+  /// produces a fresh `http.Request` on each invocation; the funnel
+  /// invokes it once, and invokes it *exactly one more time* if the
+  /// first response is a 403 (the cached JWT was stale).
+  ///
+  /// Rules:
+  ///   * Maximum one retry. No loop.
+  ///   * Public / anonymous requests (`auth: false`) never enter the
+  ///     retry path — a 403 there is a real verdict.
+  ///   * Real auth failures (401 / 403 *after* the retry) are returned
+  ///     to the caller so `_decode` can surface them.
+  /// `_send` is the single authenticated-JSON funnel. On `403` it calls
+  /// `AuthService.forceRefreshIdToken()` exactly once and replays the
+  /// request via the supplied [build] closure. Public calls
+  /// (`auth: false`) never retry — `!auth ||` is short-circuited
+  /// before any side-effect runs.
+  static Future<http.Response> _send({
+    required String method,
+    required Uri uri,
+    required bool auth,
+    Duration timeout = const Duration(seconds: 100),
+    required Future<http.Request> Function() build,
+  }) async {
+    return _guard(() async {
+      final first = await _client
+          .send(await build())
+          .timeout(timeout);
+      final response = await http.Response.fromStream(first);
+      // Skip the retry path entirely for public / unauthenticated calls:
+      // a 403 on those endpoints is a real verdict, not a stale token.
+      // `!auth ||` short-circuits before any side-effect runs.
+      if (!auth || response.statusCode != 403) {
+        return response;
+      }
+      // First attempt was 403 on an authenticated request: invalidate
+      // the cached JWT and try the SAME logical request exactly once.
+      _debugLog('auth retry: $method ${_safeRoute(uri)} after 403');
+      await AuthService.forceRefreshIdToken();
+      final second = await _client
+          .send(await build())
+          .timeout(timeout);
+      return http.Response.fromStream(second);
+    });
+  }
+
+  /// Multipart funnel. Multipart requests are stateful — once the
+  /// underlying `MultipartRequest` has been dispatched, it cannot be
+  /// sent again, so the retry must rebuild the request from scratch.
+  /// The [build] closure returns a fresh `MultipartRequest` on each
+  /// invocation.
+  ///
+  /// Same 403-retry contract as `_send`. The retry path is the only
+  /// legitimate reason this funnel exists — everything else is the
+  /// shared `_guard` wrapping.
+  static Future<http.Response> _sendMultipart({
+    required String method,
+    required Uri uri,
+    required bool auth,
+    Duration timeout = const Duration(seconds: 150),
+    required Future<http.MultipartRequest> Function() build,
+  }) async {
+    return _guard(() async {
+      final firstRequest = await build();
+      final firstStreamed = await _client.send(firstRequest).timeout(timeout);
+      final first = await http.Response.fromStream(firstStreamed);
+      if (first.statusCode != 403 || !auth) {
+        return first;
+      }
+      _debugLog('auth retry: $method ${_safeRoute(uri)} after 403');
+      await AuthService.forceRefreshIdToken();
+      final secondRequest = await build();
+      final secondStreamed =
+          await _client.send(secondRequest).timeout(timeout);
+      return http.Response.fromStream(secondStreamed);
+    });
+  }
+
   /// Handles JSON FastAPI responses as well as Render/nginx plain-text or
   /// HTML 5xx responses. This fixes the old FormatException that hid the
   /// real server error behind "Unexpected character".
@@ -112,25 +212,52 @@ class ApiService {
   }
 
   static Future<http.Response> _get(String path, {Map<String, String>? query, bool auth = true}) {
-    return _guard(() async => http
-        .get(_uri(path, query), headers: auth ? await _headers() : {'Accept': 'application/json'})
-        .timeout(const Duration(seconds: 100)));
+    final uri = _uri(path, query);
+    return _send(
+      method: 'GET',
+      uri: uri,
+      auth: auth,
+      build: () async => http.Request('GET', uri)..headers.addAll(
+            auth
+                ? await _headers()
+                : {'Accept': 'application/json'},
+          ),
+    );
   }
 
   static Future<http.Response> _post(String path, {Object? body, bool auth = true}) {
-    return _guard(() async => http
-        .post(
-          _uri(path),
-          headers: auth ? await _headers() : {'Content-Type': 'application/json', 'Accept': 'application/json'},
-          body: body == null ? null : jsonEncode(body),
+    final uri = _uri(path);
+    final encoded = body == null ? null : jsonEncode(body);
+    return _send(
+      method: 'POST',
+      uri: uri,
+      auth: auth,
+      timeout: const Duration(seconds: 120),
+      build: () async => http.Request('POST', uri)
+        ..headers.addAll(
+          auth
+              ? await _headers()
+              : {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
         )
-        .timeout(const Duration(seconds: 120)));
+        ..body = encoded ?? '',
+    );
   }
 
   static Future<http.Response> _delete(String path, {bool auth = true}) {
-    return _guard(() async => http
-        .delete(_uri(path), headers: auth ? await _headers() : {'Accept': 'application/json'})
-        .timeout(const Duration(seconds: 100)));
+    final uri = _uri(path);
+    return _send(
+      method: 'DELETE',
+      uri: uri,
+      auth: auth,
+      build: () async => http.Request('DELETE', uri)..headers.addAll(
+            auth
+                ? await _headers()
+                : {'Accept': 'application/json'},
+          ),
+    );
   }
 
   static Future<Map<String, dynamic>> health() async => _decode(await _get('/api/health', auth: false));
@@ -159,26 +286,31 @@ class ApiService {
     String semester = '',
     String subject = '',
   }) async {
-    return _guard(() async {
-      final request = http.MultipartRequest('POST', _uri('/api/materials/upload'));
-      request.headers['Authorization'] = 'Bearer ${await _token()}';
-      request.headers['Accept'] = 'application/json';
-      request.fields.addAll({
-        'title': title,
-        'visibility': visibility,
-        'group_id': groupId,
-        'university': university,
-        'department': department,
-        'semester': semester,
-        'subject': subject,
-      });
-      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
-      final streamed = await _client
-          .send(request)
-          .timeout(const Duration(seconds: 150));
-      final response = await http.Response.fromStream(streamed);
-      return _decode(response)['id'] as String;
-    });
+    final uri = _uri('/api/materials/upload');
+    final response = await _sendMultipart(
+      method: 'POST',
+      uri: uri,
+      auth: true,
+      build: () async {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers['Authorization'] = 'Bearer ${await _token()}';
+        request.headers['Accept'] = 'application/json';
+        request.fields.addAll({
+          'title': title,
+          'visibility': visibility,
+          'group_id': groupId,
+          'university': university,
+          'department': department,
+          'semester': semester,
+          'subject': subject,
+        });
+        request.files.add(
+          http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+        );
+        return request;
+      },
+    );
+    return _decode(response)['id'] as String;
   }
 
   static Future<String> materialUrl(String id, {bool download = false}) async =>
@@ -219,28 +351,45 @@ class ApiService {
     required Uint8List bytes,
     required String fileName,
   }) async {
-    return _guard(() async {
-      final request = http.MultipartRequest('PUT', _uri('/api/materials/$id/file'));
-      request.headers['Authorization'] = 'Bearer ${await _token()}';
-      request.headers['Accept'] = 'application/json';
-      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
-      final streamed = await _client
-          .send(request)
-          .timeout(const Duration(seconds: 150));
-      return _decode(await http.Response.fromStream(streamed));
-    });
+    final uri = _uri('/api/materials/$id/file');
+    final response = await _sendMultipart(
+      method: 'PUT',
+      uri: uri,
+      auth: true,
+      build: () async {
+        final request = http.MultipartRequest('PUT', uri);
+        request.headers['Authorization'] = 'Bearer ${await _token()}';
+        request.headers['Accept'] = 'application/json';
+        request.files.add(
+          http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+        );
+        return request;
+      },
+    );
+    return _decode(response);
   }
 
   static const Object _kOmit = Object();
 
   static Future<http.Response> _patch(String path, {Object? body, bool auth = true}) {
-    return _guard(() async => _client
-        .patch(
-          _uri(path),
-          headers: auth ? await _headers() : {'Content-Type': 'application/json', 'Accept': 'application/json'},
-          body: body == null ? null : jsonEncode(body),
+    final uri = _uri(path);
+    final encoded = body == null ? null : jsonEncode(body);
+    return _send(
+      method: 'PATCH',
+      uri: uri,
+      auth: auth,
+      timeout: const Duration(seconds: 120),
+      build: () async => http.Request('PATCH', uri)
+        ..headers.addAll(
+          auth
+              ? await _headers()
+              : {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
         )
-        .timeout(const Duration(seconds: 120)));
+        ..body = encoded ?? '',
+    );
   }
 
   static Future<String> aiNote(String action, String text) async =>
@@ -257,16 +406,22 @@ class ApiService {
     required Uint8List bytes,
     required String fileName,
   }) async {
-    return _guard(() async {
-      final request = http.MultipartRequest('POST', _uri('/api/prescriptions/extract'));
-      request.headers['Authorization'] = 'Bearer ${await _token()}';
-      request.headers['Accept'] = 'application/json';
-      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
-      final streamed = await _client
-          .send(request)
-          .timeout(const Duration(seconds: 150));
-      return _decode(await http.Response.fromStream(streamed));
-    });
+    final uri = _uri('/api/prescriptions/extract');
+    final response = await _sendMultipart(
+      method: 'POST',
+      uri: uri,
+      auth: true,
+      build: () async {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers['Authorization'] = 'Bearer ${await _token()}';
+        request.headers['Accept'] = 'application/json';
+        request.files.add(
+          http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+        );
+        return request;
+      },
+    );
+    return _decode(response);
   }
 
   static Future<List<dynamic>> studyPlan() async =>
@@ -528,6 +683,15 @@ class ApiService {
         query: {'lat': '$lat', 'lng': '$lng', 'radius_m': '$radiusM'},
       ));
 
+  /// All CommuteBD places with mappable coordinates.
+  ///
+  /// Used by the map picker so each place can be drawn at its real
+  /// position. Returns `{ "places": [ { name, lat, lon, place_id, ... } ] }`.
+  /// An empty list means the derived coordinate asset is missing on the
+  /// server — the picker treats that as a non-error.
+  static Future<Map<String, dynamic>> commuteMapPlaces() async =>
+      _decode(await _get('/api/commute/places/map'));
+
   static Future<Map<String, dynamic>> reportCommuteFare({
     required String originText,
     required String destinationText,
@@ -586,16 +750,23 @@ class ApiService {
     required String question,
   }) async {
     return _guard(() async {
-      final response = await http
-          .post(
-            _uri('/api/ai/image-question'),
-            headers: await _headers(),
-            body: jsonEncode({
-              'material_id': materialId,
-              'question': question,
-            }),
-          )
-          .timeout(const Duration(seconds: 90));
+      final uri = _uri('/api/ai/image-question');
+      final body = jsonEncode({
+        'material_id': materialId,
+        'question': question,
+      });
+      final response = await _send(
+        method: 'POST',
+        uri: uri,
+        auth: true,
+        timeout: const Duration(seconds: 90),
+        build: () async {
+          final request = http.Request('POST', uri);
+          request.headers.addAll(await _headers());
+          request.body = body;
+          return request;
+        },
+      );
       final data = _decode(response);
       return (data['answer'] as String?) ?? '';
     });
