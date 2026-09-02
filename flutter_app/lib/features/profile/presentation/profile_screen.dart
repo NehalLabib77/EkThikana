@@ -1,7 +1,14 @@
 // Profile (spec §72).
 //
-// Grouped into the sections the spec names: Account, Money, Statistics,
-// Language, Appearance, Notifications, Privacy, Data, About.
+// One identity header, one statistics row, one settings card, and the two
+// things that need standing apart: deleting the account, and signing out.
+//
+// The screen used to be seven titled sections, each its own card, with
+// Language and Appearance expanded as full radio lists. That made a settings
+// screen the tallest page in the app, and buried "Monthly money" — the one
+// row a student actually opens — under a fold of theme options. Language and
+// Appearance now open the selectors they always had; the row shows the
+// current choice so nothing is hidden by collapsing it.
 //
 // Developer configuration is deliberately absent — spec §72 says "Do not
 // expose developer configuration to normal users", so the API base URL, the
@@ -43,39 +50,24 @@ class ProfileScreen extends StatelessWidget {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
-          _AccountCard(role: role),
+          const _IdentityHeader(),
+          _RoleBadge(role: role),
 
           if (role == 'student') ...[
             SectionHeader(title: GochanoLanguage.text('Study', 'পড়াশোনা')),
-            const _StudyStatsCard(),
-            SectionHeader(title: GochanoLanguage.text('Money', 'টাকা')),
-            const _MoneySection(),
+            const _StudyStatsRow(),
           ],
 
-          SectionHeader(
-            title: GochanoLanguage.text('Language', 'ভাষা'),
-          ),
-          const _LanguageSection(),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Appearance', 'চেহারা'),
-          ),
-          const _AppearanceSection(),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Notifications', 'নোটিফিকেশন'),
-          ),
-          const _NotificationsSection(),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Privacy and data', 'গোপনীয়তা ও ডেটা'),
-          ),
-          const _PrivacySection(),
-
-          SectionHeader(title: GochanoLanguage.text('About', 'সম্পর্কে')),
-          const _AboutSection(),
+          const SizedBox(height: GochanoSpacing.lg),
+          const _SettingsCard(),
 
           const SizedBox(height: GochanoSpacing.md),
+          const _DangerCard(),
+
+          const SizedBox(height: GochanoSpacing.md),
+          const _AboutCard(),
+
+          const SizedBox(height: GochanoSpacing.lg),
           SecondaryButton(
             label: GochanoLanguage.text('Sign out', 'সাইন আউট'),
             icon: Icons.logout_rounded,
@@ -88,13 +80,12 @@ class ProfileScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Account
+// Identity
 // ---------------------------------------------------------------------------
 
-class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.role});
-
-  final String role;
+/// Avatar, name, email and where the student studies.
+class _IdentityHeader extends StatelessWidget {
+  const _IdentityHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -104,62 +95,159 @@ class _AccountCard extends StatelessWidget {
       stream: FirestoreService.profileStream(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? const <String, dynamic>{};
-        final name = data['displayName']?.toString() ?? '';
-        final email = data['email']?.toString() ?? '';
-        final university = data['university']?.toString() ?? '';
-        final department = data['department']?.toString() ?? '';
+        final name = data['displayName']?.toString().trim() ?? '';
+        final email = data['email']?.toString().trim() ?? '';
+        final university = data['university']?.toString().trim() ?? '';
+        final department = data['department']?.toString().trim() ?? '';
+        final photo = data['photoUrl']?.toString().trim() ?? '';
 
-        return AppCard(
-          child: Row(
-            children: [
-              GochanoIllustrationTile(
-                GochanoArt.featureProfile,
-                accent: colors.brand,
-                plateSize: 56,
+        return Column(
+          children: [
+            const SizedBox(height: GochanoSpacing.md),
+            _Avatar(photoUrl: photo, onEdit: () => _editProfile(context, data)),
+            const SizedBox(height: GochanoSpacing.sm),
+            Text(
+              name.isEmpty
+                  ? GochanoLanguage.text('Your account', 'আপনার অ্যাকাউন্ট')
+                  : name,
+              style: context.type.pageTitle,
+              textAlign: TextAlign.center,
+            ),
+            if (email.isNotEmpty)
+              Text(
+                email,
+                style: context.type.bodySecondary,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(width: GochanoSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name.isEmpty
-                          ? GochanoLanguage.text('Your account', 'আপনার অ্যাকাউন্ট')
-                          : name,
-                      style: context.type.sectionHeading,
-                    ),
-                    if (email.isNotEmpty)
-                      Text(
-                        email,
-                        style: context.type.bodySecondary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (university.isNotEmpty || department.isNotEmpty)
-                      Text(
-                        [university, department]
-                            .where((e) => e.isNotEmpty)
-                            .join(' · '),
-                        style: context.type.caption,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: GochanoSpacing.xs),
-                    GochanoBadge(
-                      label: role == 'student'
-                          ? GochanoLanguage.text('Student account', 'শিক্ষার্থী অ্যাকাউন্ট')
-                          : GochanoLanguage.text('General account', 'সাধারণ অ্যাকাউন্ট'),
-                      tone: GochanoBadgeTone.brand,
-                      icon: Icons.verified_user_outlined,
-                    ),
-                  ],
+            if (university.isNotEmpty || department.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  [university, department].where((e) => e.isNotEmpty).join(' · '),
+                  style: context.type.caption.copyWith(color: colors.textSecondary),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
-          ),
+          ],
         );
       },
+    );
+  }
+}
+
+/// A circular avatar with an edit affordance sitting on its edge.
+///
+/// Falls back to the project's own profile drawing when no picture is set,
+/// which is the normal case — nothing in Gochano uploads one yet, and the
+/// field is read defensively so a picture works the day something does.
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.photoUrl, required this.onEdit});
+
+  final String photoUrl;
+  final VoidCallback onEdit;
+
+  static const double _size = 96;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: _size,
+            height: _size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.brandSoft,
+              border: Border.all(color: colors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: photoUrl.isEmpty
+                ? Center(
+                    child: GochanoIllustration(
+                      GochanoArt.featureProfile,
+                      size: 48,
+                      accent: colors.brand,
+                    ),
+                  )
+                : Image.network(
+                    photoUrl,
+                    fit: BoxFit.cover,
+                    // Decoded at roughly the size it is drawn, not at whatever
+                    // the source happens to be.
+                    cacheWidth: 384,
+                    semanticLabel: GochanoLanguage.text(
+                      'Profile picture',
+                      'প্রোফাইল ছবি',
+                    ),
+                    errorBuilder: (context, _, _) => Center(
+                      child: GochanoIllustration(
+                        GochanoArt.featureProfile,
+                        size: 48,
+                        accent: colors.brand,
+                      ),
+                    ),
+                  ),
+          ),
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Material(
+              color: colors.brand,
+              shape: CircleBorder(
+                side: BorderSide(color: colors.background, width: 2),
+              ),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onEdit,
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Icon(
+                    Icons.edit_outlined,
+                    size: GochanoSizes.iconSm,
+                    color: colors.onBrand,
+                    semanticLabel: GochanoLanguage.text(
+                      'Edit profile',
+                      'প্রোফাইল সম্পাদনা',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.role});
+
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: GochanoSpacing.sm),
+      child: Center(
+        child: GochanoBadge(
+          label: role == 'student'
+              ? GochanoLanguage.text('Student account', 'শিক্ষার্থী অ্যাকাউন্ট')
+              : GochanoLanguage.text('General account', 'সাধারণ অ্যাকাউন্ট'),
+          tone: GochanoBadgeTone.brand,
+          icon: Icons.verified_user_outlined,
+        ),
+      ),
     );
   }
 }
@@ -168,14 +256,14 @@ class _AccountCard extends StatelessWidget {
 // Study statistics
 // ---------------------------------------------------------------------------
 
-class _StudyStatsCard extends StatefulWidget {
-  const _StudyStatsCard();
+class _StudyStatsRow extends StatefulWidget {
+  const _StudyStatsRow();
 
   @override
-  State<_StudyStatsCard> createState() => _StudyStatsCardState();
+  State<_StudyStatsRow> createState() => _StudyStatsRowState();
 }
 
-class _StudyStatsCardState extends State<_StudyStatsCard> {
+class _StudyStatsRowState extends State<_StudyStatsRow> {
   Map<String, dynamic>? _stats;
   String _error = '';
 
@@ -249,223 +337,195 @@ class _StudyStatsCardState extends State<_StudyStatsCard> {
 }
 
 // ---------------------------------------------------------------------------
-// Money
+// Settings
 // ---------------------------------------------------------------------------
 
-class _MoneySection extends StatelessWidget {
-  const _MoneySection();
+/// One row inside a grouped settings card.
+///
+/// Shared rather than repeated four times, because the value line is the part
+/// that makes a collapsed row honest: it says what the setting currently is,
+/// so nothing was hidden by folding the radio lists away.
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onTap,
+    this.iconColor,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final VoidCallback? onTap;
+  final Color? iconColor;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return CardGroup(
-      children: [
-        ListTile(
-          leading: const Icon(Icons.account_balance_wallet_outlined),
-          title: Text(GochanoLanguage.text('Monthly money', 'মাসিক টাকা')),
-          subtitle: Text(
-            GochanoLanguage.text(
-              'How much you have to spend this month.',
-              'এই মাসে আপনার কাছে কত টাকা আছে।',
+    final colors = context.colors;
+    return ListTile(
+      leading: Icon(icon, color: iconColor ?? colors.textSecondary),
+      title: Text(title, style: context.type.body),
+      subtitle: value.isEmpty
+          ? null
+          : Text(
+              value,
+              style: context.type.caption,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => showMonthlyBudgetSheet(context),
-        ),
-      ],
+      trailing: trailing ??
+          (onTap == null
+              ? null
+              : Icon(Icons.chevron_right_rounded, color: colors.textTertiary)),
+      onTap: onTap,
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Language
-// ---------------------------------------------------------------------------
-
-class _LanguageSection extends StatelessWidget {
-  const _LanguageSection();
+class _SettingsCard extends StatefulWidget {
+  const _SettingsCard();
 
   @override
-  Widget build(BuildContext context) {
-    return RadioGroup<GochanoLocale>(
-      groupValue: GochanoLanguage.current.value,
-      onChanged: (value) {
-        if (value != null) GochanoLanguage.select(value);
-      },
-      child: CardGroup(
-        children: [
-          for (final locale in GochanoLocale.values)
-            RadioListTile<GochanoLocale>(
-              value: locale,
-              // Each language names itself in its own script, so a student
-              // who cannot read the other one can still pick correctly.
-              title: Text(locale.nativeName),
-            ),
-        ],
-      ),
-    );
-  }
+  State<_SettingsCard> createState() => _SettingsCardState();
 }
 
-// ---------------------------------------------------------------------------
-// Appearance
-// ---------------------------------------------------------------------------
-
-class _AppearanceSection extends StatelessWidget {
-  const _AppearanceSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return RadioGroup<ThemeMode>(
-      groupValue: GochanoAppearance.mode.value,
-      onChanged: (value) {
-        if (value != null) GochanoAppearance.select(value);
-      },
-      child: CardGroup(
-        children: [
-          for (final entry in <(ThemeMode, String, String, IconData)>[
-          (
-            ThemeMode.system,
-            GochanoLanguage.text('Follow system', 'সিস্টেম অনুযায়ী'),
-            GochanoLanguage.text(
-              'Matches your phone setting.',
-              'আপনার ফোনের সেটিং অনুসরণ করে।',
-            ),
-            Icons.brightness_auto_outlined,
-          ),
-          (
-            ThemeMode.light,
-            GochanoLanguage.text('Light', 'উজ্জ্বল'),
-            '',
-            Icons.light_mode_outlined,
-          ),
-          (
-            ThemeMode.dark,
-            GochanoLanguage.text('Dark', 'অন্ধকার'),
-            '',
-            Icons.dark_mode_outlined,
-          ),
-        ])
-            RadioListTile<ThemeMode>(
-              value: entry.$1,
-              secondary: Icon(entry.$4),
-              title: Text(entry.$2),
-              subtitle: entry.$3.isEmpty ? null : Text(entry.$3),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Notifications
-// ---------------------------------------------------------------------------
-
-class _NotificationsSection extends StatefulWidget {
-  const _NotificationsSection();
-
-  @override
-  State<_NotificationsSection> createState() => _NotificationsSectionState();
-}
-
-class _NotificationsSectionState extends State<_NotificationsSection> {
-  bool? _enabled;
+class _SettingsCardState extends State<_SettingsCard> {
+  bool? _notificationsEnabled;
 
   @override
   void initState() {
     super.initState();
-    _check();
+    _checkNotifications();
   }
 
-  Future<void> _check() async {
+  Future<void> _checkNotifications() async {
     final enabled = await NotificationService.areNotificationsEnabled();
-    if (mounted) setState(() => _enabled = enabled);
+    if (mounted) setState(() => _notificationsEnabled = enabled);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final enabled = _enabled;
+    final enabled = _notificationsEnabled;
 
-    return CardGroup(
-      children: [
-        ListTile(
-          leading: Icon(
-            enabled == false
-                ? Icons.notifications_off_outlined
-                : Icons.notifications_active_outlined,
-            color: enabled == false ? colors.warning : null,
-          ),
-          title: Text(
-            GochanoLanguage.text('Reminders', 'রিমাইন্ডার'),
-          ),
-          subtitle: Text(
-            switch (enabled) {
-              // Says plainly that reminders will not fire, rather than
-              // leaving a student to discover it when a dose is missed.
-              false => GochanoLanguage.text(
-                  'Turned off in system settings. Medicine and task reminders '
-                  'will not appear.',
-                  'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
+    // Rebuilds when either preference changes, so the value line never shows
+    // a stale choice after the selector closes.
+    return ValueListenableBuilder<GochanoLocale>(
+      valueListenable: GochanoLanguage.current,
+      builder: (context, locale, _) {
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: GochanoAppearance.mode,
+          builder: (context, mode, _) {
+            return CardGroup(
+              children: [
+                _SettingsRow(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
+                  value: GochanoLanguage.text(
+                    'How much you have to spend this month.',
+                    'এই মাসে আপনার কাছে কত টাকা আছে।',
+                  ),
+                  onTap: () => showMonthlyBudgetSheet(context),
                 ),
-              true => GochanoLanguage.text(
-                  'Medicine and task reminders are on.',
-                  'ওষুধ ও কাজের রিমাইন্ডার চালু আছে।',
+                _SettingsRow(
+                  icon: Icons.language_rounded,
+                  title: GochanoLanguage.text('Language', 'ভাষা'),
+                  // Both names in their own script: a student who cannot read
+                  // one can still tell which is selected.
+                  value: locale.nativeName,
+                  onTap: () => _pickLanguage(context),
                 ),
-              null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
-            },
-          ),
-          trailing: enabled == false
-              ? TextButton(
-                  onPressed: () async {
-                    await NotificationService.openNotificationSettings();
-                    await _check();
+                _SettingsRow(
+                  icon: Icons.palette_outlined,
+                  title: GochanoLanguage.text('Appearance', 'চেহারা'),
+                  value: _appearanceLabel(mode),
+                  onTap: () => _pickAppearance(context),
+                ),
+                _SettingsRow(
+                  icon: enabled == false
+                      ? Icons.notifications_off_outlined
+                      : Icons.notifications_active_outlined,
+                  iconColor: enabled == false ? colors.warning : null,
+                  title: GochanoLanguage.text('Reminders', 'রিমাইন্ডার'),
+                  value: switch (enabled) {
+                    // Says plainly that reminders will not fire, rather than
+                    // leaving a student to discover it when a dose is missed.
+                    false => GochanoLanguage.text(
+                        'Turned off in system settings. Medicine and task '
+                        'reminders will not appear.',
+                        'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
+                      ),
+                    true => GochanoLanguage.text(
+                        'Medicine and task reminders are on.',
+                        'ওষুধ ও কাজের রিমাইন্ডার চালু আছে।',
+                      ),
+                    null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
                   },
-                  child: Text(GochanoLanguage.text('Enable', 'চালু করুন')),
-                )
-              : null,
-        ),
-      ],
+                  onTap: enabled == false
+                      ? () async {
+                          await NotificationService.openNotificationSettings();
+                          await _checkNotifications();
+                        }
+                      : null,
+                  trailing: enabled == false
+                      ? TextButton(
+                          onPressed: () async {
+                            await NotificationService.openNotificationSettings();
+                            await _checkNotifications();
+                          },
+                          child: Text(
+                            GochanoLanguage.text('Enable', 'চালু করুন'),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
 
+String _appearanceLabel(ThemeMode mode) => switch (mode) {
+      ThemeMode.system =>
+        GochanoLanguage.text('Follow system', 'সিস্টেম অনুযায়ী'),
+      ThemeMode.light => GochanoLanguage.text('Light', 'উজ্জ্বল'),
+      ThemeMode.dark => GochanoLanguage.text('Dark', 'অন্ধকার'),
+    };
+
 // ---------------------------------------------------------------------------
-// Privacy and data
+// Destructive and about
 // ---------------------------------------------------------------------------
 
-class _PrivacySection extends StatelessWidget {
-  const _PrivacySection();
+/// Deleting the account stands alone, away from settings a student changes
+/// casually, so it can never be tapped on the way to something else.
+class _DangerCard extends StatelessWidget {
+  const _DangerCard();
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return CardGroup(
       children: [
         ListTile(
-          leading: const Icon(Icons.download_outlined),
-          title: Text(GochanoLanguage.text('Export my data', 'আমার ডেটা এক্সপোর্ট')),
-          subtitle: Text(
-            GochanoLanguage.text(
-              'A copy of what Gochano stores about you.',
-              'গোছানো আপনার সম্পর্কে যা সংরক্ষণ করে তার একটি কপি।',
-            ),
-          ),
-          onTap: () => _export(context),
-        ),
-        ListTile(
-          leading: Icon(
-            Icons.delete_forever_outlined,
-            color: context.colors.error,
-          ),
+          leading: Icon(Icons.delete_forever_outlined, color: colors.error),
           title: Text(
             GochanoLanguage.text('Delete my account', 'আমার অ্যাকাউন্ট মুছুন'),
-            style: TextStyle(color: context.colors.error),
+            style: context.type.body.copyWith(color: colors.error),
           ),
           subtitle: Text(
             GochanoLanguage.text(
               'Permanently removes your account, files and records.',
               'আপনার অ্যাকাউন্ট, ফাইল ও রেকর্ড স্থায়ীভাবে মুছে ফেলে।',
             ),
+            style: context.type.caption,
           ),
+          trailing: Icon(Icons.chevron_right_rounded, color: colors.textTertiary),
           onTap: () => _deleteAccount(context),
         ),
       ],
@@ -473,26 +533,21 @@ class _PrivacySection extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// About
-// ---------------------------------------------------------------------------
-
-class _AboutSection extends StatelessWidget {
-  const _AboutSection();
+class _AboutCard extends StatelessWidget {
+  const _AboutCard();
 
   @override
   Widget build(BuildContext context) {
     return CardGroup(
       children: [
-        ListTile(
-          leading: const Icon(Icons.info_outline_rounded),
-          title: Text(AppConfig.appName),
-          subtitle: Text(
-            GochanoLanguage.text(
-              'Organize study and daily life in one place.',
-              'পড়াশোনা ও দৈনন্দিন জীবন এক জায়গায় গুছিয়ে রাখুন।',
-            ),
+        _SettingsRow(
+          icon: Icons.info_outline_rounded,
+          title: AppConfig.appName,
+          value: GochanoLanguage.text(
+            'Organize study and daily life in one place.',
+            'পড়াশোনা ও দৈনন্দিন জীবন এক জায়গায় গুছিয়ে রাখুন।',
           ),
+          onTap: null,
         ),
       ],
     );
@@ -500,40 +555,188 @@ class _AboutSection extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Actions
+// Selectors
 // ---------------------------------------------------------------------------
 
-Future<void> _export(BuildContext context) async {
-  try {
-    final data = await ApiService.exportAccount();
-    if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(GochanoLanguage.text('Your data', 'আপনার ডেটা')),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              data.entries.map((e) => '${e.key}: ${e.value}').join('\n\n'),
-              style: context.type.bodySecondary,
+Future<void> _pickLanguage(BuildContext context) async {
+  final chosen = await showModalBottomSheet<GochanoLocale>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(
+              GochanoLanguage.text('Language', 'ভাষা'),
+              style: sheetContext.type.sectionHeading,
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(GochanoLanguage.text('Close', 'বন্ধ')),
-          ),
+          for (final locale in GochanoLocale.values)
+            ListTile(
+              // Each language names itself in its own script, so a student who
+              // cannot read the other one can still pick correctly.
+              title: Text(locale.nativeName),
+              trailing: locale == GochanoLanguage.current.value
+                  ? Icon(Icons.check_rounded, color: sheetContext.colors.brand)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop(locale),
+            ),
+          const SizedBox(height: GochanoSpacing.sm),
         ],
       ),
+    ),
+  );
+  if (chosen != null) await GochanoLanguage.select(chosen);
+}
+
+Future<void> _pickAppearance(BuildContext context) async {
+  const options = <(ThemeMode, IconData)>[
+    (ThemeMode.system, Icons.brightness_auto_outlined),
+    (ThemeMode.light, Icons.light_mode_outlined),
+    (ThemeMode.dark, Icons.dark_mode_outlined),
+  ];
+
+  final chosen = await showModalBottomSheet<ThemeMode>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(
+              GochanoLanguage.text('Appearance', 'চেহারা'),
+              style: sheetContext.type.sectionHeading,
+            ),
+          ),
+          for (final (mode, icon) in options)
+            ListTile(
+              leading: Icon(icon),
+              title: Text(_appearanceLabel(mode)),
+              subtitle: mode == ThemeMode.system
+                  ? Text(
+                      GochanoLanguage.text(
+                        'Matches your phone setting.',
+                        'আপনার ফোনের সেটিং অনুসরণ করে।',
+                      ),
+                      style: sheetContext.type.caption,
+                    )
+                  : null,
+              trailing: mode == GochanoAppearance.mode.value
+                  ? Icon(Icons.check_rounded, color: sheetContext.colors.brand)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop(mode),
+            ),
+          const SizedBox(height: GochanoSpacing.sm),
+        ],
+      ),
+    ),
+  );
+  if (chosen != null) await GochanoAppearance.select(chosen);
+}
+
+/// Edits the three profile fields this screen already displays.
+///
+/// Writes only to the signed-in student's own `users/{uid}` document, and
+/// only these fields — `role` is untouched, which the security rules require
+/// anyway. Nothing here changes authentication.
+Future<void> _editProfile(
+  BuildContext context,
+  Map<String, dynamic> current,
+) async {
+  final name = TextEditingController(
+    text: current['displayName']?.toString() ?? '',
+  );
+  final university = TextEditingController(
+    text: current['university']?.toString() ?? '',
+  );
+  final department = TextEditingController(
+    text: current['department']?.toString() ?? '',
+  );
+
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+        left: GochanoSpacing.md,
+        right: GochanoSpacing.md,
+        bottom: MediaQuery.of(sheetContext).viewInsets.bottom + GochanoSpacing.md,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            GochanoLanguage.text('Edit profile', 'প্রোফাইল সম্পাদনা'),
+            style: sheetContext.type.sectionHeading,
+          ),
+          const SizedBox(height: GochanoSpacing.md),
+          TextField(
+            controller: name,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: GochanoLanguage.text('Name', 'নাম'),
+            ),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+          TextField(
+            controller: university,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: GochanoLanguage.text('University', 'বিশ্ববিদ্যালয়'),
+            ),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+          TextField(
+            controller: department,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: GochanoLanguage.text('Department', 'বিভাগ'),
+            ),
+          ),
+          const SizedBox(height: GochanoSpacing.md),
+          PrimaryButton(
+            label: GochanoLanguage.text('Save', 'সংরক্ষণ'),
+            icon: Icons.check_rounded,
+            onPressed: () => Navigator.of(sheetContext).pop(true),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+        ],
+      ),
+    ),
+  );
+
+  if (saved != true || !context.mounted) return;
+
+  try {
+    await FirestoreService.updateProfile(
+      displayName: name.text.trim(),
+      university: university.text.trim(),
+      department: department.text.trim(),
     );
+    if (context.mounted) {
+      showGochanoMessage(
+        context,
+        GochanoLanguage.text('Profile updated', 'প্রোফাইল হালনাগাদ হয়েছে'),
+      );
+    }
   } catch (error) {
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
+  } finally {
+    name.dispose();
+    university.dispose();
+    department.dispose();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
 
 Future<void> _deleteAccount(BuildContext context) async {
   final confirmed = await showConfirmationSheet(

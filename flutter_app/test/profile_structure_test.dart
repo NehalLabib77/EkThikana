@@ -1,0 +1,139 @@
+// Guards the Profile screen's shape and the Home quick actions.
+//
+// Both were redesigned, and both have properties that a later edit could
+// undo without anything failing to compile:
+//
+//   * Data export is gone from Profile. The endpoint still exists and is
+//     still reachable from the account-deletion flow's backend, but the row
+//     is not on this screen.
+//   * Language and Appearance open selectors instead of expanding into
+//     radio lists, and the row shows the current choice — otherwise
+//     collapsing them would hide the setting rather than tidy it.
+//   * Deleting the account sits in its own card, away from settings a
+//     student changes casually.
+//   * Quick actions collapse to four with an expander, so the briefing below
+//     them stays above the fold.
+
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+String _read(String path) =>
+    File(path).readAsStringSync().replaceAll('\r\n', '\n');
+
+void main() {
+  group('Profile', () {
+    late String source;
+
+    setUpAll(() =>
+        source = _read('lib/features/profile/presentation/profile_screen.dart'));
+
+    test('data export is not on the screen', () {
+      expect(source, isNot(contains('Export my data')));
+      expect(source, isNot(contains('exportAccount')));
+    });
+
+    test('language and appearance open selectors, not inline radio lists', () {
+      // The old screen rendered RadioListTile groups inline, which is what
+      // made a settings page the tallest screen in the app.
+      expect(source, isNot(contains('RadioListTile')));
+      expect(source, isNot(contains('RadioGroup')));
+      expect(source, contains('_pickLanguage'));
+      expect(source, contains('_pickAppearance'));
+    });
+
+    test('each settings row shows its current value', () {
+      // Collapsing a setting is only honest if the row still says what it is
+      // set to. Both selectors are driven from the same notifiers the app
+      // uses, so the row cannot go stale.
+      expect(source, contains('ValueListenableBuilder<GochanoLocale>'));
+      expect(source, contains('ValueListenableBuilder<ThemeMode>'));
+      expect(source, contains('locale.nativeName'));
+      expect(source, contains('_appearanceLabel(mode)'));
+    });
+
+    test('deleting the account stands apart from ordinary settings', () {
+      expect(source, contains('class _DangerCard'));
+      final settings = source.substring(
+        source.indexOf('class _SettingsCard'),
+        source.indexOf('class _DangerCard'),
+      );
+      expect(settings, isNot(contains('_deleteAccount')),
+          reason: 'account deletion must not sit among everyday settings');
+    });
+
+    test('sign out is still separate and still confirmed', () {
+      expect(source, contains('_signOut'));
+      expect(source, contains('showConfirmationSheet'));
+    });
+
+    test('profile editing writes only the displayed fields', () {
+      // Never `role`: the security rule refuses a write that changes it, and
+      // this screen has no business touching it regardless.
+      final service = _read('lib/services/firestore_service.dart');
+      final method = service.substring(
+        service.indexOf('static Future<void> updateProfile('),
+        service.indexOf('static Future<Map<String, dynamic>> profile()'),
+      );
+
+      expect(method, contains("'displayName'"));
+      expect(method, contains("'university'"));
+      expect(method, contains("'department'"));
+      expect(method, isNot(contains("'role'")));
+      expect(method, isNot(contains("'email'")));
+    });
+
+    test('user values are read from the profile, never hardcoded', () {
+      expect(source, contains('FirestoreService.profileStream()'));
+      expect(source, contains("data['displayName']"));
+      expect(source, contains("data['email']"));
+      expect(source, contains('ApiService.getStudyStats()'));
+    });
+  });
+
+  group('Home quick actions', () {
+    late String source;
+
+    setUpAll(() =>
+        source = _read('lib/features/home/presentation/home_screen.dart'));
+
+    test('collapses to four with an expander', () {
+      expect(source, contains('_collapsedCount = 4'));
+      expect(source, contains('See more'));
+      expect(source, contains('Show less'));
+      expect(source, contains('আরো দেখুন'));
+      expect(source, contains('কম দেখুন'));
+    });
+
+    test('every existing destination is still reachable', () {
+      // A redesign that quietly drops a shortcut is a regression, not a
+      // tidy-up.
+      for (final destination in const [
+        'AiAssistantScreen',
+        'showAddExpenseSheet',
+        'showAddTaskSheet',
+        'PrescriptionScanScreen',
+        'CommuteScreen',
+      ]) {
+        expect(source, contains(destination),
+            reason: '$destination must stay one tap from Home');
+      }
+    });
+  });
+
+  group('Tasks', () {
+    test('the empty state no longer duplicates the floating add button', () {
+      final source =
+          _read('lib/features/tasks/presentation/tasks_view.dart');
+      final emptyState = source.substring(
+        source.indexOf('if (docs.isEmpty) {'),
+        source.indexOf('return ListView.builder('),
+      );
+
+      expect(emptyState, isNot(contains('actionLabel')));
+      expect(emptyState, isNot(contains('onAction')));
+      // The floating button itself must still be there.
+      expect(source, contains('showAddTaskSheet(context)'));
+    });
+  });
+}
