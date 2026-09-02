@@ -24,7 +24,6 @@ import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/financial_service.dart';
 import '../../../../services/firestore_service.dart';
-import '../../../../services/notification_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -401,81 +400,17 @@ class _MedicineRow extends StatelessWidget {
           }),
         ),
         GochanoMenuAction(
-          label: GochanoLanguage.text('Delete', 'মুছে ফেলুন'),
+          label: GochanoLanguage.text('Delete medicine', 'ওষুধ মুছুন'),
           icon: Icons.delete_outline_rounded,
           destructive: true,
-          onSelected: () => _deleteMedicine(context, doc),
+          onSelected: () => _confirmAndDeleteMedicine(
+            context,
+            medicineId: doc.id,
+            medicineName: data['name']?.toString() ?? '',
+          ),
         ),
       ],
     );
-  }
-}
-
-/// Removes a medicine, after asking.
-///
-/// Deleting is destructive and irreversible, so it is confirmed first and the
-/// dialog says plainly what survives: the dose history stays, because it is a
-/// record of what the student actually took and deleting the reminder should
-/// not rewrite that history.
-///
-/// Scheduled reminders are cancelled *before* the document goes. Cancelling
-/// needs the saved times, and once the document is deleted those are gone --
-/// which would leave the OS firing notifications for a medicine that no
-/// longer exists.
-Future<void> _deleteMedicine(
-  BuildContext context,
-  QueryDocumentSnapshot<Map<String, dynamic>> doc,
-) async {
-  final data = doc.data();
-  final name = data['name']?.toString() ?? '';
-  final times = ((data['times'] as List?) ?? const [])
-      .map((e) => e.toString())
-      .where((e) => e.trim().isNotEmpty)
-      .toList();
-
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(GochanoLanguage.text('Delete this medicine?', 'ওষুধটি মুছবেন?')),
-      content: Text(
-        GochanoLanguage.text(
-          'Its reminders stop and it leaves your list. Doses you already '
-          'marked stay in your history.',
-          'এর রিমাইন্ডার বন্ধ হবে এবং তালিকা থেকে চলে যাবে। আপনি আগে যেসব ডোজ '
-          'চিহ্নিত করেছেন তা ইতিহাসে থেকে যাবে।',
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(GochanoLanguage.text('Delete', 'মুছে ফেলুন')),
-        ),
-      ],
-    ),
-  );
-
-  if (confirmed != true || !context.mounted) return;
-
-  try {
-    if (times.isNotEmpty) {
-      await NotificationService.cancelMedicineTimes(doc.id, times);
-    }
-    await doc.reference.delete();
-    if (!context.mounted) return;
-    showGochanoMessage(
-      context,
-      GochanoLanguage.text(
-        name.isEmpty ? 'Medicine deleted.' : '$name deleted.',
-        name.isEmpty ? 'ওষুধ মুছে ফেলা হয়েছে।' : '$name মুছে ফেলা হয়েছে।',
-      ),
-    );
-  } catch (error) {
-    if (!context.mounted) return;
-    showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
   }
 }
 
@@ -506,6 +441,141 @@ Future<void> _recordDose(
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
+  }
+}
+
+/// Confirm with the user, then cascade-delete a medicine.
+///
+/// The cascade is irreversible by design: deleting a medicine removes every
+/// ``medicine_doses`` row whose ``medicineId`` matches, plus any
+/// ``financial_transactions`` mirror rows that were created when those
+/// doses were marked taken. The user must type "DELETE" so a stray tap on
+/// the 3-dot menu does not erase a year of adherence history.
+Future<void> _confirmAndDeleteMedicine(
+  BuildContext context, {
+  required String medicineId,
+  required String medicineName,
+}) async {
+  if (medicineId.isEmpty) return;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      final controller = TextEditingController();
+      final colors = dialogContext.colors;
+      return StatefulBuilder(
+        builder: (innerContext, setLocal) {
+          final canConfirm = controller.text.trim().toUpperCase() == 'DELETE';
+          return AlertDialog(
+            title: Text(
+              GochanoLanguage.text(
+                'Delete this medicine?',
+                'এই ওষুধ মুছে ফেলবেন?',
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    medicineName.isEmpty
+                        ? GochanoLanguage.text(
+                            'This will permanently remove the medicine, '
+                            'every dose record, and any expense entry it '
+                            'created.',
+                            'এটি ওষুধটি, প্রতিটি ডোজের রেকর্ড এবং এটি থেকে '
+                            'তৈরি হওয়া যেকোনো খরচের এন্ট্রি স্থায়ীভাবে '
+                            'মুছে ফেলবে।',
+                          )
+                        : GochanoLanguage.text(
+                            'This will permanently remove "$medicineName", '
+                            'every dose record, and any expense entry it '
+                            'created.',
+                            '"$medicineName", প্রতিটি ডোজের রেকর্ড এবং '
+                            'এটি থেকে তৈরি হওয়া যেকোনো খরচের এন্ট্রি '
+                            'স্থায়ীভাবে মুছে যাবে।',
+                          ),
+                    style: innerContext.type.body,
+                  ),
+                  const SizedBox(height: GochanoSpacing.md),
+                  Text(
+                    GochanoLanguage.text(
+                      'Type DELETE to confirm.',
+                      'নিশ্চিত করতে DELETE লিখুন।',
+                    ),
+                    style: innerContext.type.caption.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: GochanoSpacing.xs),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    onChanged: (_) => setLocal(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'DELETE',
+                      hintStyle: TextStyle(color: colors.textTertiary),
+                    ),
+                  ),
+                  const SizedBox(height: GochanoSpacing.sm),
+                  Text(
+                    GochanoLanguage.text(
+                      'Gochano does not recommend stopping prescribed '
+                      'medicine. Follow professional medical advice.',
+                      'গোছানো প্রেসক্রাইব করা ওষুধ বন্ধ করার পরামর্শ '
+                      'দেয় না। পেশাদার চিকিৎসা পরামর্শ অনুসরণ করুন।',
+                    ),
+                    style: innerContext.type.caption.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.error,
+                ),
+                onPressed:
+                    canConfirm ? () => Navigator.pop(dialogContext, true) : null,
+                child: Text(
+                  GochanoLanguage.text('Delete', 'মুছুন'),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  if (confirmed != true) return;
+  if (!context.mounted) return;
+
+  try {
+    await FinancialService.deleteMedicine(medicineId);
+    if (!context.mounted) return;
+    showGochanoMessage(
+      context,
+      GochanoLanguage.text(
+        'Medicine deleted.',
+        'ওষুধ মুছে ফেলা হয়েছে।',
+      ),
+    );
+  } catch (error) {
+    if (!context.mounted) return;
+    showGochanoMessage(
+      context,
+      friendlyErrorMessage(error),
+      isError: true,
+    );
   }
 }
 

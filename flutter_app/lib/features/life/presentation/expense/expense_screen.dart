@@ -151,19 +151,6 @@ class _OverviewTabState extends State<_OverviewTab> {
             FutureBuilder<Map<String, dynamic>>(
               future: _budget,
               builder: (context, budgetSnap) {
-                // "We could not read your budget" and "you have not set one"
-                // are different facts. Collapsing them meant a failed request
-                // rendered as "Not set" forever: a student would set the
-                // amount, see "Not set" again, and reasonably conclude that
-                // saving was broken.
-                if (budgetSnap.hasError) {
-                  return ErrorState(
-                    compact: true,
-                    message: friendlyErrorMessage(budgetSnap.error),
-                    onRetry: _reloadBudget,
-                  );
-                }
-
                 final available =
                     (budgetSnap.data?['available'] as num?)?.toDouble();
                 final remaining =

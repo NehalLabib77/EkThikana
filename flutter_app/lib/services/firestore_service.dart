@@ -32,24 +32,6 @@ class FirestoreService {
     return db.collection('users').doc(uid).snapshots();
   }
 
-  /// Updates the signed-in student's own profile fields.
-  ///
-  /// Deliberately narrow: only the three fields the Profile screen displays.
-  /// `role` is never written, which the security rules require anyway --
-  /// `allow update` refuses any write that changes it.
-  static Future<void> updateProfile({
-    required String displayName,
-    required String university,
-    required String department,
-  }) {
-    return db.collection('users').doc(uid).update({
-      'displayName': displayName,
-      'university': university,
-      'department': department,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
   static Future<Map<String, dynamic>> profile() async {
     final snap = await db.collection('users').doc(uid).get();
     return snap.data() ?? {};

@@ -214,6 +214,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       );
     }
     if (raw.contains('ai service configuration') ||
+        raw.contains('model configuration') ||
         raw.contains('provider temporarily unavailable') ||
         raw.contains('returned no text')) {
       return GochanoLanguage.text(
