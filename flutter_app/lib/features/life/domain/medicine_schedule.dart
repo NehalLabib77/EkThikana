@@ -197,4 +197,10 @@ abstract final class MedicineSchedule {
     }
     return (taken: taken, skipped: skipped, missed: missed, pending: pending);
   }
+
+  /// Returns only doses that still need the student to act (pending or missed).
+  /// Taken/skipped doses are moved to history and should not clutter today's list.
+  static List<ScheduledDose> actionable(List<ScheduledDose> schedule) {
+    return schedule.where((d) => d.needsAction).toList();
+  }
 }

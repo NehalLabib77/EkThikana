@@ -110,6 +110,7 @@ class _MedicineBody extends StatelessWidget {
           builder: (context, doseSnapshot) {
             final doses = [...?doseSnapshot.data?.docs];
             final schedule = MedicineSchedule.forDay(medicines, doses);
+            final actionableDoses = MedicineSchedule.actionable(schedule);
             final counts = MedicineSchedule.counts(schedule);
             final next = MedicineSchedule.next(schedule);
 
@@ -154,7 +155,7 @@ class _MedicineBody extends StatelessWidget {
                 SectionHeader(
                   title: GochanoLanguage.text("Today's doses", 'আজকের ডোজ'),
                 ),
-                if (schedule.isEmpty)
+                if (actionableDoses.isEmpty)
                   AppCard(
                     child: Text(
                       GochanoLanguage.text(
@@ -167,7 +168,7 @@ class _MedicineBody extends StatelessWidget {
                 else
                   CardGroup(
                     children: [
-                      for (final dose in schedule) _DoseRow(dose: dose),
+                      for (final dose in actionableDoses) _DoseRow(dose: dose),
                     ],
                   ),
 
