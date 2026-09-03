@@ -2,8 +2,8 @@
 //
 //   Workspace  Semester → Subject → Materials, plus recent materials surfaced
 //              at the top so the common case is one tap, not three (spec §29).
-//   Tasks      Today / Upcoming / Completed.
-//   Planner    Study sessions on an agenda.
+//   Plan       Combined dashboard: schedule, deadlines, tasks, reminders,
+//              and study goal — the single screen for "what now?"
 //   Focus      A distraction-free timer.
 //
 // Groups are not a fifth tab here. They are the Community destination in the
@@ -22,11 +22,10 @@ import '../../../core/page_route.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
-import '../../tasks/presentation/tasks_view.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import 'ai/ai_assistant_screen.dart';
 import 'focus/focus_view.dart';
-import 'planner/planner_view.dart';
+import 'planner/plan_view.dart';
 import 'workspace/workspace_view.dart';
 
 class StudyScreen extends StatefulWidget {
@@ -43,7 +42,7 @@ class _StudyScreenState extends State<StudyScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -83,8 +82,7 @@ class _StudyScreenState extends State<StudyScreen>
           tabAlignment: TabAlignment.start,
           tabs: [
             Tab(text: GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')),
-            Tab(text: GochanoLanguage.text('Tasks', 'কাজ')),
-            Tab(text: GochanoLanguage.text('Planner', 'পরিকল্পনা')),
+            Tab(text: GochanoLanguage.text('Plan', 'পরিকল্পনা')),
             Tab(text: GochanoLanguage.text('Focus', 'ফোকাস')),
           ],
         ),
@@ -93,8 +91,7 @@ class _StudyScreenState extends State<StudyScreen>
         controller: _tabs,
         children: const [
           WorkspaceView(),
-          TasksView(),
-          PlannerView(),
+          PlanView(),
           FocusView(),
         ],
       ),
