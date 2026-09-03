@@ -325,8 +325,7 @@ class _AssignmentTaskBento extends StatelessWidget {
           return ad.compareTo(bd);
         });
 
-        if (deadlines.isEmpty && tasks.isEmpty) return const SizedBox.shrink();
-
+        // Always render both cards, even when empty.
         return LayoutBuilder(
           builder: (context, constraints) {
             final sideBySide = constraints.maxWidth >= 600;
@@ -364,9 +363,53 @@ class _AssignmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (deadlines.isEmpty) return const SizedBox.shrink();
-
     final shown = deadlines.take(3).toList();
+
+    if (deadlines.isEmpty) {
+      return AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: SectionHeader(
+                    padding: EdgeInsets.zero,
+                    title: GochanoLanguage.text(
+                      'Assignments',
+                      'অ্যাসাইনমেন্ট',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  onPressed: () =>
+                      showAddTaskSheet(context, type: 'assignment'),
+                  tooltip: GochanoLanguage.text(
+                    'Add assignment',
+                    'অ্যাসাইনমেন্ট যোগ করুন',
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: GochanoSpacing.xs),
+            EmptyState(
+              compact: true,
+              illustration: GochanoArt.emptyTasks,
+              title: GochanoLanguage.text('No assignments', 'কোনো অ্যাসাইনমেন্ট নেই'),
+              message: GochanoLanguage.text(
+                'All caught up!',
+                'সব ঠিক আছে!',
+              ),
+              actionLabel: GochanoLanguage.text('Add assignment', 'অ্যাসাইনমেন্ট যোগ করুন'),
+              onAction: () => showAddTaskSheet(context, type: 'assignment'),
+            ),
+          ],
+        ),
+      );
+    }
 
     return AppCard(
       child: Column(

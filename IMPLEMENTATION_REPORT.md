@@ -78,6 +78,28 @@ final isAssignment = data['type']?.toString() == 'assignment';
 
 ---
 
+## Fix — Assignment/Task Bento Always Visible (Plan View)
+
+### Root Cause
+`_AssignmentTaskBento.build()` (plan_view.dart:328) returned `SizedBox.shrink()` when both `deadlines` and `tasks` were empty, hiding the entire section. Additionally, `_AssignmentCard` (plan_view.dart:367) returned `SizedBox.shrink()` when empty instead of showing an empty state with the "+" add button.
+
+### Exact Fix
+1. **`_AssignmentTaskBento`**: Removed the early return `if (deadlines.isEmpty && tasks.isEmpty) return const SizedBox.shrink();` — the bento layout now always renders both cards side-by-side (or stacked on small screens).
+2. **`_AssignmentCard`**: Added an `EmptyState` with illustration, title, message, and "Add assignment" action button — matching the behavior of `_TaskCard`. The header with "+" button is now always visible.
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/study/presentation/planner/plan_view.dart` | `_AssignmentTaskBento`: removed early return when empty. `_AssignmentCard`: added `EmptyState` with "Add assignment" action; header always shows "+" button. |
+
+### Tests
+- `flutter analyze` — 0 issues
+- `flutter test` — 282/282 passed
+- Backend tests — 360/360 passed
+
+---
+
 ## Feature 2 — Study Goal (User-Editable)
 
 ### Verified Behavior
@@ -197,3 +219,8 @@ M  flutter_app/test/focus_session_test.dart
 ```
 
 No commit / push / deploy performed.
+
+---
+
+### No commit/push/deploy
+Confirmed. No git commit, push, or deploy operations performed.
