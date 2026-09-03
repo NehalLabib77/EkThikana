@@ -770,7 +770,7 @@ def _seed_focus_session(db, uid: str, *, status: str, accumulated_seconds, day_k
     return doc_id
 
 
-def test_focus_list_clamps_impossibly_large_accumulated_seconds(
+def test_focus_list_drops_impossibly_large_accumulated_seconds_to_zero(
     client, fake_db, fake_auth
 ):
     uid = "user-focus-legacy-1"
@@ -785,8 +785,11 @@ def test_focus_list_clamps_impossibly_large_accumulated_seconds(
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert len(body["sessions"]) == 1
-    # Defensive clamp: anything above 24h (86_400s) collapses to 24h.
-    assert body["sessions"][0]["accumulatedSeconds"] == 86_400
+    # Policy: corrupt / impossible legacy values are surfaced as 0 — NEVER
+    # clamped up to 86_400 (which would itself be a "1440 min" phantom
+    # session in the UI). The user did not study 24 hours; the only honest
+    # answer is 0.
+    assert body["sessions"][0]["accumulatedSeconds"] == 0
 
 
 def test_focus_list_tolerates_string_accumulated_seconds(
@@ -821,10 +824,17 @@ def test_focus_list_negative_accumulated_seconds_clamped_to_zero(
     assert resp.json()["sessions"][0]["accumulatedSeconds"] == 0
 
 
-def test_study_stats_drops_clamped_legacy_row_under_24h(
+def test_study_stats_drops_corrupt_legacy_row_to_zero(
     client, fake_db, fake_auth
 ):
-    """A 354_920-second legacy row must NOT inflate monthlyMinutes past 24h."""
+    """A 354_920-second legacy row must NOT inflate today's or this month's
+    totals.
+
+    Policy: corrupt historical values collapse to 0. The stats aggregator
+    therefore sees 0 seconds contributed by this row, and
+    ``todayMinutes`` / ``monthMinutes`` are both 0 — never 1_440 (which
+    would itself be a phantom 24h session in the Profile card).
+    """
     from datetime import datetime, timezone
 
     uid = "user-focus-legacy-stats"
@@ -846,9 +856,10 @@ def test_study_stats_drops_clamped_legacy_row_under_24h(
     resp = client.get("/api/study/stats", headers=h)
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    # Without the clamp this would be ~5_917; the safety net caps it at 1_440.
-    assert body["todayMinutes"] == 1440
-    assert body["monthMinutes"] == 1440
+    # Corrupt row → 0 minutes today and 0 minutes this month.
+    # The historical ~5_917 pollution is dropped, never clamped to 1_440.
+    assert body["todayMinutes"] == 0
+    assert body["monthMinutes"] == 0
 
 
 def test_focus_complete_is_idempotent_for_completed_session(
@@ -881,15 +892,14 @@ def test_focus_complete_is_idempotent_for_completed_session(
     assert stored == first["accumulatedSeconds"]
 
 
-def test_focus_patch_complete_clamped_after_huge_run(
+def test_focus_patch_complete_discards_huge_run_interval(
     client, fake_db, fake_auth
 ):
-    """A row whose ``lastResumedAtIso`` is years in the past must not inflate
-    accumulatedSeconds past the safety ceiling.
+    """A row whose ``lastResumedAtIso`` is years in the past must discard the
+    interval rather than fabricate a 24-hour duration.
 
-    Without the clamp, a stuck "running" session whose resume stamp is from
-    two years ago would, on complete, add ~63_000_000 seconds to
-    accumulatedSeconds and pollute stats by months.
+    A stuck "running" session whose resume stamp is from two years ago must
+    preserve the already-sanitized accumulated value.
     """
     uid = "user-focus-stuck"
     seed_profile(fake_db, uid, role="student")
@@ -905,7 +915,672 @@ def test_focus_patch_complete_clamped_after_huge_run(
 
     body = client.patch(f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h).json()
     assert body["status"] == "completed"
-    assert body["accumulatedSeconds"] == 86_400  # clamped at 24h
+    assert body["accumulatedSeconds"] == 0
+
+
+def test_fold_running_interval_discards_stale_and_overflowing_intervals():
+    from datetime import datetime, timedelta, timezone
+
+    from app.routers.part3 import _fold_running_interval
+
+    now = datetime.now(timezone.utc)
+    assert _fold_running_interval(
+        now, now - timedelta(seconds=300), 0
+    )[0] == 300
+    assert _fold_running_interval(
+        now, now - timedelta(seconds=90_000), 0
+    )[0] == 0
+    assert _fold_running_interval(
+        now, now - timedelta(seconds=90_000), 600
+    )[0] == 600
+    assert _fold_running_interval(
+        now, now - timedelta(seconds=1_000), 86_000
+    )[0] == 86_000
+
+
+# ---------------------------------------------------------------------------
+# Elapsed-time preservation regression tests (bug: completed/cancelled
+# sessions saved 0 seconds).
+#
+# Symptom: a user who started a focus session and then stopped / cancelled /
+# finished it at any duration (37 sec, 2 min, 7 min, 25 min, 1 hour, ...) saw
+# 0 min in Focus history instead of the real elapsed time.
+#
+# Canonical field is ``accumulatedSeconds``; the router must return exact
+# integer seconds — never rounded minutes.
+#
+# These tests assert the contract from the API surface: PATCH
+# /api/study/focus/{id} with action in {complete, cancel, pause} must persist
+# ``accumulatedSeconds`` so a follow-up GET /api/study/focus/list returns the
+# real elapsed time.
+#
+# Timestamps are mocked by manipulating ``lastResumedAtIso`` /
+# ``accumulatedSeconds`` directly in the fake DB — tests never literally wait.
+# ---------------------------------------------------------------------------
+
+
+def _start_session(client, fake_auth, uid: str) -> str:
+    h = bearer(fake_auth.issue(uid))
+    resp = client.post("/api/study/focus/start", json={}, headers=h)
+    assert resp.status_code in (200, 201), resp.text
+    return resp.json()["id"]
+
+
+def _set_running(
+    fake_db, uid: str, fid: str, *, last_resumed_iso: str, accumulated_seconds: int = 0
+) -> None:
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {
+            "status": "running",
+            "lastResumedAtIso": last_resumed_iso,
+            "accumulatedSeconds": accumulated_seconds,
+        }
+    )
+
+
+def test_focus_complete_preserves_37_seconds(client, fake_db, fake_auth):
+    """A 37-second focus session must save as 37 seconds, not 0."""
+    uid = "user-focus-arb-37"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    # Started 37 seconds before "now": mock by stamping lastResumedAtIso to
+    # 37 seconds in the past. Reset accumulatedSeconds to 0 so the assertion
+    # is unambiguous.
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    started = now - timedelta(seconds=37)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["status"] == "completed"
+    assert body["accumulatedSeconds"] == 37, body
+
+
+def test_focus_complete_preserves_125_seconds(client, fake_db, fake_auth):
+    """A 2-minute 5-second focus session must save as 125 seconds."""
+    uid = "user-focus-arb-125"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=125)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["accumulatedSeconds"] == 125, body
+
+    # Listing must reflect the same value.
+    listed = client.get("/api/study/focus/list", headers=h).json()
+    assert listed["sessions"][0]["accumulatedSeconds"] == 125
+
+
+def test_focus_complete_preserves_330_seconds(client, fake_db, fake_auth):
+    """5m30s → 330 seconds exact (not rounded to 5 or 6 minutes)."""
+    uid = "user-focus-arb-330"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=330)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["accumulatedSeconds"] == 330, body
+
+
+def test_focus_complete_preserves_475_seconds(client, fake_db, fake_auth):
+    """7m55s → 475 seconds exact."""
+    uid = "user-focus-arb-475"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=475)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["accumulatedSeconds"] == 475, body
+
+
+def test_focus_complete_preserves_1500_seconds(client, fake_db, fake_auth):
+    """25 minutes (1500 seconds) must save as exactly 1500 — not 24*60+59."""
+    uid = "user-focus-arb-1500"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=1500)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["accumulatedSeconds"] == 1500, body
+    # The display math: 1500 sec → 25 min, not 0 or 1500/60 rounded.
+    assert body["accumulatedSeconds"] // 60 == 25
+
+
+def test_focus_complete_preserves_4080_seconds_one_hour_eight_min(client, fake_db, fake_auth):
+    """1h8m = 4080 seconds must save as 4080 — not 0."""
+    uid = "user-focus-arb-4080"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=4080)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["accumulatedSeconds"] == 4080, body
+
+
+def test_focus_complete_after_pause_preserves_total(client, fake_db, fake_auth):
+    """pause -> complete: the running portion added during pause must remain.
+
+    On pause the router folds ``now - lastResumedAtIso`` into
+    ``accumulatedSeconds`` and clears ``lastResumedAtIso``. The subsequent
+    complete must not double-count the paused portion: total stays exactly
+    the running portion, with no further addition.
+    """
+    uid = "user-focus-pause-stop"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=300)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    pause_body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "pause"}, headers=h
+    ).json()
+    assert pause_body["status"] == "paused"
+    # The pause response itself must surface the running interval.
+    assert pause_body["accumulatedSeconds"] == 300, pause_body
+
+    # Now complete while paused — the total must remain 300, not 0 or 600.
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["status"] == "completed"
+    assert body["accumulatedSeconds"] == 300, body
+
+
+def test_focus_complete_after_pause_resume_adds_both_intervals(
+    client, fake_db, fake_auth
+):
+    """pause -> resume -> complete: total = first_running + resumed_running.
+
+    Mocks two non-overlapping intervals (200s, 250s) by stamping
+    lastResumedAtIso to 250s in the past before completion, while
+    accumulatedSeconds already carries the 200s from a prior pause.
+    """
+    uid = "user-focus-pause-resume-stop"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    # Simulate a previous pause that already folded 200s into accumulatedSeconds.
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {
+            "status": "running",
+            "accumulatedSeconds": 200,
+            "lastResumedAtIso": (
+                datetime.now(timezone.utc) - timedelta(seconds=250)
+            ).isoformat(),
+        }
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["status"] == "completed"
+    assert body["accumulatedSeconds"] == 450, body  # 200 + 250
+
+
+def test_focus_cancel_preserves_elapsed_time(client, fake_db, fake_auth):
+    """The "Focus History shows 0 min" bug — cancel must not lose the running interval.
+
+    Before this was fixed, ``cancel`` set ``status=cancelled`` without ever
+    reading or updating ``accumulatedSeconds``, so a user who ran a 7-minute
+    session and then cancelled saw 0 min in history.
+
+    After the fix, cancelling while running must persist the running interval
+    and surface it in the cancel response + list.
+    """
+    uid = "user-focus-cancel-preserve"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=475)  # 7m55s
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    # Cancel.
+    cancel_body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "cancel"}, headers=h
+    ).json()
+    assert cancel_body["status"] == "cancelled"
+    # The cancel response now carries accumulatedSeconds.
+    assert cancel_body.get("accumulatedSeconds") == 475, cancel_body
+
+    # Listed history reflects the same value.
+    listed = client.get("/api/study/focus/list", headers=h).json()
+    matching = [s for s in listed["sessions"] if s["id"] == fid]
+    assert len(matching) == 1
+    assert matching[0]["status"] == "cancelled"
+    assert matching[0]["accumulatedSeconds"] == 475, matching[0]
+
+
+def test_focus_cancel_while_paused_preserves_accumulated_seconds(
+    client, fake_db, fake_auth
+):
+    """cancel after pause: only the persisted accumulatedSeconds remains, no running gap."""
+    uid = "user-focus-cancel-paused"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=200)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    pause_body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "pause"}, headers=h
+    ).json()
+    assert pause_body["accumulatedSeconds"] == 200
+
+    cancel_body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "cancel"}, headers=h
+    ).json()
+    assert cancel_body["status"] == "cancelled"
+    assert cancel_body["accumulatedSeconds"] == 200, cancel_body
+
+
+def test_repeated_complete_is_idempotent_on_accumulated_seconds(
+    client, fake_db, fake_auth
+):
+    """Two complete calls in a row must report the same accumulatedSeconds.
+
+    The second call must NOT re-add the now - lastResumedAtIso gap (which was
+    cleared by the first complete), nor corrupt the on-disk value.
+    """
+    uid = "user-focus-repeat-complete"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=330)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    first = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert first["accumulatedSeconds"] == 330, first
+
+    second = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert second.get("idempotent") is True
+    # Critical: the second call does not re-add a phantom interval.
+    assert second["accumulatedSeconds"] == 330, second
+
+
+def test_repeated_cancel_is_idempotent_on_accumulated_seconds(
+    client, fake_db, fake_auth
+):
+    """Two cancel calls in a row must not double-count or under-count."""
+    uid = "user-focus-repeat-cancel"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=150)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    first = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "cancel"}, headers=h
+    ).json()
+    assert first["accumulatedSeconds"] == 150, first
+
+    # Second cancel while already cancelled: must remain 150, not 0 or 300.
+    second = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "cancel"}, headers=h
+    ).json()
+    assert second["status"] == "cancelled"
+    assert second["accumulatedSeconds"] == 150, second
+
+
+def test_complete_does_not_double_count_paused_interval(
+    client, fake_db, fake_auth
+):
+    """A session paused for a long time and then completed must not
+    double-count the paused gap. Pause clears lastResumedAtIso, so the
+    complete handler must NOT add zero — and must NOT add elapsed time from
+    the pause stamp either.
+    """
+    uid = "user-focus-paused-no-double"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(seconds=180)
+    _set_running(
+        fake_db,
+        uid,
+        fid,
+        last_resumed_iso=started.isoformat(),
+        accumulated_seconds=0,
+    )
+
+    # Pause first — folds 180s into accumulatedSeconds and clears lastResumedAtIso.
+    pause_body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "pause"}, headers=h
+    ).json()
+    assert pause_body["accumulatedSeconds"] == 180
+
+    # Now wait an absurd amount of "paused" time by simply not changing the
+    # lastResumedAtIso — pause already cleared it. Complete must not
+    # magically add time from anything.
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["status"] == "completed"
+    assert body["accumulatedSeconds"] == 180, body
+
+
+def test_cancel_drops_corrupt_legacy_accumulated_seconds_to_zero(
+    client, fake_db, fake_auth
+):
+    """A pre-existing poisoned row must NEVER surface as a real-looking value.
+
+    A row carrying 354_920 seconds (≈ 5_917 min — the "5917 min" pollution on
+    the Profile study-stats card, and the "98h 37m" focus history row) must
+    surface as 0 on cancel — NOT 86_400 (which would itself be a "1440 min"
+    bug) and NOT 354_920. The user did not study 24 hours; the value is
+    corrupt and the only honest answer is 0.
+    """
+    uid = "user-focus-cancel-clamps"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {"status": "running", "accumulatedSeconds": 354_920}
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "cancel"}, headers=h
+    ).json()
+    assert body["status"] == "cancelled"
+    # 354_920 is corrupt → 0, never 86_400. Clamping up to a real-looking
+    # number would re-introduce the very bug class this regression exists
+    # to prevent.
+    assert body["accumulatedSeconds"] == 0, body
+
+    # And the list endpoint must agree — no 1440-min phantom session.
+    listed = client.get("/api/study/focus/list", headers=h).json()
+    assert listed["sessions"][0]["accumulatedSeconds"] == 0
+
+
+def test_complete_drops_corrupt_legacy_accumulated_seconds_to_zero(
+    client, fake_db, fake_auth
+):
+    """Corrupt historical values must also collapse to 0 on complete.
+
+    Mirror of the cancel test: a row with 354_920 accumulatedSeconds on
+    complete must return 0 — not 86_400, not 354_920.
+    """
+    uid = "user-focus-complete-corrupt"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {"status": "running", "accumulatedSeconds": 354_920}
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["status"] == "completed"
+    assert body["accumulatedSeconds"] == 0, body
+
+
+def test_negative_and_malformed_accumulated_seconds_collapse_to_zero(
+    client, fake_db, fake_auth
+):
+    """Defensive read sanity: every malformed stored value becomes 0.
+
+    ``accumulatedSeconds`` can be any of: -5 (legacy bug, never negative),
+    "not-a-number" (manual write, Firestore import glitch), or an absurdly
+    large number (the 5917-min pollution). All must surface as 0 on read —
+    never as a positive real-looking duration.
+    """
+    uid = "user-focus-malformed"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    for poisoned in (-5, "not-a-number", 1_000_000):
+        fid = _start_session(client, fake_auth, uid)
+        fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+            {"status": "running", "accumulatedSeconds": poisoned}
+        )
+        body = client.patch(
+            f"/api/study/focus/{fid}", json={"action": "cancel"}, headers=h
+        ).json()
+        assert body["status"] == "cancelled", poisoned
+        assert body["accumulatedSeconds"] == 0, (poisoned, body)
+
+
+def test_complete_with_missing_resume_stamp_does_not_double_count(
+    client, fake_db, fake_auth
+):
+    """Missing ``lastResumedAtIso`` must NOT cause double-counting.
+
+    The previous fix used ``startedAtIso`` as a fallback when
+    ``lastResumedAtIso`` was missing — but if ``accumulatedSeconds``
+    already contains folded pause/resume intervals, adding
+    ``now - startedAtIso`` on top of them double-counts the entire start→now
+    span. The safe policy is: keep ``accumulatedSeconds`` unchanged and
+    surface the already-folded value.
+    """
+    uid = "user-focus-no-resume-stamp-complete"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(hours=2)
+    # Row says running, lastResumedAtIso missing, accumulatedSeconds already
+    # holds 600 seconds from a prior pause/resume cycle. The previous fix
+    # would have added the entire 7200-second start→now gap on top of 600
+    # and produced 7800 — almost 2 hours of phantom focus time on a session
+    # that the user only ran for ten minutes.
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {
+            "status": "running",
+            "lastResumedAtIso": None,
+            "startedAtIso": started.isoformat(),
+            "accumulatedSeconds": 600,
+        }
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["status"] == "completed"
+    # Safe answer: keep the already-folded 600. Never 7800.
+    assert body["accumulatedSeconds"] == 600, body
+
+
+def test_cancel_with_missing_resume_stamp_does_not_double_count(
+    client, fake_db, fake_auth
+):
+    """Mirror of the complete test for the cancel branch.
+
+    Cancel must follow the same rule: a row with ``status=running`` but no
+    ``lastResumedAtIso`` and a non-zero ``accumulatedSeconds`` must keep the
+    already-folded value, not add the entire start→now span.
+    """
+    uid = "user-focus-no-resume-stamp-cancel"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(hours=2)
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {
+            "status": "running",
+            "lastResumedAtIso": None,
+            "startedAtIso": started.isoformat(),
+            "accumulatedSeconds": 600,
+        }
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "cancel"}, headers=h
+    ).json()
+    assert body["status"] == "cancelled"
+    assert body["accumulatedSeconds"] == 600, body
+
+
+def test_complete_with_missing_resume_stamp_and_zero_accumulated_returns_zero(
+    client, fake_db, fake_auth
+):
+    """The degenerate case must also be deterministic.
+
+    A row with ``status=running``, no resume stamp, AND
+    ``accumulatedSeconds=0`` — e.g. a brand-new session that crashed before
+    any heartbeat landed. The safe answer is still 0, never a fabricated
+    7200-second "you focused for 2 hours" value derived from startedAtIso.
+    """
+    uid = "user-focus-degenerate-complete"
+    seed_profile(fake_db, uid, role="student")
+    h = bearer(fake_auth.issue(uid))
+
+    fid = _start_session(client, fake_auth, uid)
+    from datetime import datetime, timedelta, timezone
+
+    started = datetime.now(timezone.utc) - timedelta(hours=2)
+    fake_db._collections[f"users/{uid}/focus_sessions"][fid].update(
+        {
+            "status": "running",
+            "lastResumedAtIso": None,
+            "startedAtIso": started.isoformat(),
+            "accumulatedSeconds": 0,
+        }
+    )
+
+    body = client.patch(
+        f"/api/study/focus/{fid}", json={"action": "complete"}, headers=h
+    ).json()
+    assert body["status"] == "completed"
+    assert body["accumulatedSeconds"] == 0, body
 
 
 # ---------------------------------------------------------------------------

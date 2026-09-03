@@ -35,16 +35,21 @@ router = APIRouter()
 
 _FOCUS_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,80}$")
 
-# Per-session upper bound. A single Gochano focus session is started from the
-# app and explicitly finished by the user; the longest realistic session is
-# on the order of a few hours. Historical rows sometimes carry values that
-# look like minutes stored in a seconds-shaped column (354_920s = 5_917 min =
-# the "5917 min" pollution on the Profile study-stats card, and the
-# "98h 37m" focus history row that surfaced in the bug report). Anything
-# beyond this cap is treated as evidence of a unit/unit-mismatch and clamped
-# down to it. The clamp is read-time only — the doc is rewritten by the
-# backfill script (scripts/backfill_focus_sessions_legacy.py).
-_FOCUS_MAX_SECONDS = 24 * 60 * 60  # 86_400 s = 24h
+# Realistic per-session upper bound. A single Gochano focus session is
+# started from the app and explicitly finished by the user; the longest
+# realistic session is on the order of a few hours, with a hard ceiling at
+# 24h for safety. This constant is used only to validate that a freshly
+# computed duration (running interval) is plausible — it is NEVER used to
+# silently rewrite a corrupt historical value into a real-looking number.
+#
+# Legacy rows sometimes carry values that look like minutes stored in a
+# seconds-shaped column (354_920s ≈ 5_917 min — the "5917 min" pollution on
+# the Profile study-stats card; "98h 37m" focus history row). Rewriting
+# those into 86_400 s is itself a bug class: it would surface as a fresh
+# 1_440 min session in the UI even though no such session ever happened.
+# Corrupt / impossible / negative historical values are therefore mapped
+# to 0 in ``_coerce_focus_seconds`` — never clamped to the ceiling.
+_FOCUS_MAX_SECONDS = 24 * 60 * 60  # 86_400 s = 24h (validation only)
 
 
 def _day_key(dt: datetime) -> str:
@@ -67,16 +72,17 @@ def _parse_iso(s: str | None) -> datetime | None:
 def _coerce_focus_seconds(raw: Any) -> int:
     """Read a focus session's accumulated seconds with two safety nets.
 
-    1. **Type coercion.** Firestore sometimes hands numeric fields back as
-       strings; tolerate that (``int("1500") -> 1500``) but keep the integer
-       floor — a half-second is not meaningful for a focus timer.
+    Policy (single source of truth — applied on reads, on pause, on complete,
+    and on cancel):
 
-    2. **Sanity clamp.** Values above [_FOCUS_MAX_SECONDS] are clamped down
-       to it. A single Gochano focus session cannot honestly exceed a day;
-       rows that do are evidence of legacy minutes-in-seconds pollution and
-       are de-fanged here so they cannot propagate into ``/study/stats`` or
-       the focus history list. The doc itself is rewritten by the backfill
-       script; this clamp is the last line of defence.
+      * Negative values, malformed strings, bools, and any value above
+        [_FOCUS_MAX_SECONDS] are treated as evidence of corruption and
+        returned as ``0``.
+      * A legitimately recorded duration in ``[0, _FOCUS_MAX_SECONDS]`` is
+        preserved exactly.
+      * The function NEVER fabricates a real-looking duration (e.g. 86_400)
+        from a corrupt value. Returning 0 is the honest, deterministic
+        answer; the UI then shows "0 min" instead of a phantom session.
     """
     seconds = 0
     if isinstance(raw, bool):
@@ -95,8 +101,60 @@ def _coerce_focus_seconds(raw: Any) -> int:
     if seconds < 0:
         return 0
     if seconds > _FOCUS_MAX_SECONDS:
-        return _FOCUS_MAX_SECONDS
+        # Corrupt / impossible legacy value — surface as 0 rather than
+        # silently clamping up to a real-looking 24h. Clamping up here
+        # would re-introduce the "5917 min" / "98h 37m" bug class.
+        return 0
     return seconds
+
+
+def _fold_running_interval(
+    now: datetime,
+    last_resumed: datetime | None,
+    accumulated: int,
+) -> tuple[int, str]:
+    """Compute the new ``accumulatedSeconds`` for a running session.
+
+    The state machine has exactly three safe answers here, and they are
+    chosen so we can never double-count an interval we have already folded
+    in:
+
+            * **RUNNING + valid ``lastResumedAtIso``** —
+                add the interval only when it is within the safety ceiling and the
+                resulting candidate remains within the safety ceiling. Otherwise,
+                discard the new interval and preserve ``accumulated``.
+      * **PAUSED** (caller passed ``last_resumed=None`` because pause
+        cleared it) — return ``accumulated`` unchanged.
+      * **RUNNING but ``lastResumedAtIso`` is missing / unparseable** —
+        the row is in an inconsistent state. We do NOT fall back to
+        ``startedAtIso`` because ``accumulatedSeconds`` may already
+        contain folded intervals from prior pause/resume cycles; using
+        ``startedAtIso`` would add the entire start→now span on top of
+        that and double-count every previously-folded interval. The safe
+        deterministic answer is to discard the active interval and keep
+        only the already-folded accumulated value.
+
+    Returns ``(new_accumulated_seconds, policy_tag)``. ``policy_tag`` is
+    one of ``"running"``, ``"paused"``, ``"stale_no_resume_stamp"`` and
+    is exposed for diagnostics / tests so a regression in the choice
+    surfaces as a readable failure.
+    """
+    if last_resumed is not None:
+        interval_seconds = int((now - last_resumed).total_seconds())
+        if interval_seconds < 0 or interval_seconds > _FOCUS_MAX_SECONDS:
+            return accumulated, "stale_interval"
+        candidate = accumulated + interval_seconds
+        if candidate > _FOCUS_MAX_SECONDS:
+            return accumulated, "accumulation_overflow"
+        return candidate, "running"
+    # last_resumed is None. Two cases collapse into one safe answer:
+    #   (a) status was "paused" — running interval was already folded at
+    #       pause time; ``lastResumedAtIso`` is cleared. Keep accumulated.
+    #   (b) status was "running" but the row is stale (no resume stamp) —
+    #       we cannot prove how much of start→now is already inside
+    #       ``accumulatedSeconds``, so adding the whole span would
+    #       double-count. Keep accumulated.
+    return accumulated, "paused_or_stale_no_resume_stamp"
 
 
 # ============================================================
@@ -405,11 +463,21 @@ def focus_patch(
             }
         last_resumed = _parse_iso(d.get("lastResumedAtIso"))
         accumulated = _coerce_focus_seconds(d.get("accumulatedSeconds", 0))
-        if status == "running" and last_resumed is not None:
-            accumulated += int((now - last_resumed).total_seconds())
-            accumulated = max(accumulated, 0)
-            if accumulated > _FOCUS_MAX_SECONDS:
-                accumulated = _FOCUS_MAX_SECONDS
+        if status == "running":
+            # Fold the active running interval into accumulatedSeconds.
+            #
+            # Policy (see ``_fold_running_interval``):
+            #   - RUNNING + valid lastResumedAtIso → add (now - last_resumed).
+            #   - RUNNING but no resume stamp → keep accumulated unchanged.
+            #     We deliberately do NOT fall back to ``startedAtIso`` here:
+            #     if ``accumulatedSeconds`` already contains folded
+            #     pause/resume intervals, ``now - startedAtIso`` would
+            #     double-count them. The safe deterministic answer is to
+            #     keep the already-folded value and surface 0 / unchanged
+            #     rather than inflate.
+            accumulated, _policy = _fold_running_interval(
+                now, last_resumed, accumulated
+            )
         ref.update(
             {
                 "status": "completed",
@@ -428,19 +496,61 @@ def focus_patch(
         }
 
     if action == "cancel":
-        ref.update({"status": "cancelled", "cancelledAtIso": now.isoformat(), "lastResumedAtIso": None})
-        return {"id": focus_id, "status": "cancelled"}
+        # Cancel must persist the elapsed time, not silently drop it.
+        #
+        # The "Focus History shows 0 min" bug was caused by this branch
+        # flipping ``status=cancelled`` without ever reading or updating
+        # ``accumulatedSeconds`` — a 7-minute session cancelled at the 7th
+        # minute saved as 0 seconds.
+        #
+        # The math is the same as ``pause`` / ``complete``: if the row is
+        # currently ``running``, fold ``now - lastResumedAtIso`` into
+        # accumulatedSeconds; if it's ``paused``, the running interval was
+        # already folded at pause time and ``lastResumedAtIso`` is None, so
+        # the persisted ``accumulatedSeconds`` is exactly what we want. A
+        # cancelled row is a terminal state — repeated cancel must not
+        # re-add anything.
+        if status == "cancelled":
+            return {
+                "id": focus_id,
+                "status": "cancelled",
+                "accumulatedSeconds": _coerce_focus_seconds(
+                    d.get("accumulatedSeconds", 0)
+                ),
+                "idempotent": True,
+            }
+        last_resumed = _parse_iso(d.get("lastResumedAtIso"))
+        accumulated = _coerce_focus_seconds(d.get("accumulatedSeconds", 0))
+        if status == "running":
+            # Same policy as ``complete``: fold the running interval only
+            # when ``lastResumedAtIso`` is valid. No ``startedAtIso``
+            # fallback — see the comment in the complete branch above for
+            # the double-count rationale.
+            accumulated, _policy = _fold_running_interval(
+                now, last_resumed, accumulated
+            )
+        ref.update(
+            {
+                "status": "cancelled",
+                "cancelledAtIso": now.isoformat(),
+                "lastResumedAtIso": None,
+                "accumulatedSeconds": accumulated,
+            }
+        )
+        return {
+            "id": focus_id,
+            "status": "cancelled",
+            "accumulatedSeconds": accumulated,
+        }
 
     if action == "pause":
         if status != "running":
             raise HTTPException(status_code=409, detail=f"Cannot pause from status={status}")
         last_resumed = _parse_iso(d.get("lastResumedAtIso"))
         accumulated = _coerce_focus_seconds(d.get("accumulatedSeconds", 0))
-        if last_resumed is not None:
-            accumulated += int((now - last_resumed).total_seconds())
-            accumulated = max(accumulated, 0)
-            if accumulated > _FOCUS_MAX_SECONDS:
-                accumulated = _FOCUS_MAX_SECONDS
+        accumulated, _policy = _fold_running_interval(
+            now, last_resumed, accumulated
+        )
         ref.update(
             {
                 "status": "paused",

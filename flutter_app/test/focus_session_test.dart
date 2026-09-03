@@ -1,4 +1,4 @@
-// Focus session parsing — regression tests for two verified bugs.
+// Focus session parsing — regression tests for three verified bugs.
 //
 // BUG 3: elapsed time always read 0.
 //   The backend returns `accumulatedSeconds` on every focus response
@@ -10,6 +10,14 @@
 //   The fix is client-side on purpose: the backend response is a public
 //   contract with an existing shape, and changing it to satisfy a client
 //   typo would break any other consumer.
+//
+// BUG 4: cancel discarded elapsed time.
+//   The backend's cancel handler set `status=cancelled` without ever
+//   reading or updating `accumulatedSeconds`. A 7-minute session cancelled
+//   at the 7th minute saved as 0 seconds, then the list endpoint read that
+//   row back as 0. Fix: cancel now folds `now - lastResumedAtIso` into
+//   `accumulatedSeconds` (mirroring the pause / complete logic), persists
+//   it, and returns it on the response. Repeated cancel is idempotent.
 //
 // BUG 1 (partial): the `days` query parameter.
 //   `/study/focus/list` declares `days: int = 30`. The client sent `limit`,
@@ -123,6 +131,72 @@ void main() {
         'status': 'cancelled',
       });
       expect(session.isActive, isFalse);
+    });
+
+    // ---- Cancel / patch response shapes ---------------------------------
+    //
+    // The backend's cancel handler now returns `accumulatedSeconds` (the
+    // "Focus History shows 0 min" bug fix). The client must read it the
+    // same way it reads it from the complete/list payloads.
+
+    test('cancel response carries the real elapsed time', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'focus_123',
+        'status': 'cancelled',
+        'accumulatedSeconds': 475, // 7m55s — the canonical bug example
+      });
+      expect(session.isActive, isFalse);
+      expect(session.elapsedSeconds, 475,
+          reason: 'cancel must surface the real elapsed time, not 0');
+    });
+
+    test('cancel response on an already-cancelled session is idempotent', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'focus_456',
+        'status': 'cancelled',
+        'accumulatedSeconds': 150,
+        'idempotent': true,
+      });
+      expect(session.elapsedSeconds, 150);
+    });
+
+    // ---- Arbitrary-duration parsing (regression) -----------------------
+    //
+    // The previous on-the-wire bug (`elapsedSeconds` instead of
+    // `accumulatedSeconds`) collapsed every value to 0. These cases pin
+    // the parsing contract for a representative spread of durations.
+
+    test('arbitrary durations parse as exact integer seconds', () {
+      const durations = <int>[37, 125, 330, 475, 1500, 4080];
+      for (final d in durations) {
+        final session = FocusSession.fromJson({
+          'id': 'f$d',
+          'status': 'completed',
+          'accumulatedSeconds': d,
+        });
+        expect(session.elapsedSeconds, d,
+            reason: 'duration $d must not collapse to 0 or a rounded minute');
+      }
+    });
+
+    test('two-minute 15-second session reads 135 seconds, not 0', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f1',
+        'status': 'completed',
+        'accumulatedSeconds': 135,
+      });
+      expect(session.elapsedSeconds, 135);
+      expect((session.elapsedSeconds / 60).round(), 2);
+    });
+
+    test('one-hour eight-minute session reads 4080 seconds, not 0', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f1',
+        'status': 'completed',
+        'accumulatedSeconds': 4080,
+      });
+      expect(session.elapsedSeconds, 4080);
+      expect(session.elapsedSeconds ~/ 60, 68);
     });
 
     test('numeric strings are tolerated', () {
