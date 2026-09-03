@@ -175,12 +175,10 @@ class _OverviewTabState extends State<_OverviewTab> {
                     Row(
                       children: [
                         Expanded(
-                          child: StatCard(
-                            compact: true,
-                            label: GochanoLanguage.text('Remaining this month', 'এই মাসে বাকি'),
-                            value: hasBudget
-                                ? formatTaka(remaining ?? 0)
-                                : GochanoLanguage.text('Not set', 'সেট করা নেই'),
+                          child: _RemainingSummaryCard(
+                            available: available,
+                            remaining: remaining,
+                            hasBudget: hasBudget,
                             onTap: () async {
                               final changed =
                                   await showMonthlyBudgetSheet(context);
@@ -199,13 +197,7 @@ class _OverviewTabState extends State<_OverviewTab> {
                         ),
                       ],
                     ),
-                    if (hasBudget) ...[
-                      const SizedBox(height: GochanoSpacing.sm),
-                      _RemainingCard(
-                        available: available,
-                        remaining: remaining ?? available,
-                      ),
-                    ] else ...[
+                    if (!hasBudget) ...[
                       const SizedBox(height: GochanoSpacing.sm),
                       _SetBudgetPrompt(onSet: () async {
                         final changed = await showMonthlyBudgetSheet(context);
@@ -263,24 +255,45 @@ class _OverviewTabState extends State<_OverviewTab> {
   }
 }
 
-/// Remaining money with a determinate bar.
+/// Top summary card for Remaining — shows amount, progress bar, and usage text.
 ///
-/// The bar is a fact, not decoration: it shows how much of the month's money
-/// is gone, which a bare number does not communicate at a glance.
-class _RemainingCard extends StatelessWidget {
-  const _RemainingCard({required this.available, required this.remaining});
+/// Reuses the same budget calculations as the former _RemainingCard.
+class _RemainingSummaryCard extends StatelessWidget {
+  const _RemainingSummaryCard({
+    required this.available,
+    required this.remaining,
+    required this.hasBudget,
+    this.onTap,
+  });
 
-  final double available;
-  final double remaining;
+  final double? available;
+  final double? remaining;
+  final bool hasBudget;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final used = (available - remaining).clamp(0, available);
-    final fraction = available <= 0 ? 0.0 : (used / available).clamp(0.0, 1.0);
-    final overspent = remaining < 0;
+    final type = context.type;
+
+    if (!hasBudget || available == null) {
+      return StatCard(
+        compact: true,
+        label: GochanoLanguage.text('Remaining', 'বাকি'),
+        value: GochanoLanguage.text('Not set', 'সেট করা নেই'),
+        onTap: onTap,
+      );
+    }
+
+    final avail = available!;
+    final rem = remaining ?? avail;
+    final used = (avail - rem).clamp(0, avail);
+    final fraction = avail <= 0 ? 0.0 : (used / avail).clamp(0.0, 1.0);
+    final overspent = rem < 0;
 
     return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(GochanoSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -289,8 +302,10 @@ class _RemainingCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  GochanoLanguage.text('Remaining this month', 'এই মাসে বাকি'),
-                  style: context.type.label,
+                  GochanoLanguage.text('Remaining', 'বাকি'),
+                  style: type.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (overspent)
@@ -303,8 +318,8 @@ class _RemainingCard extends StatelessWidget {
           ),
           const SizedBox(height: GochanoSpacing.xxs),
           Text(
-            formatTaka(remaining),
-            style: context.type.statistic.copyWith(
+            formatTaka(rem),
+            style: type.statistic.copyWith(
               color: overspent ? colors.error : colors.success,
             ),
           ),
@@ -321,10 +336,12 @@ class _RemainingCard extends StatelessWidget {
           const SizedBox(height: GochanoSpacing.xxs),
           Text(
             GochanoLanguage.text(
-              '${formatTaka(used.toDouble())} of ${formatTaka(available)} used',
-              '${formatTaka(available)} এর মধ্যে ${formatTaka(used.toDouble())} খরচ',
+              '${formatTaka(used.toDouble())} of ${formatTaka(avail)} used',
+              '${formatTaka(avail)} এর মধ্যে ${formatTaka(used.toDouble())} খরচ',
             ),
-            style: context.type.caption,
+            style: type.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

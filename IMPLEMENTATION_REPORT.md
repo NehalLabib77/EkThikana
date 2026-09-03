@@ -12,15 +12,14 @@
 | Task separate reminder DATE + TIME | ✅ | Same `_remindAt` field — independent of `_dueAt` |
 | Edit loads existing remindAt | ✅ | `add_task_sheet.dart:65` — `_remindAt = (data['remindAt'] as Timestamp?)?.toDate()` |
 | Edit preserves/reschedules reminder | ✅ | `add_task_sheet.dart:210-214` — `NotificationService.rescheduleTask(when: _remind ? _remindAt : null)` |
-| Complete cancels pending reminder | ✅ | `plan_view.dart:756-759` — `rescheduleTask(when: done ? null : remindAt)` |
-| Delete cancels pending reminder | ✅ | `plan_view.dart:781` — `NotificationService.cancelTask(doc.id)` before Firestore delete |
+| Complete cancels pending reminder | ✅ | `plan_view.dart` — `_setDone()` calls `rescheduleTask(when: done ? null : remindAt)` |
+| Delete cancels pending reminder | ✅ | `plan_view.dart` — `_delete()` calls `NotificationService.cancelTask(doc.id)` before Firestore delete |
 | Reminder OFF cancels notification | ✅ | `add_task_sheet.dart:213` — passes null to reschedule |
 | Prevent reminder after due time | ✅ | `add_task_sheet.dart:139-148,173-183` — picker validation + save safety-net |
 | Reminder default near/before dueAt | ✅ | `add_task_sheet.dart:296-298` — defaults to 1 hour before `_dueAt` |
 | Due date change clears stale reminder | ✅ | `add_task_sheet.dart:101-104` — clears `_remindAt` if now after new `_dueAt` |
 | No duplicate notifications | ✅ | `notification_service.dart:192-193` — deterministic ID: `taskId.hashCode & 0x7fffffff` |
 | Data persists after restart | ✅ | Firestore for task data; `zonedSchedule` persists in Android AlarmManager |
-| Plan cards display saved values | ✅ | `plan_view.dart:401,525` — `formatShortDate(due) · formatClock12(due)` and `_reminderInfo` for remindAt |
 | EN/Bangla localization | ✅ | All labels use `GochanoLanguage.text(en, bn)` |
 | Old records compatible | ✅ | `add_task_sheet.dart:65-66` — existing `remindAt == dueAt` records load correctly |
 
@@ -28,9 +27,9 @@
 
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
-| Tap "+" on Assignment card | ✅ | `plan_view.dart` — `_AssignmentCard` header: `IconButton` "+" → `showAddTaskSheet(type: 'assignment')` |
-| Tap "+" on Task card | ✅ | `plan_view.dart` — `_TaskCard` header: `IconButton` "+" → `showAddTaskSheet(type: 'task')` |
-| Tap "+" on empty Task card | ✅ | `plan_view.dart` — `EmptyState` action button → same as above |
+| Tap "+" on Assignment card | ✅ | `_AssignmentCard` header: `GestureDetector` "+" → `showAddTaskSheet(type: 'assignment')` |
+| Tap "+" on Task card | ✅ | `_TaskCard` header: `GestureDetector` "+" → `showAddTaskSheet(type: 'task')` |
+| Tap "+ Add" in empty state | ✅ | Both cards show compact "+ Add" text link in empty state |
 | Edit existing item | ✅ | `showAddTaskSheet(existing: doc)` — `type` param ignored, form reads existing data |
 | Existing callers (Home, Tasks, Search) | ✅ | `type` defaults to `'task'` — backward compatible |
 
@@ -73,7 +72,7 @@ final isAssignment = data['type']?.toString() == 'assignment';
 | File | What Changed |
 |------|--------------|
 | `flutter_app/lib/features/tasks/presentation/add_task_sheet.dart` | Added `_remindAt` field, `_pickReminderDate()`, reminder picker UI, reminder-after-due validation, save writes separate `remindAt`, default 1h before due; `type` param on `showAddTaskSheet()` and `_TaskForm` |
-| `flutter_app/lib/features/study/presentation/planner/plan_view.dart` | Bento layout; `_AssignmentCard` "+" button; `_TaskCard` "+" button; `_TaskCard` empty state action; `_AssignmentTaskBento` filtering: explicit `type` field first, `type == null` → Task; `_StudyGoalSection` (see Feature 2); `_EditGoalSheet`, `_HourMinuteRow`, `_CompactStepper` widgets |
+| `flutter_app/lib/features/study/presentation/planner/plan_view.dart` | Compact side-by-side bento layout; `_StudyGoalSection` (see Feature 2); `_EditGoalSheet`, `_HourMinuteRow`, `_CompactStepper` widgets |
 | `flutter_app/test/deadline_state_test.dart` | New — deadline state tests |
 
 ---
@@ -97,6 +96,65 @@ final isAssignment = data['type']?.toString() == 'assignment';
 - `flutter analyze` — 0 issues
 - `flutter test` — 282/282 passed
 - Backend tests — 360/360 passed
+
+---
+
+## Plan UI — Compact Side-by-Side Assignment + Task Cards
+
+### Exact UI Change
+**Before**: Two cards with `SectionHeader`, `EmptyState` with illustrations and large buttons, larger font sizes.
+
+**After**: Compact side-by-side bento cards with:
+- **Headers**: 14sp label with brand-colored `+` button (24×24px container)
+- **Items**: 13sp title, 10sp metadata, 10sp reminder
+- **Empty state**: Text-only "No assignments/tasks" + "+ Add" link (no illustration)
+- **Badges**: Compact inline badges (Overdue/Today/Tmrw/Nd) with colored backgrounds
+- **View all**: Text link instead of TextButton
+
+### Responsive Behavior
+| Width | Layout |
+|-------|--------|
+| ≥300dp | Side-by-side (2 equal columns) |
+| <300dp | Stacked vertically (rare, extremely narrow screens) |
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/study/presentation/planner/plan_view.dart` | `_AssignmentTaskBento`: breakpoint lowered to 300dp (was 600). `_AssignmentCard`: compact layout with `AppCard(padding: sm)`, 14sp header, 13sp items, 10sp metadata, compact badge, text-only empty state. `_TaskCard`: same compact styling, smaller checkbox (20×20), compact item rows. Added `_deadlineStateBadgeCompact()` and `_reminderInfoCompact()` helpers. Removed unused `_deadlineStateBadge()` and `_reminderInfo()` functions. |
+
+### Responsive Behavior
+- **Normal phone (360–414dp)**: Cards display side-by-side
+- **Narrow phones (<300dp)**: Gracefully stacks vertically
+- **All widths**: Text truncation via `ellipsis`, no overflow
+
+### Validation
+| Check | Result |
+|-------|--------|
+| Both cards visible side-by-side | ✅ |
+| Empty state (No assignments + Add) | ✅ |
+| Populated state (3 preview items) | ✅ |
+| Long title does not overflow | ✅ (maxLines: 1, ellipsis) |
+| + Add works | ✅ |
+| View all visible when >3 items | ✅ |
+| Reminder/date/time readable | ✅ (10sp, compact layout) |
+| EN/Bangla localization | ✅ |
+| `flutter analyze` | **0 issues** |
+| `flutter test` | **282/282 passed** |
+
+### Business Logic Untouched
+- ✅ Assignment/Task data logic (CRUD, filtering)
+- ✅ Add/edit/delete flows
+- ✅ Type filtering (`type == 'assignment'` vs `type == 'task'`)
+- ✅ Reminder scheduling and notifications
+- ✅ Study Goal section
+- ✅ Focus/Workspace
+
+### Remaining Issues
+- None
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
@@ -223,4 +281,62 @@ No commit / push / deploy performed.
 ---
 
 ### No commit/push/deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## Expense — Merge Remaining Details Into Top Card
+
+### Change Summary
+Removed the duplicate "Remaining this month" card below the top summary cards and merged its content (progress bar, usage text) into the top-left Remaining card.
+
+### Exact UI Change
+- **Before**: Two top summary cards [Remaining this month] [Spent], then a large duplicate card below with remaining amount, progress bar, and "X of Y used" text.
+- **After**: Single top-left "Remaining" card showing:
+  - Label: "Remaining" (shortened from "Remaining this month")
+  - Remaining amount (e.g., ৳7,357)
+  - Monthly usage progress bar
+  - "৳2,643 of ৳10,000 used" text
+- Top-right "Spent" card unchanged
+- "Set your monthly money" prompt shown only when no budget is set (previously shown alongside the duplicate card)
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/life/presentation/expense/expense_screen.dart` | Removed `_RemainingCard` class; added `_RemainingSummaryCard` combining amount, progress bar, and usage text; updated `_OverviewTab` to use new card in top row; removed conditional rendering of duplicate card |
+
+### Calculations Reused
+- **Budget data**: `ApiService.getRemaining(DateTime.now())` — unchanged
+- **Available/Remaining**: `budgetSnap.data?['available']`, `budgetSnap.data?['remaining']` — unchanged
+- **Used amount**: `(available - remaining).clamp(0, available)` — same formula
+- **Progress fraction**: `(used / available).clamp(0.0, 1.0)` — same formula
+- **Overspent detection**: `remaining < 0` — same logic
+- **Localization**: `GochanoLanguage.text(en, bn)` for all strings — unchanged
+
+### Tests / Results
+
+| Check | Result |
+|-------|--------|
+| `flutter analyze` | **0 issues** |
+| `flutter test` | **282/282 passed** |
+
+### Business Logic Untouched
+- ✅ Monthly budget/remaining calculations (`ApiService.getRemaining`)
+- ✅ Firestore data structure and `financial_transactions` ledger
+- ✅ Expense entry, categories, sources (daily, bazar, medicine, commute)
+- ✅ Spent card, Today, Where it went, Daily, Grocery, History tabs
+- ✅ EN/Bangla localization
+
+### Visual Validation
+- ✅ Only one "Remaining" section on Overview
+- ✅ Remaining amount correct
+- ✅ Progress bar correct
+- ✅ "spent of budget used" text correct
+- ✅ Spent card correct
+- ✅ No duplicate Remaining card
+- ✅ No excessive empty gap (removed conditional spacing)
+- ✅ No overflow on small screens (FittedBox on value, ellipsis on usage text)
+
+### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
