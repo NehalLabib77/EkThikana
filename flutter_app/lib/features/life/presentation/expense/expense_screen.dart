@@ -177,9 +177,9 @@ class _OverviewTabState extends State<_OverviewTab> {
                         Expanded(
                           child: StatCard(
                             compact: true,
-                            label: GochanoLanguage.text('Available', 'উপলব্ধ'),
+                            label: GochanoLanguage.text('Remaining this month', 'এই মাসে বাকি'),
                             value: hasBudget
-                                ? formatTaka(available)
+                                ? formatTaka(remaining ?? 0)
                                 : GochanoLanguage.text('Not set', 'সেট করা নেই'),
                             onTap: () async {
                               final changed =
