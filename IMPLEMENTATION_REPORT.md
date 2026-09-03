@@ -343,6 +343,64 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
+## Bug Batch: Expense Equal Cards, Plan Null Timestamp, Group Chat Loading, Life Side-by-Side Summary
+
+### Change Summary
+1. **Expense equal top cards** — The top summary row (Remaining + Spent) had uneven card heights because each card intrinsically sized its own content. Fixed by wrapping the Row in `IntrinsicHeight` with `CrossAxisAlignment.stretch` so both cards stretch to equal height.
+2. **Plan null Timestamp crash** — Sorting assignments by `dueAt` and rendering the `_AssignmentCard` cast `data['dueAt']` to `Timestamp` without null check, crashing on legacy or corrupt documents missing the field. Fixed by using `as Timestamp?` with null-safe access and showing "No due date" / "কোনো সময়সীমা নেই" when null.
+3. **Group chat loading UX** — The chat screen showed a full-screen spinner on every message send because `_load()` was called after `_send()`, clearing the message list while waiting for the API. Fixed by adding optimistic message insertion to the local list before the API call, reducing spinner to first-load only, and background-refreshing after send. Failed sends are rolled back from the local list.
+4. **Life screen side-by-side summary** — The Life/Expense screen showed only "Spent" as the top summary card, with Remaining buried below. Converted `_MonthSummary` into a `StatefulWidget` that fetches `ApiService.getRemaining()` and `FinancialService.monthStream()` and renders Remaining (with progress bar) and Spent cards side-by-side in an `IntrinsicHeight` Row.
+
+### Root Causes
+
+| Bug | Root Cause |
+|-----|-----------|
+| Unequal expense cards | Row without `IntrinsicHeight` + `CrossAxisAlignment.stretch` — each card sized independently |
+| Plan null Timestamp crash | `data['dueAt'] as Timestamp` — no null guard for legacy/missing fields |
+| Group chat loading flicker | `_send()` → `_load()` cleared list while waiting for API; spinner shown on every send |
+| Life summary missing Remaining | `_MonthSummary` only used `FinancialService.monthStream()` (Spent); did not fetch `getRemaining()` for Remaining card |
+
+### Exact Fixes
+
+**1. Expense equal cards** (`expense_screen.dart`):
+- Wrapped the top `Row` in `IntrinsicHeight` + `CrossAxisAlignment.stretch`
+- Both `_RemainingSummaryCard` and `_SpentSummaryCard` now stretch to equal height
+
+**2. Plan null Timestamp** (`plan_view.dart`):
+- Sort comparator: `(a.data['dueAt'] as Timestamp?)?.compareTo(...)` — null sorts to end
+- `_AssignmentCard`: `final dueAt = (data['dueAt'] as Timestamp?)?.toDate();` — null shows "No due date" / "কোনো সময়সীমা নেই"
+- Same null-safe pattern for `remindAt` display
+
+**3. Group chat loading** (`group_chat_view.dart`):
+- `_send()` inserts message optimistically into `_messages` list before API call
+- `_load(showSpinner: true)` only on first load; subsequent loads are background refresh
+- Failed send (`_api.sendGroupMessage` throws) removes the optimistic message from list
+- `setState` called after optimistic insert so UI updates immediately
+
+**4. Life screen side-by-side** (`life_screen.dart`):
+- `_MonthSummary` changed from `StatelessWidget` to `StatefulWidget`
+- `initState` fetches `ApiService.getRemaining()` + subscribes to `FinancialService.monthStream()`
+- Builds a `Row` with `IntrinsicHeight` containing Remaining card (amount + progress bar + usage text) and Spent card (amount + category breakdown)
+- Null-safe: `available` promoted via `hasBudget` check; used `num` type for Firestore's dynamic number
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/life/presentation/expense/expense_screen.dart` | Added `IntrinsicHeight` + `CrossAxisAlignment.stretch` to top summary Row |
+| `flutter_app/lib/features/study/presentation/planner/plan_view.dart` | Null-safe `dueAt`/`remindAt` casts with `as Timestamp?`; null-safe `.toDate()` access; "No due date" / "কোনো সময়সীমা নেই" fallback text |
+| `flutter_app/lib/features/community/presentation/group_chat_view.dart` | Optimistic message insertion; spinner only on first load; rollback on failed send; background refresh after send |
+| `flutter_app/lib/features/life/presentation/life_screen.dart` | `_MonthSummary` → `StatefulWidget` with `getRemaining()` + `monthStream()` fetches; Remaining + Spent side-by-side Row |
+
+### Tests & Results
+- ✅ `flutter analyze` — 0 issues
+- ✅ `flutter test` — 292/292 passed
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
 ## Bug Batch: Medicine 12-Hour Time, Profile Flicker/Fetch, Focus Session Grouping
 
 ### Change Summary

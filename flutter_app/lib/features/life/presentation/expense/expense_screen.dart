@@ -172,30 +172,33 @@ class _OverviewTabState extends State<_OverviewTab> {
 
                 return Column(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _RemainingSummaryCard(
-                            available: available,
-                            remaining: remaining,
-                            hasBudget: hasBudget,
-                            onTap: () async {
-                              final changed =
-                                  await showMonthlyBudgetSheet(context);
-                              if (changed) _reloadBudget();
-                            },
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _RemainingSummaryCard(
+                              available: available,
+                              remaining: remaining,
+                              hasBudget: hasBudget,
+                              onTap: () async {
+                                final changed =
+                                    await showMonthlyBudgetSheet(context);
+                                if (changed) _reloadBudget();
+                              },
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: GochanoSpacing.sm),
-                        Expanded(
-                          child: StatCard(
-                            compact: true,
-                            label: GochanoLanguage.text('Spent', 'খরচ'),
-                            value: formatTaka(summary.totalSpending),
-                            accent: colors.expense,
+                          const SizedBox(width: GochanoSpacing.sm),
+                          Expanded(
+                            child: StatCard(
+                              compact: true,
+                              label: GochanoLanguage.text('Spent', 'খরচ'),
+                              value: formatTaka(summary.totalSpending),
+                              accent: colors.expense,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     if (!hasBudget) ...[
                       const SizedBox(height: GochanoSpacing.sm),

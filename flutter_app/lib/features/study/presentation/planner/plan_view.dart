@@ -311,8 +311,11 @@ class _AssignmentTaskBento extends StatelessWidget {
         }
 
         deadlines.sort((a, b) {
-          final ad = (a.data()['dueAt'] as Timestamp).toDate();
-          final bd = (b.data()['dueAt'] as Timestamp).toDate();
+          final ad = (a.data()['dueAt'] as Timestamp?)?.toDate();
+          final bd = (b.data()['dueAt'] as Timestamp?)?.toDate();
+          if (ad == null && bd == null) return 0;
+          if (ad == null) return 1;
+          if (bd == null) return -1;
           return ad.compareTo(bd);
         });
 
@@ -442,9 +445,9 @@ class _AssignmentCard extends StatelessWidget {
           else
             ...shown.map((doc) {
               final data = doc.data();
-              final due = (data['dueAt'] as Timestamp).toDate();
+              final due = (data['dueAt'] as Timestamp?)?.toDate();
               final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
-              final overdue = due.isBefore(DateTime.now());
+              final overdue = due != null && due.isBefore(DateTime.now());
 
               return InkWell(
                 onTap: () => showAddTaskSheet(context, existing: doc),
@@ -465,7 +468,9 @@ class _AssignmentCard extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.event_rounded,
+                            due != null
+                                ? Icons.event_rounded
+                                : Icons.schedule_rounded,
                             size: 10,
                             color: overdue
                                 ? context.colors.warning
@@ -474,7 +479,12 @@ class _AssignmentCard extends StatelessWidget {
                           const SizedBox(width: 2),
                           Flexible(
                             child: Text(
-                              '${formatShortDate(due)} ${formatClock12(due)}',
+                              due != null
+                                  ? '${formatShortDate(due)} ${formatClock12(due)}'
+                                  : GochanoLanguage.text(
+                                      'No due date',
+                                      'কোনো সময়সীমা নেই',
+                                    ),
                               style: context.type.caption.copyWith(
                                 fontSize: 10,
                                 color: overdue
@@ -485,8 +495,10 @@ class _AssignmentCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          _deadlineStateBadgeCompact(context, due),
+                          if (due != null) ...[
+                            const SizedBox(width: 4),
+                            _deadlineStateBadgeCompact(context, due),
+                          ],
                         ],
                       ),
                       if (remindAt != null) ...[

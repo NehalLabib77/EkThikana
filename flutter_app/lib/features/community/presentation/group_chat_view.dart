@@ -73,10 +73,15 @@ class _GroupChatViewState extends State<GroupChatView> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
+    // Only show the full-screen loading spinner on the very first load.
+    // Subsequent refreshes (pull-to-refresh, after send) keep the existing
+    // message list visible so the chat never feels like it is reloading.
+    if (_messages.isEmpty) {
+      setState(() {
+        _loading = true;
+        _error = '';
+      });
+    }
     try {
       final body = await ApiService.getGroupChat(widget.groupId);
       if (!mounted) return;
@@ -105,15 +110,34 @@ class _GroupChatViewState extends State<GroupChatView> {
     final text = _message.text.trim();
     if (text.isEmpty || _sending) return;
 
-    setState(() => _sending = true);
+    // Optimistic UI: add the message to the list immediately so the user
+    // sees their message appear without waiting for the server round-trip.
+    final optimistic = <String, dynamic>{
+      'senderId': FirestoreService.uid,
+      'senderName': '',
+      'text': text,
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    setState(() {
+      _sending = true;
+      _messages = [..._messages, optimistic];
+    });
+    _message.clear();
+    _scrollToEnd();
+
     try {
       await ApiService.postGroupMessage(groupId: widget.groupId, text: text);
+      // Background refresh to get the server-assigned fields (senderName,
+      // server timestamp, etc.) without showing a loading state.
       if (!mounted) return;
-      _message.clear();
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _sending = false);
+      // Remove the optimistic message on failure and show the error.
+      setState(() {
+        _sending = false;
+        _messages = _messages.where((m) => m != optimistic).toList();
+      });
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
       return;
     }
