@@ -147,6 +147,35 @@ class FirestoreService {
     }
   }
 
+  /// Reads the user's study-goal preferences from their profile document.
+  ///
+  /// Returns `{ dailyGoalMinutes: int?, weeklyGoalMinutes: int? }` where
+  /// `null` means the user has never set that goal.  The caller must
+  /// handle the unset case (e.g. show "Set study goal") rather than
+  /// falling back to fabricated defaults.
+  static Future<Map<String, int?>> studyGoals() async {
+    final snap = await db.collection('users').doc(uid).get();
+    final data = snap.data();
+    return {
+      'dailyGoalMinutes': (data?['dailyGoalMinutes'] as num?)?.toInt(),
+      'weeklyGoalMinutes': (data?['weeklyGoalMinutes'] as num?)?.toInt(),
+    };
+  }
+
+  /// Persists the user's study-goal preferences onto their profile document.
+  static Future<void> saveStudyGoals({
+    required int dailyGoalMinutes,
+    required int weeklyGoalMinutes,
+  }) async {
+    await db.collection('users').doc(uid).set(
+      {
+        'dailyGoalMinutes': dailyGoalMinutes,
+        'weeklyGoalMinutes': weeklyGoalMinutes,
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   static Future<void> deleteOwnerDocument(String collection, String id) {
     return db.collection(collection).doc(id).delete();
   }

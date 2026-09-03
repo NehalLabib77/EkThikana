@@ -18,9 +18,14 @@ import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 
 /// Opens the add/edit task sheet. Returns true when a task was saved.
+///
+/// [type] defaults to `'task'`. Pass `'assignment'` to preselect the form
+/// as an assignment — the document is stamped with this value so the Plan
+/// cards can filter reliably.
 Future<bool> showAddTaskSheet(
   BuildContext context, {
   DocumentSnapshot<Map<String, dynamic>>? existing,
+  String type = 'task',
 }) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
@@ -31,16 +36,17 @@ Future<bool> showAddTaskSheet(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
       ),
-      child: _TaskForm(existing: existing),
+      child: _TaskForm(existing: existing, type: type),
     ),
   );
   return saved ?? false;
 }
 
 class _TaskForm extends StatefulWidget {
-  const _TaskForm({this.existing});
+  const _TaskForm({this.existing, this.type = 'task'});
 
   final DocumentSnapshot<Map<String, dynamic>>? existing;
+  final String type;
 
   @override
   State<_TaskForm> createState() => _TaskFormState();
@@ -49,6 +55,7 @@ class _TaskForm extends StatefulWidget {
 class _TaskFormState extends State<_TaskForm> {
   late final TextEditingController _title;
   DateTime? _dueAt;
+  DateTime? _remindAt;
   bool _remind = true;
   bool _saving = false;
   String? _error;
@@ -61,7 +68,8 @@ class _TaskFormState extends State<_TaskForm> {
     final data = widget.existing?.data() ?? const <String, dynamic>{};
     _title = TextEditingController(text: data['title']?.toString() ?? '');
     _dueAt = (data['dueAt'] as Timestamp?)?.toDate();
-    _remind = data['remindAt'] != null || !_isEdit;
+    _remindAt = (data['remindAt'] as Timestamp?)?.toDate();
+    _remind = _remindAt != null || !_isEdit;
   }
 
   @override
@@ -96,6 +104,58 @@ class _TaskFormState extends State<_TaskForm> {
         time?.hour ?? 9,
         time?.minute ?? 0,
       );
+      // Clear reminder if it's now after the new due time.
+      if (_remindAt != null && _dueAt != null && !_remindAt!.isBefore(_dueAt!)) {
+        _remindAt = null;
+      }
+    });
+  }
+
+  Future<void> _pickReminderDate() async {
+    final now = DateTime.now();
+    // Default to 1 hour before due, or 1 hour from now if no due set.
+    final defaultReminder = _dueAt != null
+        ? _dueAt!.subtract(const Duration(hours: 1))
+        : now.add(const Duration(hours: 1));
+    final initial = _remindAt ?? defaultReminder;
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial.isAfter(now) ? initial : now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (!mounted) return;
+
+    final picked = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time?.hour ?? initial.hour,
+      time?.minute ?? initial.minute,
+    );
+
+    // Validate: reminder must be before due time.
+    if (_dueAt != null && !picked.isBefore(_dueAt!)) {
+      if (!mounted) return;
+      setState(() {
+        _error = GochanoLanguage.text(
+          'Reminder must be before the due time.',
+          'রিমাইন্ডার সময়সীমার আগে হতে হবে।',
+        );
+      });
+      return;
+    }
+
+    setState(() {
+      _remindAt = picked;
+      _error = null;
     });
   }
 
@@ -116,12 +176,25 @@ class _TaskFormState extends State<_TaskForm> {
       _error = null;
     });
 
+    // Safety net: reject reminder at or after due time.
+    if (_remind && _remindAt != null && _dueAt != null && !_remindAt!.isBefore(_dueAt!)) {
+      setState(() {
+        _saving = false;
+        _error = GochanoLanguage.text(
+          'Reminder must be before the due time.',
+          'রিমাইন্ডার সময়সীমার আগে হতে হবে।',
+        );
+      });
+      return;
+    }
+
     try {
       final payload = <String, dynamic>{
         'title': title,
+        'type': widget.type,
         'dueAt': _dueAt == null ? null : Timestamp.fromDate(_dueAt!),
         'remindAt':
-            _remind && _dueAt != null ? Timestamp.fromDate(_dueAt!) : null,
+            _remind && _remindAt != null ? Timestamp.fromDate(_remindAt!) : null,
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
@@ -144,7 +217,7 @@ class _TaskFormState extends State<_TaskForm> {
       await NotificationService.rescheduleTask(
         taskId: taskId,
         title: title,
-        when: _remind ? _dueAt : null,
+        when: _remind ? _remindAt : null,
       );
 
       if (mounted) Navigator.of(context).pop(true);
@@ -176,7 +249,12 @@ class _TaskFormState extends State<_TaskForm> {
             Text(
               _isEdit
                   ? GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
-                  : GochanoLanguage.text('New task', 'নতুন কাজ'),
+                  : widget.type == 'assignment'
+                      ? GochanoLanguage.text(
+                          'New assignment',
+                          'নতুন অ্যাসাইনমেন্ট',
+                        )
+                      : GochanoLanguage.text('New task', 'নতুন কাজ'),
               style: context.type.sectionHeading,
             ),
             const SizedBox(height: GochanoSpacing.md),
@@ -223,7 +301,17 @@ class _TaskFormState extends State<_TaskForm> {
               const SizedBox(height: GochanoSpacing.xxs),
               SwitchListTile.adaptive(
                 value: _remind,
-                onChanged: (value) => setState(() => _remind = value),
+                onChanged: (value) {
+                  setState(() {
+                    _remind = value;
+                    if (value && _remindAt == null) {
+                      // Default reminder to 1 hour before due.
+                      _remindAt =
+                          _dueAt!.subtract(const Duration(hours: 1));
+                    }
+                    _error = null;
+                  });
+                },
                 contentPadding: EdgeInsets.zero,
                 title: Text(
                   GochanoLanguage.text('Remind me', 'মনে করিয়ে দিন'),
@@ -231,12 +319,54 @@ class _TaskFormState extends State<_TaskForm> {
                 ),
                 subtitle: Text(
                   GochanoLanguage.text(
-                    'A notification at the due time',
-                    'সময়সীমায় একটি নোটিফিকেশন',
+                    'Set a reminder before the due time',
+                    'সময়সীমার আগে একটি রিমাইন্ডার সেট করুন',
                   ),
                   style: context.type.caption,
                 ),
               ),
+              if (_remind) ...[
+                const SizedBox(height: GochanoSpacing.xxs),
+                InkWell(
+                  onTap: _pickReminderDate,
+                  borderRadius: GochanoRadius.mdAll,
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: GochanoLanguage.text(
+                        'Reminder',
+                        'রিমাইন্ডার',
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.notifications_active_outlined,
+                      ),
+                      suffixIcon: _remindAt == null
+                          ? null
+                          : IconActionButton(
+                              icon: Icons.close_rounded,
+                              label: GochanoLanguage.text(
+                                'Clear reminder',
+                                'রিমাইন্ডার মুছুন',
+                              ),
+                              onPressed: () =>
+                                  setState(() => _remindAt = null),
+                            ),
+                    ),
+                    child: Text(
+                      _remindAt == null
+                          ? GochanoLanguage.text(
+                              'Pick a time',
+                              'একটি সময় বাছুন',
+                            )
+                          : _formatDueDate(_remindAt!),
+                      style: context.type.body.copyWith(
+                        color: _remindAt == null
+                            ? colors.textTertiary
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
             if (_error != null) ...[
               const SizedBox(height: GochanoSpacing.xs),

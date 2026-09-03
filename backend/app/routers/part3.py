@@ -626,20 +626,24 @@ def study_stats(
     )
     daily_seconds = defaultdict(int)
     monthly_seconds = defaultdict(int)
-    completed_days: set[str] = set()
+    study_days: set[str] = set()
     for r in rows:
         d = r.to_dict() or {}
-        if d.get("status") != "completed":
+        status = d.get("status")
+        # Include completed and cancelled/stopped sessions — both are
+        # terminal states with legitimate accumulatedSeconds. Exclude
+        # running/paused (still in progress) and corrupt durations.
+        if status not in ("completed", "cancelled"):
             continue
         day = d.get("dayKey")
         secs = _coerce_focus_seconds(d.get("accumulatedSeconds", 0))
         if day:
             daily_seconds[day] += secs
-            completed_days.add(day)
+            study_days.add(day)
             month = day[:7]
             monthly_seconds[month] += secs
 
-    streak = _calc_streak(completed_days)
+    streak = _calc_streak(study_days)
 
     task_rows = list(
         db.collection("tasks")

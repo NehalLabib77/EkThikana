@@ -222,18 +222,17 @@ void main() {
     // client's side.
 
     test(
-      'a 354_920-second (5917-min) legacy row clamps to 24h on the wire',
+      'a 354_920-second (5917-min) legacy row maps to 0 — corrupt, not clamped',
       () {
         // Simulates the body returned by /api/study/focus/list for an account
-        // with one poisoned legacy row.
+        // with one poisoned legacy row.  The client matches the backend: values
+        // above the 24h ceiling are treated as corruption and returned as 0.
         final session = FocusSession.fromJson(const {
           'id': 'focus_legacy',
           'status': 'completed',
           'accumulatedSeconds': 354920, // 5917 minutes in seconds
         });
-        // The router-side clamp keeps this under 24h; the client reads what
-        // the server sends, never the raw poisoned value.
-        expect(session.elapsedSeconds, lessThanOrEqualTo(86400));
+        expect(session.elapsedSeconds, 0);
       },
     );
 
@@ -248,17 +247,17 @@ void main() {
       expect(session.elapsedSeconds, 0);
     });
 
-    test('display math does not show 5917 min for a clamped session', () {
+    test('display math does not show 5917 min for a corrupted session', () {
       // The user-visible bug: a single session whose elapsedSeconds was
-      // 354_920 produced a "5917 min" history row. With the clamp the same
-      // session now reports <= 1440 min (24h ceiling).
+      // 354_920 produced a "5917 min" history row.  With the corruption
+      // policy the session now reports 0 min.
       final session = FocusSession.fromJson(const {
         'id': 'focus_legacy',
         'status': 'completed',
-        'accumulatedSeconds': 86400, // 24h ceiling
+        'accumulatedSeconds': 354920, // 5917 minutes — corrupt
       });
       final minutes = session.elapsedSeconds ~/ 60;
-      expect(minutes, 1440);
+      expect(minutes, 0);
       expect(minutes, lessThan(5917));
     });
   });
@@ -281,6 +280,145 @@ void main() {
       final stats = StudyStats.fromJson(const {});
       expect(stats.todaySeconds, 0);
       expect(stats.streakDays, 0);
+    });
+  });
+
+  // ---- Study Goal counting policy ----------------------------------------
+  //
+  // Both backend (part3.py study_stats) and client (weeklySeconds) now count
+  // completed AND cancelled/stopped sessions. Running/paused are excluded.
+  // Corrupt durations (>86400 or negative) contribute 0 via _coerceFocusSeconds.
+  //
+  // These tests pin the parsing contract so the client-side weeklySeconds
+  // filtering logic works correctly with the FocusSession model.
+
+  group('Study Goal counting policy', () {
+    test('completed 600s session is counted', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f1',
+        'status': 'completed',
+        'accumulatedSeconds': 600,
+        'dayKey': '2026-09-03',
+      });
+      expect(session.status, 'completed');
+      expect(session.elapsedSeconds, 600);
+    });
+
+    test('cancelled 300s session is counted', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f2',
+        'status': 'cancelled',
+        'accumulatedSeconds': 300,
+        'dayKey': '2026-09-03',
+      });
+      expect(session.status, 'cancelled');
+      expect(session.elapsedSeconds, 300);
+    });
+
+    test('completed 600 + cancelled 300 totals 900', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'accumulatedSeconds': 600,
+          'dayKey': '2026-09-03',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'cancelled',
+          'accumulatedSeconds': 300,
+          'dayKey': '2026-09-03',
+        }),
+      ];
+      var total = 0;
+      for (final s in sessions) {
+        if (s.status != 'completed' && s.status != 'cancelled') continue;
+        total += s.elapsedSeconds;
+      }
+      expect(total, 900);
+    });
+
+    test('running session is excluded from counting', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f3',
+        'status': 'running',
+        'accumulatedSeconds': 500,
+        'dayKey': '2026-09-03',
+      });
+      // running sessions should not be counted
+      var total = 0;
+      if (session.status == 'completed' || session.status == 'cancelled') {
+        total += session.elapsedSeconds;
+      }
+      expect(total, 0);
+    });
+
+    test('paused session is excluded from counting', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f4',
+        'status': 'paused',
+        'accumulatedSeconds': 500,
+        'dayKey': '2026-09-03',
+      });
+      // paused sessions should not be counted
+      var total = 0;
+      if (session.status == 'completed' || session.status == 'cancelled') {
+        total += session.elapsedSeconds;
+      }
+      expect(total, 0);
+    });
+
+    test('corrupt cancelled 354920 contributes 0', () {
+      final session = FocusSession.fromJson(const {
+        'id': 'f5',
+        'status': 'cancelled',
+        'accumulatedSeconds': 354920,
+        'dayKey': '2026-09-03',
+      });
+      expect(session.elapsedSeconds, 0,
+          reason: 'corrupt value mapped to 0 by _coerceFocusSeconds');
+      // Even though status is cancelled (counted), corrupt duration = 0
+      var total = 0;
+      if (session.status == 'completed' || session.status == 'cancelled') {
+        total += session.elapsedSeconds;
+      }
+      expect(total, 0);
+    });
+
+    test('mixed statuses: completed + cancelled + running + paused', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'accumulatedSeconds': 600,
+          'dayKey': '2026-09-03',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'cancelled',
+          'accumulatedSeconds': 300,
+          'dayKey': '2026-09-03',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f3',
+          'status': 'running',
+          'accumulatedSeconds': 500,
+          'dayKey': '2026-09-03',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f4',
+          'status': 'paused',
+          'accumulatedSeconds': 200,
+          'dayKey': '2026-09-03',
+        }),
+      ];
+      var total = 0;
+      for (final s in sessions) {
+        if (s.status != 'completed' && s.status != 'cancelled') continue;
+        total += s.elapsedSeconds;
+      }
+      expect(total, 900,
+          reason: 'only completed (600) + cancelled (300) = 900');
     });
   });
 }

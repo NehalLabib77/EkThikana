@@ -6,10 +6,8 @@
 // Sections:
 //   1. Date / week strip — 7-day selector with a "Today" shortcut.
 //   2. Today's Schedule — tasks due on the selected day.
-//   3. Assignment Deadlines — upcoming tasks with due dates.
-//   4. Tasks — today's / upcoming checklist with complete/undo.
-//   5. Reminders — tasks that have a reminder set.
-//   6. Study Goal — weekly focus target, completed focus, progress %.
+//   3+4. Assignment Deadlines + Tasks — compact side-by-side bento cards.
+//   5. Study Goal — weekly focus target, completed focus, progress %.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +16,7 @@ import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../services/notification_service.dart';
@@ -38,6 +37,9 @@ class _PlanViewState extends State<PlanView> {
   DateTime _selectedDay = DateTime.now();
   StudyStats? _stats;
   bool _loadingStats = true;
+  int? _dailyGoalMinutes;
+  int? _weeklyGoalMinutes;
+  int _weeklyCompletedSeconds = 0;
 
   @override
   void initState() {
@@ -48,10 +50,18 @@ class _PlanViewState extends State<PlanView> {
   Future<void> _loadStats() async {
     setState(() => _loadingStats = true);
     try {
-      final stats = await StudyService.stats();
+      final results = await Future.wait([
+        StudyService.stats(),
+        FirestoreService.studyGoals(),
+        StudyService.weeklySeconds(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _stats = stats;
+        _stats = results[0] as StudyStats;
+        final goals = results[1] as Map<String, int?>;
+        _dailyGoalMinutes = goals['dailyGoalMinutes'];
+        _weeklyGoalMinutes = goals['weeklyGoalMinutes'];
+        _weeklyCompletedSeconds = results[2] as int;
         _loadingStats = false;
       });
     } catch (_) {
@@ -76,16 +86,16 @@ class _PlanViewState extends State<PlanView> {
           const SizedBox(height: GochanoSpacing.md),
           _ScheduleSection(selectedDay: _selectedDay),
           const SizedBox(height: GochanoSpacing.md),
-          _DeadlinesSection(),
-          const SizedBox(height: GochanoSpacing.md),
-          _TasksSection(selectedDay: _selectedDay),
-          const SizedBox(height: GochanoSpacing.md),
-          _RemindersSection(),
+          _AssignmentTaskBento(selectedDay: _selectedDay),
           const SizedBox(height: GochanoSpacing.md),
           _StudyGoalSection(
             stats: _stats,
             loading: _loadingStats,
+            dailyGoalMinutes: _dailyGoalMinutes,
+            weeklyGoalMinutes: _weeklyGoalMinutes,
+            weeklyCompletedSeconds: _weeklyCompletedSeconds,
             onRetry: _loadStats,
+            onGoalSaved: () => _loadStats(),
           ),
           const SizedBox(height: GochanoSpacing.xl),
         ],
@@ -261,11 +271,13 @@ class _ScheduleSection extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Assignment Deadlines — upcoming tasks with due dates
+// 3+4. Assignment Deadlines + Tasks — compact side-by-side bento cards
 // ---------------------------------------------------------------------------
 
-class _DeadlinesSection extends StatelessWidget {
-  const _DeadlinesSection();
+class _AssignmentTaskBento extends StatelessWidget {
+  const _AssignmentTaskBento({required this.selectedDay});
+
+  final DateTime selectedDay;
 
   @override
   Widget build(BuildContext context) {
@@ -277,16 +289,24 @@ class _DeadlinesSection extends StatelessWidget {
         }
         if (snapshot.hasError) return const SizedBox.shrink();
 
-        final now = DateTime.now();
-        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        final deadlines = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final docs = snapshot.data?.docs ?? [];
 
-        for (final doc in [...?snapshot.data?.docs]) {
+        // Split into assignments and tasks.
+        //
+        // Documents carry an explicit `type` field ('assignment' / 'task').
+        // Legacy documents written before the type field existed have
+        // type == null and default to Task.  We never infer the type from
+        // the due date — a future-dated normal task is still a task.
+        final deadlines = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final tasks = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        for (final doc in docs) {
           final data = doc.data();
           if (data['done'] == true) continue;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-          if (due != null && due.isAfter(endOfToday)) {
+          final isAssignment = data['type']?.toString() == 'assignment';
+          if (isAssignment) {
             deadlines.add(doc);
+          } else {
+            tasks.add(doc);
           }
         }
 
@@ -295,78 +315,6 @@ class _DeadlinesSection extends StatelessWidget {
           final bd = (b.data()['dueAt'] as Timestamp).toDate();
           return ad.compareTo(bd);
         });
-
-        if (deadlines.isEmpty) return const SizedBox.shrink();
-
-        final shown = deadlines.take(3).toList();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionHeader(
-              title: GochanoLanguage.text('Assignment deadlines', 'অ্যাসাইনমেন্ট সময়সীমা'),
-              action: deadlines.length > 3
-                  ? TextButton(
-                      onPressed: () {
-                        // Navigate to full tasks view is handled by the tab system
-                      },
-                      child: Text(GochanoLanguage.text('View all', 'সব দেখুন')),
-                    )
-                  : null,
-            ),
-            CardGroup(
-              children: shown.map((doc) {
-                final data = doc.data();
-                final due = (data['dueAt'] as Timestamp).toDate();
-                final overdue = due.isBefore(DateTime.now());
-                return GochanoListRow(
-                  illustration: GochanoArt.featureTasks,
-                  accent: overdue ? context.colors.warning : context.colors.brand,
-                  title: data['title']?.toString() ?? '',
-                  metadata: [_shortDue(due)],
-                  onTap: () => showAddTaskSheet(context, existing: doc),
-                );
-              }).toList(),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 4. Tasks — today's / upcoming checklist
-// ---------------------------------------------------------------------------
-
-class _TasksSection extends StatelessWidget {
-  const _TasksSection({required this.selectedDay});
-
-  final DateTime selectedDay;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
-
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 300),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-        if (snapshot.hasError) return const SizedBox.shrink();
-
-        final tasks = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        for (final doc in [...?snapshot.data?.docs]) {
-          final data = doc.data();
-          if (data['done'] == true) continue;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-          // Include tasks due today or without a date
-          if (due == null || !due.isAfter(endOfToday)) {
-            tasks.add(doc);
-          }
-        }
 
         tasks.sort((a, b) {
           final ad = (a.data()['dueAt'] as Timestamp?)?.toDate();
@@ -377,119 +325,28 @@ class _TasksSection extends StatelessWidget {
           return ad.compareTo(bd);
         });
 
-        if (tasks.isEmpty) {
-          return EmptyState(
-            compact: true,
-            illustration: GochanoArt.emptyTasks,
-            title: GochanoLanguage.text('No tasks today', 'আজ কোনো কাজ নেই'),
-            message: GochanoLanguage.text(
-              'Your schedule is clear.',
-              'আপনার দিন ফাঁকা।',
-            ),
-          );
-        }
+        if (deadlines.isEmpty && tasks.isEmpty) return const SizedBox.shrink();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionHeader(
-              title: GochanoLanguage.text('Tasks', 'কাজ'),
-            ),
-            CardGroup(
-              children: tasks.map((doc) {
-                final data = doc.data();
-                final done = data['done'] == true;
-                final title = data['title']?.toString() ?? '';
-                final due = (data['dueAt'] as Timestamp?)?.toDate();
-                final hasReminder = data['remindAt'] != null;
-                final overdue = !done && due != null && due.isBefore(DateTime.now());
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final sideBySide = constraints.maxWidth >= 600;
+            final cards = [
+              Expanded(
+                flex: 1,
+                child: _AssignmentCard(deadlines: deadlines),
+              ),
+              if (sideBySide) const SizedBox(width: GochanoSpacing.sm),
+              if (!sideBySide) const SizedBox(height: GochanoSpacing.sm),
+              Expanded(
+                flex: 1,
+                child: _TaskCard(tasks: tasks),
+              ),
+            ];
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: GochanoSpacing.xs,
-                    vertical: GochanoSpacing.xxs,
-                  ),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: done,
-                        onChanged: (value) => _setDone(context, doc, value ?? false),
-                      ),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => showAddTaskSheet(context, existing: doc),
-                          borderRadius: GochanoRadius.smAll,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: GochanoSpacing.xs,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  title,
-                                  style: context.type.cardHeading.copyWith(
-                                    color: done ? context.colors.textSecondary : null,
-                                    decoration: done ? TextDecoration.lineThrough : null,
-                                  ),
-                                ),
-                                if (due != null) ...[
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        hasReminder
-                                            ? Icons.notifications_active_outlined
-                                            : Icons.event_rounded,
-                                        size: 13,
-                                        color: overdue
-                                            ? context.colors.warning
-                                            : context.colors.textTertiary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _dueLabel(due),
-                                        style: context.type.caption.copyWith(
-                                          color: overdue ? context.colors.warning : null,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      GochanoOverflowMenu(
-                        items: [
-                          GochanoMenuAction(
-                            label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
-                            icon: Icons.edit_outlined,
-                            onSelected: () => showAddTaskSheet(context, existing: doc),
-                          ),
-                          GochanoMenuAction(
-                            label: done
-                                ? GochanoLanguage.text('Mark not done', 'অসম্পন্ন করুন')
-                                : GochanoLanguage.text('Mark done', 'সম্পন্ন করুন'),
-                            icon: done ? Icons.undo_rounded : Icons.check_rounded,
-                            onSelected: () => _setDone(context, doc, !done),
-                          ),
-                          GochanoMenuAction(
-                            label: GochanoLanguage.text('Delete', 'মুছুন'),
-                            icon: Icons.delete_outline_rounded,
-                            destructive: true,
-                            onSelected: () => _delete(context, doc, title),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+            return sideBySide
+                ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: cards)
+                : Column(children: cards);
+          },
         );
       },
     );
@@ -497,79 +354,313 @@ class _TasksSection extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Reminders — tasks that have a reminder set
+// 3. Assignment Deadlines card
 // ---------------------------------------------------------------------------
 
-class _RemindersSection extends StatelessWidget {
-  const _RemindersSection();
+class _AssignmentCard extends StatelessWidget {
+  const _AssignmentCard({required this.deadlines});
+
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> deadlines;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 300),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-        if (snapshot.hasError) return const SizedBox.shrink();
+    if (deadlines.isEmpty) return const SizedBox.shrink();
 
-        final reminders = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        for (final doc in [...?snapshot.data?.docs]) {
-          final data = doc.data();
-          if (data['done'] == true) continue;
-          if (data['remindAt'] != null) {
-            reminders.add(doc);
-          }
-        }
+    final shown = deadlines.take(3).toList();
 
-        reminders.sort((a, b) {
-          final ar = (a.data()['remindAt'] as Timestamp).toDate();
-          final br = (b.data()['remindAt'] as Timestamp).toDate();
-          return ar.compareTo(br);
-        });
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SectionHeader(
+                  padding: EdgeInsets.zero,
+                  title: GochanoLanguage.text(
+                    'Assignments',
+                    'অ্যাসাইনমেন্ট',
+                  ),
+                  action: deadlines.length > 3
+                      ? TextButton(
+                          onPressed: () {},
+                          child: Text(
+                            GochanoLanguage.text('View all', 'সব দেখুন'),
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_rounded, size: 20),
+                onPressed: () =>
+                    showAddTaskSheet(context, type: 'assignment'),
+                tooltip: GochanoLanguage.text(
+                  'Add assignment',
+                  'অ্যাসাইনমেন্ট যোগ করুন',
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          ...shown.map((doc) {
+            final data = doc.data();
+            final due = (data['dueAt'] as Timestamp).toDate();
+            final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
+            final overdue = due.isBefore(DateTime.now());
 
-        if (reminders.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionHeader(
-              title: GochanoLanguage.text('Reminders', 'রিমাইন্ডার'),
-            ),
-            CardGroup(
-              children: reminders.take(5).map((doc) {
-                final data = doc.data();
-                final remindAt = (data['remindAt'] as Timestamp).toDate();
-                return GochanoListRow(
-                  illustration: GochanoArt.featureReminder,
-                  accent: context.colors.medicine,
-                  title: data['title']?.toString() ?? '',
-                  metadata: [_clock(remindAt)],
-                  onTap: () => showAddTaskSheet(context, existing: doc),
-                );
-              }).toList(),
-            ),
-          ],
-        );
-      },
+            return InkWell(
+              onTap: () => showAddTaskSheet(context, existing: doc),
+              borderRadius: GochanoRadius.smAll,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xs),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      data['title']?.toString() ?? '',
+                      style: context.type.cardHeading,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: GochanoSpacing.xxs),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.event_rounded,
+                          size: 12,
+                          color: overdue
+                              ? context.colors.warning
+                              : context.colors.textTertiary,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xxs),
+                        Text(
+                          '${formatShortDate(due)} · ${formatClock12(due)}',
+                          style: context.type.caption.copyWith(
+                            color: overdue
+                                ? context.colors.warning
+                                : context.colors.textTertiary,
+                          ),
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        _deadlineStateBadge(due),
+                      ],
+                    ),
+                    if (remindAt != null) ...[
+                      const SizedBox(height: GochanoSpacing.xxs),
+                      _reminderInfo(context, remindAt),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// 6. Study Goal — weekly focus target, completed focus, progress %
+// 4. Tasks card — checklist with complete/undo
+// ---------------------------------------------------------------------------
+
+class _TaskCard extends StatelessWidget {
+  const _TaskCard({required this.tasks});
+
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tasks.isEmpty) {
+      return EmptyState(
+        compact: true,
+        illustration: GochanoArt.emptyTasks,
+        title: GochanoLanguage.text('No tasks today', 'আজ কোনো কাজ নেই'),
+        message: GochanoLanguage.text(
+          'Your schedule is clear.',
+          'আপনার দিন ফাঁকা।',
+        ),
+        actionLabel: GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
+        onAction: () => showAddTaskSheet(context, type: 'task'),
+      );
+    }
+
+    final shown = tasks.take(3).toList();
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SectionHeader(
+                  padding: EdgeInsets.zero,
+                  title: GochanoLanguage.text('Tasks', 'কাজ'),
+                  action: tasks.length > 3
+                      ? TextButton(
+                          onPressed: () {},
+                          child: Text(
+                            GochanoLanguage.text('View all', 'সব দেখুন'),
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_rounded, size: 20),
+                onPressed: () =>
+                    showAddTaskSheet(context, type: 'task'),
+                tooltip: GochanoLanguage.text(
+                  'Add task',
+                  'কাজ যোগ করুন',
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          ...shown.map((doc) {
+            final data = doc.data();
+            final done = data['done'] == true;
+            final title = data['title']?.toString() ?? '';
+            final due = (data['dueAt'] as Timestamp?)?.toDate();
+            final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
+            final overdue = !done && due != null && due.isBefore(DateTime.now());
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: GochanoSpacing.xs,
+                vertical: GochanoSpacing.xxs,
+              ),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: done,
+                    onChanged: (value) => _setDone(context, doc, value ?? false),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => showAddTaskSheet(context, existing: doc),
+                      borderRadius: GochanoRadius.smAll,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: GochanoSpacing.xs,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              style: context.type.cardHeading.copyWith(
+                                color: done ? context.colors.textSecondary : null,
+                                decoration:
+                                    done ? TextDecoration.lineThrough : null,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(
+                                  due != null
+                                      ? (remindAt != null
+                                          ? Icons.notifications_active_outlined
+                                          : Icons.event_rounded)
+                                      : Icons.schedule_rounded,
+                                  size: 12,
+                                  color: overdue
+                                      ? context.colors.warning
+                                      : context.colors.textTertiary,
+                                ),
+                                const SizedBox(width: GochanoSpacing.xxs),
+                                Text(
+                                  due != null
+                                      ? '${formatShortDate(due)} · ${formatClock12(due)}'
+                                      : GochanoLanguage.text(
+                                          'No due date',
+                                          'কোনো সময়সীমা নেই',
+                                        ),
+                                  style: context.type.caption.copyWith(
+                                    color: overdue
+                                        ? context.colors.warning
+                                        : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (remindAt != null) ...[
+                              const SizedBox(height: GochanoSpacing.xxs),
+                              _reminderInfo(context, remindAt),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  GochanoOverflowMenu(
+                    items: [
+                      GochanoMenuAction(
+                        label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
+                        icon: Icons.edit_outlined,
+                        onSelected: () =>
+                            showAddTaskSheet(context, existing: doc),
+                      ),
+                      GochanoMenuAction(
+                        label: done
+                            ? GochanoLanguage.text(
+                                'Mark not done',
+                                'অসম্পন্ন করুন',
+                              )
+                            : GochanoLanguage.text('Mark done', 'সম্পন্ন করুন'),
+                        icon: done ? Icons.undo_rounded : Icons.check_rounded,
+                        onSelected: () => _setDone(context, doc, !done),
+                      ),
+                      GochanoMenuAction(
+                        label: GochanoLanguage.text('Delete', 'মুছুন'),
+                        icon: Icons.delete_outline_rounded,
+                        destructive: true,
+                        onSelected: () => _delete(context, doc, title),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5. Study Goal — daily + weekly focus targets, completed focus, progress %
 // ---------------------------------------------------------------------------
 
 class _StudyGoalSection extends StatelessWidget {
   const _StudyGoalSection({
     required this.stats,
     required this.loading,
+    required this.dailyGoalMinutes,
+    required this.weeklyGoalMinutes,
+    required this.weeklyCompletedSeconds,
     required this.onRetry,
+    required this.onGoalSaved,
   });
 
   final StudyStats? stats;
   final bool loading;
+  final int? dailyGoalMinutes;
+  final int? weeklyGoalMinutes;
+  final int weeklyCompletedSeconds;
   final VoidCallback onRetry;
+  final VoidCallback onGoalSaved;
 
   @override
   Widget build(BuildContext context) {
@@ -585,10 +676,73 @@ class _StudyGoalSection extends StatelessWidget {
       );
     }
 
-    final weeklyTargetSeconds = 7 * 60 * 60; // 7 hours
-    final completedSeconds = stats?.todaySeconds ?? 0;
-    final progress = (completedSeconds / weeklyTargetSeconds).clamp(0.0, 1.0);
-    final percent = (progress * 100).round();
+    final goalsSet = dailyGoalMinutes != null || weeklyGoalMinutes != null;
+
+    if (!goalsSet) {
+      return AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    GochanoLanguage.text(
+                      'Study Goal',
+                      'পড়াশোনার লক্ষ্য',
+                    ),
+                    style: context.type.label,
+                  ),
+                ),
+                if (stats?.streakDays != null && stats!.streakDays > 0)
+                  GochanoBadge(
+                    label: GochanoLanguage.text(
+                      '${stats!.streakDays} day streak',
+                      '${stats!.streakDays} দিনের ধারা',
+                    ),
+                    tone: GochanoBadgeTone.success,
+                    icon: Icons.local_fire_department_rounded,
+                  ),
+              ],
+            ),
+            const SizedBox(height: GochanoSpacing.sm),
+            Text(
+              GochanoLanguage.text(
+                'Set a daily or weekly study target to track your progress.',
+                'আপনার অগ্রগতি ট্র্যাক করতে একটি দৈনিক বা সাপ্তাহিক পড়াশোনার লক্ষ্য নির্ধারণ করুন।',
+              ),
+              style: context.type.bodySecondary,
+            ),
+            const SizedBox(height: GochanoSpacing.sm),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                onPressed: () => _showEditGoalSheet(context),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text(
+                  GochanoLanguage.text('Set study goal', 'পড়াশোনার লক্ষ্য নির্ধারণ করুন'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final dailyTargetSeconds = (dailyGoalMinutes ?? 0) * 60;
+    final weeklyTargetSeconds = (weeklyGoalMinutes ?? 0) * 60;
+    final dailyCompleted = stats?.todaySeconds ?? 0;
+
+    // Guard against zero goals.
+    final dailyProgress = dailyTargetSeconds > 0
+        ? (dailyCompleted / dailyTargetSeconds).clamp(0.0, 1.0)
+        : 0.0;
+    final weeklyProgress = weeklyTargetSeconds > 0
+        ? (weeklyCompletedSeconds / weeklyTargetSeconds).clamp(0.0, 1.0)
+        : 0.0;
+    final dailyPercent = (dailyProgress * 100).round();
+    final weeklyPercent = (weeklyProgress * 100).round();
 
     return AppCard(
       child: Column(
@@ -612,32 +766,81 @@ class _StudyGoalSection extends StatelessWidget {
                   tone: GochanoBadgeTone.success,
                   icon: Icons.local_fire_department_rounded,
                 ),
+              const SizedBox(width: GochanoSpacing.xs),
+              IconActionButton(
+                icon: Icons.edit_outlined,
+                label: GochanoLanguage.text('Edit goal', 'লক্ষ্য সম্পাদনা'),
+                onPressed: () => _showEditGoalSheet(context),
+              ),
             ],
           ),
           const SizedBox(height: GochanoSpacing.sm),
+          // Daily progress
           Text(
             GochanoLanguage.text(
-              '${_formatDuration(completedSeconds)} of ${_formatDuration(weeklyTargetSeconds)} this week',
-              'এই সপ্তাহে ${_formatDuration(weeklyTargetSeconds)} এর মধ্যে ${_formatDuration(completedSeconds)}',
+              'Today: ${_formatDuration(dailyCompleted)} / ${_formatDuration(dailyTargetSeconds)}',
+              'আজ: ${_formatDuration(dailyTargetSeconds)} এর মধ্যে ${_formatDuration(dailyCompleted)}',
             ),
             style: context.type.bodySecondary,
           ),
-          const SizedBox(height: GochanoSpacing.xs),
+          const SizedBox(height: GochanoSpacing.xxs),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
+              value: dailyProgress,
+              minHeight: 5,
               backgroundColor: colors.surfaceVariant,
               color: colors.study,
             ),
           ),
           const SizedBox(height: GochanoSpacing.xxs),
           Text(
-            GochanoLanguage.text('$percent% complete', '$percent% সম্পন্ন'),
+            GochanoLanguage.text(
+              '$dailyPercent% daily',
+              '$dailyPercent% দৈনিক',
+            ),
+            style: context.type.caption,
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+          // Weekly progress
+          Text(
+            GochanoLanguage.text(
+              'This week: ${_formatDuration(weeklyCompletedSeconds)} / ${_formatDuration(weeklyTargetSeconds)}',
+              'এই সপ্তাহে: ${_formatDuration(weeklyTargetSeconds)} এর মধ্যে ${_formatDuration(weeklyCompletedSeconds)}',
+            ),
+            style: context.type.bodySecondary,
+          ),
+          const SizedBox(height: GochanoSpacing.xxs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: weeklyProgress,
+              minHeight: 5,
+              backgroundColor: colors.surfaceVariant,
+              color: colors.study,
+            ),
+          ),
+          const SizedBox(height: GochanoSpacing.xxs),
+          Text(
+            GochanoLanguage.text(
+              '$weeklyPercent% weekly',
+              '$weeklyPercent% সাপ্তাহিক',
+            ),
             style: context.type.caption,
           ),
         ],
+      ),
+    );
+  }
+
+  void _showEditGoalSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _EditGoalSheet(
+        dailyGoalMinutes: dailyGoalMinutes ?? 0,
+        weeklyGoalMinutes: weeklyGoalMinutes ?? 0,
+        onSaved: onGoalSaved,
       ),
     );
   }
@@ -653,40 +856,55 @@ String _clock(DateTime when) {
   return '$hour:$minute ${when.hour < 12 ? 'am' : 'pm'}';
 }
 
-String _dueLabel(DateTime due) {
+Widget _deadlineStateBadge(DateTime due) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(due.year, due.month, due.day);
   final diff = day.difference(today).inDays;
 
-  final hour = due.hour % 12 == 0 ? 12 : due.hour % 12;
-  final minute = due.minute.toString().padLeft(2, '0');
-  final clock = '$hour:$minute ${due.hour < 12 ? 'am' : 'pm'}';
-
-  if (diff == 0) return GochanoLanguage.text('Today $clock', 'আজ $clock');
+  if (diff < 0) {
+    return GochanoBadge(
+      label: GochanoLanguage.text('Overdue', 'সময় পেরিয়েছে'),
+      tone: GochanoBadgeTone.error,
+      icon: Icons.warning_rounded,
+    );
+  }
+  if (diff == 0) {
+    return GochanoBadge(
+      label: GochanoLanguage.text('Today', 'আজ'),
+      tone: GochanoBadgeTone.warning,
+      icon: Icons.today_rounded,
+    );
+  }
   if (diff == 1) {
-    return GochanoLanguage.text('Tomorrow $clock', 'আগামীকাল $clock');
+    return GochanoBadge(
+      label: GochanoLanguage.text('Tomorrow', 'আগামীকাল'),
+      tone: GochanoBadgeTone.info,
+      icon: Icons.arrow_forward_rounded,
+    );
   }
-  if (diff == -1) {
-    return GochanoLanguage.text('Yesterday $clock', 'গতকাল $clock');
-  }
-
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return '${due.day} ${months[due.month - 1]} · $clock';
+  return GochanoBadge(
+    label: GochanoLanguage.text('In $diff days', '$diff দিনে'),
+  );
 }
 
-String _shortDue(DateTime due) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final day = DateTime(due.year, due.month, due.day);
-  final diff = day.difference(today).inDays;
-  if (diff < 0) return GochanoLanguage.text('Overdue', 'সময় পেরিয়েছে');
-  if (diff == 0) return GochanoLanguage.text('Today', 'আজ');
-  if (diff == 1) return GochanoLanguage.text('Tomorrow', 'আগামীকাল');
-  return GochanoLanguage.text('In $diff days', '$diff দিনে');
+Widget _reminderInfo(BuildContext context, DateTime remindAt) {
+  return Row(
+    children: [
+      Icon(
+        Icons.notifications_active_outlined,
+        size: 12,
+        color: context.colors.textTertiary,
+      ),
+      const SizedBox(width: GochanoSpacing.xxs),
+      Text(
+        '${GochanoLanguage.text('Reminder', 'রিমাইন্ডার')}: ${formatClock12(remindAt)}',
+        style: context.type.caption.copyWith(
+          color: context.colors.textTertiary,
+        ),
+      ),
+    ],
+  );
 }
 
 String _formatDuration(int totalSeconds) {
@@ -698,6 +916,275 @@ String _formatDuration(int totalSeconds) {
     '$hours h $minutes min',
     '$hours ঘন্টা $minutes মিনিট',
   );
+}
+
+// ---------------------------------------------------------------------------
+// 5b. Edit Goal — compact bottom sheet for daily/weekly hours + minutes
+// ---------------------------------------------------------------------------
+
+class _EditGoalSheet extends StatefulWidget {
+  const _EditGoalSheet({
+    required this.dailyGoalMinutes,
+    required this.weeklyGoalMinutes,
+    required this.onSaved,
+  });
+
+  final int dailyGoalMinutes;
+  final int weeklyGoalMinutes;
+  final VoidCallback onSaved;
+
+  @override
+  State<_EditGoalSheet> createState() => _EditGoalSheetState();
+}
+
+class _EditGoalSheetState extends State<_EditGoalSheet> {
+  late int _dailyH;
+  late int _dailyM;
+  late int _weeklyH;
+  late int _weeklyM;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _dailyH = widget.dailyGoalMinutes ~/ 60;
+    _dailyM = widget.dailyGoalMinutes % 60;
+    _weeklyH = widget.weeklyGoalMinutes ~/ 60;
+    _weeklyM = widget.weeklyGoalMinutes % 60;
+  }
+
+  Future<void> _save() async {
+    final dailyTotal = _dailyH * 60 + _dailyM;
+    final weeklyTotal = _weeklyH * 60 + _weeklyM;
+
+    if (dailyTotal <= 0 && weeklyTotal <= 0) {
+      setState(() {
+        _error = GochanoLanguage.text(
+          'At least one goal must be greater than zero.',
+          'অন্তত একটি লক্ষ্য শূন্যের বেশি হতে হবে।',
+        );
+      });
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await FirestoreService.saveStudyGoals(
+        dailyGoalMinutes: dailyTotal,
+        weeklyGoalMinutes: weeklyTotal,
+      );
+      if (!mounted) return;
+      widget.onSaved();
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = friendlyErrorMessage(e);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.lg,
+            GochanoSpacing.xs,
+            GochanoSpacing.lg,
+            GochanoSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                GochanoLanguage.text('Edit study goal', 'পড়াশোনার লক্ষ্য সম্পাদনা'),
+                style: context.type.sectionHeading,
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+              // Daily goal
+              Text(
+                GochanoLanguage.text('Daily goal', 'দৈনিক লক্ষ্য'),
+                style: context.type.label,
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              _HourMinuteRow(
+                hours: _dailyH,
+                minutes: _dailyM,
+                onChanged: (h, m) => setState(() {
+                  _dailyH = h;
+                  _dailyM = m;
+                  _error = null;
+                }),
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+              // Weekly goal
+              Text(
+                GochanoLanguage.text('Weekly goal', 'সাপ্তাহিক লক্ষ্য'),
+                style: context.type.label,
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              _HourMinuteRow(
+                hours: _weeklyH,
+                minutes: _weeklyM,
+                onChanged: (h, m) => setState(() {
+                  _weeklyH = h;
+                  _weeklyM = m;
+                  _error = null;
+                }),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  _error!,
+                  style: context.type.bodySecondary.copyWith(
+                    color: colors.error,
+                  ),
+                ),
+              ],
+              const SizedBox(height: GochanoSpacing.md),
+              PrimaryButton(
+                label: GochanoLanguage.text('Save goal', 'লক্ষ্য সংরক্ষণ'),
+                busy: _saving,
+                busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
+                onPressed: _save,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5c. Hour / Minute row — compact stepper for goal editing
+// ---------------------------------------------------------------------------
+
+class _HourMinuteRow extends StatelessWidget {
+  const _HourMinuteRow({
+    required this.hours,
+    required this.minutes,
+    required this.onChanged,
+  });
+
+  final int hours;
+  final int minutes;
+  final void Function(int hours, int minutes) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _CompactStepper(
+          label: GochanoLanguage.text('h', 'ঘ'),
+          value: hours,
+          min: 0,
+          max: 24,
+          onChanged: (v) => onChanged(v, minutes),
+        ),
+        const SizedBox(width: GochanoSpacing.sm),
+        _CompactStepper(
+          label: GochanoLanguage.text('m', 'মি'),
+          value: minutes,
+          min: 0,
+          max: 59,
+          step: 5,
+          onChanged: (v) => onChanged(hours, v),
+        ),
+        const Spacer(),
+        Text(
+          _formatDuration(hours * 60 + minutes),
+          style: context.type.bodySecondary,
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactStepper extends StatelessWidget {
+  const _CompactStepper({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    this.step = 1,
+  });
+
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+  final int step;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: value > min ? () => onChanged((value - step).clamp(min, max)) : null,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: value > min ? colors.surfaceVariant : colors.surface,
+              borderRadius: GochanoRadius.smAll,
+            ),
+            child: Icon(
+              Icons.remove_rounded,
+              size: 18,
+              color: value > min ? colors.textPrimary : colors.textTertiary,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.xs),
+          child: SizedBox(
+            width: 40,
+            child: Text(
+              '$value$label',
+              style: context.type.cardHeading,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: value < max ? () => onChanged((value + step).clamp(min, max)) : null,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: value < max ? colors.surfaceVariant : colors.surface,
+              borderRadius: GochanoRadius.smAll,
+            ),
+            child: Icon(
+              Icons.add_rounded,
+              size: 18,
+              color: value < max ? colors.textPrimary : colors.textTertiary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 Future<void> _setDone(

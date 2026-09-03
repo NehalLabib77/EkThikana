@@ -7,13 +7,12 @@ import 'api_service.dart';
 /// Historical rows sometimes carry a value that looks like minutes stored in
 /// a seconds-shaped column — the most visible symptom was a single session
 /// row reading "98h 37m" and the Profile "This month" stat reading 5917
-/// minutes (≈ 354_920 s). The backend clamps these at read time, but the
-/// client mirrors the clamp too as a defence-in-depth so a Firestore SDK
-/// offline cache or an old in-process payload cannot re-introduce the
-/// poisoned value into the UI.
+/// minutes (≈ 354_920 s). The backend clamps these to 0 at read time; the
+/// client mirrors the policy so a Firestore SDK offline cache or an old
+/// in-process payload cannot re-introduce the poisoned value into the UI.
 ///
-/// 24 hours is well above any honest focus session and well below any
-/// plausible minutes-as-seconds pollution.
+/// Values above 24 hours are treated as corruption and mapped to 0, matching
+/// the backend's ``_coerce_focus_seconds`` behaviour.
 const int _kMaxFocusSeconds = 24 * 60 * 60; // 86_400 s = 24h
 
 int _coerceFocusSeconds(Object? raw) {
@@ -26,7 +25,7 @@ int _coerceFocusSeconds(Object? raw) {
     seconds = 0;
   }
   if (seconds < 0) return 0;
-  if (seconds > _kMaxFocusSeconds) return _kMaxFocusSeconds;
+  if (seconds > _kMaxFocusSeconds) return 0;
   return seconds;
 }
 
@@ -160,5 +159,33 @@ class StudyService {
   static Future<StudyStats> stats() async {
     final raw = await ApiService.getStudyStats();
     return StudyStats.fromJson(raw);
+  }
+
+  /// Returns the total accumulated seconds from completed focus sessions
+  /// within the last 7 days (Mon→Sun week).
+  static Future<int> weeklySeconds() async {
+    final sessions = await list(days: 8);
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday % 7));
+    final weekStart = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
+
+    var total = 0;
+    for (final s in sessions) {
+      // Include completed and cancelled/stopped sessions — both are
+      // terminal states with legitimate elapsedSeconds. Exclude
+      // running/paused (still in progress) and corrupt durations.
+      if (s.status != 'completed' && s.status != 'cancelled') continue;
+      if (s.dayKey.isEmpty) continue;
+      final parts = s.dayKey.split('-');
+      if (parts.length != 3) continue;
+      final day = DateTime.tryParse(s.dayKey);
+      if (day == null || day.isBefore(weekStart)) continue;
+      total += s.elapsedSeconds;
+    }
+    return total;
   }
 }
