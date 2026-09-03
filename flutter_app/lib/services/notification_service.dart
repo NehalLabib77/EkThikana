@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -108,10 +109,22 @@ class NotificationService {
   /// Open the OS notification-settings screen for this app so the user can
   /// re-grant POST_NOTIFICATIONS or re-enable a muted channel.  Returns true
   /// if the OS accepted the request.
+  static const _channel = MethodChannel(
+    'com.ekthikana.ekthikana/notification_settings',
+  );
+
   static Future<bool> openNotificationSettings() async {
-    final android = plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    return (await android?.requestNotificationsPermission()) ?? false;
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'openNotificationSettings',
+      );
+      return result ?? false;
+    } on MissingPluginException {
+      // Platform channel not available (e.g. test environment).
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> init() async {
