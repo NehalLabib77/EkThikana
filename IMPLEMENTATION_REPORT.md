@@ -198,10 +198,25 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
-## Study Workspace — Quick Access Redesign
+## Study Workspace — Final Cleanup (Shortcut-First)
 
 ### Change Summary
-Added a compact Quick Access grid to the top of the Study Workspace, following the exact same interaction pattern as Home Quick Actions. Initially shows 3 shortcuts; "See more" expands to show all 5.
+Finalized Study > Workspace as a shortcut-first screen. Quick Access at top, Recent Materials below. Removed duplicate Notes and Semesters dashboard sections. Fixed Semester shortcut to navigate to a proper `SemesterListScreen`. Fixed Shared Box to show only Community Group Resources (no full Community screen).
+
+### Root Cause: Semester Shortcut Bug
+The Semester shortcut used `Scrollable.ensureVisible` to scroll to an inline Semesters section. This broke when the section was removed from Workspace. The root cause was that there was no separate Semester screen — semesters were rendered inline in `WorkspaceView` as `_SemesterCard` widgets.
+
+**Fix:** Extracted the semester/subject list into `SemesterListScreen`, a standalone screen that opens when tapping the Semester shortcut. The screen reuses the exact same Firestore queries (`ownerStream('semesters')`, `ownerStream('subjects')`), card widgets, and action functions (add/rename/delete semester/subject) that were previously inline in `workspace_view.dart`. Navigation flow: Workspace → Semester → Subject (`SubjectScreen`) → Materials (`MaterialsScreen`).
+
+### Root Cause: Shared Box Opening Full Community Screen
+Shared Box previously opened `CommunityScreen()`, which shows the full Community screen including group chat, members, and overview tabs. Shared Box should only show group resources/files.
+
+**Fix:** Created `SharedBoxScreen` — a resource-only screen that lists the user's groups and shows their shared resources (materials + notes) grouped by group name. Reuses existing Firestore queries: `FirestoreService.groupMaterials(groupId)` and `FirestoreService.groupNotes(groupId)`. Reuses existing `MaterialReaderScreen` and `NoteEditorScreen` for opening resources. No new data model, no duplicate queries.
+
+### Duplicate Sections Removed
+- **Notes section** removed from Workspace (Notes accessible via Quick Access → `NotesScreen()`)
+- **Semesters section** removed from Workspace (Semesters accessible via Quick Access → `SemesterListScreen`)
+- **Final Workspace content:** Quick Access grid + Recent Materials
 
 ### Shortcuts
 
@@ -210,8 +225,8 @@ Added a compact Quick Access grid to the top of the Study Workspace, following t
 | 1 | Notes | নোট | `fileNote` | `colors.study` | `NotesScreen()` |
 | 2 | PDFs | পিডিএফ | `filePdf` | `colors.brand` | `MaterialsScreen(mimeFilter: 'application/pdf')` |
 | 3 | Saved Images | সংরক্ষিত ছবি | `fileImage` | `colors.ai` | `MaterialsScreen(mimeFilter: 'image/')` |
-| 4 | Semester | সেমিস্টার | `featureStudy` | `colors.study` | Scrolls to Semesters section on same page |
-| 5 | Shared Box | শেয়ার্ড বক্স | `featureGroups` | `colors.community` | `CommunityScreen()` — reuses Community Group Resources |
+| 4 | Semester | সেমিস্টার | `featureStudy` | `colors.study` | `SemesterListScreen()` — standalone semester list |
+| 5 | Shared Box | শেয়ার্ড বক্স | `featureGroups` | `colors.community` | `SharedBoxScreen()` — group resources only |
 
 ### UI Structure
 - `AppCard` wrapper with `GridView.builder` inside `LayoutBuilder`
@@ -220,14 +235,25 @@ Added a compact Quick Access grid to the top of the Study Workspace, following t
 - "See more" / "See less" `TextButton.icon` toggle below grid
 - Collapsed: 3 tiles. Expanded: 5 tiles. State is local `bool _expanded` — no persistence.
 
-### Architecture Reused
-- **Notes** → `NotesScreen` (existing, no changes)
-- **PDFs** → `MaterialsScreen` with new `mimeFilter` param (existing screen, minimal addition)
-- **Saved Images** → `MaterialsScreen` with new `mimeFilter` param (existing screen, minimal addition)
-- **Semester** → `Scrollable.ensureVisible` to existing Semesters `SectionHeader` (no new screen)
-- **Shared Box** → `CommunityScreen()` — reuses the existing Community Group Resources flow. Shared Box = Community Group Resources. No duplicate screen, no duplicate Firestore query, no duplicate data model. Group permissions and visibility behavior preserved.
+### SemesterListScreen Architecture
+- Standalone `GochanoScaffold` screen with AppBar "Semesters"
+- Streams `FirestoreService.ownerStream('semesters')` and `ownerStream('subjects')`
+- Groups subjects by `semesterId`, renders `_SemesterCard` per semester
+- Each `_SemesterCard` contains `_SubjectRow` widgets with material count stream
+- Tapping a subject navigates to `SubjectScreen` → embeds `MaterialsScreen(subjectFilter:)`
+- Full CRUD: add/rename/delete semesters and subjects via dialogs
+- Moved from `workspace_view.dart` (no longer inline in Workspace)
 
-### What Changed in MaterialsScreen
+### SharedBoxScreen Architecture
+- Standalone `GochanoScaffold` screen with AppBar "Shared Box"
+- Streams `FirestoreService.myGroups()` to get user's groups
+- For each group, streams `FirestoreService.groupMaterials(groupId)` and `groupNotes(groupId)`
+- Resources displayed per-group using `CardGroup` + `GochanoListRow` (same pattern as `_ResourcesTab` in `group_detail_screen.dart`)
+- Materials open via `MaterialReaderScreen`, notes open via `NoteEditorScreen`
+- No chat, members, overview — resources only
+- Group permissions preserved (Firestore security rules enforce `memberIds` check)
+
+### What Changed in MaterialsScreen (previous batch)
 Added `mimeFilter` parameter to `MaterialsScreen`:
 - `const MaterialsScreen({super.key, this.subjectFilter, this.mimeFilter})`
 - Filters materials by MIME type prefix when set
@@ -237,7 +263,9 @@ Added `mimeFilter` parameter to `MaterialsScreen`:
 
 | File | What Changed |
 |------|--------------|
-| `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` | Added `_QuickAccess` (StatefulWidget with expand/collapse), `_QuickAccessTile` (tile widget). Converted `WorkspaceView` to `StatefulWidget` to hold semester scroll key. Added `GochanoArt`, `GochanoIllustration`, and `CommunityScreen` imports. |
+| `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` | Converted to shortcut-first: only Quick Access + Recent Materials. Removed duplicate Notes/Semesters sections. Removed all private semester/subject classes and action functions (moved to `semester_list_screen.dart`). Semester shortcut now navigates to `SemesterListScreen`. Shared Box shortcut now navigates to `SharedBoxScreen`. `WorkspaceView` is now a `StatelessWidget`. Removed `_semestersKey`, `Scrollable.ensureVisible`, and semester/subject StreamBuilders. |
+| `flutter_app/lib/features/study/presentation/workspace/semester_list_screen.dart` | **New file.** Standalone Semester list screen. Contains `_SemesterCard`, `_SubjectRow`, and all CRUD actions (add/rename/delete semester/subject). Extracted from `workspace_view.dart`. |
+| `flutter_app/lib/features/community/presentation/shared_box_screen.dart` | **New file.** Resource-only Shared Box screen. Lists user's groups with their shared materials and notes. Reuses `FirestoreService.groupMaterials()`, `groupNotes()`, `MaterialReaderScreen`, `NoteEditorScreen`. No full Community screen. |
 | `flutter_app/lib/features/study/presentation/materials/materials_screen.dart` | Added `mimeFilter` parameter, MIME filter logic, `_mimeFilterTitle()` helper, adapted app bar title. |
 
 ### What Was NOT Changed
@@ -245,14 +273,17 @@ Added `mimeFilter` parameter to `MaterialsScreen`:
 - Workspace / Plan / Focus tabs
 - Plan, Focus, Assignment/Task, Study Goal, Community
 - Recent Materials section (preserved as-is below Quick Access)
-- Notes section (preserved as-is below Quick Access)
-- Semesters section (preserved as-is, now with key for scroll targeting)
+- Notes/Semester data, collections, and CRUD operations (moved, not deleted)
+- Community Group Resources (reused by Shared Box)
+- Group permissions and Firestore security rules
 - No new data models, services, or repositories
-- No duplicate Shared Box screen — Shared Box reuses Community Group Resources
 
 ### Tests & Results
 - ✅ `flutter analyze` — 0 issues
 - ✅ `flutter test` — 292/292 passed
+
+### Remaining Issues
+- None identified
 
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
