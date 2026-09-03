@@ -25,10 +25,13 @@ import 'material_upload_screen.dart';
 enum MaterialSort { newest, oldest, name, size }
 
 class MaterialsScreen extends StatefulWidget {
-  const MaterialsScreen({super.key, this.subjectFilter});
+  const MaterialsScreen({super.key, this.subjectFilter, this.mimeFilter});
 
   /// When set, only materials filed under this subject are shown.
   final String? subjectFilter;
+
+  /// When set, only materials whose MIME type starts with this prefix are shown.
+  final String? mimeFilter;
 
   @override
   State<MaterialsScreen> createState() => _MaterialsScreenState();
@@ -51,8 +54,10 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
       padBody: false,
       appBar: GochanoAppBar(
         title: widget.subjectFilter ??
-            GochanoLanguage.text('Materials', 'উপকরণ'),
-        subtitle: widget.subjectFilter == null
+            (widget.mimeFilter != null
+                ? _mimeFilterTitle(widget.mimeFilter!)
+                : GochanoLanguage.text('Materials', 'উপকরণ')),
+        subtitle: widget.subjectFilter == null && widget.mimeFilter == null
             ? null
             : GochanoLanguage.text('Subject materials', 'বিষয়ের উপকরণ'),
         actions: [
@@ -147,6 +152,12 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         if (widget.subjectFilter != null) {
           docs = docs
               .where((d) => d.data()['subject']?.toString() == widget.subjectFilter)
+              .toList();
+        }
+
+        if (widget.mimeFilter != null) {
+          docs = docs
+              .where((d) => d.data()['mimeType']?.toString().toLowerCase().startsWith(widget.mimeFilter!) == true)
               .toList();
         }
 
@@ -405,4 +416,14 @@ String _createdAt(Object? value) {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
   return '${when.day} ${months[when.month - 1]} ${when.year}';
+}
+
+String _mimeFilterTitle(String mimeFilter) {
+  if (mimeFilter.startsWith('image/')) {
+    return GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি');
+  }
+  if (mimeFilter.contains('pdf')) {
+    return GochanoLanguage.text('PDFs', 'পিডিএফ');
+  }
+  return GochanoLanguage.text('Materials', 'উপকরণ');
 }

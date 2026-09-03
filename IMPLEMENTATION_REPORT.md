@@ -198,6 +198,67 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
+## Study Workspace — Quick Access Redesign
+
+### Change Summary
+Added a compact Quick Access grid to the top of the Study Workspace, following the exact same interaction pattern as Home Quick Actions. Initially shows 3 shortcuts; "See more" expands to show all 5.
+
+### Shortcuts
+
+| # | Label (EN) | Label (BN) | Illustration | Accent | Destination |
+|---|-----------|------------|-------------|--------|-------------|
+| 1 | Notes | নোট | `fileNote` | `colors.study` | `NotesScreen()` |
+| 2 | PDFs | পিডিএফ | `filePdf` | `colors.brand` | `MaterialsScreen(mimeFilter: 'application/pdf')` |
+| 3 | Saved Images | সংরক্ষিত ছবি | `fileImage` | `colors.ai` | `MaterialsScreen(mimeFilter: 'image/')` |
+| 4 | Semester | সেমিস্টার | `featureStudy` | `colors.study` | Scrolls to Semesters section on same page |
+| 5 | Shared Box | শেয়ার্ড বক্স | `featureGroups` | `colors.community` | `CommunityScreen()` — reuses Community Group Resources |
+
+### UI Structure
+- `AppCard` wrapper with `GridView.builder` inside `LayoutBuilder`
+- 4 columns on phones ≥380dp, 3 columns on narrower screens
+- Tile: 52px tinted circle icon + 2-line centered label (matches Home Quick Actions exactly)
+- "See more" / "See less" `TextButton.icon` toggle below grid
+- Collapsed: 3 tiles. Expanded: 5 tiles. State is local `bool _expanded` — no persistence.
+
+### Architecture Reused
+- **Notes** → `NotesScreen` (existing, no changes)
+- **PDFs** → `MaterialsScreen` with new `mimeFilter` param (existing screen, minimal addition)
+- **Saved Images** → `MaterialsScreen` with new `mimeFilter` param (existing screen, minimal addition)
+- **Semester** → `Scrollable.ensureVisible` to existing Semesters `SectionHeader` (no new screen)
+- **Shared Box** → `CommunityScreen()` — reuses the existing Community Group Resources flow. Shared Box = Community Group Resources. No duplicate screen, no duplicate Firestore query, no duplicate data model. Group permissions and visibility behavior preserved.
+
+### What Changed in MaterialsScreen
+Added `mimeFilter` parameter to `MaterialsScreen`:
+- `const MaterialsScreen({super.key, this.subjectFilter, this.mimeFilter})`
+- Filters materials by MIME type prefix when set
+- App bar title adapts: "PDFs" for `application/pdf`, "Saved Images" for `image/`
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` | Added `_QuickAccess` (StatefulWidget with expand/collapse), `_QuickAccessTile` (tile widget). Converted `WorkspaceView` to `StatefulWidget` to hold semester scroll key. Added `GochanoArt`, `GochanoIllustration`, and `CommunityScreen` imports. |
+| `flutter_app/lib/features/study/presentation/materials/materials_screen.dart` | Added `mimeFilter` parameter, MIME filter logic, `_mimeFilterTitle()` helper, adapted app bar title. |
+
+### What Was NOT Changed
+- Study app bar
+- Workspace / Plan / Focus tabs
+- Plan, Focus, Assignment/Task, Study Goal, Community
+- Recent Materials section (preserved as-is below Quick Access)
+- Notes section (preserved as-is below Quick Access)
+- Semesters section (preserved as-is, now with key for scroll targeting)
+- No new data models, services, or repositories
+- No duplicate Shared Box screen — Shared Box reuses Community Group Resources
+
+### Tests & Results
+- ✅ `flutter analyze` — 0 issues
+- ✅ `flutter test` — 292/292 passed
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
 ## Feature 2 — Study Goal (User-Editable)
 
 ### Verified Behavior

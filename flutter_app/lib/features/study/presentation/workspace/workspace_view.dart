@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
+import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
@@ -28,10 +29,18 @@ import '../materials/materials_screen.dart';
 import '../materials/saved_materials_screen.dart';
 import '../notes/note_editor_screen.dart';
 import '../notes/notes_screen.dart';
+import '../../../community/presentation/community_screen.dart';
 import 'subject_screen.dart';
 
-class WorkspaceView extends StatelessWidget {
+class WorkspaceView extends StatefulWidget {
   const WorkspaceView({super.key});
+
+  @override
+  State<WorkspaceView> createState() => _WorkspaceViewState();
+}
+
+class _WorkspaceViewState extends State<WorkspaceView> {
+  final _semestersKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +80,8 @@ class WorkspaceView extends StatelessWidget {
             return ListView(
               padding: GochanoSpacing.scrollBody,
               children: [
+                _QuickAccess(semestersKey: _semestersKey),
+
                 const _RecentMaterials(),
 
                 SectionHeader(
@@ -106,6 +117,7 @@ class WorkspaceView extends StatelessWidget {
                 ),
 
                 SectionHeader(
+                  key: _semestersKey,
                   title: GochanoLanguage.text('Semesters', 'সেমিস্টার'),
                   action: TextButton.icon(
                     onPressed: () => _addSemester(context),
@@ -149,6 +161,201 @@ class WorkspaceView extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick access
+// ---------------------------------------------------------------------------
+
+const _kCollapsedCount = 3;
+
+class _QuickAccess extends StatefulWidget {
+  const _QuickAccess({required this.semestersKey});
+
+  final GlobalKey semestersKey;
+
+  @override
+  State<_QuickAccess> createState() => _QuickAccessState();
+}
+
+class _QuickAccessState extends State<_QuickAccess> {
+  bool _expanded = false;
+
+  List<_QuickAccessTile> _tiles(BuildContext context) {
+    final colors = context.colors;
+    return [
+      _QuickAccessTile(
+        label: GochanoLanguage.text('Notes', 'নোট'),
+        illustration: GochanoArt.fileNote,
+        accent: colors.study,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const NotesScreen()),
+        ),
+      ),
+      _QuickAccessTile(
+        label: GochanoLanguage.text('PDFs', 'পিডিএফ'),
+        illustration: GochanoArt.filePdf,
+        accent: colors.brand,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => const MaterialsScreen(mimeFilter: 'application/pdf'),
+          ),
+        ),
+      ),
+      _QuickAccessTile(
+        label: GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি'),
+        illustration: GochanoArt.fileImage,
+        accent: colors.ai,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => const MaterialsScreen(mimeFilter: 'image/'),
+          ),
+        ),
+      ),
+      _QuickAccessTile(
+        label: GochanoLanguage.text('Semester', 'সেমিস্টার'),
+        illustration: GochanoArt.featureStudy,
+        accent: colors.study,
+        onTap: () {
+          final ctx = widget.semestersKey.currentContext;
+          if (ctx != null) {
+            Scrollable.ensureVisible(
+              ctx,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        },
+      ),
+      _QuickAccessTile(
+        label: GochanoLanguage.text('Shared Box', 'শেয়ার্ড বক্স'),
+        illustration: GochanoArt.featureGroups,
+        accent: colors.community,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const CommunityScreen()),
+        ),
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tiles = _tiles(context);
+    final hasMore = tiles.length > _kCollapsedCount;
+    final visible =
+        (_expanded || !hasMore) ? tiles : tiles.take(_kCollapsedCount).toList();
+
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.xs,
+        vertical: GochanoSpacing.sm,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 380 ? 4 : 3;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: visible.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  mainAxisExtent: 88,
+                  crossAxisSpacing: GochanoSpacing.xxs,
+                  mainAxisSpacing: GochanoSpacing.xs,
+                ),
+                itemBuilder: (context, i) => visible[i],
+              );
+            },
+          ),
+          if (hasMore)
+            TextButton.icon(
+              onPressed: () => setState(() => _expanded = !_expanded),
+              icon: Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                size: GochanoSizes.iconSm,
+              ),
+              label: Text(
+                _expanded
+                    ? GochanoLanguage.text('See less', 'কম দেখুন')
+                    : GochanoLanguage.text('See more', 'আরো দেখুন'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickAccessTile extends StatelessWidget {
+  const _QuickAccessTile({
+    required this.label,
+    required this.illustration,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String label;
+  final String illustration;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 2,
+            vertical: GochanoSpacing.xxs,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: GochanoIllustration(
+                    illustration,
+                    size: 28,
+                    accent: accent,
+                  ),
+                ),
+              ),
+              const SizedBox(height: GochanoSpacing.xxs),
+              Expanded(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: context.type.caption.copyWith(
+                    color: context.colors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
