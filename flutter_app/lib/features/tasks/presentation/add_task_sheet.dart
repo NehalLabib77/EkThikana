@@ -42,6 +42,14 @@ Future<bool> showAddTaskSheet(
   return saved ?? false;
 }
 
+/// Preset durations before dueAt. Index 0 = no reminder.
+const _kPresetDurations = <Duration>[
+  Duration.zero, // no reminder
+  Duration(minutes: 10),
+  Duration(minutes: 30),
+  Duration(hours: 1),
+];
+
 class _TaskForm extends StatefulWidget {
   const _TaskForm({this.existing, this.type = 'task'});
 
@@ -56,7 +64,7 @@ class _TaskFormState extends State<_TaskForm> {
   late final TextEditingController _title;
   DateTime? _dueAt;
   DateTime? _remindAt;
-  bool _remind = true;
+  int _reminderPreset = 0;
   bool _saving = false;
   String? _error;
 
@@ -69,13 +77,33 @@ class _TaskFormState extends State<_TaskForm> {
     _title = TextEditingController(text: data['title']?.toString() ?? '');
     _dueAt = (data['dueAt'] as Timestamp?)?.toDate();
     _remindAt = (data['remindAt'] as Timestamp?)?.toDate();
-    _remind = _remindAt != null || !_isEdit;
+    _reminderPreset = _detectPreset();
   }
 
   @override
   void dispose() {
     _title.dispose();
     super.dispose();
+  }
+
+  /// Detect which preset matches the current _remindAt relative to _dueAt.
+  /// Returns 0 (no reminder) if either is null or no preset matches.
+  int _detectPreset() {
+    if (_dueAt == null || _remindAt == null) return 0;
+    final diff = _dueAt!.difference(_remindAt!).inMinutes;
+    if (diff <= 0) return 0;
+    for (var i = _kPresetDurations.length - 1; i >= 1; i--) {
+      if (diff == _kPresetDurations[i].inMinutes) return i;
+    }
+    return 0;
+  }
+
+  void _applyReminderPreset() {
+    if (_reminderPreset == 0 || _dueAt == null) {
+      _remindAt = null;
+    } else {
+      _remindAt = _dueAt!.subtract(_kPresetDurations[_reminderPreset]);
+    }
   }
 
   Future<void> _pickDueDate() async {
@@ -104,58 +132,7 @@ class _TaskFormState extends State<_TaskForm> {
         time?.hour ?? 9,
         time?.minute ?? 0,
       );
-      // Clear reminder if it's now after the new due time.
-      if (_remindAt != null && _dueAt != null && !_remindAt!.isBefore(_dueAt!)) {
-        _remindAt = null;
-      }
-    });
-  }
-
-  Future<void> _pickReminderDate() async {
-    final now = DateTime.now();
-    // Default to 1 hour before due, or 1 hour from now if no due set.
-    final defaultReminder = _dueAt != null
-        ? _dueAt!.subtract(const Duration(hours: 1))
-        : now.add(const Duration(hours: 1));
-    final initial = _remindAt ?? defaultReminder;
-
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial.isAfter(now) ? initial : now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (!mounted) return;
-
-    final picked = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time?.hour ?? initial.hour,
-      time?.minute ?? initial.minute,
-    );
-
-    // Validate: reminder must be before due time.
-    if (_dueAt != null && !picked.isBefore(_dueAt!)) {
-      if (!mounted) return;
-      setState(() {
-        _error = GochanoLanguage.text(
-          'Reminder must be before the due time.',
-          'রিমাইন্ডার সময়সীমার আগে হতে হবে।',
-        );
-      });
-      return;
-    }
-
-    setState(() {
-      _remindAt = picked;
-      _error = null;
+      _applyReminderPreset();
     });
   }
 
@@ -177,7 +154,7 @@ class _TaskFormState extends State<_TaskForm> {
     });
 
     // Safety net: reject reminder at or after due time.
-    if (_remind && _remindAt != null && _dueAt != null && !_remindAt!.isBefore(_dueAt!)) {
+    if (_remindAt != null && _dueAt != null && !_remindAt!.isBefore(_dueAt!)) {
       setState(() {
         _saving = false;
         _error = GochanoLanguage.text(
@@ -194,7 +171,7 @@ class _TaskFormState extends State<_TaskForm> {
         'type': widget.type,
         'dueAt': _dueAt == null ? null : Timestamp.fromDate(_dueAt!),
         'remindAt':
-            _remind && _remindAt != null ? Timestamp.fromDate(_remindAt!) : null,
+            _remindAt != null ? Timestamp.fromDate(_remindAt!) : null,
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
@@ -217,7 +194,7 @@ class _TaskFormState extends State<_TaskForm> {
       await NotificationService.rescheduleTask(
         taskId: taskId,
         title: title,
-        when: _remind ? _remindAt : null,
+        when: _remindAt,
       );
 
       if (mounted) Navigator.of(context).pop(true);
@@ -284,7 +261,11 @@ class _TaskFormState extends State<_TaskForm> {
                       : IconActionButton(
                           icon: Icons.close_rounded,
                           label: GochanoLanguage.text('Clear due date', 'সময়সীমা মুছুন'),
-                          onPressed: () => setState(() => _dueAt = null),
+                          onPressed: () => setState(() {
+                            _dueAt = null;
+                            _remindAt = null;
+                            _reminderPreset = 0;
+                          }),
                         ),
                 ),
                 child: Text(
@@ -298,75 +279,38 @@ class _TaskFormState extends State<_TaskForm> {
               ),
             ),
             if (_dueAt != null) ...[
-              const SizedBox(height: GochanoSpacing.xxs),
-              SwitchListTile.adaptive(
-                value: _remind,
-                onChanged: (value) {
-                  setState(() {
-                    _remind = value;
-                    if (value && _remindAt == null) {
-                      // Default reminder to 1 hour before due.
-                      _remindAt =
-                          _dueAt!.subtract(const Duration(hours: 1));
-                    }
-                    _error = null;
-                  });
-                },
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  GochanoLanguage.text('Remind me', 'মনে করিয়ে দিন'),
-                  style: context.type.body,
-                ),
-                subtitle: Text(
-                  GochanoLanguage.text(
-                    'Set a reminder before the due time',
-                    'সময়সীমার আগে একটি রিমাইন্ডার সেট করুন',
-                  ),
-                  style: context.type.caption,
-                ),
+              const SizedBox(height: GochanoSpacing.sm),
+              Text(
+                GochanoLanguage.text('Reminder', 'রিমাইন্ডার'),
+                style: context.type.label,
               ),
-              if (_remind) ...[
-                const SizedBox(height: GochanoSpacing.xxs),
-                InkWell(
-                  onTap: _pickReminderDate,
-                  borderRadius: GochanoRadius.mdAll,
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: GochanoLanguage.text(
-                        'Reminder',
-                        'রিমাইন্ডার',
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.notifications_active_outlined,
-                      ),
-                      suffixIcon: _remindAt == null
-                          ? null
-                          : IconActionButton(
-                              icon: Icons.close_rounded,
-                              label: GochanoLanguage.text(
-                                'Clear reminder',
-                                'রিমাইন্ডার মুছুন',
-                              ),
-                              onPressed: () =>
-                                  setState(() => _remindAt = null),
-                            ),
-                    ),
-                    child: Text(
-                      _remindAt == null
-                          ? GochanoLanguage.text(
-                              'Pick a time',
-                              'একটি সময় বাছুন',
-                            )
-                          : _formatDueDate(_remindAt!),
-                      style: context.type.body.copyWith(
-                        color: _remindAt == null
-                            ? colors.textTertiary
-                            : null,
-                      ),
-                    ),
+              const SizedBox(height: GochanoSpacing.xs),
+              Wrap(
+                spacing: GochanoSpacing.xs,
+                runSpacing: GochanoSpacing.xs,
+                children: [
+                  _buildPresetChip(
+                    context,
+                    index: 0,
+                    label: GochanoLanguage.text('None', 'নেই'),
                   ),
-                ),
-              ],
+                  _buildPresetChip(
+                    context,
+                    index: 1,
+                    label: GochanoLanguage.text('10 min before', '১০ মিনিট আগে'),
+                  ),
+                  _buildPresetChip(
+                    context,
+                    index: 2,
+                    label: GochanoLanguage.text('30 min before', '৩০ মিনিট আগে'),
+                  ),
+                  _buildPresetChip(
+                    context,
+                    index: 3,
+                    label: GochanoLanguage.text('1 hour before', '১ ঘণ্টা আগে'),
+                  ),
+                ],
+              ),
             ],
             if (_error != null) ...[
               const SizedBox(height: GochanoSpacing.xs),
@@ -385,6 +329,20 @@ class _TaskFormState extends State<_TaskForm> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPresetChip(BuildContext context, {required int index, required String label}) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _reminderPreset == index,
+      onSelected: (selected) {
+        if (!selected) return;
+        setState(() {
+          _reminderPreset = index;
+          _applyReminderPreset();
+        });
+      },
     );
   }
 }

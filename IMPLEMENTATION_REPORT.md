@@ -7,21 +7,20 @@
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
 | Assignment due DATE + TIME | ✅ | `add_task_sheet.dart:75-106` — `showDatePicker` then `showTimePicker`, stored as `DateTime` in `_dueAt` |
-| Assignment separate reminder DATE + TIME | ✅ | `add_task_sheet.dart:108-154` — `_pickReminderDate()` with date+time picker, separate `_remindAt` field |
-| Task due DATE + TIME | ✅ | Same form — shared for both assignment and task |
-| Task separate reminder DATE + TIME | ✅ | Same `_remindAt` field — independent of `_dueAt` |
-| Edit loads existing remindAt | ✅ | `add_task_sheet.dart:65` — `_remindAt = (data['remindAt'] as Timestamp?)?.toDate()` |
-| Edit preserves/reschedules reminder | ✅ | `add_task_sheet.dart:210-214` — `NotificationService.rescheduleTask(when: _remind ? _remindAt : null)` |
+| Assignment reminder presets | ✅ | `add_task_sheet.dart` — 4 ChoiceChip presets (None / 10 min / 30 min / 1 hour before dueAt) |
+| Task reminder presets | ✅ | Same form — shared for both assignment and task |
+| Edit loads existing preset | ✅ | `_detectPreset()` matches existing `remindAt` to closest preset on load |
+| Edit preserves/reschedules reminder | ✅ | `_save()` calls `NotificationService.rescheduleTask(when: _remindAt)` |
 | Complete cancels pending reminder | ✅ | `plan_view.dart` — `_setDone()` calls `rescheduleTask(when: done ? null : remindAt)` |
 | Delete cancels pending reminder | ✅ | `plan_view.dart` — `_delete()` calls `NotificationService.cancelTask(doc.id)` before Firestore delete |
-| Reminder OFF cancels notification | ✅ | `add_task_sheet.dart:213` — passes null to reschedule |
-| Prevent reminder after due time | ✅ | `add_task_sheet.dart:139-148,173-183` — picker validation + save safety-net |
-| Reminder default near/before dueAt | ✅ | `add_task_sheet.dart:296-298` — defaults to 1 hour before `_dueAt` |
-| Due date change clears stale reminder | ✅ | `add_task_sheet.dart:101-104` — clears `_remindAt` if now after new `_dueAt` |
+| No reminder cancels notification | ✅ | Preset "None" sets `remindAt = null`; `rescheduleTask(when: null)` cancels |
+| Due change recalculates reminder | ✅ | `_applyReminderPreset()` recomputes `remindAt` from selected preset + new `_dueAt` |
+| No dueAt disables presets | ✅ | Preset chips hidden when `_dueAt == null` |
+| Prevent reminder after due time | ✅ | `_save()` safety net rejects `remindAt >= dueAt` |
 | No duplicate notifications | ✅ | `notification_service.dart:192-193` — deterministic ID: `taskId.hashCode & 0x7fffffff` |
 | Data persists after restart | ✅ | Firestore for task data; `zonedSchedule` persists in Android AlarmManager |
 | EN/Bangla localization | ✅ | All labels use `GochanoLanguage.text(en, bn)` |
-| Old records compatible | ✅ | `add_task_sheet.dart:65-66` — existing `remindAt == dueAt` records load correctly |
+| Old records compatible | ✅ | `_detectPreset()` falls back to preset 0 (None) when no exact match found |
 
 ### Quick Add Actions
 
@@ -49,11 +48,11 @@ final isAssignment = data['type']?.toString() == 'assignment';
 
 | Scenario | Behavior |
 |----------|----------|
-| Reminder ON, picks time | `_remindAt` saved to Firestore; notification scheduled at `_remindAt` |
-| Reminder OFF | `remindAt` set to null; `rescheduleTask(when: null)` cancels pending |
-| Edit existing task | `_remindAt` loaded from doc; picker shows existing time; reschedule on save |
-| Due date changed after reminder set | If `_remindAt >= _dueAt`, auto-clear `_remindAt` |
-| Reminder picked after due | Validation error: "Reminder must be before the due time." |
+| Preset selected (10/30/60 min) | `_remindAt = _dueAt - preset`; saved to Firestore; notification scheduled at `_remindAt` |
+| Preset "None" selected | `remindAt` set to null; `rescheduleTask(when: null)` cancels pending |
+| Edit existing task | `_detectPreset()` matches existing `remindAt` to closest preset; chips pre-select |
+| Due date changed | `_applyReminderPreset()` recalculates `_remindAt` from current preset + new `_dueAt` |
+| No due set | Preset chips hidden; `_remindAt = null` |
 | Complete task | `rescheduleTask(when: null)` cancels |
 | Delete task | `cancelTask(doc.id)` cancels before Firestore delete |
 
@@ -71,7 +70,7 @@ final isAssignment = data['type']?.toString() == 'assignment';
 
 | File | What Changed |
 |------|--------------|
-| `flutter_app/lib/features/tasks/presentation/add_task_sheet.dart` | Added `_remindAt` field, `_pickReminderDate()`, reminder picker UI, reminder-after-due validation, save writes separate `remindAt`, default 1h before due; `type` param on `showAddTaskSheet()` and `_TaskForm` |
+| `flutter_app/lib/features/tasks/presentation/add_task_sheet.dart` | Replaced `_pickReminderDate()` + SwitchListTile toggle with 4 ChoiceChip presets (None/10m/30m/1h). Added `_reminderPreset`, `_detectPreset()`, `_applyReminderPreset()`. Due change recalculates reminder. No dueAt hides presets. `type` param on `showAddTaskSheet()` and `_TaskForm` |
 | `flutter_app/lib/features/study/presentation/planner/plan_view.dart` | Compact side-by-side bento layout; `_StudyGoalSection` (see Feature 2); `_EditGoalSheet`, `_HourMinuteRow`, `_CompactStepper` widgets |
 | `flutter_app/test/deadline_state_test.dart` | New — deadline state tests |
 
@@ -152,6 +151,47 @@ final isAssignment = data['type']?.toString() == 'assignment';
 
 ### Remaining Issues
 - None
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## Reminder Preset Options — Assignment + Task
+
+### Change Summary
+Replaced the full date+time reminder picker (`_pickReminderDate()` + SwitchListTile toggle) with 4 compact ChoiceChip presets for both Assignment and Task forms.
+
+### Presets
+| Index | Label (EN) | Label (BN) | Duration before dueAt |
+|-------|-----------|------------|----------------------|
+| 0 | None | নেই | (no reminder) |
+| 1 | 10 min before | ১০ মিনিট আগে | 10 minutes |
+| 2 | 30 min before | ৩০ মিনিট আগে | 30 minutes |
+| 3 | 1 hour before | ১ ঘণ্টা আগে | 1 hour |
+
+### Behavior
+- **Preset → remindAt**: `_remindAt = _dueAt - _kPresetDurations[preset]`
+- **No dueAt**: Preset chips hidden; `_remindAt = null`
+- **Edit mode**: `_detectPreset()` matches existing `remindAt` to closest preset on load
+- **DueAt changed**: `_applyReminderPreset()` recalculates `remindAt` from current preset
+- **Preset "None"**: Sets `remindAt = null`; `rescheduleTask(when: null)` cancels notification
+- **Safety net**: `_save()` rejects `remindAt >= dueAt`
+
+### UI
+- Compact `Wrap` of 4 `ChoiceChip` widgets below the Due field
+- Only visible when `_dueAt != null`
+- Label "Reminder" / "রিমাইন্ডার" shown above chips
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/tasks/presentation/add_task_sheet.dart` | Removed `_pickReminderDate()`, SwitchListTile toggle, `_remind` bool. Added `_kPresetDurations`, `_reminderPreset`, `_detectPreset()`, `_applyReminderPreset()`, `_buildPresetChip()`. Preset chips replace picker UI. Due change recalculates reminder. No dueAt hides presets. |
+
+### Tests & Results
+- ✅ `flutter analyze` — 0 issues
+- ✅ `flutter test` — 292/292 passed
 
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
