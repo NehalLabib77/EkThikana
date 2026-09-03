@@ -28,6 +28,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gochano/services/study_service.dart';
+import 'package:gochano/features/study/presentation/focus/focus_view.dart'
+    show groupSessions;
 
 void main() {
   group('FocusSession.fromJson', () {
@@ -419,6 +421,255 @@ void main() {
       }
       expect(total, 900,
           reason: 'only completed (600) + cancelled (300) = 900');
+    });
+  });
+
+  // ---- groupSessions -------------------------------------------------------
+  //
+  // Tests for the grouping logic in focus_view.dart. Sessions with the same
+  // normalized study name merge into a single row with summed seconds.
+
+  group('groupSessions', () {
+    test('same-name completed + cancelled + paused merge into one group', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 600,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'cancelled',
+          'label': 'Physics',
+          'accumulatedSeconds': 300,
+          'dayKey': '2026-09-02',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f3',
+          'status': 'paused',
+          'label': 'Physics',
+          'accumulatedSeconds': 120,
+          'dayKey': '2026-09-03',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.length, 1);
+      expect(groups.first.label, 'Physics');
+      expect(groups.first.totalSeconds, 1020,
+          reason: '600 + 300 + 120 = 1020');
+      expect(groups.first.latestDayKey, '2026-09-03');
+    });
+
+    test('running sessions are excluded from grouping', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 600,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'running',
+          'label': 'Physics',
+          'accumulatedSeconds': 200,
+          'dayKey': '2026-09-03',
+        }),
+      ];
+      // Only completed sessions are passed to groupSessions;
+      // running sessions are filtered out by _load() before grouping.
+      final history = sessions.where((s) => s.status != 'running').toList();
+      final groups = groupSessions(history);
+      expect(groups.length, 1);
+      expect(groups.first.totalSeconds, 600,
+          reason: 'running (200) must not be included');
+    });
+
+    test('case and whitespace are normalized', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': '  Physics  ',
+          'accumulatedSeconds': 100,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'completed',
+          'label': 'physics',
+          'accumulatedSeconds': 200,
+          'dayKey': '2026-09-02',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f3',
+          'status': 'completed',
+          'label': 'PHYSICS',
+          'accumulatedSeconds': 300,
+          'dayKey': '2026-09-03',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.length, 1);
+      expect(groups.first.totalSeconds, 600);
+      // First non-blank label wins for display
+      expect(groups.first.label, 'Physics');
+    });
+
+    test('blank name falls back to "Focus session"', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': '',
+          'accumulatedSeconds': 150,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'completed',
+          'label': '',
+          'accumulatedSeconds': 250,
+          'dayKey': '2026-09-02',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.length, 1);
+      expect(groups.first.label, contains('Focus session'));
+      expect(groups.first.totalSeconds, 400);
+    });
+
+    test('corrupt duration (>86400) is coerced to 0 by FocusSession', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 354920,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 100,
+          'dayKey': '2026-09-02',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.length, 1);
+      expect(groups.first.totalSeconds, 100,
+          reason: 'corrupt session contributes 0, valid contributes 100');
+    });
+
+    test('no double-counting across pause/resume cycles', () {
+      // Backend tracks accumulatedSeconds across cycles. Each session row
+      // carries the final accumulated value. groupSessions sums per-row
+      // values, so there is no double-counting.
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 600,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 300,
+          'dayKey': '2026-09-02',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.first.totalSeconds, 900,
+          reason: '600 + 300 = 900, no overlap');
+    });
+
+    test('latest dayKey is used for grouped row', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 100,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 200,
+          'dayKey': '2026-09-05',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f3',
+          'status': 'cancelled',
+          'label': 'Physics',
+          'accumulatedSeconds': 50,
+          'dayKey': '2026-09-03',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.first.latestDayKey, '2026-09-05');
+    });
+
+    test('groups are sorted by total seconds descending', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': 'Math',
+          'accumulatedSeconds': 100,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f2',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': 500,
+          'dayKey': '2026-09-01',
+        }),
+        FocusSession.fromJson(const {
+          'id': 'f3',
+          'status': 'completed',
+          'label': 'Chemistry',
+          'accumulatedSeconds': 300,
+          'dayKey': '2026-09-01',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.length, 3);
+      expect(groups[0].label, 'Physics');
+      expect(groups[0].totalSeconds, 500);
+      expect(groups[1].label, 'Chemistry');
+      expect(groups[1].totalSeconds, 300);
+      expect(groups[2].label, 'Math');
+      expect(groups[2].totalSeconds, 100);
+    });
+
+    test('empty list returns empty groups', () {
+      final groups = groupSessions([]);
+      expect(groups, isEmpty);
+    });
+
+    test('negative duration is coerced to 0 by FocusSession', () {
+      final sessions = [
+        FocusSession.fromJson(const {
+          'id': 'f1',
+          'status': 'completed',
+          'label': 'Physics',
+          'accumulatedSeconds': -100,
+          'dayKey': '2026-09-01',
+        }),
+      ];
+      final groups = groupSessions(sessions);
+      expect(groups.length, 1);
+      expect(groups.first.totalSeconds, 0);
     });
   });
 }

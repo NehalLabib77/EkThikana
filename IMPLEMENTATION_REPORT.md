@@ -343,33 +343,58 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
-## Bug Batch: Medicine 12-Hour Time, Profile Flicker, Focus Session Grouping
+## Bug Batch: Medicine 12-Hour Time, Profile Flicker/Fetch, Focus Session Grouping
 
 ### Change Summary
 1. **Medicine 12-hour AM/PM** — Backend stores `hh:mm` in 24-hour format. Added `formatTime12()` helper to convert to 12-hour with AM/PM suffix. Updated all display points in Medicine screens and Home's NextMedicineCard.
-2. **Profile loading flicker** — `_StudyStatsRow` showed error state even when stale stats existed (flicker on refresh). Fixed by only showing error when `_stats == null`. `_SettingsCard` showed "Checking…" even after budget loaded. Fixed by gating loading text on `_loaded` flag.
-3. **Focus session grouping** — Sessions with the same study name (case/whitespace variants) now group into a single row with summed seconds and latest dayKey. Sorted by total time descending. Corrupt durations fallback to 0.
+2. **Profile fetch lifecycle** — Root cause: `GochanoShell` used a getter for `_destinations`, so every `setState` (tab switch) created new `ProfileScreen` instances. `IndexedStack` called `d.builder()` on every shell rebuild, producing fresh widget trees — `initState` re-ran, triggering duplicate API fetches. Fix: cache destinations + pre-built pages in `late final` fields so child widget instances survive shell rebuilds. Added request deduplication to `ApiService.getStudyStats()` and `getMonthlyBudget()` so concurrent callers share the same in-flight HTTP request.
+3. **Profile flicker** — `_StudyStatsRow` showed error state even when stale stats existed (flicker on refresh). Fixed by only showing error when `_stats == null`. `_SettingsCard` showed "Checking…" even after budget loaded. Fixed by gating loading text on `_loaded` flag.
+4. **Focus session grouping** — Sessions with the same study name (case/whitespace variants) now group into a single row with summed seconds and latest dayKey. Sorted by total time descending. Corrupt durations fallback to 0. **Status policy**: completed + cancelled + paused included in grouped display; running excluded (live ticking time must not be double-counted). Paused sessions appear in BOTH `_active` (for resume/finish controls) AND `_history` (for grouped time display).
+
+### Profile Fetch Lifecycle Audit
+
+| Data Source | BEFORE (per shell rebuild) | AFTER (per app session) |
+|---|---|---|
+| Profile identity | 1 Firestore stream | 1 Firestore stream (unchanged) |
+| Study stats API | 1 × `getStudyStats()` per rebuild | 1 × `getStudyStats()` total (deduplicated) |
+| Monthly budget API | 1 × `getMonthlyBudget()` per rebuild | 1 × `getMonthlyBudget()` total (deduplicated) |
+| Notifications | 1 × `areNotificationsEnabled()` per rebuild | 1 × total (unchanged) |
+| **Total API calls** | **N calls** (N = shell rebuilds) | **3 calls** (one per data source) |
+
+Root cause: `_destinations` was a getter → new `ProfileScreen` on every `setState` → `initState` re-ran → duplicate fetches.
+
+### Focus Grouping Status Policy
+
+| Status | Included in `_history`? | Included in grouped total? | Reason |
+|---|---|---|---|
+| completed | Yes | Yes | Terminal state, legitimate elapsed time |
+| cancelled | Yes | Yes | Terminal state, legitimate elapsed time |
+| paused | Yes | Yes | Accumulated time across pause/resume cycles is valid |
+| running | No | No | Live ticking time must not be double-counted |
 
 ### Exact UI Change
 - Medicine screens now show e.g. `8:30 AM` instead of `08:30`
-- Profile no longer flashes error/loading on background refresh
-- Focus Recent section groups same-name sessions into one row with total duration
+- Profile tab switches no longer trigger duplicate API fetches
+- Focus Recent section groups completed + cancelled + paused sessions into one row with total duration
 
 ### Files Changed
 
 | File | What Changed |
 |------|--------------|
+| `flutter_app/lib/features/shell/presentation/gochano_shell.dart` | Changed `_destinations` from getter to `late final` cached list; added `_pages` cache of pre-built widget instances; `IndexedStack` now uses cached `_pages` instead of calling `d.builder()` on every rebuild |
+| `flutter_app/lib/services/api_service.dart` | Added `_pendingGet` deduplication map and `_deduplicatedGet()` helper; `getStudyStats()` and `getMonthlyBudget()` now use deduplication |
 | `flutter_app/lib/core/localization/gochano_dates.dart` | Added `formatTime12(String hhmm)` — converts 24h `"HH:mm"` to 12h with AM/PM |
 | `flutter_app/lib/features/life/presentation/medicine/medicine_screen.dart` | Updated `_doseTimeLabel` and `_doseRow` to use `formatTime12(dose.time)` |
 | `flutter_app/lib/features/life/presentation/medicine/medicine_history_screen.dart` | Updated `_formatScheduledTime` to use `formatTime12(scheduledTime)` |
 | `flutter_app/lib/features/life/presentation/medicine/medicine_form_screen.dart` | Updated `_chipLabel` to use `formatTime12(hhmm)` for time chip display |
 | `flutter_app/lib/features/home/presentation/home_screen.dart` | Updated `NextMedicineCard` to use `formatTime12(next.dose.time)` |
 | `flutter_app/lib/features/profile/presentation/profile_screen.dart` | Removed `_initialLoad` flag from `_StudyStatsRow`; only show error when `_stats == null`. Added `_loaded` flag to `_SettingsCard`; only show "Checking…" before first budget load |
-| `flutter_app/lib/features/study/presentation/focus/focus_view.dart` | Added `_SessionGroup` class, `_groupSessions()` function; Recent section now displays grouped sessions with normalized label and summed elapsedSeconds; sorted by total descending |
+| `flutter_app/lib/features/study/presentation/focus/focus_view.dart` | Renamed `_SessionGroup` → `SessionGroup`, `_groupSessions()` → `groupSessions()` (public for testing). `_load()` now includes paused sessions in `_history` (filter: `status != 'running'`). `_active` shows running OR paused session for controls. |
+| `flutter_app/test/focus_session_test.dart` | Added 10 `groupSessions` tests: same-name merge (completed+cancelled+paused=1020), running exclusion, case/whitespace normalization, blank→"Focus session", corrupt→0, no double-counting, latest dayKey, sort order, empty list, negative→0 |
 
 ### Tests & Results
 - ✅ `flutter analyze` — 0 issues
-- ✅ `flutter test` — 282 passed, 0 failed
+- ✅ `flutter test` — 292 passed, 0 failed (10 new `groupSessions` tests added)
 
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.

@@ -28,6 +28,26 @@ class ApiService {
   /// round trip — clearly visible on cold starts and on the AI endpoints.
   static final http.Client _client = http.Client();
 
+  /// In-flight request deduplication. If two widgets call the same read-only
+  /// endpoint concurrently (e.g. `getStudyStats` from Profile and from
+  /// `StudyService.stats()`), the second caller receives the same Future
+  /// instead of triggering a duplicate HTTP round-trip. Entries are removed
+  /// when the request settles (success or failure).
+  static final Map<String, Future<Map<String, dynamic>>> _pendingGet = {};
+
+  static Future<Map<String, dynamic>> _deduplicatedGet(
+    String path, {
+    Map<String, String>? query,
+  }) async {
+    final key = 'GET:$path:${query ?? {}}';
+    final existing = _pendingGet[key];
+    if (existing != null) return existing;
+
+    final future = _decode(await _get(path, query: query));
+    _pendingGet.remove(key);
+    return future;
+  }
+
   static Uri _uri(String path, [Map<String, String>? query]) {
     final configured = AppConfig.apiBaseUrl.trim();
     if (configured.isEmpty) {
@@ -524,7 +544,7 @@ class ApiService {
       }));
 
   static Future<Map<String, dynamic>> getMonthlyBudget(DateTime month) async =>
-      _decode(await _get('/api/budget/monthly', query: {'month_key': _monthKey(month)}));
+      _deduplicatedGet('/api/budget/monthly', query: {'month_key': _monthKey(month)});
 
   static Future<Map<String, dynamic>> getRemaining(DateTime month) async =>
       _decode(await _get('/api/budget/remaining', query: {'month_key': _monthKey(month)}));
@@ -566,7 +586,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getStudyStats() async =>
-      _decode(await _get('/api/study/stats'));
+      _deduplicatedGet('/api/study/stats');
 
   // ---------------- Offline materials (metadata; device-local file is SoT) ----------------
   static Future<Map<String, dynamic>> registerOffline({

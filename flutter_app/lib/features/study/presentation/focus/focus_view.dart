@@ -69,13 +69,20 @@ class _FocusViewState extends State<FocusView> {
     try {
       final sessions = await StudyService.list();
       if (!mounted) return;
-      final active = sessions.where((s) => s.isActive).firstOrNull;
+      final running = sessions.where((s) => s.status == 'running').firstOrNull;
+      final paused = sessions.where((s) => s.status == 'paused').firstOrNull;
+      final activeSession = running ?? paused;
       setState(() {
         _loading = false;
-        _history = sessions.where((s) => !s.isActive).toList();
-        _active = active;
+        // Include completed, cancelled, AND paused sessions in history for
+        // grouped display. Only "running" sessions are excluded from history
+        // — they have live ticking time that should not be double-counted.
+        // Paused sessions appear in BOTH _active (for resume/finish controls)
+        // AND _history (for grouped time display).
+        _history = sessions.where((s) => s.status != 'running').toList();
+        _active = activeSession;
       });
-      if (active != null) _adoptSession(active);
+      if (activeSession != null) _adoptSession(activeSession);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -160,7 +167,7 @@ class _FocusViewState extends State<FocusView> {
           ),
           CardGroup(
             children: [
-              for (final group in _groupSessions(_history))
+              for (final group in groupSessions(_history))
                 GochanoListRow(
                   illustration: GochanoArt.stateTaken,
                   accent: context.colors.success,
@@ -389,8 +396,8 @@ String _dayLabel(String dayKey) {
 /// - Blank/legacy names → "Focus session"
 /// - Sum valid elapsedSeconds for same-name sessions
 /// - Use latest dayKey for date display
-class _SessionGroup {
-  const _SessionGroup({
+class SessionGroup {
+  const SessionGroup({
     required this.label,
     required this.totalSeconds,
     required this.latestDayKey,
@@ -400,8 +407,8 @@ class _SessionGroup {
   final String latestDayKey;
 }
 
-List<_SessionGroup> _groupSessions(List<FocusSession> sessions) {
-  final map = <String, _SessionGroup>{};
+List<SessionGroup> groupSessions(List<FocusSession> sessions) {
+  final map = <String, SessionGroup>{};
   for (final s in sessions) {
     final normalized = s.label.trim();
     final key = normalized.isEmpty
@@ -413,7 +420,7 @@ List<_SessionGroup> _groupSessions(List<FocusSession> sessions) {
 
     final existing = map[key];
     if (existing == null) {
-      map[key] = _SessionGroup(
+      map[key] = SessionGroup(
         label: displayLabel,
         totalSeconds: s.elapsedSeconds,
         latestDayKey: s.dayKey,
@@ -423,7 +430,7 @@ List<_SessionGroup> _groupSessions(List<FocusSession> sessions) {
       final laterDay = s.dayKey.compareTo(existing.latestDayKey) > 0
           ? s.dayKey
           : existing.latestDayKey;
-      map[key] = _SessionGroup(
+      map[key] = SessionGroup(
         label: existing.label,
         totalSeconds: existing.totalSeconds + s.elapsedSeconds,
         latestDayKey: laterDay,

@@ -44,9 +44,21 @@ class GochanoShell extends StatefulWidget {
 class _GochanoShellState extends State<GochanoShell> {
   int _index = 0;
 
+  /// Cached destination list. Built once in `initState` so that the same
+  /// widget instances survive shell rebuilds. Without this, every `setState`
+  /// (e.g. tab switch) created new `ProfileScreen` / `HomeScreen` objects,
+  /// which Flutter treated as fresh mounts and re-ran `initState` — causing
+  /// duplicate API fetches on every tab change.
+  late final List<_Destination> _destinations = _buildDestinations();
+
+  /// Pre-built widget instances, created once and reused across rebuilds.
+  /// Flutter preserves State for the same widget instance, so these screens
+  /// only run `initState` once — preventing duplicate API fetches.
+  late final List<Widget> _pages = _destinations.map((d) => d.builder()).toList();
+
   bool get _isStudent => widget.role == 'student';
 
-  List<_Destination> get _destinations {
+  List<_Destination> _buildDestinations() {
     if (_isStudent) {
       return [
         _Destination(
@@ -126,20 +138,19 @@ class _GochanoShellState extends State<GochanoShell> {
 
   @override
   Widget build(BuildContext context) {
-    final destinations = _destinations;
-    final index = _index.clamp(0, destinations.length - 1);
+    final index = _index.clamp(0, _destinations.length - 1);
 
     return Scaffold(
       backgroundColor: context.colors.background,
       body: IndexedStack(
         index: index,
-        children: [for (final d in destinations) d.builder()],
+        children: _pages,
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: _select,
         destinations: [
-          for (final d in destinations)
+          for (final d in _destinations)
             NavigationDestination(
               icon: Icon(d.icon),
               selectedIcon: Icon(d.selectedIcon),
