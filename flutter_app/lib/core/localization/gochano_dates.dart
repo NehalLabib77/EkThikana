@@ -66,3 +66,25 @@ String formatClock12(DateTime date) {
   final period = hour24 < 12 ? 'am' : 'pm';
   return '$hour12:$minute $period';
 }
+
+/// Converts a 24-hour `HH:mm` string to 12-hour format with AM/PM.
+///
+/// Examples: `'00:30'` → `'12:30 am'`, `'15:23'` → `'3:23 pm'`,
+/// `'12:00'` → `'12:00 pm'`.
+///
+/// Falls back to the original string if parsing fails.
+String formatTime12(String hhmm) {
+  final parts = hhmm.split(':');
+  if (parts.length != 2) return hhmm;
+  final hour24 = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour24 == null || minute == null) return hhmm;
+  final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+  final mm = minute.toString().padLeft(2, '0');
+  if (GochanoLanguage.isBangla) {
+    final period = hour24 < 12 ? 'পূর্বাহ্ন' : 'অপরাহ্ন';
+    return '$hour12:$mm $period';
+  }
+  final period = hour24 < 12 ? 'am' : 'pm';
+  return '$hour12:$mm $period';
+}

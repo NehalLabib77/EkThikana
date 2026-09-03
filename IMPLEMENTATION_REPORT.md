@@ -340,3 +340,36 @@ Removed the duplicate "Remaining this month" card below the top summary cards an
 
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## Bug Batch: Medicine 12-Hour Time, Profile Flicker, Focus Session Grouping
+
+### Change Summary
+1. **Medicine 12-hour AM/PM** — Backend stores `hh:mm` in 24-hour format. Added `formatTime12()` helper to convert to 12-hour with AM/PM suffix. Updated all display points in Medicine screens and Home's NextMedicineCard.
+2. **Profile loading flicker** — `_StudyStatsRow` showed error state even when stale stats existed (flicker on refresh). Fixed by only showing error when `_stats == null`. `_SettingsCard` showed "Checking…" even after budget loaded. Fixed by gating loading text on `_loaded` flag.
+3. **Focus session grouping** — Sessions with the same study name (case/whitespace variants) now group into a single row with summed seconds and latest dayKey. Sorted by total time descending. Corrupt durations fallback to 0.
+
+### Exact UI Change
+- Medicine screens now show e.g. `8:30 AM` instead of `08:30`
+- Profile no longer flashes error/loading on background refresh
+- Focus Recent section groups same-name sessions into one row with total duration
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/core/localization/gochano_dates.dart` | Added `formatTime12(String hhmm)` — converts 24h `"HH:mm"` to 12h with AM/PM |
+| `flutter_app/lib/features/life/presentation/medicine/medicine_screen.dart` | Updated `_doseTimeLabel` and `_doseRow` to use `formatTime12(dose.time)` |
+| `flutter_app/lib/features/life/presentation/medicine/medicine_history_screen.dart` | Updated `_formatScheduledTime` to use `formatTime12(scheduledTime)` |
+| `flutter_app/lib/features/life/presentation/medicine/medicine_form_screen.dart` | Updated `_chipLabel` to use `formatTime12(hhmm)` for time chip display |
+| `flutter_app/lib/features/home/presentation/home_screen.dart` | Updated `NextMedicineCard` to use `formatTime12(next.dose.time)` |
+| `flutter_app/lib/features/profile/presentation/profile_screen.dart` | Removed `_initialLoad` flag from `_StudyStatsRow`; only show error when `_stats == null`. Added `_loaded` flag to `_SettingsCard`; only show "Checking…" before first budget load |
+| `flutter_app/lib/features/study/presentation/focus/focus_view.dart` | Added `_SessionGroup` class, `_groupSessions()` function; Recent section now displays grouped sessions with normalized label and summed elapsedSeconds; sorted by total descending |
+
+### Tests & Results
+- ✅ `flutter analyze` — 0 issues
+- ✅ `flutter test` — 282 passed, 0 failed
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.

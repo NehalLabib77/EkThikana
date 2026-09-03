@@ -20,6 +20,7 @@ import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/financial_service.dart';
@@ -231,7 +232,7 @@ class _NextReminderCard extends StatelessWidget {
                   style: context.type.label,
                 ),
               ),
-              Text(dose.time, style: context.type.statisticSmall),
+              Text(formatTime12(dose.time), style: context.type.statisticSmall),
             ],
           ),
           const SizedBox(height: GochanoSpacing.xxs),
@@ -310,7 +311,7 @@ class _DoseRow extends StatelessWidget {
           GochanoArt.featureMedicine,
           colors.medicine,
           GochanoBadge(
-            label: dose.time,
+            label: formatTime12(dose.time),
             tone: GochanoBadgeTone.info,
             icon: Icons.access_time_rounded,
           ),
@@ -322,7 +323,7 @@ class _DoseRow extends StatelessWidget {
       accent: accent,
       title: dose.medicineName,
       subtitle: dose.strength.isEmpty ? dose.instruction : dose.strength,
-      metadata: [dose.time],
+      metadata: [formatTime12(dose.time)],
       badge: badge,
       menuItems: dose.needsAction
           ? [
@@ -365,7 +366,7 @@ class _MedicineRow extends StatelessWidget {
       title: data['name']?.toString() ?? '',
       subtitle: data['strength']?.toString(),
       metadata: [
-        if (times.isNotEmpty) times.join(', '),
+        if (times.isNotEmpty) times.map(formatTime12).join(', '),
         if (data['instruction']?.toString().isNotEmpty ?? false)
           data['instruction'].toString(),
       ],

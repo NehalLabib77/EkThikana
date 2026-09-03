@@ -11,6 +11,7 @@ import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -119,7 +120,7 @@ class _HistoryRow extends StatelessWidget {
     final colors = context.colors;
     final data = doc.data();
     final status = DoseStatus.parse(data['status']?.toString());
-    final time = data['scheduledTime']?.toString() ?? '';
+    final time = formatTime12(data['scheduledTime']?.toString() ?? '');
 
     final (illustration, accent, badge) = switch (status) {
       DoseStatus.taken => (

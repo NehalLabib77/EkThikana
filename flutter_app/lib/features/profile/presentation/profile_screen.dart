@@ -204,7 +204,7 @@ class _StudyStatsRowState extends State<_StudyStatsRow> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error.isNotEmpty) {
+    if (_error.isNotEmpty && _stats == null) {
       return ErrorState(compact: true, message: _error, onRetry: _load);
     }
     if (_stats == null) {
@@ -333,6 +333,7 @@ class _SettingsCardState extends State<_SettingsCard> {
   /// a failed read is never shown as "not set".
   double? _budget;
   bool _budgetFailed = false;
+  bool _loaded = false;
 
   @override
   void initState() {
@@ -348,11 +349,12 @@ class _SettingsCardState extends State<_SettingsCard> {
       setState(() {
         _budget = (body['availableAmount'] as num?)?.toDouble() ?? 0;
         _budgetFailed = false;
+        _loaded = true;
       });
     } catch (_) {
       if (!mounted) return;
       // Says so rather than claiming nothing is set.
-      setState(() => _budgetFailed = true);
+      setState(() { _budgetFailed = true; _loaded = true; });
     }
   }
 
@@ -364,10 +366,10 @@ class _SettingsCardState extends State<_SettingsCard> {
       );
     }
     final amount = _budget;
-    if (amount == null) {
+    if (amount == null && !_loaded) {
       return GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…');
     }
-    if (amount <= 0) {
+    if (amount == null || amount <= 0) {
       return GochanoLanguage.text(
         'Not set yet — tap to set the amount for this month.',
         'এখনো ঠিক করা হয়নি — এই মাসের পরিমাণ দিতে চাপ দিন।',

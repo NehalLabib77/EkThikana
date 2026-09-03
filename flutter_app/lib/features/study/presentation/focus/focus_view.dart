@@ -160,20 +160,14 @@ class _FocusViewState extends State<FocusView> {
           ),
           CardGroup(
             children: [
-              for (final session in _history.take(10))
+              for (final group in _groupSessions(_history))
                 GochanoListRow(
-                  illustration: session.status == 'completed'
-                      ? GochanoArt.stateTaken
-                      : GochanoArt.stateSkipped,
-                  accent: session.status == 'completed'
-                      ? context.colors.success
-                      : context.colors.textTertiary,
-                  title: session.label.isEmpty
-                      ? GochanoLanguage.text('Focus session', 'ফোকাস সেশন')
-                      : session.label,
+                  illustration: GochanoArt.stateTaken,
+                  accent: context.colors.success,
+                  title: group.label,
                   metadata: [
-                    _durationLabel(session.elapsedSeconds),
-                    _dayLabel(session.dayKey),
+                    _durationLabel(group.totalSeconds),
+                    _dayLabel(group.latestDayKey),
                   ],
                 ),
             ],
@@ -387,4 +381,56 @@ String _dayLabel(String dayKey) {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
   return '${parsed.day} ${months[parsed.month - 1]}';
+}
+
+/// Groups focus sessions by normalized study name, summing elapsed time.
+///
+/// - Trims whitespace, case-insensitive grouping
+/// - Blank/legacy names → "Focus session"
+/// - Sum valid elapsedSeconds for same-name sessions
+/// - Use latest dayKey for date display
+class _SessionGroup {
+  const _SessionGroup({
+    required this.label,
+    required this.totalSeconds,
+    required this.latestDayKey,
+  });
+  final String label;
+  final int totalSeconds;
+  final String latestDayKey;
+}
+
+List<_SessionGroup> _groupSessions(List<FocusSession> sessions) {
+  final map = <String, _SessionGroup>{};
+  for (final s in sessions) {
+    final normalized = s.label.trim();
+    final key = normalized.isEmpty
+        ? ''
+        : normalized.toLowerCase();
+    final displayLabel = normalized.isEmpty
+        ? GochanoLanguage.text('Focus session', 'ফোকাস সেশন')
+        : normalized;
+
+    final existing = map[key];
+    if (existing == null) {
+      map[key] = _SessionGroup(
+        label: displayLabel,
+        totalSeconds: s.elapsedSeconds,
+        latestDayKey: s.dayKey,
+      );
+    } else {
+      // Use the later dayKey for display.
+      final laterDay = s.dayKey.compareTo(existing.latestDayKey) > 0
+          ? s.dayKey
+          : existing.latestDayKey;
+      map[key] = _SessionGroup(
+        label: existing.label,
+        totalSeconds: existing.totalSeconds + s.elapsedSeconds,
+        latestDayKey: laterDay,
+      );
+    }
+  }
+  final groups = map.values.toList()
+    ..sort((a, b) => b.totalSeconds.compareTo(a.totalSeconds));
+  return groups;
 }

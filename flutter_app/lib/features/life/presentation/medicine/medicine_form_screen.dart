@@ -18,6 +18,7 @@ import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../services/notification_service.dart';
@@ -446,7 +447,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
             children: [
               for (final time in _times)
                 InputChip(
-                  label: Text(time),
+                  label: Text(formatTime12(time)),
                   avatar: Icon(
                     Icons.access_time_rounded,
                     size: 16,

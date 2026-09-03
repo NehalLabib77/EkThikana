@@ -20,6 +20,7 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../models/financial_transaction.dart';
@@ -422,7 +423,7 @@ class _NextMedicineCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          next.time,
+                          formatTime12(next.time),
                           style: context.type.caption,
                         ),
                       ],
