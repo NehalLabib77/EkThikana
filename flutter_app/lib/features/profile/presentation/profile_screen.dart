@@ -1,7 +1,14 @@
 // Profile (spec §72).
 //
-// Grouped into the sections the spec names: Account, Money, Statistics,
-// Language, Appearance, Notifications, Privacy, Data, About.
+// One identity header, one statistics row, one settings card, and the two
+// things that need standing apart: deleting the account, and signing out.
+//
+// The screen used to be seven titled sections, each its own card, with
+// Language and Appearance expanded as full radio lists. That made a settings
+// screen the tallest page in the app, and buried "Monthly money" — the one
+// row a student actually opens — under a fold of theme options. Language and
+// Appearance now open the selectors they always had; the row shows the
+// current choice so nothing is hidden by collapsing it.
 //
 // Developer configuration is deliberately absent — spec §72 says "Do not
 // expose developer configuration to normal users", so the API base URL, the
@@ -25,6 +32,7 @@ import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../home/presentation/home_screen.dart' show formatTaka;
 import '../../life/presentation/expense/monthly_budget_sheet.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -43,39 +51,24 @@ class ProfileScreen extends StatelessWidget {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
-          _AccountCard(role: role),
+          const _IdentityHeader(),
+          _RoleBadge(role: role),
 
           if (role == 'student') ...[
             SectionHeader(title: GochanoLanguage.text('Study', 'পড়াশোনা')),
-            const _StudyStatsCard(),
-            SectionHeader(title: GochanoLanguage.text('Money', 'টাকা')),
-            const _MoneySection(),
+            const _StudyStatsRow(),
           ],
 
-          SectionHeader(
-            title: GochanoLanguage.text('Language', 'ভাষা'),
-          ),
-          const _LanguageSection(),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Appearance', 'চেহারা'),
-          ),
-          const _AppearanceSection(),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Notifications', 'নোটিফিকেশন'),
-          ),
-          const _NotificationsSection(),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Privacy and data', 'গোপনীয়তা ও ডেটা'),
-          ),
-          const _PrivacySection(),
-
-          SectionHeader(title: GochanoLanguage.text('About', 'সম্পর্কে')),
-          const _AboutSection(),
+          const SizedBox(height: GochanoSpacing.lg),
+          _SettingsCard(isStudent: role == 'student'),
 
           const SizedBox(height: GochanoSpacing.md),
+          const _DangerCard(),
+
+          const SizedBox(height: GochanoSpacing.md),
+          const _AboutCard(),
+
+          const SizedBox(height: GochanoSpacing.lg),
           SecondaryButton(
             label: GochanoLanguage.text('Sign out', 'সাইন আউট'),
             icon: Icons.logout_rounded,
@@ -88,13 +81,12 @@ class ProfileScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Account
+// Identity
 // ---------------------------------------------------------------------------
 
-class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.role});
-
-  final String role;
+/// Avatar, name, email and where the student studies.
+class _IdentityHeader extends StatelessWidget {
+  const _IdentityHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -104,62 +96,78 @@ class _AccountCard extends StatelessWidget {
       stream: FirestoreService.profileStream(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? const <String, dynamic>{};
-        final name = data['displayName']?.toString() ?? '';
-        final email = data['email']?.toString() ?? '';
-        final university = data['university']?.toString() ?? '';
-        final department = data['department']?.toString() ?? '';
+        final name = data['displayName']?.toString().trim() ?? '';
+        final email = data['email']?.toString().trim() ?? '';
+        final university = data['university']?.toString().trim() ?? '';
+        final department = data['department']?.toString().trim() ?? '';
 
-        return AppCard(
-          child: Row(
-            children: [
-              GochanoIllustrationTile(
-                GochanoArt.featureProfile,
-                accent: colors.brand,
-                plateSize: 56,
+        return Column(
+          children: [
+            const SizedBox(height: GochanoSpacing.md),
+            // The `_editProfile` modal is intentionally not wired here: the
+            // current `FirestoreService` does not expose a profile-write
+            // method (services are protected in this restoration), and
+            // shipping an edit affordance that does nothing is a worse UX
+            // than omitting it.
+            GochanoIllustrationTile(
+              GochanoArt.featureProfile,
+              accent: colors.brand,
+              plateSize: 96,
+            ),
+            const SizedBox(height: GochanoSpacing.sm),
+            Text(
+              name.isEmpty
+                  ? GochanoLanguage.text('Your account', 'আপনার অ্যাকাউন্ট')
+                  : name,
+              style: context.type.pageTitle,
+              textAlign: TextAlign.center,
+            ),
+            if (email.isNotEmpty)
+              Text(
+                email,
+                style: context.type.bodySecondary,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(width: GochanoSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name.isEmpty
-                          ? GochanoLanguage.text('Your account', 'আপনার অ্যাকাউন্ট')
-                          : name,
-                      style: context.type.sectionHeading,
-                    ),
-                    if (email.isNotEmpty)
-                      Text(
-                        email,
-                        style: context.type.bodySecondary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (university.isNotEmpty || department.isNotEmpty)
-                      Text(
-                        [university, department]
-                            .where((e) => e.isNotEmpty)
-                            .join(' · '),
-                        style: context.type.caption,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: GochanoSpacing.xs),
-                    GochanoBadge(
-                      label: role == 'student'
-                          ? GochanoLanguage.text('Student account', 'শিক্ষার্থী অ্যাকাউন্ট')
-                          : GochanoLanguage.text('General account', 'সাধারণ অ্যাকাউন্ট'),
-                      tone: GochanoBadgeTone.brand,
-                      icon: Icons.verified_user_outlined,
-                    ),
-                  ],
+            if (university.isNotEmpty || department.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  [university, department].where((e) => e.isNotEmpty).join(' · '),
+                  style: context.type.caption.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
-          ),
+          ],
         );
       },
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.role});
+
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: GochanoSpacing.sm),
+      child: Center(
+        child: GochanoBadge(
+          label: role == 'student'
+              ? GochanoLanguage.text('Student account', 'শিক্ষার্থী অ্যাকাউন্ট')
+              : GochanoLanguage.text('General account', 'সাধারণ অ্যাকাউন্ট'),
+          tone: GochanoBadgeTone.brand,
+          icon: Icons.verified_user_outlined,
+        ),
+      ),
     );
   }
 }
@@ -168,14 +176,14 @@ class _AccountCard extends StatelessWidget {
 // Study statistics
 // ---------------------------------------------------------------------------
 
-class _StudyStatsCard extends StatefulWidget {
-  const _StudyStatsCard();
+class _StudyStatsRow extends StatefulWidget {
+  const _StudyStatsRow();
 
   @override
-  State<_StudyStatsCard> createState() => _StudyStatsCardState();
+  State<_StudyStatsRow> createState() => _StudyStatsRowState();
 }
 
-class _StudyStatsCardState extends State<_StudyStatsCard> {
+class _StudyStatsRowState extends State<_StudyStatsRow> {
   Map<String, dynamic>? _stats;
   String _error = '';
 
@@ -209,6 +217,10 @@ class _StudyStatsCardState extends State<_StudyStatsCard> {
       );
     }
 
+    // Backend returns `todaySeconds`/`monthSeconds`/`streakDays` as
+    // canonical keys, with `accumulatedSeconds` already coerced server-side
+    // (a 24h ceiling rejects poisoned rows). Aliases are kept for older
+    // responses so a stale shape still renders something.
     int read(String camel, String snake) {
       final raw = _stats![camel] ?? _stats![snake];
       return raw is num ? raw.toInt() : 0;
@@ -224,7 +236,10 @@ class _StudyStatsCardState extends State<_StudyStatsCard> {
           child: StatCard(
             compact: true,
             label: GochanoLanguage.text('Focus today', 'আজ ফোকাস'),
-            value: GochanoLanguage.text('$todayMinutes min', '$todayMinutes মি'),
+            value: GochanoLanguage.text(
+              '$todayMinutes min',
+              '$todayMinutes মি',
+            ),
           ),
         ),
         const SizedBox(width: GochanoSpacing.sm),
@@ -232,7 +247,10 @@ class _StudyStatsCardState extends State<_StudyStatsCard> {
           child: StatCard(
             compact: true,
             label: GochanoLanguage.text('This month', 'এই মাস'),
-            value: GochanoLanguage.text('$monthMinutes min', '$monthMinutes মি'),
+            value: GochanoLanguage.text(
+              '$monthMinutes min',
+              '$monthMinutes মি',
+            ),
           ),
         ),
         const SizedBox(width: GochanoSpacing.sm),
@@ -249,276 +267,361 @@ class _StudyStatsCardState extends State<_StudyStatsCard> {
 }
 
 // ---------------------------------------------------------------------------
-// Money
+// Settings
 // ---------------------------------------------------------------------------
 
-class _MoneySection extends StatelessWidget {
-  const _MoneySection();
+/// One row inside a grouped settings card.
+///
+/// Shared rather than repeated four times, because the value line is the part
+/// that makes a collapsed row honest: it says what the setting currently is,
+/// so nothing was hidden by folding the radio lists away.
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onTap,
+    this.iconColor,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final VoidCallback? onTap;
+  final Color? iconColor;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return CardGroup(
-      children: [
-        ListTile(
-          leading: const Icon(Icons.account_balance_wallet_outlined),
-          title: Text(GochanoLanguage.text('Monthly money', 'মাসিক টাকা')),
-          subtitle: Text(
-            GochanoLanguage.text(
-              'How much you have to spend this month.',
-              'এই মাসে আপনার কাছে কত টাকা আছে।',
+    final colors = context.colors;
+    return ListTile(
+      leading: Icon(icon, color: iconColor ?? colors.textSecondary),
+      title: Text(title, style: context.type.body),
+      subtitle: value.isEmpty
+          ? null
+          : Text(
+              value,
+              style: context.type.caption,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => showMonthlyBudgetSheet(context),
-        ),
-      ],
+      trailing: trailing ??
+          (onTap == null
+              ? null
+              : Icon(Icons.chevron_right_rounded, color: colors.textTertiary)),
+      onTap: onTap,
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Language
-// ---------------------------------------------------------------------------
+class _SettingsCard extends StatefulWidget {
+  const _SettingsCard({required this.isStudent});
 
-class _LanguageSection extends StatelessWidget {
-  const _LanguageSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return RadioGroup<GochanoLocale>(
-      groupValue: GochanoLanguage.current.value,
-      onChanged: (value) {
-        if (value != null) GochanoLanguage.select(value);
-      },
-      child: CardGroup(
-        children: [
-          for (final locale in GochanoLocale.values)
-            RadioListTile<GochanoLocale>(
-              value: locale,
-              // Each language names itself in its own script, so a student
-              // who cannot read the other one can still pick correctly.
-              title: Text(locale.nativeName),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Appearance
-// ---------------------------------------------------------------------------
-
-class _AppearanceSection extends StatelessWidget {
-  const _AppearanceSection();
+  /// Monthly money is a student-only endpoint (`require_student`), so the row
+  /// is hidden rather than shown and then failing with a 403.
+  final bool isStudent;
 
   @override
-  Widget build(BuildContext context) {
-    return RadioGroup<ThemeMode>(
-      groupValue: GochanoAppearance.mode.value,
-      onChanged: (value) {
-        if (value != null) GochanoAppearance.select(value);
-      },
-      child: CardGroup(
-        children: [
-          for (final entry in <(ThemeMode, String, String, IconData)>[
-          (
-            ThemeMode.system,
-            GochanoLanguage.text('Follow system', 'সিস্টেম অনুযায়ী'),
-            GochanoLanguage.text(
-              'Matches your phone setting.',
-              'আপনার ফোনের সেটিং অনুসরণ করে।',
-            ),
-            Icons.brightness_auto_outlined,
-          ),
-          (
-            ThemeMode.light,
-            GochanoLanguage.text('Light', 'উজ্জ্বল'),
-            '',
-            Icons.light_mode_outlined,
-          ),
-          (
-            ThemeMode.dark,
-            GochanoLanguage.text('Dark', 'অন্ধকার'),
-            '',
-            Icons.dark_mode_outlined,
-          ),
-        ])
-            RadioListTile<ThemeMode>(
-              value: entry.$1,
-              secondary: Icon(entry.$4),
-              title: Text(entry.$2),
-              subtitle: entry.$3.isEmpty ? null : Text(entry.$3),
-            ),
-        ],
-      ),
-    );
-  }
+  State<_SettingsCard> createState() => _SettingsCardState();
 }
 
-// ---------------------------------------------------------------------------
-// Notifications
-// ---------------------------------------------------------------------------
+class _SettingsCardState extends State<_SettingsCard> {
+  bool? _notificationsEnabled;
 
-class _NotificationsSection extends StatefulWidget {
-  const _NotificationsSection();
-
-  @override
-  State<_NotificationsSection> createState() => _NotificationsSectionState();
-}
-
-class _NotificationsSectionState extends State<_NotificationsSection> {
-  bool? _enabled;
+  /// The month's amount, or null while unread. Kept separate from "zero" so
+  /// a failed read is never shown as "not set".
+  double? _budget;
+  bool _budgetFailed = false;
 
   @override
   void initState() {
     super.initState();
-    _check();
+    _checkNotifications();
+    if (widget.isStudent) _loadBudget();
   }
 
-  Future<void> _check() async {
+  Future<void> _loadBudget() async {
+    try {
+      final body = await ApiService.getMonthlyBudget(DateTime.now());
+      if (!mounted) return;
+      setState(() {
+        _budget = (body['availableAmount'] as num?)?.toDouble() ?? 0;
+        _budgetFailed = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Says so rather than claiming nothing is set.
+      setState(() => _budgetFailed = true);
+    }
+  }
+
+  String get _budgetLabel {
+    if (_budgetFailed) {
+      return GochanoLanguage.text(
+        'Could not load it just now. Tap to try again.',
+        'এখন লোড করা যায়নি। আবার চেষ্টা করতে চাপ দিন।',
+      );
+    }
+    final amount = _budget;
+    if (amount == null) {
+      return GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…');
+    }
+    if (amount <= 0) {
+      return GochanoLanguage.text(
+        'Not set yet — tap to set the amount for this month.',
+        'এখনো ঠিক করা হয়নি — এই মাসের পরিমাণ দিতে চাপ দিন।',
+      );
+    }
+    return formatTaka(amount);
+  }
+
+  Future<void> _checkNotifications() async {
     final enabled = await NotificationService.areNotificationsEnabled();
-    if (mounted) setState(() => _enabled = enabled);
+    if (mounted) setState(() => _notificationsEnabled = enabled);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final enabled = _enabled;
+    final enabled = _notificationsEnabled;
 
-    return CardGroup(
-      children: [
-        ListTile(
-          leading: Icon(
-            enabled == false
-                ? Icons.notifications_off_outlined
-                : Icons.notifications_active_outlined,
-            color: enabled == false ? colors.warning : null,
-          ),
-          title: Text(
-            GochanoLanguage.text('Reminders', 'রিমাইন্ডার'),
-          ),
-          subtitle: Text(
-            switch (enabled) {
-              // Says plainly that reminders will not fire, rather than
-              // leaving a student to discover it when a dose is missed.
-              false => GochanoLanguage.text(
-                  'Turned off in system settings. Medicine and task reminders '
-                  'will not appear.',
-                  'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
-                ),
-              true => GochanoLanguage.text(
-                  'Medicine and task reminders are on.',
-                  'ওষুধ ও কাজের রিমাইন্ডার চালু আছে।',
-                ),
-              null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
-            },
-          ),
-          trailing: enabled == false
-              ? TextButton(
-                  onPressed: () async {
-                    await NotificationService.openNotificationSettings();
-                    await _check();
-                  },
-                  child: Text(GochanoLanguage.text('Enable', 'চালু করুন')),
-                )
-              : null,
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Privacy and data
-// ---------------------------------------------------------------------------
-
-/// Destructive privacy affordances — kept in a single, isolated card so they
-/// cannot be confused with routine account actions (spec §74).
-///
-/// "Export my data" was removed in the compact-profile redesign: the surface
-/// is one tap from a casual sign-out click and the export list is much longer
-/// than what a single account-settings screen should hold. If a user needs
-/// their data, they can still reach `ApiService.exportAccount` from the
-/// in-app support flow.
-class _PrivacySection extends StatelessWidget {
-  const _PrivacySection();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-
-    return AppCard(
-      accent: colors.error,
-      onTap: () => _deleteAccount(context),
-      semanticLabel: GochanoLanguage.text(
-        'Delete my account',
-        'আমার অ্যাকাউন্ট মুছুন',
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: GochanoSpacing.md,
-        vertical: GochanoSpacing.sm,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(Icons.delete_forever_outlined, color: colors.error),
-          const SizedBox(width: GochanoSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+    // Rebuilds when either preference changes, so the value line never shows
+    // a stale choice after the selector closes.
+    return ValueListenableBuilder<GochanoLocale>(
+      valueListenable: GochanoLanguage.current,
+      builder: (context, locale, _) {
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: GochanoAppearance.mode,
+          builder: (context, mode, _) {
+            return CardGroup(
               children: [
-                Text(
-                  GochanoLanguage.text(
-                    'Delete my account',
-                    'আমার অ্যাকাউন্ট মুছুন',
+                if (widget.isStudent)
+                  _SettingsRow(
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
+                    // The amount itself, not a description of it. A row that
+                    // only said "how much you have to spend this month" gave
+                    // a student no way to tell whether what they set had
+                    // actually been saved.
+                    value: _budgetLabel,
+                    onTap: () async {
+                      final changed = await showMonthlyBudgetSheet(context);
+                      if (changed) await _loadBudget();
+                    },
                   ),
-                  style: type.cardHeading.copyWith(color: colors.error),
+                _SettingsRow(
+                  icon: Icons.language_rounded,
+                  title: GochanoLanguage.text('Language', 'ভাষা'),
+                  // Both names in their own script: a student who cannot read
+                  // one can still tell which is selected.
+                  value: locale.nativeName,
+                  onTap: () => _pickLanguage(context),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  GochanoLanguage.text(
-                    'Permanently removes your account, files and records.',
-                    'আপনার অ্যাকাউন্ট, ফাইল ও রেকর্ড স্থায়ীভাবে মুছে ফেলে।',
-                  ),
-                  style: type.caption.copyWith(color: colors.textSecondary),
+                _SettingsRow(
+                  icon: Icons.palette_outlined,
+                  title: GochanoLanguage.text('Appearance', 'চেহারা'),
+                  value: _appearanceLabel(mode),
+                  onTap: () => _pickAppearance(context),
+                ),
+                _SettingsRow(
+                  icon: enabled == false
+                      ? Icons.notifications_off_outlined
+                      : Icons.notifications_active_outlined,
+                  iconColor: enabled == false ? colors.warning : null,
+                  title: GochanoLanguage.text('Reminders', 'রিমাইন্ডার'),
+                  value: switch (enabled) {
+                    // Says plainly that reminders will not fire, rather than
+                    // leaving a student to discover it when a dose is missed.
+                    false => GochanoLanguage.text(
+                        'Turned off in system settings. Medicine and task '
+                        'reminders will not appear.',
+                        'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
+                      ),
+                    true => GochanoLanguage.text(
+                        'Medicine and task reminders are on. Tap to change '
+                        'this in system settings.',
+                        'ওষুধ ও কাজের রিমাইন্ডার চালু আছে। বদলাতে সিস্টেম '
+                        'সেটিংসে যেতে চাপ দিন।',
+                      ),
+                    null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
+                  },
+                  // Always tappable. Whether reminders are on is an Android
+                  // permission, not an app setting, so the row opens the
+                  // system screen that actually controls it -- and the state
+                  // is re-checked on return so the row is never stale. A row
+                  // that only responded when already broken gave a student no
+                  // way to turn reminders back off.
+                  onTap: () async {
+                    await NotificationService.openNotificationSettings();
+                    await _checkNotifications();
+                  },
+                  trailing: enabled == false
+                      ? TextButton(
+                          onPressed: () async {
+                            await NotificationService.openNotificationSettings();
+                            await _checkNotifications();
+                          },
+                          child: Text(
+                            GochanoLanguage.text('Turn on', 'চালু করুন'),
+                          ),
+                        )
+                      : null,
                 ),
               ],
-            ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+String _appearanceLabel(ThemeMode mode) => switch (mode) {
+      ThemeMode.system =>
+        GochanoLanguage.text('Follow system', 'সিস্টেম অনুসরণ করে'),
+      ThemeMode.light => GochanoLanguage.text('Light', 'উজ্জ্বল'),
+      ThemeMode.dark => GochanoLanguage.text('Dark', 'অন্ধকার'),
+    };
+
+// ---------------------------------------------------------------------------
+// Destructive and about
+// ---------------------------------------------------------------------------
+
+/// Deleting the account stands alone, away from settings a student changes
+/// casually, so it can never be tapped on the way to something else.
+class _DangerCard extends StatelessWidget {
+  const _DangerCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    // The destructive action is wrapped in an AppCard with an error accent
+    // (spec §74). The accent rule draws a 3px bar on the leading edge so a
+    // student recognises it as destructive before reading the label.
+    return AppCard(
+      accent: colors.error,
+      child: ListTile(
+        leading: Icon(Icons.delete_forever_outlined, color: colors.error),
+        title: Text(
+          GochanoLanguage.text('Delete my account', 'আমার অ্যাকাউন্ট মুছুন'),
+          style: context.type.body.copyWith(color: colors.error),
+        ),
+        subtitle: Text(
+          GochanoLanguage.text(
+            'Permanently removes your account, files and records.',
+            'আপনার অ্যাকাউন্ট, ফাইল ও রেকর্ড স্থায়ীভাবে মুছে ফেলে।',
           ),
-          Icon(Icons.chevron_right_rounded, color: colors.textSecondary),
-        ],
+          style: context.type.caption,
+        ),
+        trailing: Icon(Icons.chevron_right_rounded, color: colors.textTertiary),
+        onTap: () => _deleteAccount(context),
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// About
-// ---------------------------------------------------------------------------
-
-class _AboutSection extends StatelessWidget {
-  const _AboutSection();
+class _AboutCard extends StatelessWidget {
+  const _AboutCard();
 
   @override
   Widget build(BuildContext context) {
     return CardGroup(
       children: [
-        ListTile(
-          leading: const Icon(Icons.info_outline_rounded),
-          title: Text(AppConfig.appName),
-          subtitle: Text(
-            GochanoLanguage.text(
-              'Organize study and daily life in one place.',
-              'পড়াশোনা ও দৈনন্দিন জীবন এক জায়গায় গুছিয়ে রাখুন।',
-            ),
+        _SettingsRow(
+          icon: Icons.info_outline_rounded,
+          title: AppConfig.appName,
+          value: GochanoLanguage.text(
+            'Organize study and daily life in one place.',
+            'পড়াশোনা ও দৈনন্দিন জীবন এক জায়গায় গুছিয়ে রাখুন।',
           ),
+          onTap: null,
         ),
       ],
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Selectors
+// ---------------------------------------------------------------------------
+
+Future<void> _pickLanguage(BuildContext context) async {
+  final chosen = await showModalBottomSheet<GochanoLocale>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(
+              GochanoLanguage.text('Language', 'ভাষা'),
+              style: sheetContext.type.sectionHeading,
+            ),
+          ),
+          for (final locale in GochanoLocale.values)
+            ListTile(
+              // Each language names itself in its own script, so a student who
+              // cannot read the other one can still pick correctly.
+              title: Text(locale.nativeName),
+              trailing: locale == GochanoLanguage.current.value
+                  ? Icon(Icons.check_rounded, color: sheetContext.colors.brand)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop(locale),
+            ),
+          const SizedBox(height: GochanoSpacing.sm),
+        ],
+      ),
+    ),
+  );
+  if (chosen != null) await GochanoLanguage.select(chosen);
+}
+
+Future<void> _pickAppearance(BuildContext context) async {
+  const options = <(ThemeMode, IconData)>[
+    (ThemeMode.system, Icons.brightness_auto_outlined),
+    (ThemeMode.light, Icons.light_mode_outlined),
+    (ThemeMode.dark, Icons.dark_mode_outlined),
+  ];
+
+  final chosen = await showModalBottomSheet<ThemeMode>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(
+              GochanoLanguage.text('Appearance', 'চেহারা'),
+              style: sheetContext.type.sectionHeading,
+            ),
+          ),
+          for (final (mode, icon) in options)
+            ListTile(
+              leading: Icon(icon),
+              title: Text(_appearanceLabel(mode)),
+              subtitle: mode == ThemeMode.system
+                  ? Text(
+                      GochanoLanguage.text(
+                        'Matches your phone setting.',
+                        'আপনার ফোনের সেটিং অনুসরণ করে।',
+                      ),
+                      style: sheetContext.type.caption,
+                    )
+                  : null,
+              trailing: mode == GochanoAppearance.mode.value
+                  ? Icon(Icons.check_rounded, color: sheetContext.colors.brand)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop(mode),
+            ),
+          const SizedBox(height: GochanoSpacing.sm),
+        ],
+      ),
+    ),
+  );
+  if (chosen != null) await GochanoAppearance.select(chosen);
 }
 
 // ---------------------------------------------------------------------------

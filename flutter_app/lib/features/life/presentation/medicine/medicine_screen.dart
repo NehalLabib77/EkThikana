@@ -24,6 +24,7 @@ import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/financial_service.dart';
 import '../../../../services/firestore_service.dart';
+import '../../../../services/notification_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -407,6 +408,10 @@ class _MedicineRow extends StatelessWidget {
             context,
             medicineId: doc.id,
             medicineName: data['name']?.toString() ?? '',
+            // Pass the times too so we can cancel any scheduled OS
+            // notifications *before* the document goes — once the doc is
+            // deleted those times are no longer in the DB to look up.
+            times: times,
           ),
         ),
       ],
@@ -451,10 +456,16 @@ Future<void> _recordDose(
 /// ``financial_transactions`` mirror rows that were created when those
 /// doses were marked taken. The user must type "DELETE" so a stray tap on
 /// the 3-dot menu does not erase a year of adherence history.
+///
+/// Cancellation runs **before** the cascade-delete, not after. The
+/// notifications are scheduled in Android's AlarmManager and not tied to
+/// Firestore, so removing the Firestore rows first would leave reminders
+/// firing for a medicine that no longer exists.
 Future<void> _confirmAndDeleteMedicine(
   BuildContext context, {
   required String medicineId,
   required String medicineName,
+  required List<String> times,
 }) async {
   if (medicineId.isEmpty) return;
 
@@ -557,6 +568,14 @@ Future<void> _confirmAndDeleteMedicine(
   );
 
   if (confirmed != true) return;
+  if (!context.mounted) return;
+
+  // Cancel any OS-scheduled reminders first. Done before the cascade so the
+  // phone cannot fire a stray notification between this call returning and
+  // the dose rows going.
+  if (times.isNotEmpty) {
+    await NotificationService.cancelMedicineTimes(medicineId, times);
+  }
   if (!context.mounted) return;
 
   try {

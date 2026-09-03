@@ -424,10 +424,22 @@ class ApiService {
     return _decode(response);
   }
 
+  /// Reads a list field from a decoded response body, never throwing.
+  ///
+  /// The route that returns focus history names its list `sessions`. The
+  /// route that returns offline materials and the one that returns a study
+  /// plan both name theirs `items`. Both keys are accepted, and an absent,
+  /// null, or wrongly-typed value yields an empty list — so an optional
+  /// list that is not there means "nothing", and nothing is an empty list,
+  /// not a `Null is not a subtype of List` exception.
+  static List<dynamic> _listField(Map<String, dynamic>? body, String key) {
+    final value = body?[key];
+    if (value is List) return value;
+    return const [];
+  }
+
   static Future<List<dynamic>> studyPlan() async =>
-      (_decode(await _post('/api/study/plan', body: {'max_items': 8}))['items']
-              as List<dynamic>?) ??
-          <dynamic>[];
+      _listField(_decode(await _post('/api/study/plan', body: {'max_items': 8})), 'items');
 
   static Future<void> reportContent({
     required String targetType,
@@ -541,10 +553,17 @@ class ApiService {
   ///
   /// This used to send `limit`, which the route does not declare; FastAPI
   /// ignored it and always applied the default 30-day window.
-  static Future<List<dynamic>> listFocus({int days = 30}) async =>
-      (_decode(await _get('/api/study/focus/list', query: {'days': '$days'}))
-              ['items'] as List<dynamic>?) ??
-      <dynamic>[];
+  ///
+  /// The route returns its rows under `sessions`, but `items` is also
+  /// accepted so a build against an older backend still works.
+  static Future<List<dynamic>> listFocus({int days = 30}) async {
+    final body = _decode(
+      await _get('/api/study/focus/list', query: {'days': '$days'}),
+    );
+    final sessions = _listField(body, 'sessions');
+    if (sessions.isNotEmpty) return sessions;
+    return _listField(body, 'items');
+  }
 
   static Future<Map<String, dynamic>> getStudyStats() async =>
       _decode(await _get('/api/study/stats'));
@@ -568,8 +587,7 @@ class ApiService {
       }));
 
   static Future<List<dynamic>> listOffline() async =>
-      (_decode(await _get('/api/offline/list'))['items'] as List<dynamic>?) ??
-      <dynamic>[];
+      _listField(_decode(await _get('/api/offline/list')), 'items');
 
   static Future<void> removeOffline(String materialId) async {
     _decode(await _delete('/api/offline/remove/$materialId'));

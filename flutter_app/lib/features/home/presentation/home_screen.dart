@@ -623,15 +623,14 @@ class _GroupActivityCard extends StatelessWidget {
 // Quick actions
 // ---------------------------------------------------------------------------
 
-/// The five actions worth one tap from Home (spec §27).
+/// The actions worth one tap from Home (spec §27).
 ///
-/// Deliberately five, not fifteen. Everything else is one level deeper under
-/// its own destination.
+/// One compact card in four columns, not five large tiles. The tiles took a
+/// third of the first screen for five shortcuts, which pushed the actual
+/// briefing — today's tasks, the money left — below the fold.
 ///
-/// The grid is compact (4 columns on a normal phone, 3 on small, 2 on very
-/// small — spec §23) and shows the first four by default. A single trailing
-/// action toggles the fifth into view, keeping the dashboard short without
-/// dropping the option from the surface (spec §86 — no duplicate CTAs).
+/// Four are shown; the rest sit behind "See more", because four covers the
+/// daily habits and the fifth is a trip you plan occasionally.
 class _QuickActions extends StatefulWidget {
   const _QuickActions({required this.isStudent});
 
@@ -642,18 +641,17 @@ class _QuickActions extends StatefulWidget {
 }
 
 class _QuickActionsState extends State<_QuickActions> {
-  static const int _collapsedCount = 4;
+  /// How many fit before "See more". Four columns, one row.
+  static const _collapsedCount = 4;
 
   bool _expanded = false;
 
-  @override
-  Widget build(BuildContext context) {
+  List<_QuickAction> _actions(BuildContext context) {
     final colors = context.colors;
-
-    final actions = <_QuickAction>[
+    return <_QuickAction>[
       if (widget.isStudent)
         _QuickAction(
-          label: GochanoLanguage.text('Ask AI', 'এআই কে জিজ্ঞাসা'),
+          label: GochanoLanguage.text('Ask AI', 'AI-কে জিজ্ঞাসা'),
           illustration: GochanoArt.featureAi,
           accent: colors.ai,
           onTap: () => Navigator.of(context).push(
@@ -661,13 +659,13 @@ class _QuickActionsState extends State<_QuickActions> {
           ),
         ),
       _QuickAction(
-        label: GochanoLanguage.text('Add expense', 'খরচ যোগ'),
+        label: GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
         illustration: GochanoArt.featureExpense,
         accent: colors.expense,
         onTap: () => showAddExpenseSheet(context),
       ),
       _QuickAction(
-        label: GochanoLanguage.text('Add task', 'কাজ যোগ'),
+        label: GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
         illustration: GochanoArt.featureTasks,
         accent: colors.brand,
         onTap: () => showAddTaskSheet(context),
@@ -689,96 +687,69 @@ class _QuickActionsState extends State<_QuickActions> {
         ),
       ),
     ];
-
-    // Always render the full list, but animate the trailing cell in/out so
-    // the grid keeps a clean rectangular shape instead of re-flowing.
-    final visibleCount = _expanded ? actions.length : _collapsedCount;
-    final hasOverflow = actions.length > _collapsedCount;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // Four across on a normal phone, three on small, two on very
-            // small — so a Bangla label never has to be truncated (spec §23).
-            final columns = constraints.maxWidth >= 380
-                ? 4
-                : constraints.maxWidth < 340
-                    ? 2
-                    : 3;
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: visibleCount,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                mainAxisExtent: 92,
-                crossAxisSpacing: GochanoSpacing.sm,
-                mainAxisSpacing: GochanoSpacing.sm,
-              ),
-              itemBuilder: (context, i) => actions[i],
-            );
-          },
-        ),
-        if (hasOverflow) ...[
-          const SizedBox(height: GochanoSpacing.xs),
-          _QuickActionsToggle(
-            expanded: _expanded,
-            onToggle: () => setState(() => _expanded = !_expanded),
-          ),
-        ],
-      ],
-    );
   }
-}
-
-/// The See more / See less pill beneath the quick-actions grid.
-///
-/// Stays out of the way when the grid already shows everything (5 actions or
-/// fewer). Carries the same iconography as the rest of the app — a chevron,
-/// not an arrow — to match the SectionHeader `action` slot (spec §86).
-class _QuickActionsToggle extends StatelessWidget {
-  const _QuickActionsToggle({
-    required this.expanded,
-    required this.onToggle,
-  });
-
-  final bool expanded;
-  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-    final label = expanded
-        ? GochanoLanguage.text('Show less', 'কম দেখুন')
-        : GochanoLanguage.text('See more', 'আরো দেখুন');
-    return Align(
-      alignment: AlignmentDirectional.centerEnd,
-      child: TextButton.icon(
-        onPressed: onToggle,
-        style: TextButton.styleFrom(
-          foregroundColor: colors.brand,
-          padding: const EdgeInsets.symmetric(
-            horizontal: GochanoSpacing.sm,
-            vertical: GochanoSpacing.xs,
+    final actions = _actions(context);
+    final hasMore = actions.length > _collapsedCount;
+    final visible =
+        (_expanded || !hasMore) ? actions : actions.take(_collapsedCount).toList();
+
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.xs,
+        vertical: GochanoSpacing.sm,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Four across normally. A very narrow phone drops to three so a
+              // Bangla label keeps two comfortable lines instead of being
+              // clipped.
+                final columns = constraints.maxWidth >= 380 ? 4 : 3;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: visible.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  // Tall enough for a 52 px icon plate and two lines of label
+                  // at the largest text scale this design supports.
+                  mainAxisExtent: 88,
+                  crossAxisSpacing: GochanoSpacing.xxs,
+                  mainAxisSpacing: GochanoSpacing.xs,
+                ),
+                itemBuilder: (context, i) => visible[i],
+              );
+            },
           ),
-          minimumSize: const Size(0, 36),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          textStyle: type.label.copyWith(fontWeight: FontWeight.w600),
-        ),
-        icon: AnimatedRotation(
-          turns: expanded ? 0.5 : 0,
-          duration: const Duration(milliseconds: 180),
-          child: const Icon(Icons.expand_more, size: 18),
-        ),
-        label: Text(label),
+          if (hasMore)
+            TextButton.icon(
+              onPressed: () => setState(() => _expanded = !_expanded),
+              icon: Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                size: GochanoSizes.iconSm,
+              ),
+              label: Text(
+                // Show less (legacy alias for older clients)
+                _expanded
+                    ? GochanoLanguage.text('See less', 'কম দেখুন')
+                    : GochanoLanguage.text('See more', 'আরো দেখুন'),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
+/// One shortcut: a tinted circular icon area over a centred label.
 class _QuickAction extends StatelessWidget {
   const _QuickAction({
     required this.label,
@@ -794,26 +765,54 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      semanticLabel: label,
-      padding: const EdgeInsets.all(GochanoSpacing.sm),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GochanoIllustration(illustration, size: 32, accent: accent),
-          const Spacer(),
-          Text(
-            label,
-            style: context.type.label.copyWith(
-              color: context.colors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: GochanoRadius.mdAll,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 2,
+            vertical: GochanoSpacing.xxs,
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  // The accent at low opacity, so five shortcuts read as one
+                  // set rather than five competing colours.
+                  color: accent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: GochanoIllustration(
+                    illustration,
+                    size: 28,
+                    accent: accent,
+                  ),
+                ),
+              ),
+              const SizedBox(height: GochanoSpacing.xxs),
+              Expanded(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: context.type.caption.copyWith(
+                    color: context.colors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
