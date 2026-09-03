@@ -641,8 +641,8 @@ class _QuickActions extends StatefulWidget {
 }
 
 class _QuickActionsState extends State<_QuickActions> {
-  /// How many fit before "See more". Four columns, one row.
-  static const _collapsedCount = 4;
+  /// How many fit before "See more".
+  static const _collapsedCount = 3;
 
   bool _expanded = false;
 

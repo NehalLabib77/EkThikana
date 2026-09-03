@@ -97,10 +97,10 @@ void main() {
     setUpAll(() =>
         source = _read('lib/features/home/presentation/home_screen.dart'));
 
-    test('collapses to four with an expander', () {
-      expect(source, contains('_collapsedCount = 4'));
+    test('collapses to three with an expander', () {
+      expect(source, contains('_collapsedCount = 3'));
       expect(source, contains('See more'));
-      expect(source, contains('Show less'));
+      expect(source, contains('See less'));
       expect(source, contains('আরো দেখুন'));
       expect(source, contains('কম দেখুন'));
     });
