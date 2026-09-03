@@ -368,11 +368,15 @@ String _clock(int seconds) {
 }
 
 String _durationLabel(int seconds) {
-  final minutes = (seconds / 60).round();
-  if (minutes < 60) return GochanoLanguage.text('$minutes min', '$minutes মিনিট');
-  final hours = minutes ~/ 60;
-  final rest = minutes % 60;
-  return GochanoLanguage.text('${hours}h ${rest}m', '$hours ঘ $rest মি');
+  final minutes = seconds ~/ 60;
+  final secs = seconds % 60;
+  if (minutes == 0) {
+    return GochanoLanguage.text('$secs sec', '$secs সেকেন্ড');
+  }
+  return GochanoLanguage.text(
+    '$minutes min $secs sec',
+    '$minutes মিনিট $secs সেকেন্ড',
+  );
 }
 
 String _dayLabel(String dayKey) {
