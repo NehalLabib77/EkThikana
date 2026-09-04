@@ -49,8 +49,10 @@ MEDIUM_CONFIDENCE = 60.0
 
 #: Words scoring below this are noise -- page edges, staple holes, the shadow
 #: of the photographer's hand -- and are excluded from the average so they
-#: cannot drag an otherwise clean read into a lower band.
-NOISE_CONFIDENCE = 30.0
+#: cannot drag an otherwise clean read into a lower band.  Handwritten text
+#: often scores lower than printed text even when perfectly legible, so the
+#: threshold is deliberately conservative.
+NOISE_CONFIDENCE = 25.0
 
 #: A read this short is a failure regardless of its confidence: Tesseract is
 #: very sure about the four characters it found on a blank page.

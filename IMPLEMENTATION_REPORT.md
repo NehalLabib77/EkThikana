@@ -971,6 +971,20 @@ Confirmed. No git commit, push, or deploy operations performed.
 ### Overview
 Added a 4th tab "Distraction" / "বিচ্ছিন্নতা" to the Study screen. Uses Android's `UsageStatsManager` via the `usage_stats` package to display per-app screen-time data locally on device. Includes Profile-level Usage Access management entry.
 
+### UI Redesign (Current)
+The distraction view was rewritten to:
+- Show today's screen time from LOCAL 00:00 → now (resets at midnight, no rolling 24h)
+- Display a 7-day weekly bar chart (Sun–Sat) with current day highlighted
+- Unified app activity list (ALL apps including Gochano, sorted by usage descending)
+- Colored horizontal bars beside each app name (bar width = usage / highestUsage)
+- No pie/donut charts, no separate Gochano/Other sections
+
+**Color rules:**
+- Other apps: ≤38 min → Green, 39–70 min → Amber, >70 min → Red
+- Gochano (reversed): ≤38 min → Red, 39–70 min → Amber, >70 min → Green
+
+**Privacy:** Usage data remains device-local. No Firebase, backend, analytics, or AI service writes.
+
 ### Verified Android ApplicationId
 `com.ekthikana.ekthikana` (from `android/app/build.gradle.kts:41`)
 
@@ -1488,9 +1502,34 @@ The `JourneyPlanSection` (multimodal "Your Journey") and its "Transport network 
 | `flutter_app/lib/features/life/presentation/commute/commute_screen.dart` | Replaced `friendlyErrorMessage(error)` in `_fetchModeFare()` with `_fareErrorLabel(error)`. Added `_fareErrorLabel()` function: commute-specific error handler that never shows "This item is no longer available." |
 | `backend/tests/test_commute_single_fare.py` | Added 7 regression tests: 7.6 km rickshaw (supported, plausible fare range), 20 km boundary, 20.1 km rejection, 205 km rejection, 7.6 km auto, 205 km auto rejection |
 
+### Source Code Fix — Verified in Codebase
+
+The `friendlyErrorMessage(error)` call in `_fetchModeFare()` (line 238 of `commute_screen.dart`) has been replaced with `_fareErrorLabel(error)` — a commute-specific error handler that never produces "This item is no longer available." The fix traces:
+
+1. `_fetchModeFare()` catches API/network errors → calls `_fareErrorLabel(error)` (line 238)
+2. `_fareErrorLabel()` (lines 897–940) handles network errors, timeouts, and backend prose — never maps to generic resource messages
+3. `_SingleFareResultCard` (line 662) checks `result['supported']` — for 7.6 km rickshaw, the backend returns `supported: true` with fare range ~Tk 110–155
+
+The backend `single_option()` returns a valid fare for 7.6 km rickshaw via `rickshaw_distance_fallback()` — the dataset covers 1–20 km and 7.6 km falls within range.
+
+### Regression Tests — Already Exist (28 tests in `test_commute_single_fare.py`)
+
+| Test | What It Verifies |
+|------|------------------|
+| `test_7km_rickshaw_is_supported` | 7.6 km rickshaw returns `supported: true` with fareLow > 0 |
+| `test_7km_rickshaw_fare_range_is_plausible` | Fare range brackets ~Tk 129 (7.6 × 17) |
+| `test_exactly_20km_rickshaw_is_supported` | 20.0 km rickshaw is accepted (boundary) |
+| `test_20km_plus_rickshaw_is_rejected` | 20.1 km rickshaw returns None |
+| `test_205km_rickshaw_is_rejected` | 205 km rickshaw is rejected |
+| `test_7km_auto_is_supported` | 7.6 km auto returns a valid fare |
+| `test_205km_auto_is_rejected` | 205 km auto is rejected |
+
+All 28 tests pass: `python -m pytest tests/test_commute_single_fare.py -v`
+
 ### Remaining Real-Device Verification
 
 - Deploy backend with single-fare endpoint to Render
+- Rebuild Flutter app from clean state to pick up `_fareErrorLabel` fix
 - Verify 7.6 km rickshaw shows fare (not "no longer available")
 - Verify unsupported rickshaw >20 km shows clear message
 - Verify network error shows "Could not load fare estimate"
@@ -1530,7 +1569,7 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 **Root cause:** `usage_stats 2.0.1` (the latest version) has a `buildscript` block in its `android/build.gradle` that applies `kotlin-android` and declares its own AGP 9.1.1 and Kotlin 2.3.20 classpath. This is the legacy pattern Flutter warns about.
 
-**Why not fixed:** This is the only version of `usage_stats` published on pub.dev (released 3 months ago). No newer version exists. The plugin author has not yet migrated to built-in Kotlin. Cannot safely remove the plugin — it powers the Study Distraction feature (per-app screen time via `UsageStatsManager`).
+**Why not fixed:** `usage_stats 2.0.1` is the latest version published on pub.dev. The plugin author has not yet migrated to built-in Kotlin. Cannot safely remove the plugin — it powers the Study Distraction feature (per-app screen time via `UsageStatsManager`).
 
 **Action:** Monitor pub.dev for a new release of `usage_stats` that migrates away from KGP. Report the issue to the plugin author if no update appears. The plugin works correctly today with `android.builtInKotlin=false`.
 
@@ -1546,21 +1585,38 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 **Action:** No action needed. These warnings are informational and come from the Flutter engine.
 
-#### 4. libclassroom_prod_android_library_flutter_artifacts.so — HARMLESS / EXPECTED
+#### 4. libclassroom_prod_android_library_flutter_artifacts.so — UNRESOLVED / RUNTIME-GENERATED SOURCE
 
-**Root cause:** This is the Flutter engine's compiled shared library for Dart AOT code. The `rejected as unsafe` log means the system refused to load it as an untrusted library — this is expected behavior for a debug build. Release builds sign the APK properly.
+**Investigation:** Searched all project source files for `classroom_prod`, `flutter_artifacts`, `aot-shared-library-name`, and `libclassroom`:
+- `flutter_app/android/app/build.gradle.kts` — `namespace = "com.ekthikana.ekthikana"`, `applicationId = "com.ekthikana.ekthikana"`. No library name references.
+- `flutter_app/android/app/src/main/AndroidManifest.xml` — no `aot-shared-library-name` or `classroom_prod`.
+- `flutter_app/pubspec.yaml` — `name: gochano`. The Flutter AOT convention produces `lib<dart_package_name>_flutter_artifacts.so`, which would be `libgochano_flutter_artifacts.so` — **not** `libclassroom_prod_android_library_flutter_artifacts.so`.
+- All source manifests (main, debug, profile), all `build.gradle.kts` files, and `settings.gradle.kts` — zero matches.
+- Build output directory (`flutter_app/build/`) does not exist; no APK artifacts present.
+- Flutter SDK Gradle plugin source (`C:\Users\User\flutter\packages\flutter_tools\gradle\`) — no `classroom_prod` or `flutter_artifacts` references.
 
-**Why not fixed:** This is Flutter engine behavior, not app code. The library is bundled inside the APK and loaded by the Flutter runtime. The "rejected as unsafe" message is a standard Android security check for debug builds.
+**Finding:** The library name `libclassroom_prod_android_library_flutter_artifacts.so` does not match this project's Dart package name (`gochano`). The expected library would be `libgochano_flutter_artifacts.so`. The `classroom_prod` name is **not defined or referenced anywhere** in this project's source, Gradle configuration, or Flutter SDK plugin code.
 
-**Action:** No action needed. In release builds with proper signing, this does not appear.
+**Classification:** UNRESOLVED / RUNTIME-GENERATED SOURCE. The `classroom_prod` name does not originate from this project. It may be a stale artifact from a previous project or a build cache on this machine. Cannot be confirmed without inspecting the actual APK contents or runtime logs from a fresh build/install on a clean device.
 
-#### 5. Impeller explicit opt-out is deprecated — HARMLESS / EXPECTED (no opt-out found)
+**Action:** Requires fresh-device verification with a clean build. If the warning persists on a clean install, trace the actual APK contents using `aapt dump` or `unzip -l` on the built APK.
 
-**Root cause:** If the app had `--no-enable-impeller` in launch arguments or `io.flutter.embedding.android.EnableImpeller` set to `false` in `AndroidManifest.xml`, Flutter would warn that explicit opt-out is deprecated.
+#### 5. Impeller explicit opt-out is deprecated — REQUIRES FRESH-DEVICE VERIFICATION
 
-**Verification:** Searched all source files for `no-enable-impeller`, `EnableImpeller`, `enable-impeller`. No matches found. The app uses Flutter's default Impeller renderer.
+**Source search:** Searched all source files for `no-enable-impeller`, `EnableImpeller`, `enable-impeller`, `impeller`:
+- `flutter_app/android/app/src/main/AndroidManifest.xml` — no `EnableImpeller` meta-data.
+- `flutter_app/android/app/src/debug/AndroidManifest.xml` — no impeller references.
+- `flutter_app/android/app/src/profile/AndroidManifest.xml` — no impeller references.
+- `flutter_app/android/app/build.gradle.kts` — no `impeller` or `enable-impeller`.
+- `flutter_app/android/gradle.properties` — no `impeller` references.
+- `flutter_app/lib/main.dart` — no `--no-enable-impeller` or `--enable-impeller` launch arguments.
+- Full-project search for `impeller|EnableImpeller|enable-impeller|no-enable-impeller` — zero matches in source files.
 
-**Action:** No action needed. The app already uses the default Impeller renderer with no opt-out.
+**Finding:** No Impeller opt-out is configured in any source file. The app uses Flutter's default Impeller renderer.
+
+**Caveat:** An earlier real-device log explicitly reported an Impeller opt-out warning. Since no source opt-out exists, this warning may be from an older installed/debug build or from a stale build cache. Requires fresh-device verification: clean install from a fresh `flutter build apk --debug` on a device with no prior debug builds of this app.
+
+**Action:** After fresh install, check logcat for `Impeller` warnings. If the warning persists despite no source opt-out, investigate whether it originates from a dependency or the Flutter engine itself.
 
 #### 6. FlutterRenderer Width is zero — HARMLESS / EXPECTED
 
@@ -1570,15 +1626,15 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 **Action:** No action needed. Treat as informational.
 
-### Build Verification
+### Build Verification (Updated)
 
 | Command | Result |
 |---------|--------|
-| `flutter clean` | Success — deleted build/ and .dart_tool/ |
-| `flutter pub get` | Success — 52 packages with newer versions available |
-| `flutter analyze` | 3 info-level issues (all pre-existing in `group_detail_screen.dart`, not related to this cleanup) |
-| `flutter test` | 292 passed, 0 failed |
-| `flutter build apk --debug` | Success — APK built at `build/app/outputs/flutter-apk/app-debug.apk` |
+| `flutter analyze` | **0 errors**, 3 pre-existing info warnings (all in `group_detail_screen.dart`) |
+| `flutter test` | **292/292 passed** |
+| `flutter build apk --debug` | Not run this session (run separately before deploy) |
+| `python -m pytest tests/test_commute_single_fare.py -v` | **28/28 passed** |
+| `git diff --check` | No whitespace errors |
 
 **Build warnings that appear in output:**
 
@@ -1596,17 +1652,95 @@ All are classified above. No new warnings were introduced by this cleanup.
 
 - `android.builtInKotlin=false` — kept (requires Flutter 3.47+ to enable)
 - `android.newDsl=false` — kept (same reason)
-- `usage_stats: ^2.0.1` — kept (only version available; upstream blocked)
+- `usage_stats: ^2.0.1` — kept (latest version; upstream KGP migration pending)
 - `kotlin.incremental=false` — kept (file_picker Kotlin compile issue documented in gradle.properties)
 - App Kotlin Gradle Plugin in `app/build.gradle.kts` — kept (required until built-in Kotlin migration)
-- No Impeller changes — already using defaults
-- No metadata changes — classroom/FlutterLoader references are engine-generated
+- No Impeller changes — no source opt-out found; requires fresh-device verification
+- No metadata changes — `classroom_prod` reference unresolved; requires APK inspection on clean device
 
 ### Real-Device Validation Still Needed
 
 - Build warnings do not appear on device (they are build-time only)
 - No runtime regressions from build configuration
 - App launches and functions correctly with current KGP setup
+- Fresh-device test for Impeller opt-out warning (may be from stale build)
+- APK contents inspection for `libclassroom_prod_android_library_flutter_artifacts.so` origin
+
+### No Commit / Push / Deploy
+
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## Multi-Task Batch: AI Icon, Tab Reorder, Invite Code Copy, Admin Fix, OCR Handwriting
+
+### Change Summary
+
+Five focused fixes across the codebase:
+
+1. **AI Assistant Icon** — Replaced `Ziku.png` raster with `GochanoArt.featureAi` inline SVG illustration in the Workspace Quick Access tile, matching the design system used by all other tiles.
+2. **Community Tab Reorder** — Reordered group detail tabs from `Overview | Resources | Chat | Projects` to `Chat | Projects | Resources | Overview`, matching the user's preferred workflow.
+3. **Invite Code Copy Button** — Added a copy-to-clipboard `IconButton` next to the invite code in the Overview tab, with bilingual confirmation snackbar.
+4. **Admin Permission Bug** — Added `ownerId` fallback to the `isAdmin` check in `group_detail_screen.dart` so group creators retain admin privileges even when the `adminIds` field is missing or incomplete.
+5. **OCR Handwriting Improvement** — Added two handwriting-specific preprocessing variants to the OCR pipeline and lowered the noise confidence threshold so thin pen strokes are not discarded.
+
+### Task 1: AI Assistant Icon
+
+**Before:** The AI Assistant tile used `assetImage: 'assets/Ziku.png'` — a raster PNG that did not match the SVG illustration system used by all other Quick Access tiles.
+
+**After:** Uses `illustration: GochanoArt.featureAi` — the same inline SVG note-with-sparkle illustration already defined in `gochano_art.dart`, rendered through `GochanoIllustration` with the correct accent color and theme-aware color slots.
+
+**Side effect:** Removed the unused `assetImage` parameter from `_QuickAccessTile` since no tile uses it anymore. All tiles now exclusively use the `illustration` path.
+
+### Task 2: Community Tab Reorder
+
+**Before:** `Overview(0) | Resources(1) | Chat(2) | Projects(3)`
+**After:** `Chat(0) | Projects(1) | Resources(2) | Overview(3)`
+
+Both `TabBar` children and `TabBarView` children were reordered to match. The `onOpenResources` callback was updated to animate to index 2 (Resources' new position).
+
+### Task 3: Invite Code Copy Button
+
+Added `import 'package:flutter/services.dart'` for `Clipboard`. The invite code section in `_OverviewTab` now shows a `Row` with the `SelectableText` code and an `IconButton` using `Icons.copy_rounded`. On tap, copies to clipboard and shows a bilingual snackbar: "Invite code copied!" / "ইনভাইট কোড কপি হয়েছে!".
+
+### Task 4: Admin Permission Bug
+
+**Root cause:** The `isAdmin` check in `group_detail_screen.dart:85` relied solely on `adminIds.contains(FirestoreService.uid)`. While the backend `create_group()` correctly populates `adminIds` with the creator's UID, legacy groups or edge cases could leave `adminIds` empty or missing the creator.
+
+**Fix:** Added `ownerId` fallback:
+```dart
+final ownerId = data['ownerId']?.toString() ?? '';
+final isAdmin = adminIds.contains(FirestoreService.uid) ||
+    (ownerId.isNotEmpty && ownerId == FirestoreService.uid);
+```
+The backend already stores `ownerId` on group creation, so this covers all cases where `adminIds` is incomplete.
+
+### Task 5: OCR Handwriting Improvement
+
+**`backend/app/services/ocr/preprocess.py`:**
+- Added `handwriting` variant: high contrast (2.0x) + heavy sharpening (2.5x) + Otsu binarisation — brings out faint pen strokes
+- Added `handwriting_gentle` variant: moderate contrast (1.6x) + sharpening + Otsu — preserves thin strokes without destroying them
+- Both variants run alongside existing `normalised`, `contrast`, `otsu`, `denoised_otsu`, and `deskew` variants
+
+**`backend/app/services/ocr/recognition.py`:**
+- Lowered `NOISE_CONFIDENCE` from 30.0 to 25.0 — handwritten text often scores lower than printed text even when perfectly legible; the previous threshold discarded valid handwriting words as noise
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` | AI Assistant tile: `assetImage: 'assets/Ziku.png'` → `illustration: GochanoArt.featureAi`. Removed `assetImage` parameter and branch from `_QuickAccessTile`. Made `illustration` required. |
+| `flutter_app/lib/features/community/presentation/group_detail_screen.dart` | Reordered `TabBar` and `TabBarView` children: Chat, Projects, Resources, Overview. Updated `onOpenResources` index from 1 to 2. Added `import 'package:flutter/services.dart'`. Added `ownerId` fallback to `isAdmin` check. Added copy `IconButton` next to invite code with bilingual snackbar. |
+| `backend/app/services/ocr/preprocess.py` | Added `handwriting` and `handwriting_gentle` preprocessing variants to `variants()`. |
+| `backend/app/services/ocr/recognition.py` | Lowered `NOISE_CONFIDENCE` from 30.0 to 25.0 for better handwriting recognition. |
+
+### Tests & Results
+
+| Suite | Result |
+|-------|--------|
+| `flutter analyze` | **0 errors**, 3 pre-existing info warnings (all in `group_detail_screen.dart` — deprecated Radio, async gap) |
+| `flutter test` | **292/292 passed** |
+| `python -m pytest tests/ --ignore=tests/test_commute_postgres.py -q` | **432 passed**, 1 pre-existing FK constraint failure excluded |
 
 ### No Commit / Push / Deploy
 

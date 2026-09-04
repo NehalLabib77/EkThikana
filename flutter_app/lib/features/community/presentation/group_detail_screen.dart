@@ -18,6 +18,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/design_system/gochano_art.dart';
 import '../../../core/design_system/gochano_colors.dart';
@@ -82,7 +83,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         final adminIds =
             ((data['adminIds'] as List?) ?? const []).map((e) => e.toString()).toList();
         final chatEnabled = data['chatEnabled'] == true;
-        final isAdmin = adminIds.contains(FirestoreService.uid);
+        final ownerId = data['ownerId']?.toString() ?? '';
+        final isAdmin = adminIds.contains(FirestoreService.uid) ||
+            (ownerId.isNotEmpty && ownerId == FirestoreService.uid);
 
         return GochanoScaffold(
           padBody: false,
@@ -128,24 +131,16 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               tabs: [
-                Tab(text: GochanoLanguage.text('Overview', 'সারাংশ')),
-                Tab(text: GochanoLanguage.text('Resources', 'উপকরণ')),
                 Tab(text: GochanoLanguage.text('Chat', 'চ্যাট')),
                 Tab(text: GochanoLanguage.text('Projects', 'প্রজেক্ট')),
+                Tab(text: GochanoLanguage.text('Resources', 'উপকরণ')),
+                Tab(text: GochanoLanguage.text('Overview', 'সারাংশ')),
               ],
             ),
           ),
           body: TabBarView(
             controller: _tabs,
             children: [
-              _OverviewTab(
-                data: data,
-                isAdmin: isAdmin,
-                memberIds: memberIds,
-                adminIds: adminIds,
-                onOpenResources: () => _tabs.animateTo(1),
-              ),
-              _ResourcesTab(groupId: widget.groupId, groupName: name),
               GroupChatView(
                 groupId: widget.groupId,
                 chatEnabled: chatEnabled,
@@ -156,6 +151,14 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                 isAdmin: isAdmin,
                 memberIds: memberIds,
                 adminIds: adminIds,
+              ),
+              _ResourcesTab(groupId: widget.groupId, groupName: name),
+              _OverviewTab(
+                data: data,
+                isAdmin: isAdmin,
+                memberIds: memberIds,
+                adminIds: adminIds,
+                onOpenResources: () => _tabs.animateTo(2),
               ),
             ],
           ),
@@ -264,9 +267,28 @@ class _OverviewTab extends StatelessWidget {
                   style: context.type.label,
                 ),
                 const SizedBox(height: GochanoSpacing.xxs),
-                SelectableText(
-                  inviteCode,
-                  style: context.type.statistic.copyWith(letterSpacing: 4),
+                Row(
+                  children: [
+                    SelectableText(
+                      inviteCode,
+                      style: context.type.statistic.copyWith(letterSpacing: 4),
+                    ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      tooltip: GochanoLanguage.text('Copy code', 'কোড কপি'),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: inviteCode));
+                        showGochanoMessage(
+                          context,
+                          GochanoLanguage.text(
+                            'Invite code copied!',
+                            'ইনভাইট কোড কপি হয়েছে!',
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: GochanoSpacing.xxs),
                 Text(

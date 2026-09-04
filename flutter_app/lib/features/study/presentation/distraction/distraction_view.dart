@@ -15,6 +15,7 @@ class DistractionView extends StatefulWidget {
 
 class _DistractionViewState extends State<DistractionView> {
   ScreenTimeSummary? _summary;
+  List<DayScreenTime>? _weekly;
   bool _loading = true;
   bool _hasPermission = false;
   String? _error;
@@ -53,9 +54,13 @@ class _DistractionViewState extends State<DistractionView> {
     });
 
     try {
-      final summary = await UsageStatsService.getScreenTimeSummary();
+      final results = await Future.wait([
+        UsageStatsService.getScreenTimeSummary(),
+        UsageStatsService.getWeeklyScreenTime(),
+      ]);
       setState(() {
-        _summary = summary;
+        _summary = results[0] as ScreenTimeSummary;
+        _weekly = results[1] as List<DayScreenTime>;
         _loading = false;
       });
     } catch (e) {
@@ -184,7 +189,8 @@ class _DistractionViewState extends State<DistractionView> {
 
   Widget _buildContent() {
     final summary = _summary;
-    if (summary == null) {
+    final weekly = _weekly;
+    if (summary == null || weekly == null) {
       return const Center(child: Text('No data'));
     }
 
@@ -195,9 +201,9 @@ class _DistractionViewState extends State<DistractionView> {
         children: [
           _buildSummaryCard(summary),
           const SizedBox(height: GochanoSpacing.md),
-          _buildGochanoSection(summary),
+          _buildWeeklyChart(weekly),
           const SizedBox(height: GochanoSpacing.md),
-          _buildOtherAppsSection(summary),
+          _buildAppList(summary),
         ],
       ),
     );
@@ -228,51 +234,86 @@ class _DistractionViewState extends State<DistractionView> {
     );
   }
 
-  Widget _buildGochanoSection(ScreenTimeSummary summary) {
+  Widget _buildWeeklyChart(List<DayScreenTime> weekly) {
+    final maxMinutes = weekly.fold<int>(0, (m, d) => d.minutes > m ? d.minutes : m);
+    final today = DateTime.now();
+    final todayStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.school_rounded,
-                color: context.colors.brand,
-                size: 20,
-              ),
-              const SizedBox(width: GochanoSpacing.xs),
-              Text(
-                GochanoLanguage.text('Gochano Usage', 'গোচানো ব্যবহার'),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
+          Text(
+            GochanoLanguage.text('This Week', 'এই সপ্তাহ'),
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: GochanoSpacing.sm),
-          Row(
-            children: [
-              Text(
-                _formatDuration(summary.gochanoUsage),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+          SizedBox(
+            height: 120,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: weekly.map((day) {
+                final dayStr =
+                    '${day.date.year}-${day.date.month.toString().padLeft(2, '0')}-${day.date.day.toString().padLeft(2, '0')}';
+                final isToday = dayStr == todayStr;
+                final fraction = maxMinutes > 0 ? day.minutes / maxMinutes : 0.0;
+                final barHeight = (fraction * 80).clamp(2.0, 80.0);
+
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (day.minutes > 0)
+                          Text(
+                            _shortDuration(day.total),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontSize: 9,
+                                  color: isToday
+                                      ? context.colors.brand
+                                      : context.colors.textTertiary,
+                                ),
+                            maxLines: 1,
+                          ),
+                        const SizedBox(height: 2),
+                        Container(
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: isToday
+                                ? context.colors.brand
+                                : context.colors.brand.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _dayLabel(day.date),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontSize: 10,
+                                fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                                color: isToday
+                                    ? context.colors.brand
+                                    : context.colors.textTertiary,
+                              ),
+                        ),
+                      ],
                     ),
-              ),
-              const Spacer(),
-              Text(
-                '${summary.gochanoUsagePercent.toStringAsFixed(1)}%',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: context.colors.brand,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildOtherAppsSection(ScreenTimeSummary summary) {
-    final topApps = summary.topApps;
+  Widget _buildAppList(ScreenTimeSummary summary) {
+    final apps = summary.allApps;
+    final highestMinutes = summary.highestUsageMinutes;
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,20 +327,13 @@ class _DistractionViewState extends State<DistractionView> {
               ),
               const SizedBox(width: GochanoSpacing.xs),
               Text(
-                GochanoLanguage.text('Other Apps', 'অন্যান্য অ্যাপ'),
+                GochanoLanguage.text('App Activity', 'অ্যাপ ব্যবহার'),
                 style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              Text(
-                _formatDuration(summary.otherAppsUsage),
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
               ),
             ],
           ),
           const SizedBox(height: GochanoSpacing.sm),
-          if (topApps.isEmpty)
+          if (apps.isEmpty)
             Text(
               GochanoLanguage.text(
                 'No app usage recorded',
@@ -308,51 +342,66 @@ class _DistractionViewState extends State<DistractionView> {
               style: Theme.of(context).textTheme.bodyMedium,
             )
           else
-            ...topApps.take(10).map((app) => _buildAppTile(app)),
+            ...apps.take(15).map((app) => _buildAppRow(app, highestMinutes)),
         ],
       ),
     );
   }
 
-  Widget _buildAppTile(AppUsageInfo app) {
+  Widget _buildAppRow(AppUsageInfo app, int highestMinutes) {
     final isGochano = app.packageName == UsageStatsService.gochanoPackage;
     final minutes = app.usageMinutes;
     final color = isGochano
         ? _getGochanoColor(context, minutes)
         : _getOtherAppColor(context, minutes);
+    final barFraction =
+        highestMinutes > 0 ? (minutes / highestMinutes).clamp(0.0, 1.0) : 0.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  app.appName,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatDuration(app.usage),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
+          Icon(
+            isGochano ? Icons.school_rounded : Icons.circle,
+            size: 14,
+            color: color,
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          SizedBox(
+            width: 90,
+            child: Text(
+              app.appName,
+              style: Theme.of(context).textTheme.bodyMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: GochanoSpacing.sm),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: barFraction,
+                child: Container(
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: GochanoSpacing.sm),
+          SizedBox(
+            width: 55,
+            child: Text(
+              _formatDuration(app.usage),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.colors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+              textAlign: TextAlign.end,
             ),
           ),
         ],
@@ -361,14 +410,14 @@ class _DistractionViewState extends State<DistractionView> {
   }
 
   Color _getOtherAppColor(BuildContext context, int minutes) {
-    if (minutes <= 30) return context.colors.success;
-    if (minutes <= 60) return context.colors.warning;
+    if (minutes <= 38) return context.colors.success;
+    if (minutes <= 70) return context.colors.warning;
     return context.colors.error;
   }
 
   Color _getGochanoColor(BuildContext context, int minutes) {
-    if (minutes <= 30) return context.colors.error;
-    if (minutes <= 60) return context.colors.warning;
+    if (minutes <= 38) return context.colors.error;
+    if (minutes <= 70) return context.colors.warning;
     return context.colors.success;
   }
 
@@ -386,5 +435,17 @@ class _DistractionViewState extends State<DistractionView> {
       '$minutes m',
       '$minutes মি',
     );
+  }
+
+  String _shortDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    if (hours > 0) return '${hours}h${minutes}m';
+    return '${minutes}m';
+  }
+
+  String _dayLabel(DateTime date) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[date.weekday % 7];
   }
 }

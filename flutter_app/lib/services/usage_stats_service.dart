@@ -4,13 +4,11 @@ class AppUsageInfo {
   final String packageName;
   final String appName;
   final Duration usage;
-  final int? lastTimeUsedMs;
 
   const AppUsageInfo({
     required this.packageName,
     required this.appName,
     required this.usage,
-    this.lastTimeUsedMs,
   });
 
   int get usageMinutes => usage.inMinutes;
@@ -18,30 +16,27 @@ class AppUsageInfo {
 
 class ScreenTimeSummary {
   final Duration totalScreenTime;
-  final Duration gochanoUsage;
-  final Duration otherAppsUsage;
-  final List<AppUsageInfo> topApps;
+  final List<AppUsageInfo> allApps;
 
   const ScreenTimeSummary({
     required this.totalScreenTime,
-    required this.gochanoUsage,
-    required this.otherAppsUsage,
-    required this.topApps,
+    required this.allApps,
   });
 
-  double get gochanoUsagePercent =>
-      totalScreenTime.inMinutes > 0
-          ? (gochanoUsage.inMinutes / totalScreenTime.inMinutes) * 100
-          : 0;
+  int get highestUsageMinutes =>
+      allApps.isEmpty ? 0 : allApps.first.usageMinutes;
+}
 
-  double get otherAppsUsagePercent =>
-      totalScreenTime.inMinutes > 0
-          ? (otherAppsUsage.inMinutes / totalScreenTime.inMinutes) * 100
-          : 0;
+class DayScreenTime {
+  final DateTime date;
+  final Duration total;
+
+  const DayScreenTime({required this.date, required this.total});
+
+  int get minutes => total.inMinutes;
 }
 
 class UsageStatsService {
-  /// The real Android applicationId from build.gradle.kts.
   static const gochanoPackage = 'com.ekthikana.ekthikana';
 
   static Future<bool> hasPermission() async {
@@ -53,6 +48,8 @@ class UsageStatsService {
     await UsageStats.grantUsagePermission();
   }
 
+  /// Today's screen time from LOCAL 00:00 → now.
+  /// Returns ALL apps (including Gochano) sorted by usage descending.
   static Future<ScreenTimeSummary> getScreenTimeSummary({
     DateTime? day,
   }) async {
@@ -72,7 +69,6 @@ class UsageStatsService {
       if (pkg.isEmpty) continue;
 
       final ms = stat.totalTimeInForegroundMs ?? 0;
-      // Ignore negative or zero values.
       if (ms <= 0) continue;
       appUsageMap[pkg] = (appUsageMap[pkg] ?? 0) + ms;
     }
@@ -80,16 +76,10 @@ class UsageStatsService {
     final sortedApps = appUsageMap.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Exclude Gochano from the per-app list (it has its own section).
-    final otherAppsSorted = sortedApps
-        .where((e) => e.key != gochanoPackage)
-        .toList();
-
-    final topPackages = otherAppsSorted.take(20).map((e) => e.key).toList();
-
+    final topPackages = sortedApps.take(20).map((e) => e.key).toList();
     final appNames = await _resolveAppNames(topPackages);
 
-    final topApps = otherAppsSorted.take(20).map((e) {
+    final allApps = sortedApps.take(20).map((e) {
       return AppUsageInfo(
         packageName: e.key,
         appName: appNames[e.key] ?? e.key.split('.').last,
@@ -98,15 +88,39 @@ class UsageStatsService {
     }).toList();
 
     final totalMs = appUsageMap.values.fold<int>(0, (a, b) => a + b);
-    final gochanoMs = appUsageMap[gochanoPackage] ?? 0;
-    final otherMs = (totalMs - gochanoMs).clamp(0, totalMs);
 
     return ScreenTimeSummary(
       totalScreenTime: Duration(milliseconds: totalMs),
-      gochanoUsage: Duration(milliseconds: gochanoMs),
-      otherAppsUsage: Duration(milliseconds: otherMs),
-      topApps: topApps,
+      allApps: allApps,
     );
+  }
+
+  /// 7 days of screen time ending today (Sun–Sat for current week).
+  static Future<List<DayScreenTime>> getWeeklyScreenTime() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final days = <DayScreenTime>[];
+    for (int i = 6; i >= 0; i--) {
+      final day = today.subtract(Duration(days: i));
+      final endOfDay = day.add(const Duration(days: 1));
+
+      final usage = await UsageStats.queryUsageStats(
+        day,
+        endOfDay,
+        intervalType: IntervalType.best,
+      );
+
+      int totalMs = 0;
+      for (final stat in usage) {
+        final ms = stat.totalTimeInForegroundMs ?? 0;
+        if (ms > 0) totalMs += ms;
+      }
+
+      days.add(DayScreenTime(date: day, total: Duration(milliseconds: totalMs)));
+    }
+
+    return days;
   }
 
   static Future<Map<String, String>> _resolveAppNames(

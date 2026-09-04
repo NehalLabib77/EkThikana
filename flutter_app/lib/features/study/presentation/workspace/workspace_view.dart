@@ -63,7 +63,7 @@ class _QuickAccessState extends State<_QuickAccess> {
     return [
       _QuickAccessTile(
         label: GochanoLanguage.text('AI Assistant', 'এআই সহকারী'),
-        assetImage: 'assets/Ziku.png',
+        illustration: GochanoArt.featureAi,
         accent: colors.ai,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
@@ -177,13 +177,11 @@ class _QuickAccessTile extends StatelessWidget {
     required this.label,
     required this.accent,
     required this.onTap,
-    this.illustration,
-    this.assetImage,
+    required this.illustration,
   });
 
   final String label;
-  final String? illustration;
-  final String? assetImage;
+  final String illustration;
   final Color accent;
   final VoidCallback onTap;
 
@@ -211,21 +209,11 @@ class _QuickAccessTile extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: assetImage != null
-                      ? ClipOval(
-                          child: Image.asset(
-                            assetImage!,
-                            width: 28,
-                            height: 28,
-                            fit: BoxFit.cover,
-                            semanticLabel: label,
-                          ),
-                        )
-                      : GochanoIllustration(
-                          illustration!,
-                          size: 28,
-                          accent: accent,
-                        ),
+                  child: GochanoIllustration(
+                    illustration,
+                    size: 28,
+                    accent: accent,
+                  ),
                 ),
               ),
               const SizedBox(height: GochanoSpacing.xxs),

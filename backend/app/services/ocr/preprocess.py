@@ -238,6 +238,21 @@ def variants(image: Image.Image, *, include_deskew: bool = True) -> list[Variant
     denoised = base.filter(ImageFilter.MedianFilter(size=3))
     out.append(Variant("denoised_otsu", binarise(ImageOps.autocontrast(denoised, cutoff=1))))
 
+    # --- Handwriting-specific variant ---
+    # Handwritten prescriptions have thinner, more variable strokes than
+    # printed text.  Heavy sharpening + high contrast + aggressive Otsu
+    # brings out faint pen strokes that the standard variants miss.
+    hw = ImageEnhance.Contrast(base).enhance(2.0)
+    hw = ImageEnhance.Sharpness(hw).enhance(2.5)
+    hw = hw.filter(ImageFilter.SHARPEN)
+    out.append(Variant("handwriting", binarise(hw)))
+
+    # A gentler binarisation variant: less contrast boost keeps thin
+    # strokes from disappearing while still separating ink from paper.
+    hw_gentle = ImageEnhance.Contrast(base).enhance(1.6)
+    hw_gentle = hw_gentle.filter(ImageFilter.SHARPEN)
+    out.append(Variant("handwriting_gentle", binarise(hw_gentle)))
+
     if include_deskew:
         angle = estimate_skew(base)
         if abs(angle) >= SKEW_FINE_STEP:
