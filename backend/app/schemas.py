@@ -86,6 +86,14 @@ class CommuteRoutesRequest(BaseModel):
     destination: CommutePlaceInput
 
 
+class CommuteSingleFareRequest(BaseModel):
+    origin: CommutePlaceInput
+    destination: CommutePlaceInput
+    mode: Literal["bus", "metro", "cng", "rickshaw", "auto"]
+    distance_km: float = Field(gt=0, le=300)
+    driving_minutes: int = Field(gt=0, le=720)
+
+
 # ============================================================
 # PART 3 — group chat, monthly money, focus/productivity, offline
 # ============================================================

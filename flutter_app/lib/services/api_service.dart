@@ -731,6 +731,52 @@ class ApiService {
   static Future<Map<String, dynamic>> commuteMapPlaces() async =>
       _decode(await _get('/api/commute/places/map'));
 
+  /// Fetch fare for a single user-selected transport mode.
+  ///
+  /// The caller must have already obtained the route via [commuteRoutes] and
+  /// passes the route's distanceKm and drivingMinutes so no OSRM rerun occurs.
+  /// The endpoint uses origin/destination names for dataset matching (bus
+  /// segment lookup, metro station resolution) but does not call any routing
+  /// service.
+  static Future<Map<String, dynamic>> commuteSingleFare({
+    required String originPlaceId,
+    required String originName,
+    required double originLat,
+    required double originLon,
+    required String destinationPlaceId,
+    required String destinationName,
+    required double destinationLat,
+    required double destinationLon,
+    required String mode,
+    required double distanceKm,
+    required int drivingMinutes,
+  }) async {
+    return _guard(() async {
+      final response = await _client.post(
+        _uri('/api/commute/single-fare'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'origin': {
+            'place_id': originPlaceId,
+            'name': originName,
+            'lat': originLat,
+            'lon': originLon,
+          },
+          'destination': {
+            'place_id': destinationPlaceId,
+            'name': destinationName,
+            'lat': destinationLat,
+            'lon': destinationLon,
+          },
+          'mode': mode,
+          'distance_km': distanceKm,
+          'driving_minutes': drivingMinutes,
+        }),
+      ).timeout(const Duration(seconds: 60));
+      return _decode(response);
+    });
+  }
+
   static Future<Map<String, dynamic>> reportCommuteFare({
     required String originText,
     required String destinationText,

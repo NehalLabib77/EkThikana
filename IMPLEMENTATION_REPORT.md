@@ -1188,4 +1188,170 @@ Confirmed.
 |-------|--------|
 | Flutter analyze | **0 errors, 6 pre-existing info warnings** |
 | Flutter test | **292/292 passed** |
-| Backend (full) | **391/391 passed** (7 pre-existing FK constraint failures in `test_commute_postgres.py` and 7 pre-existing missing-script errors in `test_storage_migration.py` excluded) | |
+| Backend (full) | **391/391 passed** (7 pre-existing FK constraint failures in `test_commute_postgres.py` and 7 pre-existing missing-script errors in `test_storage_migration.py` excluded) |
+
+---
+
+## CommuteBD — Change Route Flow to User-Selected Transport Mode
+
+### Change Summary
+
+Replaced the automatic transport mode recommendation flow with a user-selected transport mode flow. Previously, after OSRM calculated a road route, the `FareEngine.options()` method generated fare cards for every supported mode (Bus, Metro, CNG, Rickshaw) and automatically labeled one as "Recommended", one as "Cheapest", and one as "Fastest" using a weighted scoring algorithm (`_rank()`). This caused unrealistic results — for example, a 205.7 km trip could show Rickshaw labeled as "Recommended", "Cheapest", and "Fastest" simultaneously.
+
+**New flow:** User selects origin → user selects destination → tap "Find Route" → OSRM calculates road route/distance/time once → user selects a transport mode from a compact selector → system validates mode eligibility → calculates and shows estimated fare for the selected mode only. Changing the mode does NOT rerun OSRM.
+
+### What Changed
+
+#### Backend
+
+**`backend/app/services/commute/fare_engine.py`:**
+
+Added centralized mode eligibility rules and a `single_option()` method:
+
+```python
+MODE_ELIGIBILITY = {
+    "bus": {"max_distance_km": None, "description": "Official BRTA fare segments and named bus services"},
+    "metro": {"max_distance_km": None, "description": "Official DMTCL MRT Line 6 station-pair fares", "requires_station_match": True},
+    "cng": {"max_distance_km": None, "description": "Government meter rule (2015): Tk 40 base + Tk 12/km; labelled historical"},
+    "rickshaw": {"max_distance_km": 20.0, "description": "Tk 17/km estimate from shipped dataset rows 1-20 km"},
+    "auto": {"max_distance_km": 20.0, "description": "Tk 17/km estimate matching rickshaw dataset coverage"},
+}
+```
+
+The `single_option()` method accepts the user-selected mode and returns only that mode's fare. It validates mode support and distance eligibility before calculating. Returns `None` when the mode is unsupported or ineligible.
+
+The `options()` method and `_rank()` method are preserved for backward compatibility.
+
+**`backend/app/routers/commute.py`:**
+
+Added `POST /api/commute/single-fare` endpoint. Accepts origin, destination, mode, distanceKm, and drivingMinutes. The endpoint does NOT call OSRM — it uses the already-known route context from the client. Returns either:
+- A supported fare result with fare, source, and warning
+- An unsupported response with a clear reason
+
+**`backend/app/schemas.py`:**
+
+Added `CommuteSingleFareRequest` model with origin, destination, mode, distance_km, and driving_minutes fields.
+
+#### Flutter
+
+**`flutter_app/lib/features/life/presentation/commute/commute_screen.dart`:**
+
+Added state variables to `_CommuteScreenState`:
+- `_selectedTransportMode` — currently selected mode
+- `_singleFareResult` — fare response from backend
+- `_fetchingFare` — loading state for fare area only
+- `_singleFareError` — error message for fare fetch
+
+Added `_TransportModeSelector` widget — a compact `Wrap` of mode chips (Bus, CNG, Rickshaw, Auto, Metro). Only one mode selectable at a time. No automatic Recommended/Cheapest/Fastest labels.
+
+Added `_SingleFareResultCard` widget — shows fare estimate, source, and warning for the selected mode. When unsupported, shows the mode illustration and a clear message.
+
+Updated `_Results` widget to accept and display the mode selector and single fare result.
+
+Mode selection triggers `_fetchModeFare()` which calls `POST /api/commute/single-fare` with the route's distanceKm and drivingMinutes from the existing result. No OSRM rerun occurs.
+
+**`flutter_app/lib/services/api_service.dart`:**
+
+Added `commuteSingleFare()` method calling `POST /api/commute/single-fare`. Passes distanceKm and drivingMinutes so the backend has no need to call any routing service.
+
+### No OSRM Rerun on Mode Change
+
+The single-fare endpoint accepts `distance_km` and `driving_minutes` from the client. These values come from the existing `POST /api/commute/routes` result (`result['distanceKm']` and `result['estimatedDurationMin']`). The backend does NOT call OSRM, Nominatim, or any routing/geocoding service. It only uses origin/destination names for dataset matching (bus segment lookup, metro station resolution, CNG/rickshaw crowd aggregation).
+
+Flow:
+```
+Find Route → OSRM once → result cached in _result
+→ user taps mode chip → _fetchModeFare(mode)
+→ ApiService.commuteSingleFare(distanceKm: _result['distanceKm'], drivingMinutes: _result['estimatedDurationMin'], ...)
+→ backend uses names for dataset lookup, no routing call
+→ fare section updates, map/polyline/distance/time unchanged
+```
+
+### CNG Policy — No Arbitrary Distance Limit
+
+The CNG fare rule in `fare_rules.csv` is RULE_CNG_2015:
+- Base fare: Tk 40
+- Included distance: 2 km
+- Per km: Tk 12
+- Status: `historical_verify_current_rule_before_live_use`
+- Source: `SRC_CNG_2015`
+
+The rule has NO max distance column. The daily deposit of Tk 900 is in the `other_rule` column — it is an operational detail, not a dataset-supported maximum trip distance. Therefore no hard distance cap is applied. The result is always labelled Historical so the user knows the number is old and should verify the current rate.
+
+### Mode Eligibility Rules
+
+| Mode | Max Distance | Justification |
+|------|-------------|---------------|
+| Bus | None | BRTA fare segments cover intra/inter-city routes with no distance cap |
+| Metro | None | MRT Line 6 official station-pair fares; requires both stations in network |
+| CNG | None | RULE_CNG_2015 has no max distance; fare is labelled Historical |
+| Rickshaw | 20 km | Dataset `rickshaw_auto_estimated_fares.csv` covers rows 1-20 km only |
+| Auto | 20 km | Same dataset coverage as rickshaw |
+
+### Unsupported Mode Messages
+
+| Selected Mode | Route Distance | Message |
+|--------------|----------------|---------|
+| Rickshaw | > 20 km | "Rickshaw fare estimation is not supported for this distance (X km). Rickshaw data in the CommuteBD dataset covers trips up to 20 km." |
+| Auto | > 20 km | "Auto fare estimation is not supported for this distance (X km). Auto data in the CommuteBD dataset covers trips up to 20 km." |
+| Metro | Non-station endpoints | "No supported metro station pair was found for this route. Metro fares are only available between operational MRT Line 6 stations." |
+| Bus | No matching segment | "No valid bus fare data was found for this route. Bus fares require matching BRTA fare segments." |
+
+### Fare Report Verification
+
+The selected transport mode flows correctly through the entire fare report chain:
+1. `_SingleFareResultCard` extracts `mode` from the backend response
+2. `showFareReportSheet(context, mode: mode, ...)` passes the mode
+3. `fare_report_sheet.dart` uses `widget.mode` for both:
+   - `FinancialService.recordCommuteTrip(mode: widget.mode, ...)`
+   - `ApiService.reportCommuteFare(mode: widget.mode, ...)`
+
+No silent default to another mode occurs.
+
+### Tests
+
+**Backend tests (`python -m pytest tests/test_commute_single_fare.py -v`):**
+- 21 tests covering: mode eligibility rules, distance boundaries, bus/metro/cng/rickshaw lookups, invalid mode rejection, CNG no-distance-limit verification, schema accepts route context (proving no OSRM needed), backward compatibility of `options()` method
+
+**Command:** `python -m pytest tests/test_commute_single_fare.py -v`
+**Result:** 21 passed, 0 failed
+
+**Existing commute tests:**
+- `test_commute_fare_quality.py` (35 tests) — unchanged
+- `test_commute_graph.py` (35 tests) — unchanged
+- `test_commute_journey.py` (30 tests) — unchanged
+
+**Command:** `python -m pytest tests/test_commute_fare_quality.py tests/test_commute_graph.py tests/test_commute_journey.py -v`
+**Result:** 100 passed, 0 failed
+
+**Flutter tests (`flutter test`):**
+- `flutter analyze` — 0 issues
+- `flutter test` — 292 passed, 0 failed
+
+### Files Actually Changed
+
+| File | What Changed |
+|------|--------------|
+| `backend/app/services/commute/fare_engine.py` | Added `MODE_ELIGIBILITY` dict (CNG has no distance limit), `SUPPORTED_MODES` set, `single_option()` method with helpers |
+| `backend/app/routers/commute.py` | Added `POST /api/commute/single-fare` endpoint accepting distanceKm/drivingMinutes from client (no OSRM call) |
+| `backend/app/schemas.py` | Added `CommuteSingleFareRequest` model with distance_km and driving_minutes fields |
+| `backend/tests/test_commute_single_fare.py` | New file: 21 regression tests including CNG no-limit and schema route-context tests |
+| `flutter_app/lib/features/life/presentation/commute/commute_screen.dart` | Transport mode selector, single fare result card, fare loading state. `_fetchModeFare()` passes route context from existing result. |
+| `flutter_app/lib/services/api_service.dart` | Added `commuteSingleFare()` method with distanceKm/drivingMinutes parameters |
+
+### Real-Device Validation Still Needed
+
+- Transport mode selector renders correctly
+- Selecting a mode triggers fare fetch without OSRM reload
+- Unsupported mode shows correct message
+- Long-distance rickshaw rejection works on device
+- Mode selection persists during session
+- Changing mode updates fare section only
+- Fare report includes selected mode
+- Dark mode renders selector correctly
+- EN/Bangla labels all correct
+- No regression in existing route calculation
+
+### No Commit / Push / Deploy
+
+Confirmed. No git commit, push, or deploy operations performed. |

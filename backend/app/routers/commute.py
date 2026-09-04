@@ -10,9 +10,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import CurrentUser, get_current_user
 from app.database.repositories.fare_report_repository import insert_fare_report
-from app.schemas import CommuteFareReportRequest, CommuteRouteRequest, CommuteRoutesRequest
+from app.schemas import CommuteFareReportRequest, CommuteRouteRequest, CommuteRoutesRequest, CommuteSingleFareRequest
 from app.services.commute.data_repository import get_commute_repository
-from app.services.commute.fare_engine import FareEngine
+from app.services.commute.fare_engine import FareEngine, MODE_ELIGIBILITY, SUPPORTED_MODES
 from app.services.commute.fare_quality import duplicate_key, validate_report
 from app.services.commute.ml_status import readiness as ml_readiness
 from app.services.commute.routing import Coordinate, get_routing_provider
@@ -296,5 +296,102 @@ async def routes_supabase(
                 "Please try a different origin or destination."
             ),
         )
+
+
+@router.post("/single-fare")
+async def single_fare(
+    body: CommuteSingleFareRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Return the fare for one user-selected transport mode.
+
+    This endpoint does NOT recalculate the OSRM route.  The caller is
+    expected to have already obtained distance and duration from
+    ``POST /api/commute/routes`` and passes them here.  The endpoint
+    uses origin/destination names and place IDs for dataset matching
+    (bus segment lookup, metro station resolution) but does not call
+    any routing service.
+
+    Returns either a supported fare result or an unsupported response with
+    a clear reason — never a fabricated zero fare.
+    """
+    mode = body.mode.strip().lower()
+    if mode not in SUPPORTED_MODES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Transport mode '{mode}' is not supported. "
+            f"Supported modes: {', '.join(sorted(SUPPORTED_MODES))}",
+        )
+
+    distance_km = body.distance_km
+    driving_minutes = body.driving_minutes
+
+    # Extract origin/destination names for fare service lookups (bus segment
+    # matching, metro station resolution, CNG/rickshaw crowd aggregation).
+    # These are the human-readable names the caller already has from the
+    # route result — no geocoding or routing is performed.
+    origin_name = body.origin.name or ""
+    destination_name = body.destination.name or ""
+
+    # Check eligibility before calling the fare engine.
+    eligibility = MODE_ELIGIBILITY.get(mode, {})
+    max_km = eligibility.get("max_distance_km")
+    if max_km is not None and distance_km > max_km:
+        return {
+            "supported": False,
+            "mode": mode,
+            "reason": (
+                f"{mode.title()} fare estimation is not supported for "
+                f"this distance ({distance_km:.1f} km). "
+                f"{mode.title()} data in the CommuteBD dataset covers "
+                f"trips up to {max_km:.0f} km."
+            ),
+            "distanceKm": distance_km,
+            "eligibility": eligibility.get("description", ""),
+        }
+
+    engine = FareEngine()
+    option = engine.single_option(
+        mode=mode,
+        origin_name=origin_name,
+        destination_name=destination_name,
+        distance_km=distance_km,
+        driving_minutes=driving_minutes,
+    )
+
+    if option is None:
+        reason_parts = []
+        if mode == "metro":
+            reason_parts.append(
+                "No supported metro station pair was found for this route. "
+                "Metro fares are only available between operational MRT Line 6 "
+                "stations."
+            )
+        elif mode == "bus":
+            reason_parts.append(
+                "No valid bus fare data was found for this route. "
+                "Bus fares require matching BRTA fare segments."
+            )
+        else:
+            reason_parts.append(
+                f"No supported fare data was found for {mode.title()} on this route."
+            )
+        return {
+            "supported": False,
+            "mode": mode,
+            "reason": " ".join(reason_parts),
+            "distanceKm": distance_km,
+            "eligibility": eligibility.get("description", ""),
+        }
+
+    from app.services.commute.fare_labels import clean_option
+    cleaned = clean_option(option)
+    return {
+        "supported": True,
+        "mode": mode,
+        "fare": cleaned,
+        "distanceKm": distance_km,
+        "drivingMinutes": driving_minutes,
+    }
 
 

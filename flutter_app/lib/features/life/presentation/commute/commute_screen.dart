@@ -1,6 +1,7 @@
 // CommuteBD (spec §60–§69).
 //
-// Flow: From → To → Find routes → Recommended / Cheapest / Fastest.
+// Flow: From → To → Find routes → User selects transport mode → fare for
+// selected mode only.
 //
 // What this screen is honest about
 // --------------------------------
@@ -10,11 +11,14 @@
 // one confident-looking price (spec §68: "Never label estimated values as
 // official").
 //
+// Changing transport mode does NOT rerun the OSRM route calculation. The
+// route (distance, duration, polyline) is preserved from the initial
+// "Find routes" call. Only the fare section is updated via
+// `POST /api/commute/single-fare`.
+//
 // This screen calls `POST /api/commute/routes` — the PostgreSQL/PostGIS-backed
 // endpoint that resolves canonical CommuteBD places, ranks options, and
-// returns real bus services connecting the two stops. The app previously
-// called only the older coordinates-only `/api/commute/route`, so the dataset
-// lookup never reached a user (spec §64).
+// returns real bus services connecting the two stops.
 
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -52,6 +56,10 @@ class _CommuteScreenState extends State<CommuteScreen> {
   String _error = '';
   String _errorTitle = '';
   Map<String, dynamic>? _result;
+  String? _selectedTransportMode;
+  Map<String, dynamic>? _singleFareResult;
+  bool _fetchingFare = false;
+  String _singleFareError = '';
 
   bool get _canSearch =>
       _origin != null && _destination != null && !_searching;
@@ -72,6 +80,9 @@ class _CommuteScreenState extends State<CommuteScreen> {
       }
       // A new endpoint invalidates the previous answer.
       _result = null;
+      _selectedTransportMode = null;
+      _singleFareResult = null;
+      _singleFareError = '';
       _error = '';
       _errorTitle = '';
     });
@@ -83,6 +94,9 @@ class _CommuteScreenState extends State<CommuteScreen> {
       _origin = _destination;
       _destination = from;
       _result = null;
+      _selectedTransportMode = null;
+      _singleFareResult = null;
+      _singleFareError = '';
       _error = '';
       _errorTitle = '';
     });
@@ -98,6 +112,9 @@ class _CommuteScreenState extends State<CommuteScreen> {
       }
       // A new endpoint invalidates the previous answer.
       _result = null;
+      _selectedTransportMode = null;
+      _singleFareResult = null;
+      _singleFareError = '';
       _error = '';
       _errorTitle = '';
     });
@@ -160,6 +177,69 @@ class _CommuteScreenState extends State<CommuteScreen> {
     }
   }
 
+  void _onModeSelected(String mode) {
+    setState(() {
+      _selectedTransportMode = mode;
+      _singleFareResult = null;
+      _singleFareError = '';
+    });
+    _fetchModeFare(mode);
+  }
+
+  Future<void> _fetchModeFare(String mode) async {
+    final origin = _origin;
+    final destination = _destination;
+    final result = _result;
+    if (origin == null || destination == null || result == null) {
+      return;
+    }
+    if (origin.lat == null ||
+        origin.lon == null ||
+        destination.lat == null ||
+        destination.lon == null) {
+      return;
+    }
+
+    final distanceKm = (result['distanceKm'] as num?)?.toDouble();
+    final drivingMinutes = (result['estimatedDurationMin'] as num?)?.toInt();
+    if (distanceKm == null || drivingMinutes == null) {
+      return;
+    }
+
+    setState(() {
+      _fetchingFare = true;
+      _singleFareError = '';
+      _singleFareResult = null;
+    });
+
+    try {
+      final body = await ApiService.commuteSingleFare(
+        originPlaceId: origin.placeId ?? '',
+        originName: origin.name,
+        originLat: origin.lat!,
+        originLon: origin.lon!,
+        destinationPlaceId: destination.placeId ?? '',
+        destinationName: destination.name,
+        destinationLat: destination.lat!,
+        destinationLon: destination.lon!,
+        mode: mode,
+        distanceKm: distanceKm,
+        drivingMinutes: drivingMinutes,
+      );
+      if (!mounted) return;
+      setState(() {
+        _fetchingFare = false;
+        _singleFareResult = body;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _fetchingFare = false;
+        _singleFareError = friendlyErrorMessage(error);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
@@ -215,7 +295,15 @@ class _CommuteScreenState extends State<CommuteScreen> {
             ),
           ],
 
-          if (_result != null) _Results(result: _result!),
+          if (_result != null)
+            _Results(
+              result: _result!,
+              selectedMode: _selectedTransportMode,
+              singleFareResult: _singleFareResult,
+              fetchingFare: _fetchingFare,
+              singleFareError: _singleFareError,
+              onModeSelected: _onModeSelected,
+            ),
         ],
       ),
     );
@@ -337,9 +425,21 @@ class _PlaceField extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _Results extends StatelessWidget {
-  const _Results({required this.result});
+  const _Results({
+    required this.result,
+    this.selectedMode,
+    this.singleFareResult,
+    this.fetchingFare = false,
+    this.singleFareError = '',
+    this.onModeSelected,
+  });
 
   final Map<String, dynamic> result;
+  final String? selectedMode;
+  final Map<String, dynamic>? singleFareResult;
+  final bool fetchingFare;
+  final String singleFareError;
+  final ValueChanged<String>? onModeSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -347,11 +447,6 @@ class _Results extends StatelessWidget {
     final minutes = (result['estimatedDurationMin'] as num?)?.toInt() ?? 0;
     final provider = result['routingProvider']?.toString() ?? '';
     final disclaimer = result['disclaimer']?.toString() ?? '';
-
-    final options = ((result['recommendations'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-        .toList();
 
     final transit = ((result['transitCandidates'] as List?) ?? const [])
         .whereType<Map>()
@@ -407,46 +502,52 @@ class _Results extends StatelessWidget {
           ],
         ),
 
-        // The multimodal planner: the actual journey, step by step. Shown
-        // above the per-mode fare estimates because "how do I get there"
-        // comes before "what would each mode cost".
+        // The multimodal planner: the actual journey, step by step.
         JourneyPlanSection(plan: JourneyPlan.fromResponse(result)),
 
+        // Transport mode selector
         SectionHeader(
           title: GochanoLanguage.text(
-            'Fare estimates by mode',
-            'যানবাহনভেদে আনুমানিক ভাড়া',
-          ),
-          subtitle: GochanoLanguage.text(
-            'A single-mode trip end to end, for comparison',
-            'তুলনার জন্য শুরু থেকে শেষ পর্যন্ত এক যানবাহনে',
+            'Choose transport',
+            'যানবাহন বাছুন',
           ),
         ),
-        if (options.isEmpty)
-          EmptyState(
-            compact: true,
-            illustration: GochanoArt.emptyCommute,
-            title: GochanoLanguage.text(
-              'No fare options for this trip',
-              'এই যাত্রার জন্য কোনো ভাড়ার তথ্য নেই',
-            ),
-            message: GochanoLanguage.text(
-              'The route was found, but CommuteBD has no fare data covering '
-              'these two places yet.',
-              'রুট পাওয়া গেছে, তবে এই দুই স্থানের জন্য কমিউটবিডিতে এখনো ভাড়ার তথ্য নেই।',
-            ),
-          )
-        else
-          for (final option in options)
-            Padding(
-              padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
-              child: _FareCard(
-                option: option,
-                originName: originName,
-                destinationName: destinationName,
-                distanceKm: distanceKm,
+        _TransportModeSelector(
+          selectedMode: selectedMode,
+          onModeSelected: onModeSelected,
+        ),
+
+        // Single fare result area
+        if (selectedMode != null) ...[
+          const SizedBox(height: GochanoSpacing.sm),
+          if (fetchingFare)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(GochanoSpacing.md),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
+            )
+          else if (singleFareError.isNotEmpty)
+            AppCard(
+              child: Text(
+                singleFareError,
+                style: context.type.bodySecondary.copyWith(
+                  color: context.colors.error,
+                ),
+              ),
+            )
+          else if (singleFareResult != null)
+            _SingleFareResultCard(
+              result: singleFareResult!,
+              originName: originName,
+              destinationName: destinationName,
+              distanceKm: distanceKm,
             ),
+        ],
 
         if (transit.isNotEmpty) ...[
           SectionHeader(
@@ -472,17 +573,85 @@ class _Results extends StatelessWidget {
   }
 }
 
-/// One transport option with its fare and, crucially, the provenance of that
-/// fare (spec §68).
-class _FareCard extends StatelessWidget {
-  const _FareCard({
-    required this.option,
+/// Compact transport mode selector shown after route calculation.
+///
+/// Renders a horizontal row of mode chips. Only one can be active at a time.
+/// Modes are not automatically labeled Recommended / Cheapest / Fastest.
+class _TransportModeSelector extends StatelessWidget {
+  const _TransportModeSelector({
+    this.selectedMode,
+    this.onModeSelected,
+  });
+
+  final String? selectedMode;
+  final ValueChanged<String>? onModeSelected;
+
+  static const _modes = [
+    ('bus', 'Bus', 'বাস'),
+    ('cng', 'CNG', 'সিএনজি'),
+    ('rickshaw', 'Rickshaw', 'রিকশা'),
+    ('auto', 'Auto', 'অটো'),
+    ('metro', 'Metro', 'মেট্রো'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Wrap(
+      spacing: GochanoSpacing.sm,
+      runSpacing: GochanoSpacing.xs,
+      children: [
+        for (final (mode, label, labelBn) in _modes)
+          GestureDetector(
+            onTap: onModeSelected != null ? () => onModeSelected!(mode) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: GochanoSpacing.md,
+                vertical: GochanoSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: selectedMode == mode
+                    ? colors.commute.withValues(alpha: 0.12)
+                    : colors.surface,
+                borderRadius: GochanoRadius.smAll,
+                border: Border.all(
+                  color: selectedMode == mode
+                      ? colors.commute
+                      : colors.divider,
+                  width: selectedMode == mode ? 2 : 1,
+                ),
+              ),
+              child: Text(
+                GochanoLanguage.text(label, labelBn),
+                style: context.type.body.copyWith(
+                  color: selectedMode == mode
+                      ? colors.commute
+                      : colors.textPrimary,
+                  fontWeight: selectedMode == mode
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Single fare result card for the user-selected transport mode.
+///
+/// Shows fare estimate, source, and warning. No badges (no Recommended /
+/// Cheapest / Fastest labels).
+class _SingleFareResultCard extends StatelessWidget {
+  const _SingleFareResultCard({
+    required this.result,
     required this.originName,
     required this.destinationName,
     required this.distanceKm,
   });
 
-  final Map<String, dynamic> option;
+  final Map<String, dynamic> result;
   final String originName;
   final String destinationName;
   final double distanceKm;
@@ -490,21 +659,64 @@ class _FareCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final mode = option['mode']?.toString() ?? '';
-    final label = option['label']?.toString() ?? mode;
-    final minutes = (option['minutes'] as num?)?.toInt() ?? 0;
-    final fareLow = (option['fareLow'] as num?)?.toDouble() ?? 0;
-    final fareHigh = (option['fareHigh'] as num?)?.toDouble() ?? 0;
-    final fareType = option['fareType']?.toString() ?? '';
-    final source = option['source']?.toString() ?? '';
-    final warning = option['warning']?.toString() ?? '';
-    final transfers = (option['transfers'] as num?)?.toInt() ?? 0;
-    final badges = ((option['badges'] as List?) ?? const [])
-        .map((e) => e.toString())
-        .toList();
+    final supported = result['supported'] as bool? ?? false;
+    if (!supported) {
+      final reason = result['reason']?.toString() ?? '';
+      final mode = result['mode']?.toString() ?? '';
+      return AppCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GochanoIllustrationTile(
+              GochanoArt.transportIdFor(mode),
+              accent: colors.textTertiary,
+              plateSize: 44,
+            ),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    GochanoLanguage.text(
+                      'Not available',
+                      'অনুপলব্ধ',
+                    ),
+                    style: context.type.sectionHeading,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    reason.isNotEmpty
+                        ? reason
+                        : GochanoLanguage.text(
+                            'No supported fare data was found for this transport on this route.',
+                            'এই রুটে এই যানবাহনের জন্য কোনো সমর্থিত ভাড়ার তথ্য পাওয়া যায়নি।',
+                          ),
+                    style: context.type.bodySecondary,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final fare = result['fare'] as Map<String, dynamic>? ?? {};
+    final mode = fare['mode']?.toString() ?? result['mode']?.toString() ?? '';
+    final label = fare['label']?.toString() ?? mode;
+    final minutes = (fare['minutes'] as num?)?.toInt() ??
+        (result['drivingMinutes'] as num?)?.toInt() ??
+        0;
+    final fareLow = (fare['fareLow'] as num?)?.toDouble() ?? 0;
+    final fareHigh = (fare['fareHigh'] as num?)?.toDouble() ?? 0;
+    final fareType = fare['fareType']?.toString() ?? '';
+    final source = fare['source']?.toString() ?? '';
+    final warning = fare['warning']?.toString() ?? '';
 
     return AppCard(
-      accent: badges.contains('Recommended') ? colors.commute : null,
+      accent: colors.commute,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -526,14 +738,7 @@ class _FareCard extends StatelessWidget {
                     Text(label, style: context.type.sectionHeading),
                     const SizedBox(height: 2),
                     Text(
-                      [
-                        _duration(minutes),
-                        if (transfers > 0)
-                          GochanoLanguage.text(
-                            transfers == 1 ? '1 transfer' : '$transfers transfers',
-                            '$transfers বার পরিবর্তন',
-                          ),
-                      ].join(' · '),
+                      _duration(minutes),
                       style: context.type.bodySecondary,
                     ),
                   ],
@@ -552,36 +757,6 @@ class _FareCard extends StatelessWidget {
             ],
           ),
 
-          if (badges.isNotEmpty) ...[
-            const SizedBox(height: GochanoSpacing.xs),
-            Wrap(
-              spacing: GochanoSpacing.xxs,
-              children: [
-                for (final badge in badges)
-                  GochanoBadge(
-                    label: _badgeLabel(badge),
-                    tone: badge == 'Recommended'
-                        ? GochanoBadgeTone.brand
-                        : GochanoBadgeTone.neutral,
-                    icon: switch (badge) {
-                      'Recommended' => Icons.star_rounded,
-                      'Cheapest' => Icons.savings_outlined,
-                      'Fastest' => Icons.bolt_rounded,
-                      _ => null,
-                    },
-                  ),
-              ],
-            ),
-          ],
-
-          // Where the number came from. This is the part that keeps an
-          // estimate from reading like an official fare.
-          //
-          // The raw confidence word is deliberately not shown: the provenance
-          // badge above already says how far to trust the number, and
-          // "Confidence: Low" beside it read as a second, vaguer verdict on
-          // the same thing. The server now sends the source as a sentence
-          // rather than an id like USER_PROVIDED_ASSUMPTION.
           if (source.isNotEmpty) ...[
             const SizedBox(height: GochanoSpacing.xs),
             Text(source, style: context.type.caption),
@@ -609,9 +784,6 @@ class _FareCard extends StatelessWidget {
           ],
 
           const SizedBox(height: GochanoSpacing.xs),
-          // Post-trip confirmation (spec §69). An estimate never enters the
-          // expense ledger by itself — the student reports what they actually
-          // paid, and only that becomes an expense.
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -641,13 +813,6 @@ class _FareCard extends StatelessWidget {
       ),
     );
   }
-
-  static String _badgeLabel(String badge) => switch (badge) {
-        'Recommended' => GochanoLanguage.text('Recommended', 'প্রস্তাবিত'),
-        'Cheapest' => GochanoLanguage.text('Cheapest', 'সবচেয়ে সস্তা'),
-        'Fastest' => GochanoLanguage.text('Fastest', 'দ্রুততম'),
-        _ => badge,
-      };
 }
 
 class _TransitRow extends StatelessWidget {
