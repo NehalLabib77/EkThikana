@@ -1,14 +1,20 @@
 from datetime import datetime, timezone
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from firebase_admin import auth, firestore
 
 from app.core.auth import AuthenticatedIdentity, get_verified_identity
+from app.core.config import get_settings
 from app.core.firebase import _ensure_firebase, get_firestore
 from app.database.repositories.fare_report_repository import (
     delete_fare_reports_for_user,
 )
-from app.services.storage_service import delete_file
+from app.services.storage_service import (
+    create_signed_url,
+    delete_file,
+    upload_bytes,
+)
 
 router = APIRouter()
 
@@ -316,3 +322,108 @@ def export_account(
     ]
 
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Profile photo upload
+# ---------------------------------------------------------------------------
+
+_ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
+
+
+@router.post("/account/profile-photo")
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    user: AuthenticatedIdentity = Depends(get_verified_identity),
+):
+    """Upload a profile photo to B2 and update the user's Firestore profile.
+
+    The previous photo (if any) is deleted from storage. The Firestore
+    document stores only the B2 storage path — a fresh signed URL is
+    returned to the client so it can render the image immediately.
+    """
+    content_type = (file.content_type or "").lower()
+    if content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail="Only JPEG, PNG and WebP images are accepted.",
+        )
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="File is empty")
+    max_bytes = 5 * 1024 * 1024  # 5 MB cap for profile photos
+    if len(raw) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail="Profile photo must be under 5 MB.",
+        )
+
+    ext = _ALLOWED_IMAGE_TYPES[content_type]
+    object_path = f"users/{user.uid}/profile/{uuid4().hex}{ext}"
+
+    db = get_firestore()
+    user_ref = db.collection("users").document(user.uid)
+
+    # Delete previous photo if it exists.
+    old_data = (user_ref.get().to_dict() or {})
+    old_path = old_data.get("photoPath")
+    if old_path:
+        try:
+            delete_file(old_path)
+        except Exception:
+            pass  # best-effort cleanup
+
+    try:
+        upload_bytes(object_path, raw, content_type)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Photo upload failed: {exc}"
+        )
+
+    # Store the path and generate a signed URL for immediate display.
+    signed_url = create_signed_url(object_path)
+    user_ref.set(
+        {
+            "photoPath": object_path,
+            "photoURL": signed_url,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+
+    return {"photoURL": signed_url, "photoPath": object_path}
+
+
+@router.get("/account/profile-photo-url")
+def get_profile_photo_url(
+    user: AuthenticatedIdentity = Depends(get_verified_identity),
+):
+    """Return a fresh signed URL for the user's profile photo.
+
+    B2 presigned URLs expire (default 15 min). The Flutter profile screen
+    calls this endpoint when the stored URL has expired.
+    """
+    db = get_firestore()
+    user_doc = db.collection("users").document(user.uid).get()
+    data = user_doc.to_dict() or {}
+    photo_path = data.get("photoPath")
+    if not photo_path:
+        raise HTTPException(status_code=404, detail="No profile photo")
+
+    try:
+        url = create_signed_url(photo_path)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not sign URL: {exc}")
+
+    # Update the cached URL in Firestore so other clients pick it up.
+    db.collection("users").document(user.uid).set(
+        {"photoURL": url, "updatedAt": firestore.SERVER_TIMESTAMP},
+        merge=True,
+    )
+
+    return {"photoURL": url}

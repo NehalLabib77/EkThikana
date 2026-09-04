@@ -9,6 +9,8 @@
 // the surrounding list; without it, scrolling the results re-rasterises the
 // whole map (spec §83).
 
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -35,19 +37,29 @@ class CommuteRouteMap extends StatelessWidget {
   /// Dhaka, used only when there is nothing to fit to.
   static const _fallbackCentre = LatLng(23.8103, 90.4125);
 
-  List<LatLng> get _points => polyline
-      .map((p) {
-        final lat = (p['lat'] as num?)?.toDouble();
-        final lon = (p['lon'] as num?)?.toDouble();
-        return (lat == null || lon == null) ? null : LatLng(lat, lon);
-      })
-      .whereType<LatLng>()
-      .toList();
+  List<LatLng> get _points {
+    final pts = <LatLng>[];
+    for (final p in polyline) {
+      final lat = (p['lat'] as num?)?.toDouble();
+      final lon = (p['lon'] as num?)?.toDouble();
+      if (lat != null && lon != null && lat != 0 && lon != 0) {
+        pts.add(LatLng(lat, lon));
+      }
+    }
+    return pts;
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final points = _points;
+
+    if (points.isEmpty) {
+      dev.log(
+        'CommuteRouteMap: empty polyline (${polyline.length} raw entries)',
+        name: 'CommuteBD',
+      );
+    }
 
     final markers = <LatLng>[?origin, ?destination];
     final fitTargets = points.isNotEmpty ? points : markers;

@@ -809,4 +809,39 @@ class ApiService {
       return (data['answer'] as String?) ?? '';
     });
   }
+
+  // ----- Profile photo ---------------------------------------------------
+
+  /// Upload a profile photo. Returns the signed URL for immediate display.
+  static Future<String> uploadProfilePhoto(String filePath) async {
+    return _guard(() async {
+      final uri = _uri('/api/account/profile-photo');
+      final file = await http.MultipartFile.fromPath('file', filePath);
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(await _headers())
+        ..files.add(file);
+      final streamed = await _client.send(
+        request,
+      );
+      final response = await http.Response.fromStream(streamed);
+      final data = _decode(response);
+      return (data['photoURL'] as String?) ?? '';
+    });
+  }
+
+  /// Get a fresh signed URL for the current profile photo.
+  static Future<String?> refreshProfilePhotoUrl() async {
+    return _guard(() async {
+      final uri = _uri('/api/account/profile-photo-url');
+      final response = await _send(
+        method: 'GET',
+        uri: uri,
+        auth: true,
+        build: () async => http.Request('GET', uri)
+          ..headers.addAll(await _headers()),
+      );
+      final data = _decode(response);
+      return data['photoURL'] as String?;
+    });
+  }
 }

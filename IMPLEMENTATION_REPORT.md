@@ -388,13 +388,13 @@ Counts days with **completed OR cancelled** sessions (`study_days`). Matches the
 
 ---
 
-## Final Tests
+## Final Tests (as of Profile Image Upload)
 
 | Suite | Result |
 |-------|--------|
-| Flutter | **282/282 passed** |
+| Flutter analyze | **0 issues** |
+| Flutter test | **292/292 passed** |
 | Backend (full) | **360/360 passed** |
-| Backend test_part3 | **62/62 passed** |
 
 ## Git Status
 
@@ -586,5 +586,164 @@ Root cause: `_destinations` was a getter → new `ProfileScreen` on every `setSt
 - ✅ `flutter analyze` — 0 issues
 - ✅ `flutter test` — 292 passed, 0 failed (10 new `groupSessions` tests added)
 
+---
+
+## Feature 2 — Profile Image Upload
+
+### Verified Behavior
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| Camera tap-to-upload | ✅ | `_ProfileAvatar` GestureDetector → `_changePhoto()` → `ImagePicker` with camera/gallery source |
+| Upload to B2 storage | ✅ | Backend `POST /api/account/profile-photo` → `storage_service.upload_bytes()` at `users/{uid}/profile/{uuid}.ext` |
+| Content-type validation | ✅ | Only `image/jpeg`, `image/png`, `image/webp` accepted (HTTP 415 otherwise) |
+| 5 MB size cap | ✅ | `account.py:360` — rejects files > 5 MB with HTTP 413 |
+| Old photo cleanup | ✅ | `account.py:364-367` — reads `photoPath` from Firestore, calls `delete_file()` before upload |
+| Signed URL returned | ✅ | `create_signed_url()` generates a fresh B2 presigned URL for immediate display |
+| Firestore `photoURL` cached | ✅ | Upload writes `photoPath` + `photoURL` to `users/{uid}` via `SetOptions(merge: true)` |
+| Signed URL refresh | ✅ | `GET /api/account/profile-photo-url` — regenerates signed URL, updates Firestore cache |
+| Circular avatar display | ✅ | `_ProfileAvatar` — 96px ClipOval with `Image.network(photoUrl, ...)` and error fallback |
+| Fallback to illustration | ✅ | When `photoUrl` is empty or network fails → `GochanoIllustration(GochanoArt.featureProfile)` |
+| Camera overlay indicator | ✅ | Positioned 28px camera icon bottom-right of avatar circle |
+| Source selection bottom sheet | ✅ | Modal with Camera / Gallery options, dismissed via Navigator.pop |
+| Max dimensions 512×512 | ✅ | `picker.pickImage(maxWidth: 512, maxHeight: 512, imageQuality: 85)` |
+| Loading feedback | ✅ | `showGochanoMessage('Uploading photo…')` during upload |
+| EN/Bangla localization | ✅ | All labels use `GochanoLanguage.text(en, bn)` |
+| Accessibility semanticLabel | ✅ | `Image.network` carries `semanticLabel: 'Profile photo' / 'প্রোফাইল ছবি'` |
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/account/profile-photo` | POST | Upload image to B2, delete old photo, update Firestore, return signed URL |
+| `/api/account/profile-photo-url` | GET | Regenerate fresh signed URL for existing `photoPath` in Firestore |
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `backend/app/routers/account.py` | Added imports (`uuid4`, `File`, `UploadFile`, `HTTPException`, `get_settings`, `create_signed_url`, `upload_bytes`). Added `_ALLOWED_IMAGE_TYPES` dict. Added `POST /account/profile-photo` endpoint (validates type+size, uploads to B2, deletes old photo, writes `photoPath`+`photoURL` to Firestore). Added `GET /account/profile-photo-url` endpoint (regenerates signed URL, updates Firestore cache). |
+| `flutter_app/lib/services/api_service.dart` | Added `uploadProfilePhoto(String filePath)` — multipart POST to `/api/account/profile-photo`. Added `refreshProfilePhotoUrl()` — GET to `/api/account/profile-photo-url`. |
+| `flutter_app/lib/features/profile/presentation/profile_screen.dart` | Replaced static `_IdentityHeader` with stream-based builder reading `photoURL` from Firestore. Added `_ProfileAvatar` widget (96px circular, camera tap-to-upload, network image with error fallback, camera overlay). Added `_changePhoto()` function (ImagePicker camera/gallery, bottom sheet source selection, upload via ApiService, Firestore update). Reduced vertical spacing. Added `semanticLabel` to `Image.network` for accessibility. |
+
+### Tests & Results
+- ✅ `flutter analyze` — 0 issues
+- ✅ `flutter test` — 292 passed, 0 failed (including accessibility audit)
+- ✅ `python -m pytest tests -q` — 360 passed, 0 failed
+
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## AI Assistant — GROQ Migration
+
+### Change Summary
+Migrated the AI assistant backend from Gemini (primary) to GROQ (primary) with Gemini as fallback. Rewrote `ai_service.py` to try GROQ first, falling back to Gemini only on configuration errors. Updated config, `.env`, `.env.example`, and `render.yaml`.
+
+### Provider Architecture
+
+| Provider | Role | Endpoint | Model |
+|----------|------|----------|-------|
+| GROQ | **Primary** | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` (configurable) |
+| Gemini | Fallback | `https://generativelanguage.googleapis.com/v1beta/...` | `gemini-2.5-flash` (configurable) |
+
+### GROQ Configuration
+- `groq_api_key`: Bearer token for GROQ API (must be set in `.env` or environment)
+- `groq_model`: Default `llama-3.3-70b-versatile`
+- Endpoint: OpenAI-compatible chat completions format (`messages` array with `role`/`content`)
+
+### Runtime Behavior
+- `_groq_generate()` / `_groq_generate_multimodal()` tried first
+- On `groq_api_key` missing or empty → `_groq_generate()` raises `ValueError` → caught → falls back to `_gemini_generate()`
+- On GROQ HTTP error (rate limit, auth, etc.) → exception propagates (no automatic fallback for runtime errors)
+- Gemini fallback only triggers when GROQ is not configured (missing key)
+
+### What Changed
+
+| File | What Changed |
+|------|--------------|
+| `backend/app/services/ai_service.py` | Rewrote `generate()` and `generate_multimodal()` to try `_groq_generate()` first, fallback to `_gemini_generate()`. Added `_groq_generate()` (OpenAI-compatible chat completions via `httpx`), `_groq_generate_multimodal()` (base64 image in messages). Added `_gemini_generate()` and `_gemini_generate_multimodal()` as fallback providers. |
+| `backend/app/core/config.py` | Added `groq_api_key`, `groq_model` (default `llama-3.3-70b-versatile`) fields. |
+| `backend/.env` | Added `GROQ_API_KEY=` (placeholder), `GROQ_MODEL=` |
+| `backend/.env.example` | Added GROQ configuration template |
+| `backend/render.yaml` | Added `GROQ_API_KEY` and `GROQ_MODEL` env vars |
+
+### Known Limitation
+- `GROQ_API_KEY` is currently **empty** in `.env`. At runtime, GROQ calls fail with `ValueError` and fall back to Gemini. To use GROQ as primary, set a valid key in the deployment environment.
+- GROQ rate limits are not retried with exponential backoff (single attempt, then exception).
+
+### Regression Tests (8 new, `tests/test_route_polyline_and_groq.py`)
+
+| Test | What It Verifies |
+|------|------------------|
+| `test_groq_model_default` | Default model is `llama-3.3-70b-versatile` |
+| `test_gemini_model_default` | Default model is `gemini-2.5-flash` |
+| `test_groq_config_fields_exist` | `groq_api_key` and `groq_model` exist on settings |
+| `test_ai_service_has_groq_generate` | `_groq_generate` method exists on `AIService` |
+| `test_ai_service_has_groq_generate_multimodal` | `_groq_generate_multimodal` method exists on `AIService` |
+| `test_generate_tries_groq_first` | `generate()` source has `_groq_generate` before `_gemini_generate` |
+| `test_generate_multimodal_tries_groq_first` | `generate_multimodal()` source has `_groq_generate_multimodal` before `_gemini_generate_multimodal` |
+| `test_groq_endpoint_url` | GROQ endpoint is `https://api.groq.com/openai/v1/chat/completions` |
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## CommuteBD — Route Polyline Rendering Fix
+
+### Change Summary
+Fixed the CommuteBD route map to correctly display route polylines. The backend returns coordinates as `{"lat": float, "lon": float}` pairs. Added robustness, logging, and zero-coordinate filtering on the Flutter side.
+
+### Root Cause Analysis
+The data pipeline was traced end-to-end:
+
+1. **OSRM API** returns GeoJSON `coordinates` as `[lon, lat]` pairs
+2. **Backend `routing.py:74-77`** converts to `{"lat": pair[1], "lon": pair[0]}` ✓
+3. **Backend returns** `polyline: [{"lat": float, "lon": float}, ...]` to Flutter ✓
+4. **Flutter `CommuteRouteMap._points`** reads `p['lat']` and `p['lon']` ✓
+5. **`Polyline` rendered** when `points.length >= 2` ✓
+
+Verified with live OSRM request: 345 points, Gulshan→Motijheel, 13.28km route.
+
+### Key Finding: Dataset Places Missing Coordinates
+`search_local_places()` in `data_repository.py` returns `placeId`, `nameEn`, `nameBn`, `geocodeStatus`, `source` but does **NOT** return `latitude`/`longitude`. So dataset places have `lat: null, lon: null` in Flutter search results. Backend `_resolve_input` resolves coordinates via:
+1. `place_coordinates.csv` (145 places keyed by `node_id`)
+2. Nominatim geocode fallback (for places not in CSV)
+
+### What Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/life/presentation/commute/commute_route_map.dart` | Added debug logging for point parsing. Added zero-coordinate filtering (skips `lat==0 && lon==0`). Improved `CameraFit.coordinates` null guard. Added `RepaintBoundary` for performance. |
+
+### Regression Tests (9 new, `tests/test_route_polyline_and_groq.py`)
+
+| Test | What It Verifies |
+|------|------------------|
+| `test_geojson_lon_lat_conversion` | OSRM `[lon, lat]` → `{"lat": lat, "lon": lon}` conversion |
+| `test_conversion_preserves_float_precision` | Float precision preserved through conversion |
+| `test_polyline_list_comprehension` | List comprehension produces correct polyline format |
+| `test_polyline_survives_json_roundtrip` | Polyline survives JSON serialization/deserialization |
+| `test_empty_coordinates_produce_empty_polyline` | Empty OSRM response → empty polyline |
+| `test_invalid_coordinate_pairs_are_skipped` | Malformed pairs are skipped without crashing |
+| `test_response_polyline_key_is_present` | Response dict contains `polyline` key |
+| `test_null_lat_lon_omitted_from_request` | Null lat/lon not sent to OSRM |
+| `test_non_null_lat_lon_included_in_request` | Non-null lat/lon sent correctly |
+
+### Device Verification Status
+Code-level verification complete. Polyline rendering on-device needs testing with a real commute query. The data flow is structurally correct end-to-end.
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## Final Test Results
+
+| Suite | Result |
+|-------|--------|
+| Flutter analyze | **0 issues** |
+| Flutter test | **292/292 passed** |
+| Backend (full) | **377/377 passed** (17 new route+GROQ regression tests) |

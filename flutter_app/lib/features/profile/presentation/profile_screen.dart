@@ -16,6 +16,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_config.dart';
 import '../../../core/design_system/gochano_art.dart';
@@ -59,7 +60,7 @@ class ProfileScreen extends StatelessWidget {
             const _StudyStatsRow(),
           ],
 
-          const SizedBox(height: GochanoSpacing.lg),
+          const SizedBox(height: GochanoSpacing.sm),
           _SettingsCard(isStudent: role == 'student'),
 
           const SizedBox(height: GochanoSpacing.md),
@@ -100,20 +101,12 @@ class _IdentityHeader extends StatelessWidget {
         final email = data['email']?.toString().trim() ?? '';
         final university = data['university']?.toString().trim() ?? '';
         final department = data['department']?.toString().trim() ?? '';
+        final photoUrl = data['photoURL']?.toString().trim() ?? '';
 
         return Column(
           children: [
-            const SizedBox(height: GochanoSpacing.md),
-            // The `_editProfile` modal is intentionally not wired here: the
-            // current `FirestoreService` does not expose a profile-write
-            // method (services are protected in this restoration), and
-            // shipping an edit affordance that does nothing is a worse UX
-            // than omitting it.
-            GochanoIllustrationTile(
-              GochanoArt.featureProfile,
-              accent: colors.brand,
-              plateSize: 96,
-            ),
+            const SizedBox(height: GochanoSpacing.sm),
+            _ProfileAvatar(photoUrl: photoUrl),
             const SizedBox(height: GochanoSpacing.sm),
             Text(
               name.isEmpty
@@ -150,6 +143,143 @@ class _IdentityHeader extends StatelessWidget {
   }
 }
 
+/// Circular profile avatar with camera tap-to-change overlay.
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({required this.photoUrl});
+
+  final String photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final hasPhoto = photoUrl.isNotEmpty;
+
+    return GestureDetector(
+      onTap: () => _changePhoto(context),
+      child: Stack(
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.brand.withValues(alpha: 0.12),
+              border: Border.all(
+                color: colors.brand.withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: ClipOval(
+              child: hasPhoto
+                  ? Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                      width: 96,
+                      height: 96,
+                      semanticLabel: GochanoLanguage.text(
+                        'Profile photo',
+                        'প্রোফাইল ছবি',
+                      ),
+                      errorBuilder: (_, _, e) => _fallbackIcon(colors),
+                    )
+                  : _fallbackIcon(colors),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.surface,
+                border: Border.all(color: colors.border, width: 1),
+              ),
+              child: Icon(
+                Icons.camera_alt_rounded,
+                size: 16,
+                color: colors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fallbackIcon(GochanoColors colors) {
+    return Center(
+      child: GochanoIllustration(
+        GochanoArt.featureProfile,
+        size: 48,
+        accent: colors.brand,
+      ),
+    );
+  }
+}
+
+Future<void> _changePhoto(BuildContext context) async {
+  final picker = ImagePicker();
+  final source = await showModalBottomSheet<ImageSource>(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_rounded),
+            title: Text(GochanoLanguage.text('Take a photo', 'ছবি তুলুন')),
+            onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_rounded),
+            title: Text(GochanoLanguage.text('Choose from gallery', 'গ্যালারি থেকে বাছুন')),
+            onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+        ],
+      ),
+    ),
+  );
+  if (source == null || !context.mounted) return;
+
+  try {
+    final xFile = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (xFile == null || !context.mounted) return;
+
+    showGochanoMessage(
+      context,
+      GochanoLanguage.text('Uploading photo…', 'ছবি আপলোড হচ্ছে…'),
+    );
+
+    final url = await ApiService.uploadProfilePhoto(xFile.path);
+    if (!context.mounted) return;
+
+    // Update the cached URL in Firestore so the stream picks it up.
+    await FirestoreService.updateProfile({'photoURL': url});
+    if (!context.mounted) return;
+
+    showGochanoMessage(
+      context,
+      GochanoLanguage.text('Photo updated.', 'ছবি আপডেট হয়েছে।'),
+    );
+  } catch (error) {
+    if (context.mounted) {
+      showGochanoMessage(
+        context,
+        friendlyErrorMessage(error),
+        isError: true,
+      );
+    }
+  }
+}
+
 class _RoleBadge extends StatelessWidget {
   const _RoleBadge({required this.role});
 
@@ -158,7 +288,7 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: GochanoSpacing.sm),
+      padding: const EdgeInsets.only(top: GochanoSpacing.xs),
       child: Center(
         child: GochanoBadge(
           label: role == 'student'

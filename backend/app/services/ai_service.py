@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import logging
 import re
 from datetime import datetime, timezone
@@ -32,9 +33,11 @@ def _http() -> httpx.AsyncClient:
 
 
 # ---------------------------------------------------------------------------
-# Gemini error classification. Gemini returns RFC-7807 style envelopes:
+# Error classification. GROQ returns OpenAI-style errors:
+#   { "error": { "message": "...", "type": "...", "code": "..." } }
+# Gemini returns RFC-7807 style:
 #   { "error": { "code": 429, "status": "RESOURCE_EXHAUSTED", "message": "..." } }
-# We map the common shapes to user-facing messages.
+# We map both shapes to user-facing messages.
 # ---------------------------------------------------------------------------
 _QUOTA_TOKENS = (
     "RESOURCE_EXHAUSTED",
@@ -42,6 +45,7 @@ _QUOTA_TOKENS = (
     "quota",
     "rate limit",
     "rate-limit",
+    "requests",
 )
 _PERMISSION_TOKENS = (
     "PERMISSION_DENIED",
@@ -49,6 +53,7 @@ _PERMISSION_TOKENS = (
     "API key not valid",
     "API_KEY_NOT_VALID",
     "UNAUTHENTICATED",
+    "invalid_api_key",
 )
 _MODEL_TOKENS = (
     "NOT_FOUND",
@@ -69,10 +74,10 @@ _SERVER_TOKENS = (
 )
 
 
-def _classify_gemini_error(
-    status_code: int, body_text: str
+def _classify_ai_error(
+    status_code: int, body_text: str, provider: str
 ) -> tuple[int, str]:
-    """Translate (status, body) into (HTTP_status, user_facing_message)."""
+    """Translate (status, body, provider) into (HTTP_status, user_facing_message)."""
     blob = (body_text or "").lower()
     status_token = ""
     msg_token = ""
@@ -95,11 +100,11 @@ def _classify_gemini_error(
     haystack = " ".join([status_token, msg_token, blob]).lower()
 
     if any(tok.lower() in haystack for tok in _QUOTA_TOKENS) or status_code == 429:
-        return 429, "Gemini quota exceeded. Please try again later."
+        return 429, f"{provider} quota exceeded. Please try again later."
     if any(tok.lower() in haystack for tok in _PERMISSION_TOKENS):
         return 503, "AI service configuration error"
     if any(tok.lower() in haystack for tok in _MODEL_TOKENS):
-        return 503, "Gemini model configuration error."
+        return 503, f"{provider} model configuration error."
     if any(tok.lower() in haystack for tok in _INVALID_ARG_TOKENS) and status_code < 500:
         return 400, "Invalid AI request"
     if any(tok.lower() in haystack for tok in _SERVER_TOKENS) or status_code >= 500:
@@ -150,16 +155,181 @@ def _consume_quota(uid: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Public surface.
+# GROQ provider (OpenAI-compatible API).
 # ---------------------------------------------------------------------------
-async def generate(uid: str, prompt: str) -> str:
+async def _groq_generate(prompt: str) -> str:
+    """Send a text prompt to GROQ and return the response text."""
     settings = get_settings()
-    if not settings.gemini_api_key:
-        logger.error("GEMINI_API_KEY is empty on the server.")
+    if not settings.groq_api_key:
         raise HTTPException(
             status_code=503, detail="AI service configuration error"
         )
-    _consume_quota(uid)
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    payload = {
+        "model": settings.groq_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3,
+        "max_tokens": 1600,
+    }
+
+    logger.info(
+        "GROQ generate: model=%s prompt_chars=%d",
+        settings.groq_model,
+        len(prompt),
+    )
+
+    try:
+        response = await _http().post(
+            url,
+            headers={
+                "Authorization": f"Bearer {settings.groq_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+    except httpx.TimeoutException as exc:
+        logger.warning("GROQ timeout: %s", exc)
+        raise HTTPException(
+            status_code=504, detail="AI request timed out."
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("GROQ network error: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="AI provider temporarily unavailable.",
+        ) from exc
+
+    if response.status_code >= 400:
+        snippet = _safe_snippet(response.text)
+        logger.warning(
+            "GROQ error: status=%s model=%s body=%s",
+            response.status_code,
+            settings.groq_model,
+            snippet,
+        )
+        http_status, user_msg = _classify_ai_error(
+            response.status_code, response.text, "GROQ"
+        )
+        raise HTTPException(status_code=http_status, detail=user_msg)
+
+    data = response.json()
+    try:
+        text = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        text = ""
+
+    if not text.strip():
+        logger.warning(
+            "GROQ returned no text. model=%s payload_keys=%s",
+            settings.groq_model,
+            list(data.keys()) if isinstance(data, dict) else type(data).__name__,
+        )
+        raise HTTPException(
+            status_code=502, detail="AI provider returned no text"
+        )
+    return text.strip()
+
+
+async def _groq_generate_multimodal(parts: list[dict[str, Any]]) -> str:
+    """Send a multimodal prompt (text + inline image) to GROQ vision model."""
+    settings = get_settings()
+    if not settings.groq_api_key:
+        raise HTTPException(
+            status_code=503, detail="AI service configuration error"
+        )
+
+    # GROQ vision models accept base64 images via OpenAI image_url format.
+    # Convert our Gemini-style {"inline_data": {...}} parts to OpenAI format.
+    openai_parts: list[dict[str, Any]] = []
+    for part in parts:
+        if "text" in part:
+            openai_parts.append({"type": "text", "text": part["text"]})
+        elif "inline_data" in part:
+            mime = part["inline_data"].get("mime_type", "image/jpeg")
+            data = part["inline_data"].get("data", "")
+            openai_parts.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime};base64,{data}"},
+            })
+
+    # Use a vision-capable model; fall back to configured model if not set.
+    vision_model = settings.groq_model
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    payload = {
+        "model": vision_model,
+        "messages": [{"role": "user", "content": openai_parts}],
+        "temperature": 0.3,
+        "max_tokens": 1600,
+    }
+
+    logger.info(
+        "GROQ multimodal: model=%s parts=%d",
+        vision_model,
+        len(parts),
+    )
+
+    try:
+        response = await _http().post(
+            url,
+            headers={
+                "Authorization": f"Bearer {settings.groq_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+    except httpx.TimeoutException as exc:
+        logger.warning("GROQ timeout (multimodal): %s", exc)
+        raise HTTPException(
+            status_code=504, detail="AI request timed out."
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("GROQ network error (multimodal): %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="AI provider temporarily unavailable.",
+        ) from exc
+
+    if response.status_code >= 400:
+        snippet = _safe_snippet(response.text)
+        logger.warning(
+            "GROQ error (multimodal): status=%s model=%s body=%s",
+            response.status_code,
+            vision_model,
+            snippet,
+        )
+        http_status, user_msg = _classify_ai_error(
+            response.status_code, response.text, "GROQ"
+        )
+        raise HTTPException(status_code=http_status, detail=user_msg)
+
+    data = response.json()
+    try:
+        text = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        text = ""
+
+    if not text.strip():
+        logger.warning(
+            "GROQ returned no text (multimodal). model=%s",
+            vision_model,
+        )
+        raise HTTPException(
+            status_code=502, detail="AI provider returned no text"
+        )
+    return text.strip()
+
+
+# ---------------------------------------------------------------------------
+# Gemini fallback provider.
+# ---------------------------------------------------------------------------
+async def _gemini_generate(prompt: str) -> str:
+    """Send a text prompt to Gemini and return the response text."""
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        raise HTTPException(
+            status_code=503, detail="AI service configuration error"
+        )
 
     model = settings.gemini_model
     url = (
@@ -175,8 +345,7 @@ async def generate(uid: str, prompt: str) -> str:
     }
 
     logger.info(
-        "AI generate: uid=%s model=%s prompt_chars=%d",
-        uid,
+        "Gemini fallback generate: model=%s prompt_chars=%d",
         model,
         len(prompt),
     )
@@ -191,12 +360,12 @@ async def generate(uid: str, prompt: str) -> str:
             json=payload,
         )
     except httpx.TimeoutException as exc:
-        logger.warning("AI provider timeout: %s", exc)
+        logger.warning("Gemini timeout: %s", exc)
         raise HTTPException(
             status_code=504, detail="AI request timed out."
         ) from exc
     except httpx.HTTPError as exc:
-        logger.exception("AI provider network error: %s", exc)
+        logger.exception("Gemini network error: %s", exc)
         raise HTTPException(
             status_code=502,
             detail="AI provider temporarily unavailable.",
@@ -205,13 +374,13 @@ async def generate(uid: str, prompt: str) -> str:
     if response.status_code >= 400:
         snippet = _safe_snippet(response.text)
         logger.warning(
-            "AI provider error: status=%s model=%s body=%s",
+            "Gemini error: status=%s model=%s body=%s",
             response.status_code,
             model,
             snippet,
         )
-        http_status, user_msg = _classify_gemini_error(
-            response.status_code, response.text
+        http_status, user_msg = _classify_ai_error(
+            response.status_code, response.text, "Gemini"
         )
         raise HTTPException(status_code=http_status, detail=user_msg)
 
@@ -224,7 +393,7 @@ async def generate(uid: str, prompt: str) -> str:
 
     if not text.strip():
         logger.warning(
-            "AI provider returned no text. model=%s payload_keys=%s",
+            "Gemini returned no text. model=%s payload_keys=%s",
             model,
             list(data.keys()) if isinstance(data, dict) else type(data).__name__,
         )
@@ -234,20 +403,13 @@ async def generate(uid: str, prompt: str) -> str:
     return text.strip()
 
 
-# ---------------------------------------------------------------------------
-# Multimodal helper (image / scanned PDF). Accepts the same `parts` shape as
-# the Gemini SDK: a list of {"text": ...} / {"inline_data": {...}} dicts.
-# Used by the AI image / OCR flows.
-# ---------------------------------------------------------------------------
-async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
-    """Send a multimodal prompt (text + inline image bytes) to Gemini."""
+async def _gemini_generate_multimodal(parts: list[dict[str, Any]]) -> str:
+    """Send a multimodal prompt to Gemini."""
     settings = get_settings()
     if not settings.gemini_api_key:
-        logger.error("GEMINI_API_KEY is empty on the server.")
         raise HTTPException(
             status_code=503, detail="AI service configuration error"
         )
-    _consume_quota(uid)
 
     model = settings.gemini_model
     url = (
@@ -263,8 +425,7 @@ async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
     }
 
     logger.info(
-        "AI multimodal: uid=%s model=%s parts=%d",
-        uid,
+        "Gemini fallback multimodal: model=%s parts=%d",
         model,
         len(parts),
     )
@@ -279,12 +440,12 @@ async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
             json=payload,
         )
     except httpx.TimeoutException as exc:
-        logger.warning("AI provider timeout (multimodal): %s", exc)
+        logger.warning("Gemini timeout (multimodal): %s", exc)
         raise HTTPException(
             status_code=504, detail="AI request timed out."
         ) from exc
     except httpx.HTTPError as exc:
-        logger.exception("AI provider network error (multimodal): %s", exc)
+        logger.exception("Gemini network error (multimodal): %s", exc)
         raise HTTPException(
             status_code=502,
             detail="AI provider temporarily unavailable.",
@@ -293,13 +454,13 @@ async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
     if response.status_code >= 400:
         snippet = _safe_snippet(response.text)
         logger.warning(
-            "AI provider error (multimodal): status=%s model=%s body=%s",
+            "Gemini error (multimodal): status=%s model=%s body=%s",
             response.status_code,
             model,
             snippet,
         )
-        http_status, user_msg = _classify_gemini_error(
-            response.status_code, response.text
+        http_status, user_msg = _classify_ai_error(
+            response.status_code, response.text, "Gemini"
         )
         raise HTTPException(status_code=http_status, detail=user_msg)
 
@@ -312,10 +473,72 @@ async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
 
     if not text.strip():
         logger.warning(
-            "AI provider returned no text (multimodal). model=%s",
+            "Gemini returned no text (multimodal). model=%s",
             model,
         )
         raise HTTPException(
             status_code=502, detail="AI provider returned no text"
         )
     return text.strip()
+
+
+# ---------------------------------------------------------------------------
+# Public surface — GROQ primary, Gemini fallback.
+# ---------------------------------------------------------------------------
+async def generate(uid: str, prompt: str) -> str:
+    """Text generation: tries GROQ first, falls back to Gemini."""
+    settings = get_settings()
+    _consume_quota(uid)
+
+    # Try GROQ if configured.
+    if settings.groq_api_key:
+        try:
+            return await _groq_generate(prompt)
+        except HTTPException as exc:
+            # If GROQ fails with a config error (bad key, wrong model),
+            # fall through to Gemini. Other errors (timeout, rate limit)
+            # are raised directly.
+            if exc.status_code == 503 and "configuration" in (exc.detail or ""):
+                logger.warning(
+                    "GROQ config error, falling back to Gemini: %s",
+                    exc.detail,
+                )
+            else:
+                raise
+
+    # Gemini fallback.
+    if settings.gemini_api_key:
+        return await _gemini_generate(prompt)
+
+    logger.error("No AI provider configured (neither GROQ nor GEMINI_API_KEY).")
+    raise HTTPException(
+        status_code=503, detail="AI service configuration error"
+    )
+
+
+async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
+    """Multimodal generation (image + text): tries GROQ vision, falls back to Gemini."""
+    settings = get_settings()
+    _consume_quota(uid)
+
+    # Try GROQ vision if configured.
+    if settings.groq_api_key:
+        try:
+            return await _groq_generate_multimodal(parts)
+        except HTTPException as exc:
+            if exc.status_code == 503 and "configuration" in (exc.detail or ""):
+                logger.warning(
+                    "GROQ config error (multimodal), falling back to Gemini: %s",
+                    exc.detail,
+                )
+            else:
+                raise
+
+    # Gemini fallback.
+    if settings.gemini_api_key:
+        return await _gemini_generate_multimodal(parts)
+
+    logger.error("No AI provider configured for multimodal (neither GROQ nor GEMINI_API_KEY).")
+    raise HTTPException(
+        status_code=503, detail="AI service configuration error"
+    )

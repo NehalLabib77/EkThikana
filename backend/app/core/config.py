@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # does not fail validation. It is inert: nothing reads it at runtime.
     firebase_storage_bucket: str = ""
 
+    # GROQ (primary AI provider — OpenAI-compatible API).
+    groq_api_key: str = ""
+    groq_model: str = "qwen/qwen3.8-27b"
+
+    # Gemini (fallback when GROQ is unavailable or for multimodal if GROQ
+    # vision model is not configured).
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
