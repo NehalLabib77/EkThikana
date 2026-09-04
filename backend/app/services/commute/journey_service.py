@@ -61,11 +61,27 @@ def get_graph(repo) -> TransportGraph | None:
             "nodes": len(graph),
             "edges": graph.edge_count,
             "nodesWithCoordinates": located,
+            "places": len(data.places),
+            "brtaEdges": len(data.brta_edges),
+            "serviceStops": len(data.service_stops),
+            "services": len(data.services),
+            "metroStations": len(data.metro_stations),
         }
         logger.info(
-            "CommuteBD graph built | nodes=%s edges=%s located=%s",
+            "CommuteBD graph built | nodes=%s edges=%s located=%s "
+            "places=%s brtaEdges=%s serviceStops=%s services=%s metroStations=%s",
             len(graph), graph.edge_count, located,
+            len(data.places), len(data.brta_edges),
+            len(data.service_stops), len(data.services),
+            len(data.metro_stations),
         )
+        if len(graph) == 0:
+            logger.warning(
+                "CommuteBD graph is empty — transport planning will be "
+                "unavailable. Check that PostgreSQL tables (places, "
+                "brta_graph_edges, bus_service_stops, bus_services, "
+                "metro_stations) contain data."
+            )
         _cached_graph = graph
         return _cached_graph
 

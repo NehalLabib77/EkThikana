@@ -136,6 +136,19 @@ class _IdentityHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+            Padding(
+              padding: const EdgeInsets.only(top: GochanoSpacing.xs),
+              child: GestureDetector(
+                onTap: () => _editProfile(context, data),
+                child: Text(
+                  GochanoLanguage.text('Edit profile', 'প্রোফাইল সম্পাদনা'),
+                  style: context.type.bodySecondary.copyWith(
+                    color: colors.brand,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -268,6 +281,147 @@ Future<void> _changePhoto(BuildContext context) async {
     showGochanoMessage(
       context,
       GochanoLanguage.text('Photo updated.', 'ছবি আপডেট হয়েছে।'),
+    );
+  } catch (error) {
+    if (context.mounted) {
+      showGochanoMessage(
+        context,
+        friendlyErrorMessage(error),
+        isError: true,
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit Profile
+// ---------------------------------------------------------------------------
+
+Future<void> _editProfile(
+  BuildContext context,
+  Map<String, dynamic> current,
+) async {
+  final nameCtl = TextEditingController(
+    text: current['displayName']?.toString() ?? '',
+  );
+  final uniCtl = TextEditingController(
+    text: current['university']?.toString() ?? '',
+  );
+  final deptCtl = TextEditingController(
+    text: current['department']?.toString() ?? '',
+  );
+
+  final result = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+          left: GochanoSpacing.lg,
+          right: GochanoSpacing.lg,
+          top: GochanoSpacing.lg,
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                GochanoLanguage.text('Edit profile', 'প্রোফাইল সম্পাদনা'),
+                style: sheetContext.type.pageTitle,
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+              TextField(
+                controller: nameCtl,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text('Full name', 'পুরো নাম'),
+                  border: const OutlineInputBorder(),
+                ),
+                textCapitalization: TextCapitalization.words,
+                maxLength: 80,
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+              TextField(
+                controller: uniCtl,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text(
+                    'University / Institution',
+                    'বিশ্ববিদ্যালয় / প্রতিষ্ঠান',
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+                textCapitalization: TextCapitalization.words,
+                maxLength: 120,
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+              TextField(
+                controller: deptCtl,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text(
+                    'Faculty / Department',
+                    'অনুষদ / বিভাগ',
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+                textCapitalization: TextCapitalization.words,
+                maxLength: 120,
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(false),
+                      child: Text(
+                        GochanoLanguage.text('Cancel', 'বাতিল'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.sm),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(true),
+                      child: Text(
+                        GochanoLanguage.text('Save', 'সংরক্ষণ'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  if (result != true || !context.mounted) return;
+
+  final name = nameCtl.text.trim();
+  if (name.isEmpty) {
+    showGochanoMessage(
+      context,
+      GochanoLanguage.text(
+        'Name cannot be empty.',
+        'নাম খালি রাখা যাবে না।',
+      ),
+      isError: true,
+    );
+    return;
+  }
+
+  try {
+    await FirestoreService.updateProfile({
+      'displayName': name,
+      'university': uniCtl.text.trim(),
+      'department': deptCtl.text.trim(),
+    });
+    if (!context.mounted) return;
+    showGochanoMessage(
+      context,
+      GochanoLanguage.text('Profile updated.', 'প্রোফাইল আপডেট হয়েছে।'),
     );
   } catch (error) {
     if (context.mounted) {

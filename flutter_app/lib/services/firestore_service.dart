@@ -32,17 +32,27 @@ class FirestoreService {
     return db.collection('users').doc(uid).snapshots();
   }
 
-  /// Writes only the profile fields that the Profile screen lets a student
-  /// edit: displayName, university, and department. We deliberately do not
-  /// touch role (security rule refuses a write that changes it, and this
-  /// screen has no business touching it regardless), and we do not touch
-  /// email (it is owned by the auth provider, not by Firestore).
+  /// Writes profile fields to the user's Firestore document.
+  ///
+  /// Only the keys present in [fields] are written — unknown keys are
+  /// ignored and missing keys are never set to null.  This prevents
+  /// accidental data loss when a caller only wants to update a subset
+  /// of fields (e.g. only `photoURL` after a photo upload).
   static Future<void> updateProfile(Map<String, dynamic> fields) async {
-    final patch = <String, dynamic>{
-      'displayName': fields['displayName'],
-      'university': fields['university'],
-      'department': fields['department'],
+    const allowed = {
+      'displayName',
+      'university',
+      'department',
+      'photoURL',
+      'nickname',
     };
+    final patch = <String, dynamic>{};
+    for (final key in allowed) {
+      if (fields.containsKey(key)) {
+        patch[key] = fields[key];
+      }
+    }
+    if (patch.isEmpty) return;
     await db.collection('users').doc(uid).set(
           patch,
           SetOptions(merge: true),

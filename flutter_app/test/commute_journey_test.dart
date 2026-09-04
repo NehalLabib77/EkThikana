@@ -427,7 +427,7 @@ void main() {
       await tester.pumpWidget(_wrap(JourneyPlanSection(plan: plan)));
 
       expect(
-        find.textContaining('transport network could not be loaded'),
+        find.textContaining('Transport network is temporarily unavailable'),
         findsOneWidget,
       );
     });

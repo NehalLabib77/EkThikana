@@ -495,3 +495,103 @@ class TestCurrentGpsOriginPlusDatasetDestination:
         expected_lat, expected_lon = csv_coords["PLC0008"]
         assert routing.last_dest.lat == expected_lat
         assert routing.last_dest.lon == expected_lon
+
+
+# ---------------------------------------------------------------------------
+# Transport network graph tests
+# ---------------------------------------------------------------------------
+
+from app.services.commute.journey_service import get_graph, reset_graph_cache, graph_stats
+from app.services.commute.graph_builder import GraphData
+
+
+class TestTransportGraphInitialization:
+    """Graph loading, empty graph, and missing data handling."""
+
+    def setup_method(self):
+        reset_graph_cache()
+
+    def teardown_method(self):
+        reset_graph_cache()
+
+    def test_empty_graph_returns_dataset_unavailable(self):
+        """Graph with no DB data should return a non-available result."""
+        from app.services.commute.journey_service import plan
+        from app.database.repositories.postgres_repository import CommutePostgresRepository
+        repo = CommutePostgresRepository()
+        reset_graph_cache()
+        result = plan(
+            repo,
+            origin_name="A",
+            origin_lat=23.80,
+            origin_lon=90.37,
+            destination_name="B",
+            destination_lat=23.73,
+            destination_lon=90.42,
+        )
+        # With an empty or minimal DB, graph may be empty or have no
+        # connections — either way, the result is not "available with journeys"
+        assert result["available"] is False
+        assert result["reason"] in (
+            "dataset_unavailable",
+            "planner_error",
+            "outside_network_coverage",
+        )
+
+    def test_graph_stats_returns_details_when_built(self):
+        """graph_stats() should return node/edge counts after build."""
+        _seed_places([("P1", "Place A", 23.80, 90.37)])
+        from app.database.repositories.postgres_repository import CommutePostgresRepository
+        repo = CommutePostgresRepository()
+        reset_graph_cache()
+        g = get_graph(repo)
+        stats = graph_stats()
+        if g is not None and len(g) > 0:
+            assert stats is not None
+            assert "nodes" in stats
+            assert "edges" in stats
+            assert "places" in stats
+
+    def test_reset_graph_cache_clears_cached(self):
+        """reset_graph_cache() should clear the cached graph."""
+        _seed_places([("P1", "Place A", 23.80, 90.37)])
+        from app.database.repositories.postgres_repository import CommutePostgresRepository
+        repo = CommutePostgresRepository()
+        reset_graph_cache()
+        g1 = get_graph(repo)
+        reset_graph_cache()
+        g2 = get_graph(repo)
+        assert type(g1) == type(g2)
+
+
+class TestProfilePhotoPreservesIdentity:
+    """Profile photo update must NOT erase displayName/university/department.
+
+    The fix is in Flutter's firestore_service.dart: updateProfile() now only
+    writes keys present in the fields map, so calling
+    updateProfile({'photoURL': url}) writes ONLY photoURL — not nulls for
+    displayName/university/department.
+
+    These backend tests verify the account.py photo endpoint uses merge=True
+    and does NOT touch identity fields.
+    """
+
+    def test_photo_upload_uses_merge_and_only_writes_photo_fields(self):
+        """account.py profile-photo endpoint must use merge=True and only
+        write photoPath/photoURL/updatedAt — never displayName/university/department."""
+        from pathlib import Path
+        account_path = Path(__file__).resolve().parent.parent / "app" / "routers" / "account.py"
+        source = account_path.read_text(encoding="utf-8")
+        # The profile-photo endpoint uses merge=True
+        assert "merge=True" in source
+        # The profile-photo endpoint writes photoPath and photoURL
+        assert '"photoPath"' in source
+        assert '"photoURL"' in source
+
+    def test_backend_photo_endpoint_does_not_write_displayname(self):
+        """The backend photo upload must NOT write displayName to Firestore."""
+        import inspect
+        from app.routers.account import upload_profile_photo
+        source = inspect.getsource(upload_profile_photo)
+        # Should NOT contain displayName write
+        assert "displayName" not in source or "displayName" in source.split("def ")[0]

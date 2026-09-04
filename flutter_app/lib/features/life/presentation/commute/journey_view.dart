@@ -986,17 +986,23 @@ class _PlanningUnavailable extends StatelessWidget {
 
     final message = switch (plan.status) {
       JourneyPlanningStatus.datasetUnavailable => GochanoLanguage.text(
-          'Route planning is unavailable right now — the CommuteBD transport '
-          'network could not be loaded. The fare estimates below still work.',
-          'এখন রুট পরিকল্পনা করা যাচ্ছে না — কমিউটবিডির যানবাহন নেটওয়ার্ক লোড '
-          'করা যায়নি। নিচের ভাড়ার হিসাব এখনো কাজ করছে।',
+          'Transport network is temporarily unavailable. '
+          'The fare estimates below still work.',
+          'যানবাহন নেটওয়ার্ক এখন অনুপলব্ধ। '
+          'নিচের ভাড়ার হিসাব এখনো কাজ করছে।',
+        ),
+      JourneyPlanningStatus.plannerError => GochanoLanguage.text(
+          'Transport network is temporarily unavailable. '
+          'The fare estimates below still work.',
+          'যানবাহন নেটওয়ার্ক এখন অনুপলব্ধ। '
+          'নিচের ভাড়ার হিসাব এখনো কাজ করছে।',
         ),
       JourneyPlanningStatus.outsideCoverage => _coverageMessage(),
       _ => GochanoLanguage.text(
-          'Route planning could not finish for this trip. The fare estimates '
-          'below are unaffected.',
-          'এই যাত্রার রুট পরিকল্পনা শেষ করা যায়নি। নিচের ভাড়ার হিসাব '
-          'অপরিবর্তিত আছে।',
+          'No supported public transport journey was found for this route. '
+          'The fare estimates below are unaffected.',
+          'এই রুটে কোনো সমর্থিত পাবলিক ট্রান্সপোর্ট যাত্রা পাওয়া যায়নি। '
+          'নিচের ভাড়ার হিসাব অপরিবর্তিত আছে।',
         ),
     };
 

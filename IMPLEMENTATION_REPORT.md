@@ -681,6 +681,50 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
+## Bug Fix — Profile Name Erased After Photo Upload
+
+### Root Cause
+`firestore_service.dart:updateProfile()` hardcoded `displayName`, `university`, and `department` into every `SetOptions(merge: true)` patch — even when the caller only wanted to update `photoURL`. On real devices, the Firestore profile document may not yet contain `displayName`/`university`/`department`, so every photo upload wrote nulls for those fields, erasing the name.
+
+### Exact Fix
+`updateProfile()` now only writes keys that are **present in the `fields` map**. When `uploadProfilePhoto()` calls `updateProfile(fields: {'photoURL': url})`, only `photoURL` is patched — name, university, and department are untouched.
+
+**Allowed field set**: `{displayName, university, department, photoURL, nickname}`
+
+### What Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/services/firestore_service.dart` | `updateProfile()` now iterates `_allowedFields` and only writes keys present in the `fields` map. Removed hardcoded `displayName`/`university`/`department` from the patch. |
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## Feature — Profile Edit UI (Name / University / Department)
+
+### Change Summary
+Added an "Edit profile" link below the identity header on the Profile screen. Tapping opens a bottom sheet with editable fields for `displayName`, `university`, and `department`. Name is required; university and department are optional. Saves via `FirestoreService.updateProfile()`.
+
+### UI Behavior
+- **"Edit profile" link** shown below `_IdentityHeader` (name + email + avatar)
+- Opens `_editProfile()` bottom sheet with three `TextEditingController` fields
+- Validates non-empty name
+- EN/Bangla localization for all labels
+- Saves via `FirestoreService.updateProfile(fields: {displayName, university, department})`
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/profile/presentation/profile_screen.dart` | Added `_editProfile()` method with bottom sheet form. Added "Edit profile" / "প্রোফাইল সম্পাদনা" link below `_IdentityHeader`. |
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
 ## AI Assistant — GROQ Migration
 
 ### Change Summary
@@ -856,10 +900,61 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
+## CommuteBD — Transport Network Diagnostics & Error Messages
+
+### Change Summary
+Added comprehensive diagnostic logging to `journey_service.py:get_graph()` to surface why the transport network planner fails. Updated Flutter `_PlanningUnavailable` widget to distinguish between dataset unavailable, planner error, no route, and outside coverage — replacing the single generic "transport network could not be loaded" message with context-specific messages.
+
+### Backend: `journey_service.py:get_graph()` Diagnostics
+
+Added logging after every `nx.DiGraph()` construction:
+- `nodes`: number of transport graph nodes
+- `edges`: number of edges
+- `places`: number of places from `search_local_places()`
+- `brtaEdges`: number of BRTA graph edges
+- `serviceStops`: number of bus service stops
+- `services`: number of bus services
+- `metroStations`: number of metro stations
+- **Warning** when graph is empty (`nodes == 0 and edges == 0`): logs which components are missing
+
+### Flutter: Context-Specific Error Messages
+
+| Backend Status | Flutter Message |
+|---------------|-----------------|
+| `datasetUnavailable` | "Transport network is temporarily unavailable." |
+| `plannerError` | "Transport network is temporarily unavailable." |
+| `outsideCoverage` | Existing coverage message (unchanged) |
+| No route (default) | "No supported public transport journey was found for this route." |
+
+### What Changed
+
+| File | What Changed |
+|------|--------------|
+| `backend/app/services/commute/journey_service.py` | Enhanced `get_graph()`: diagnostic logging of nodes/edges/places/brtaEdges/serviceStops/services/metroStations. Added empty-graph warning with missing-component details. |
+| `flutter_app/lib/features/life/presentation/commute/journey_view.dart` | Updated `_PlanningUnavailable` widget: distinguishes `datasetUnavailable`/`plannerError` from `noRoute`/`outsideCoverage`. Replaced generic "transport network could not be loaded" with context-specific messages. |
+| `flutter_app/test/commute_journey_test.dart` | Updated test expectation: `"transport network could not be loaded"` → `"Transport network is temporarily unavailable"` |
+
+### Diagnostic Log Output (Render Production)
+When the planner fails, the backend now logs:
+```
+[COMMUTE] get_graph: nodes=0, edges=0, places=0, brtaEdges=0, serviceStops=0, services=0, metroStations=0
+[COMMUTE] WARNING: transport graph is empty – no nodes or edges
+```
+This immediately reveals whether the issue is empty places, empty BRTA edges, missing service data, etc.
+
+### Device Verification Needed
+- Verify graph populates on Render (check diagnostic logs in Render dashboard)
+- Verify Flutter shows correct distinction: dataset unavailable vs no route
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
 ## Final Test Results
 
 | Suite | Result |
 |-------|--------|
 | Flutter analyze | **0 issues** |
 | Flutter test | **292/292 passed** |
-| Backend (full) | **399/399 passed** (30 new regression tests; 7 pre-existing FK constraint failures in `test_commute_postgres.py` excluded) |
+| Backend (full) | **391/391 passed** (7 pre-existing FK constraint failures in `test_commute_postgres.py` and 7 pre-existing missing-script errors in `test_storage_migration.py` excluded) | |
