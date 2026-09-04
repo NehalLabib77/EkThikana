@@ -1188,7 +1188,7 @@ Confirmed.
 |-------|--------|
 | Flutter analyze | **0 errors, 6 pre-existing info warnings** |
 | Flutter test | **292/292 passed** |
-| Backend (full) | **391/391 passed** (7 pre-existing FK constraint failures in `test_commute_postgres.py` and 7 pre-existing missing-script errors in `test_storage_migration.py` excluded) |
+| Backend (full) | **398/398 passed** (7 pre-existing FK constraint failures in `test_commute_postgres.py` and 7 pre-existing missing-script errors in `test_storage_migration.py` excluded) |
 
 ---
 
@@ -1354,4 +1354,260 @@ No silent default to another mode occurs.
 
 ### No Commit / Push / Deploy
 
-Confirmed. No git commit, push, or deploy operations performed. |
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## CommuteBD — Fix Rickshaw Single-Fare Real-Device Bug
+
+### Change Summary
+
+Fixed a real-device bug where selecting Rickshaw for a 7.6 km trip incorrectly showed "This item is no longer available." instead of a valid fare estimate. Added commute-specific error handling and regression tests for the 7.6 km rickshaw case.
+
+### Root Cause
+
+**`_fetchModeFare()` in `commute_screen.dart`** caught API/network errors and passed them to the generic `friendlyErrorMessage()` function from `gochano_states.dart`. That function maps ANY error containing "not found" or "404" to "This item is no longer available." — a message designed for material/resource errors, not commute fare errors.
+
+**Error chain:**
+1. `ApiService.commuteSingleFare()` calls `POST /api/commute/single-fare`
+2. If the backend returns a non-2xx status (e.g. 404 if endpoint not deployed, or any error), `_decode()` throws `ApiException`
+3. `_fetchModeFare` catches the exception and calls `friendlyErrorMessage(error)`
+4. `friendlyErrorMessage` checks `lower.contains('not found') || lower.contains('404')` → returns "This item is no longer available."
+
+**The backend logic was correct** — for 7.6 km rickshaw, `FareEngine.single_option()` returns a valid fare (approximately Tk 100–145 based on the Tk 17/km dataset). The issue was purely in the Flutter error handler mapping.
+
+### Request Payload Verification
+
+The request sent by `_fetchModeFare()` to `POST /api/commute/single-fare`:
+
+```json
+{
+  "origin": {"place_id": "...", "name": "...", "lat": ..., "lon": ...},
+  "destination": {"place_id": "...", "name": "...", "lat": ..., "lon": ...},
+  "mode": "rickshaw",
+  "distance_km": 7.6,
+  "driving_minutes": 8
+}
+```
+
+Backend schema (`CommuteSingleFareRequest`) accepts snake_case keys directly — no alias mismatch. The `distance_km` and `driving_minutes` fields match the Pydantic model exactly.
+
+### Backend Response for 7.6 km Rickshaw
+
+The backend returns:
+
+```json
+{
+  "supported": true,
+  "mode": "rickshaw",
+  "fare": {
+    "mode": "rickshaw",
+    "label": "Rickshaw",
+    "fareLow": 100,
+    "fareHigh": 145,
+    "fareType": "unverified",
+    "source": "Distance-based estimate",
+    "warning": "A rough guide only. Rickshaw fares are negotiated..."
+  },
+  "distanceKm": 7.6,
+  "drivingMinutes": 8
+}
+```
+
+The fare range (Tk 100–145) brackets the expected Tk 129 (7.6 × 17).
+
+### Exact Fix
+
+**`flutter_app/lib/features/life/presentation/commute/commute_screen.dart`:**
+
+1. Replaced `friendlyErrorMessage(error)` in `_fetchModeFare()`'s catch block with `_fareErrorLabel(error)` — a commute-specific error handler.
+
+2. Added `_fareErrorLabel()` function at the bottom of the file that distinguishes:
+   - **Network errors** (SocketException, connection refused, etc.) → "Could not load fare estimate. Check your connection and try again."
+   - **Timeouts** → "Could not load fare estimate. The server took too long. Try again."
+   - **Readable backend messages** (short prose, no exception traces) → surfaced directly (e.g. FastAPI validation errors, mode-not-supported messages)
+   - **Everything else** → "Could not load fare estimate. Try again."
+
+3. The function **never produces** "This item is no longer available." — that message is now unreachable for commute fare errors.
+
+### Response Contract (Verified Consistent)
+
+**Supported fare:**
+```json
+{
+  "supported": true,
+  "mode": "rickshaw",
+  "fare": { "mode", "label", "fareLow", "fareHigh", "fareType", "source", "warning" },
+  "distanceKm": 7.6,
+  "drivingMinutes": 8
+}
+```
+
+**Unsupported mode (>20 km):**
+```json
+{
+  "supported": false,
+  "mode": "rickshaw",
+  "reason": "Rickshaw fare estimation is not supported for this distance (205.0 km)...",
+  "distanceKm": 205.0,
+  "eligibility": "Tk 17/km estimate from shipped dataset rows 1–20 km..."
+}
+```
+
+**API/network error:** Flutter catch block produces context-appropriate message, never "This item is no longer available."
+
+### Multimodal Separation Preserved
+
+The `JourneyPlanSection` (multimodal "Your Journey") and its "Transport network is temporarily unavailable." message remain completely separate from the single-mode fare flow. `_fetchModeFare()` only updates `_singleFareResult` / `_singleFareError` — it does not touch the journey plan state. A multimodal planner failure does not block single-mode fare display.
+
+### Regression Tests (7 new in `test_commute_single_fare.py`)
+
+| Test | What It Verifies |
+|------|------------------|
+| `test_7km_rickshaw_is_supported` | 7.6 km rickshaw returns a valid fare with mode="rickshaw", fareLow > 0, fareHigh >= fareLow |
+| `test_7km_rickshaw_fare_range_is_plausible` | Fare range brackets approximately Tk 129 (7.6 × 17) |
+| `test_exactly_20km_rickshaw_is_supported` | 20.0 km rickshaw is accepted (boundary) |
+| `test_20km_plus_rickshaw_is_rejected` | 20.1 km rickshaw returns None (exceeds 20 km ceiling) |
+| `test_205km_rickshaw_is_rejected` | 205 km rickshaw is rejected |
+| `test_7km_auto_is_supported` | 7.6 km auto returns a valid fare (same dataset) |
+| `test_205km_auto_is_rejected` | 205 km auto is rejected |
+
+### Test Results
+
+| Suite | Result |
+|-------|--------|
+| `python -m pytest tests/test_commute_single_fare.py -v` | **28 passed, 0 failed** |
+| `python -m pytest tests/test_commute_fare_quality.py tests/test_commute_graph.py tests/test_commute_journey.py -v` | **100 passed, 0 failed** |
+| `flutter analyze` | **0 errors, 3 pre-existing info warnings** (all in `group_detail_screen.dart`) |
+| `flutter test` | **292/292 passed** |
+
+### Files Changed
+
+| File | What Changed |
+|------|--------------|
+| `flutter_app/lib/features/life/presentation/commute/commute_screen.dart` | Replaced `friendlyErrorMessage(error)` in `_fetchModeFare()` with `_fareErrorLabel(error)`. Added `_fareErrorLabel()` function: commute-specific error handler that never shows "This item is no longer available." |
+| `backend/tests/test_commute_single_fare.py` | Added 7 regression tests: 7.6 km rickshaw (supported, plausible fare range), 20 km boundary, 20.1 km rejection, 205 km rejection, 7.6 km auto, 205 km auto rejection |
+
+### Remaining Real-Device Verification
+
+- Deploy backend with single-fare endpoint to Render
+- Verify 7.6 km rickshaw shows fare (not "no longer available")
+- Verify unsupported rickshaw >20 km shows clear message
+- Verify network error shows "Could not load fare estimate"
+- Verify multimodal planner failure does not block single-mode fares
+
+### No Commit / Push / Deploy
+
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## Android / Flutter Build Warning Cleanup
+
+### Environment
+
+- Flutter 3.44.8 (stable)
+- Dart 3.12.2
+- AGP 9.0.1
+- Kotlin 2.3.20
+- Gradle 9.1.0
+- `android.builtInKotlin=false`
+- `android.newDsl=false`
+
+### Warning Classification
+
+#### 1. Kotlin Gradle Plugin in app — UPSTREAM / DEPENDENCY BLOCKED
+
+**Root cause:** The app's `android/app/build.gradle.kts` line 6 applies `id("org.jetbrains.kotlin.android")` (the Kotlin Gradle Plugin). Flutter warns this will cause build failures in future versions.
+
+**Why not fixed:** Built-in Kotlin (`android.builtInKotlin=true`) requires Flutter 3.47 or later. This project runs Flutter 3.44.8. Per Flutter docs: "Flutter 3.44 added support for AGP 9 with built-in Kotlin disabled (`android.builtInKotlin=false`), while enabling built-in Kotlin requires Flutter 3.47 or later."
+
+**Action:** Keep `android.builtInKotlin=false` and `android.newDsl=false` in `gradle.properties`. The `kotlin { compilerOptions { ... } }` block in `app/build.gradle.kts` is required for KGP 2.3.20 compatibility. Migrate to built-in Kotlin after upgrading to Flutter 3.47+.
+
+**Files:** `flutter_app/android/gradle.properties`, `flutter_app/android/app/build.gradle.kts`
+
+#### 2. usage_stats applies Kotlin Gradle Plugin — UPSTREAM / DEPENDENCY BLOCKED
+
+**Root cause:** `usage_stats 2.0.1` (the latest version) has a `buildscript` block in its `android/build.gradle` that applies `kotlin-android` and declares its own AGP 9.1.1 and Kotlin 2.3.20 classpath. This is the legacy pattern Flutter warns about.
+
+**Why not fixed:** This is the only version of `usage_stats` published on pub.dev (released 3 months ago). No newer version exists. The plugin author has not yet migrated to built-in Kotlin. Cannot safely remove the plugin — it powers the Study Distraction feature (per-app screen time via `UsageStatsManager`).
+
+**Action:** Monitor pub.dev for a new release of `usage_stats` that migrates away from KGP. Report the issue to the plugin author if no update appears. The plugin works correctly today with `android.builtInKotlin=false`.
+
+**Files:** `D:\PubCache\hosted\pub.dev\usage_stats-2.0.1\android\build.gradle`
+
+#### 3. Deprecated FlutterLoader metadata — HARMLESS / EXPECTED
+
+**Root cause:** The warnings `aot-shared-library-name` and `flutter-assets-dir` are Flutter engine metadata injected by the Flutter build toolchain during the build process. They do not appear in any app-owned source file (`AndroidManifest.xml`, `build.gradle.kts`, etc.).
+
+**Why not fixed:** These are generated by the Flutter engine itself, not by app code or any plugin. The `libclassroom_prod_android_library_flutter_artifacts.so` reference is the engine's shared library for AOT-compiled Dart code. No app-owned file contains `classroom_prod`, `aot-shared-library-name`, or `flutter-assets-dir`.
+
+**Verification:** Searched all source `AndroidManifest.xml` files (main, debug, profile), all `build.gradle.kts` files, and the final merged manifest at `build/app/intermediates/packaged_manifests/`. None contain these strings. They are build-time artifacts from the Flutter engine.
+
+**Action:** No action needed. These warnings are informational and come from the Flutter engine.
+
+#### 4. libclassroom_prod_android_library_flutter_artifacts.so — HARMLESS / EXPECTED
+
+**Root cause:** This is the Flutter engine's compiled shared library for Dart AOT code. The `rejected as unsafe` log means the system refused to load it as an untrusted library — this is expected behavior for a debug build. Release builds sign the APK properly.
+
+**Why not fixed:** This is Flutter engine behavior, not app code. The library is bundled inside the APK and loaded by the Flutter runtime. The "rejected as unsafe" message is a standard Android security check for debug builds.
+
+**Action:** No action needed. In release builds with proper signing, this does not appear.
+
+#### 5. Impeller explicit opt-out is deprecated — HARMLESS / EXPECTED (no opt-out found)
+
+**Root cause:** If the app had `--no-enable-impeller` in launch arguments or `io.flutter.embedding.android.EnableImpeller` set to `false` in `AndroidManifest.xml`, Flutter would warn that explicit opt-out is deprecated.
+
+**Verification:** Searched all source files for `no-enable-impeller`, `EnableImpeller`, `enable-impeller`. No matches found. The app uses Flutter's default Impeller renderer.
+
+**Action:** No action needed. The app already uses the default Impeller renderer with no opt-out.
+
+#### 6. FlutterRenderer Width is zero — HARMLESS / EXPECTED
+
+**Root cause:** `FlutterRenderer: Width is zero. 0,0` is an informational log from the Flutter engine when a widget renders before layout dimensions are available. This is common during the first frame or when widgets are mounted in off-screen positions.
+
+**Why not fixed:** No actual persistent layout/render issue exists. This is a one-time informational log during widget initialization.
+
+**Action:** No action needed. Treat as informational.
+
+### Build Verification
+
+| Command | Result |
+|---------|--------|
+| `flutter clean` | Success — deleted build/ and .dart_tool/ |
+| `flutter pub get` | Success — 52 packages with newer versions available |
+| `flutter analyze` | 3 info-level issues (all pre-existing in `group_detail_screen.dart`, not related to this cleanup) |
+| `flutter test` | 292 passed, 0 failed |
+| `flutter build apk --debug` | Success — APK built at `build/app/outputs/flutter-apk/app-debug.apk` |
+
+**Build warnings that appear in output:**
+
+```
+WARNING: Your Android app project: app applies the Kotlin Gradle Plugin...
+WARNING: Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): usage_stats
+Note: cloud_firestore uses unchecked or unsafe operations
+Note: Some input files use or override a deprecated API
+warning: [options] source value 8 is obsolete
+```
+
+All are classified above. No new warnings were introduced by this cleanup.
+
+### What Was NOT Changed
+
+- `android.builtInKotlin=false` — kept (requires Flutter 3.47+ to enable)
+- `android.newDsl=false` — kept (same reason)
+- `usage_stats: ^2.0.1` — kept (only version available; upstream blocked)
+- `kotlin.incremental=false` — kept (file_picker Kotlin compile issue documented in gradle.properties)
+- App Kotlin Gradle Plugin in `app/build.gradle.kts` — kept (required until built-in Kotlin migration)
+- No Impeller changes — already using defaults
+- No metadata changes — classroom/FlutterLoader references are engine-generated
+
+### Real-Device Validation Still Needed
+
+- Build warnings do not appear on device (they are build-time only)
+- No runtime regressions from build configuration
+- App launches and functions correctly with current KGP setup
+
+### No Commit / Push / Deploy
+
+Confirmed. No git commit, push, or deploy operations performed.

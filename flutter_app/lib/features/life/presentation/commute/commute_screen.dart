@@ -235,7 +235,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       if (!mounted) return;
       setState(() {
         _fetchingFare = false;
-        _singleFareError = friendlyErrorMessage(error);
+        _singleFareError = _fareErrorLabel(error);
       });
     }
   }
@@ -889,4 +889,52 @@ String _fareRange(double low, double high) {
   if (low <= 0 && high <= 0) return GochanoLanguage.text('Free', 'ফ্রি');
   if ((high - low).abs() < 0.5) return formatTaka(high);
   return '${formatTaka(low)}–${formatTaka(high)}';
+}
+
+/// Commute-specific error label — never shows generic resource messages like
+/// "This item is no longer available." which `friendlyErrorMessage` would
+/// produce for a 404.
+String _fareErrorLabel(Object error) {
+  final raw = error.toString().toLowerCase();
+
+  // Network / connectivity.
+  if (raw.contains('socketexception') ||
+      raw.contains('failed host lookup') ||
+      raw.contains('network is unreachable') ||
+      raw.contains('connection closed') ||
+      raw.contains('connection refused') ||
+      raw.contains('clientexception')) {
+    return GochanoLanguage.text(
+      'Could not load fare estimate. Check your connection and try again.',
+      'ভাড়ার তথ্য লোড হয়নি। সংযোগ দেখে আবার চেষ্টা করুন।',
+    );
+  }
+
+  // Timeout.
+  if (raw.contains('timeoutexception') ||
+      raw.contains('timed out') ||
+      raw.contains('taking longer than expected')) {
+    return GochanoLanguage.text(
+      'Could not load fare estimate. The server took too long. Try again.',
+      'ভাড়ার তথ্য লোড হয়নি। সার্ভার ধীরে সাড়া দিচ্ছে। আবার চেষ্টা করুন।',
+    );
+  }
+
+  // Backend returned a readable detail string — surface it directly when it
+  // looks like prose (short, no exception trace).  FastAPI validation errors
+  // (422) and mode-not-supported messages arrive here.
+  if (raw.isNotEmpty &&
+      raw.length <= 200 &&
+      !raw.contains('exception') &&
+      !raw.contains('traceback') &&
+      !raw.contains('{') &&
+      !raw.contains('\n')) {
+    return error.toString();
+  }
+
+  // Everything else — generic but honest.
+  return GochanoLanguage.text(
+    'Could not load fare estimate. Try again.',
+    'ভাড়ার তথ্য লোড হয়নি। আবার চেষ্টা করুন।',
+  );
 }

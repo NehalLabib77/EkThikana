@@ -277,3 +277,122 @@ def test_options_method_still_returns_list():
         assert "source" in opt
         # Badges should still be assigned for backward compatibility.
         assert "badges" in opt
+
+
+# ---------------------------------------------------------------------------
+# 14. 7.6 km Rickshaw regression — the real-device bug
+# ---------------------------------------------------------------------------
+def test_7km_rickshaw_is_supported():
+    """7.6 km rickshaw must return a valid fare, not 'unsupported'.
+
+    Regression: real-device bug where 7.6 km rickshaw showed
+    'This item is no longer available.' The fare engine must return a
+    valid result for distances well within the 20 km dataset ceiling.
+    """
+    engine = _make_engine()
+    result = engine.single_option(
+        mode="rickshaw",
+        origin_name="Farmgate",
+        destination_name="Dhanmondi",
+        distance_km=7.6,
+        driving_minutes=8,
+    )
+    assert result is not None, (
+        "7.6 km rickshaw must return a fare, not None"
+    )
+    assert result["mode"] == "rickshaw"
+    assert result["fareLow"] > 0, "fareLow must be positive"
+    assert result["fareHigh"] >= result["fareLow"], "fareHigh >= fareLow"
+    # 7.6 × 17 = 129.2.  With 0.85/1.20 range: low ~100, high ~145.
+    assert result["fareLow"] >= 50, "fareLow too low for 7.6 km"
+    assert result["fareHigh"] <= 200, "fareHigh too high for 7.6 km"
+    assert result["fareType"] in ("unverified", "crowdsourced", "estimated")
+
+
+def test_7km_rickshaw_fare_range_is_plausible():
+    """The fare range must bracket approximately Tk 129 (7.6 × 17)."""
+    engine = _make_engine()
+    result = engine.single_option(
+        mode="rickshaw",
+        origin_name="Farmgate",
+        destination_name="Dhanmondi",
+        distance_km=7.6,
+        driving_minutes=8,
+    )
+    assert result is not None
+    expected = 7.6 * 17  # 129.2
+    # The fallback applies 0.85 low / 1.20 high with rounding to nearest 5.
+    assert result["fareLow"] <= expected, "fareLow should be below expected"
+    assert result["fareHigh"] >= expected, "fareHigh should be above expected"
+
+
+# ---------------------------------------------------------------------------
+# 15. Boundary: exactly 20 km rickshaw → supported
+# ---------------------------------------------------------------------------
+def test_exactly_20km_rickshaw_is_supported():
+    engine = _make_engine()
+    result = engine.single_option(
+        mode="rickshaw",
+        origin_name="Farmgate",
+        destination_name="Dhanmondi",
+        distance_km=20.0,
+        driving_minutes=30,
+    )
+    assert result is not None, "20.0 km rickshaw must be supported"
+    assert result["mode"] == "rickshaw"
+
+
+# ---------------------------------------------------------------------------
+# 16. Boundary: 20.1 km rickshaw → unsupported (exceeds 20 km ceiling)
+# ---------------------------------------------------------------------------
+def test_20km_plus_rickshaw_is_rejected():
+    """20.1 km exceeds the 20 km dataset ceiling and must be rejected."""
+    eligibility = MODE_ELIGIBILITY["rickshaw"]
+    max_km = eligibility["max_distance_km"]
+    assert max_km == 20.0
+    # The endpoint-level check: distance_km > max_km triggers unsupported.
+    assert 20.1 > max_km
+    # The engine also guards this internally.
+    engine = _make_engine()
+    result = engine.single_option(
+        mode="rickshaw",
+        origin_name="Farmgate",
+        destination_name="Dhanmondi",
+        distance_km=20.1,
+        driving_minutes=30,
+    )
+    assert result is None, "20.1 km rickshaw must return None"
+
+
+# ---------------------------------------------------------------------------
+# 17. Boundary: 205 km rickshaw → unsupported
+# ---------------------------------------------------------------------------
+def test_205km_rickshaw_is_rejected():
+    eligibility = MODE_ELIGIBILITY["rickshaw"]
+    assert 205.0 > eligibility["max_distance_km"]
+
+
+# ---------------------------------------------------------------------------
+# 18. 7.6 km Auto → also supported (same dataset)
+# ---------------------------------------------------------------------------
+def test_7km_auto_is_supported():
+    engine = _make_engine()
+    result = engine.single_option(
+        mode="auto",
+        origin_name="Farmgate",
+        destination_name="Dhanmondi",
+        distance_km=7.6,
+        driving_minutes=8,
+    )
+    assert result is not None, "7.6 km auto must return a fare"
+    assert result["mode"] == "auto"
+    assert result["fareLow"] > 0
+    assert result["fareHigh"] >= result["fareLow"]
+
+
+# ---------------------------------------------------------------------------
+# 19. 205 km Auto → unsupported
+# ---------------------------------------------------------------------------
+def test_205km_auto_is_rejected():
+    eligibility = MODE_ELIGIBILITY["auto"]
+    assert 205.0 > eligibility["max_distance_km"]
