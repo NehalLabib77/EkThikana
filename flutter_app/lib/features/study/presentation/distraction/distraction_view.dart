@@ -13,7 +13,8 @@ class DistractionView extends StatefulWidget {
   State<DistractionView> createState() => _DistractionViewState();
 }
 
-class _DistractionViewState extends State<DistractionView> {
+class _DistractionViewState extends State<DistractionView>
+    with WidgetsBindingObserver {
   ScreenTimeSummary? _summary;
   List<DayScreenTime>? _weekly;
   bool _loading = true;
@@ -23,7 +24,21 @@ class _DistractionViewState extends State<DistractionView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissionAndLoad();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermissionAndLoad();
+    }
   }
 
   Future<void> _checkPermissionAndLoad() async {
