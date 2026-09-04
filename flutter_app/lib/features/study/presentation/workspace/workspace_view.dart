@@ -20,6 +20,7 @@ import '../../../../services/firestore_service.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../community/presentation/shared_box_screen.dart';
+import '../ai/ai_assistant_screen.dart';
 import '../materials/material_reader_screen.dart';
 import '../materials/materials_screen.dart';
 import '../materials/saved_materials_screen.dart';
@@ -60,6 +61,14 @@ class _QuickAccessState extends State<_QuickAccess> {
   List<_QuickAccessTile> _tiles(BuildContext context) {
     final colors = context.colors;
     return [
+      _QuickAccessTile(
+        label: GochanoLanguage.text('AI Assistant', 'এআই সহকারী'),
+        assetImage: 'assets/Ziku.png',
+        accent: colors.ai,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
+        ),
+      ),
       _QuickAccessTile(
         label: GochanoLanguage.text('Notes', 'নোট'),
         illustration: GochanoArt.fileNote,
@@ -166,13 +175,15 @@ class _QuickAccessState extends State<_QuickAccess> {
 class _QuickAccessTile extends StatelessWidget {
   const _QuickAccessTile({
     required this.label,
-    required this.illustration,
     required this.accent,
     required this.onTap,
+    this.illustration,
+    this.assetImage,
   });
 
   final String label;
-  final String illustration;
+  final String? illustration;
+  final String? assetImage;
   final Color accent;
   final VoidCallback onTap;
 
@@ -200,11 +211,21 @@ class _QuickAccessTile extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: GochanoIllustration(
-                    illustration,
-                    size: 28,
-                    accent: accent,
-                  ),
+                  child: assetImage != null
+                      ? ClipOval(
+                          child: Image.asset(
+                            assetImage!,
+                            width: 28,
+                            height: 28,
+                            fit: BoxFit.cover,
+                            semanticLabel: label,
+                          ),
+                        )
+                      : GochanoIllustration(
+                          illustration!,
+                          size: 28,
+                          accent: accent,
+                        ),
                 ),
               ),
               const SizedBox(height: GochanoSpacing.xxs),

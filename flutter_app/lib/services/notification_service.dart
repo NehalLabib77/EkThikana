@@ -350,4 +350,89 @@ class NotificationService {
     await init();
     await plugin.cancel(id: _taskNotificationId(taskId));
   }
+
+  // ---------------------------------------------------------------------------
+  // Community project task reminders (per-user, deterministic IDs)
+  // ---------------------------------------------------------------------------
+
+  /// Deterministic notification id for a community task reminder owned by
+  /// a specific user. Uses groupId + projectId + taskId + userId so that
+  /// tasks across different groups/projects never collide.
+  static int _communityTaskReminderId(
+    String groupId,
+    String projectId,
+    String taskId,
+    String userId,
+  ) =>
+      '$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff;
+
+  static Future<void> scheduleCommunityTaskReminder({
+    required String groupId,
+    required String projectId,
+    required String taskId,
+    required String userId,
+    required String title,
+    required DateTime when,
+  }) async {
+    await init();
+    if (!when.isAfter(DateTime.now())) return;
+
+    await plugin.zonedSchedule(
+      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
+      title: 'Gochano reminder',
+      body: title,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelRemindersId,
+          channelName: kChannelRemindersName,
+          channelDescription: kChannelRemindersDesc,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: taskId,
+    );
+  }
+
+  static Future<void> rescheduleCommunityTaskReminder({
+    required String groupId,
+    required String projectId,
+    required String taskId,
+    required String userId,
+    required String title,
+    DateTime? when,
+  }) async {
+    await init();
+    await plugin.cancel(
+      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
+    );
+    if (when == null || !when.isAfter(DateTime.now())) return;
+    await plugin.zonedSchedule(
+      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
+      title: 'Gochano reminder',
+      body: title,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelRemindersId,
+          channelName: kChannelRemindersName,
+          channelDescription: kChannelRemindersDesc,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: taskId,
+    );
+  }
+
+  static Future<void> cancelCommunityTaskReminder({
+    required String groupId,
+    required String projectId,
+    required String taskId,
+    required String userId,
+  }) async {
+    await init();
+    await plugin.cancel(
+      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
+    );
+  }
 }

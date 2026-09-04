@@ -122,6 +122,181 @@ class FirestoreService {
         .snapshots();
   }
 
+  // ---------------------------------------------------------------------------
+  // Group Projects
+  // ---------------------------------------------------------------------------
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupProjects(String groupId) {
+    return db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> projectTasks(
+    String groupId,
+    String projectId,
+  ) {
+    return db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .collection('tasks')
+        .orderBy('createdAt')
+        .snapshots();
+  }
+
+  static Future<DocumentReference<Map<String, dynamic>>> createProject({
+    required String groupId,
+    required String name,
+    String? description,
+  }) async {
+    final userProfile = await profile();
+    return db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .add({
+      'name': name.trim(),
+      'description': description?.trim() ?? '',
+      'createdBy': uid,
+      'createdByName': userProfile['displayName']?.toString() ?? '',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> updateProject({
+    required String groupId,
+    required String projectId,
+    required Map<String, dynamic> fields,
+  }) async {
+    await db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .update({
+      ...fields,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> deleteProject({
+    required String groupId,
+    required String projectId,
+  }) async {
+    // Delete all tasks first
+    final tasks = await db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .collection('tasks')
+        .get();
+    for (final doc in tasks.docs) {
+      await doc.reference.delete();
+    }
+    await db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .delete();
+  }
+
+  static Future<DocumentReference<Map<String, dynamic>>> createTask({
+    required String groupId,
+    required String projectId,
+    required String title,
+    String? description,
+    String? assigneeId,
+    DateTime? deadline,
+  }) async {
+    final userProfile = await profile();
+    return db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .collection('tasks')
+        .add({
+      'title': title.trim(),
+      'description': description?.trim() ?? '',
+      'assigneeId': assigneeId,
+      'completed': false,
+      'createdBy': uid,
+      'createdByName': userProfile['displayName']?.toString() ?? '',
+      'deadline': deadline,
+      'reminderByUser': <String, dynamic>{},
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> updateTask({
+    required String groupId,
+    required String projectId,
+    required String taskId,
+    required Map<String, dynamic> fields,
+  }) async {
+    await db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .collection('tasks')
+        .doc(taskId)
+        .update({
+      ...fields,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> deleteTask({
+    required String groupId,
+    required String projectId,
+    required String taskId,
+  }) async {
+    await db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .collection('tasks')
+        .doc(taskId)
+        .delete();
+  }
+
+  /// Sets or clears a per-user reminder on a community task.
+  ///
+  /// [reminderAt] is a [DateTime] for the reminder, or `null` to clear it.
+  /// The entry is stored under `reminderByUser.<userId>` so each member's
+  /// reminder is independent and reassignment does not overwrite others.
+  static Future<void> setTaskReminder({
+    required String groupId,
+    required String projectId,
+    required String taskId,
+    required String userId,
+    DateTime? reminderAt,
+  }) async {
+    final field = 'reminderByUser.$userId';
+    await db
+        .collection('groups')
+        .doc(groupId)
+        .collection('projects')
+        .doc(projectId)
+        .collection('tasks')
+        .doc(taskId)
+        .update({
+      field: reminderAt,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   static Future<void> saveNote({
     String? id,
     required String title,

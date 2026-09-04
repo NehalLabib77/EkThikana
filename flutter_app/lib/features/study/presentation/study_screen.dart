@@ -24,6 +24,7 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import 'ai/ai_assistant_screen.dart';
+import 'distraction/distraction_view.dart';
 import 'focus/focus_view.dart';
 import 'planner/plan_view.dart';
 import 'workspace/workspace_view.dart';
@@ -42,7 +43,7 @@ class _StudyScreenState extends State<StudyScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -84,6 +85,7 @@ class _StudyScreenState extends State<StudyScreen>
             Tab(text: GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')),
             Tab(text: GochanoLanguage.text('Plan', 'পরিকল্পনা')),
             Tab(text: GochanoLanguage.text('Focus', 'ফোকাস')),
+            Tab(text: GochanoLanguage.text('Distraction', 'বিচ্ছিন্নতা')),
           ],
         ),
       ),
@@ -93,6 +95,7 @@ class _StudyScreenState extends State<StudyScreen>
           WorkspaceView(),
           PlanView(),
           FocusView(),
+          DistractionView(),
         ],
       ),
     );

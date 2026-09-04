@@ -48,6 +48,8 @@ dependencies:
 
   flutter_svg: ^2.0.10+1
 
+  usage_stats: ^2.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -79,3 +81,4 @@ flutter:
 
   assets:
     - assets/branding/Gochano.png
+    - assets/Ziku.png

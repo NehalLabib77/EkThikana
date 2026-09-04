@@ -22,6 +22,7 @@
 // (spec §35).
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
@@ -570,6 +571,36 @@ class _TurnCard extends StatelessWidget {
                   const SizedBox(height: GochanoSpacing.xs),
                 ],
                 SelectableText(turn.answer, style: context.type.body),
+                const SizedBox(height: GochanoSpacing.xs),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: turn.answer));
+                      showGochanoMessage(
+                        context,
+                        GochanoLanguage.text('Copied', 'কপি হয়েছে'),
+                      );
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.copy_rounded,
+                          size: 14,
+                          color: colors.textTertiary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          GochanoLanguage.text('Copy', 'কপি'),
+                          style: context.type.caption.copyWith(
+                            color: colors.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

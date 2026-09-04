@@ -220,6 +220,8 @@ Shared Box previously opened `CommunityScreen()`, which shows the full Community
 
 ### Shortcuts
 
+> **Note:** AI Assistant was added as the first shortcut in a subsequent change (see "Workspace AI Assistant / Ziku" below). Final count: 6 shortcuts (AI Assistant, Notes, PDFs, Saved Images, Semester, Shared Box).
+
 | # | Label (EN) | Label (BN) | Illustration | Accent | Destination |
 |---|-----------|------------|-------------|--------|-------------|
 | 1 | Notes | নোট | `fileNote` | `colors.study` | `NotesScreen()` |
@@ -233,7 +235,7 @@ Shared Box previously opened `CommunityScreen()`, which shows the full Community
 - 4 columns on phones ≥380dp, 3 columns on narrower screens
 - Tile: 52px tinted circle icon + 2-line centered label (matches Home Quick Actions exactly)
 - "See more" / "See less" `TextButton.icon` toggle below grid
-- Collapsed: 3 tiles. Expanded: 5 tiles. State is local `bool _expanded` — no persistence.
+- Collapsed: 3 tiles. Expanded: 6 tiles. State is local `bool _expanded` — no persistence.
 
 ### SemesterListScreen Architecture
 - Standalone `GochanoScaffold` screen with AppBar "Semesters"
@@ -964,10 +966,226 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
+## Feature 4 — Study Distraction (Screen-Time Monitoring)
+
+### Overview
+Added a 4th tab "Distraction" / "বিচ্ছিন্নতা" to the Study screen. Uses Android's `UsageStatsManager` via the `usage_stats` package to display per-app screen-time data locally on device. Includes Profile-level Usage Access management entry.
+
+### Verified Android ApplicationId
+`com.ekthikana.ekthikana` (from `android/app/build.gradle.kts:41`)
+
+### Verified Behavior
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| 4th tab in Study screen | ✅ | `study_screen.dart:46` — `TabController(length: 4, ...)` with "Distraction" tab |
+| Permission gate | ✅ | `distraction_view.dart` — Checks `UsageStats.checkUsagePermission()`; shows settings CTA if denied |
+| Opens Usage Access settings | ✅ | `usage_stats_service.dart:33` — `UsageStats.grantUsagePermission()` |
+| Total Screen Time card | ✅ | `_buildSummaryCard()` — Shows `ScreenTimeSummary.totalScreenTime` in `hh:mm` format |
+| Gochano Usage section | ✅ | `_buildGochanoSection()` — Isolates `com.ekthikana.ekthikana` foreground time + percentage |
+| Other Apps aggregate + list | ✅ | `_buildOtherAppsSection()` — Shows aggregate duration in header + top 10 individual apps |
+| Color logic: Other apps | ✅ | `_getOtherAppColor()`: 0-30m → success (green), 31-60m → warning (amber), >60m → error (red) |
+| Color logic: Gochano (reversed) | ✅ | `_getGochanoColor()`: 0-30m → error (red), 31-60m → warning (amber), >60m → success (green) |
+| Gochano filtered from Other Apps | ✅ | `usage_stats_service.dart:81-83` — `otherAppsSorted` excludes `gochanoPackage` |
+| Profile Usage Access entry | ✅ | `profile_screen.dart:760-789` — Shows "Granted"/"Permission required", opens settings |
+| Pull-to-refresh | ✅ | `RefreshIndicator` wrapping `ListView` |
+| Error handling | ✅ | Catches permission failures and data load errors; shows retry button |
+| Privacy note | ✅ | Permission gate shows "Your usage data stays on this device and is never shared" |
+| EN/Bangla localization | ✅ | All labels use `GochanoLanguage.text(en, bn)` |
+| Android permission declared | ✅ | `AndroidManifest.xml:9` — `PACKAGE_USAGE_STATS` with `tools:ignore="ProtectedPermissions"` |
+| App name resolution | ✅ | `UsageStats.getAppInfo(pkg)` → `appName`; fallback to last segment of package name |
+
+### Double-Count Protection
+- Aggregation sums `totalTimeInForegroundMs` per package from `UsageStats.queryUsageStats()`.
+- `otherAppsUsage = max(totalMs - gochanoMs, 0)` — clamped to prevent negative values.
+- Negative/zero `totalTimeInForegroundMs` values are ignored during aggregation.
+- Gochano package excluded from per-app list to avoid double-display.
+
+### Privacy (Code Audit)
+- `usage_stats_service.dart` imports ONLY `package:usage_stats/usage_stats.dart`.
+- Zero imports of `cloud_firestore`, `firebase_auth`, `api_service`, or HTTP clients.
+- No Firestore/Firebase/backend writes for usage data exist anywhere in the codebase.
+- Raw UsageStats/UsageEvents remain device-local exclusively.
+
+### Architecture
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Service | `lib/services/usage_stats_service.dart` | Wraps `usage_stats` package; resolves app names; aggregates Gochano vs other usage |
+| UI | `lib/features/study/presentation/distraction/distraction_view.dart` | Permission gate, summary cards, app list with color-coded dots |
+| Profile entry | `lib/features/profile/presentation/profile_screen.dart:760-789` | Usage Access row with status + tap to open settings |
+| Tab integration | `lib/features/study/presentation/study_screen.dart:46,89,98` | 4th tab controller + `DistractionView` in `TabBarView` |
+| Android manifest | `android/app/src/main/AndroidManifest.xml:9` | `PACKAGE_USAGE_STATS` permission |
+| Dependency | `pubspec.yaml:51` | `usage_stats: ^2.0.1` |
+
+### No Commit / Push / Deploy
+Confirmed. No git commit, push, or deploy operations performed.
+
+---
+
+## AI Assistant Copy
+
+### Overview
+Every AI response in the Assistant screen includes a compact copy button that copies the full response text to the clipboard with bilingual feedback.
+
+### Verified Behavior
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| Copy icon on every AI response | ✅ | `ai_assistant_screen.dart:575-603` — `GestureDetector` with `Icons.copy_rounded` + "Copy"/"কপি" label |
+| Copies full readable response | ✅ | `Clipboard.setData(ClipboardData(text: turn.answer))` at line 579 |
+| Each response copies only itself | ✅ | `turn.answer` is scoped to the individual `_TurnCard`'s `_Turn` object |
+| Feedback: Copied / কপি হয়েছে | ✅ | `showGochanoMessage(context, GochanoLanguage.text('Copied', 'কপি হয়েছে'))` at lines 580-583 |
+| Markdown rendering preserved | ✅ | `SelectableText(turn.answer, style: context.type.body)` — plain text, no Markdown parser needed |
+| GROQ flow preserved | ✅ | Copy is a UI-only action; no changes to AI/GROQ/backend architecture |
+| EN/Bangla | ✅ | `GochanoLanguage.text('Copied', 'কপি হয়েছে')` |
+| Light/dark mode | ✅ | Uses `context.colors.textTertiary` for icon color |
+| No overflow | ✅ | Copy button is `Row` at bottom-right of `AppCard`, uses `Expanded` for text |
+| `flutter/services.dart` imported | ✅ | Line 25: `import 'package:flutter/services.dart';` |
+
+### Files Changed
+- `flutter_app/lib/features/study/presentation/ai/ai_assistant_screen.dart` — Added copy button to `_TurnCard` widget
+
+### No Commit / Push / Deploy
+Confirmed.
+
+---
+
+## Workspace AI Assistant / Ziku
+
+### Overview
+AI Assistant added as the first Quick Access shortcut in the Study Workspace, using the existing `Ziku.png` asset for its icon.
+
+### Verified Behavior
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| AI Assistant in Quick Access | ✅ | `workspace_view.dart:64-71` — First shortcut tile |
+| Uses `Ziku.png` asset | ✅ | `workspace_view.dart:66` — `assetImage: 'assets/Ziku.png'` |
+| `Ziku.png` registered in pubspec.yaml | ✅ | `pubspec.yaml:84` — `- assets/Ziku.png` |
+| Opens existing AI Assistant screen | ✅ | `workspace_view.dart:69` — `AiAssistantScreen()` |
+| Collapsed = 3 items | ✅ | `workspace_view.dart:49` — `_kCollapsedCount = 3`; first 3: AI Assistant, Notes, PDFs |
+| Expanded = all 6 items | ✅ | `workspace_view.dart:124-126` — `tiles.take(_kCollapsedCount)` when collapsed |
+| See more / See less toggle | ✅ | `workspace_view.dart:154-168` — `TextButton.icon` toggles `_expanded` |
+| All 6 shortcuts present | ✅ | AI Assistant, Notes, PDFs, Saved Images, Semester, Shared Box (lines 64-116) |
+| Recent Materials below Quick Access | ✅ | `workspace_view.dart:39` — `_RecentMaterials()` is second child |
+| No duplicate Notes/Semester sections | ✅ | Workspace is a pure launcher; no embedded content sections |
+| Image loads without case issues | ✅ | `assets/Ziku.png` matches exact filename on disk |
+| Existing shortcuts remain functional | ✅ | All 5 original shortcuts unchanged; AI Assistant added as new first item (now 6 total) |
+
+### Architecture
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Workspace shortcuts | `lib/features/study/presentation/workspace/workspace_view.dart:64-71` | AI Assistant tile with Ziku.png |
+| Tile widget | `workspace_view.dart:214-228` | `_QuickAccessTile` handles `assetImage` vs `illustration` branching |
+| Asset | `flutter_app/assets/Ziku.png` | AI Assistant icon |
+| Asset registration | `pubspec.yaml:84` | `- assets/Ziku.png` |
+
+### No Commit / Push / Deploy
+Confirmed.
+
+---
+
+## Community Projects
+
+### Overview
+Full project/task management system within Community Groups. Primary navigation: Overview | Resources | Chat | Projects (4 tabs). Members integrated into Overview (not a 5th tab).
+
+### Final Primary Tabs
+`Overview | Resources | Chat | Projects`
+
+Members are NOT a separate tab. Member info and management are integrated into the Overview tab.
+
+### Overview Tab Contents
+- Group type + description
+- Invite code (selectable, with copy button)
+- Copy invite code → "Invite code copied" / "ইনভাইট কোড কপি হয়েছে"
+- Members list with nickname/displayName (not email)
+- Role/admin indication (Admin badge)
+
+### Member Display Priority
+1. `nickname` (if set in profile)
+2. `displayName` (canonical field actually populated during registration)
+3. "Student" / "গ্রুপ সদস্য" fallback
+
+Email is NEVER shown as normal member identity.
+
+### Verified Behavior
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| 4-tab structure | ✅ | `group_detail_screen.dart:60` — `TabController(length: 4, ...)` |
+| Members in Overview (not 5th tab) | ✅ | `group_detail_screen.dart:312-326` — Members section in `_OverviewTab` |
+| Nickname as primary display | ✅ | `_MemberRow:1938-1941`, `_FutureChip:1295-1298` — nickname → displayName fallback |
+| No email exposure | ✅ | Neither `_MemberRow` nor `_FutureChip` reads `email` field |
+| Invite code in Overview | ✅ | `group_detail_screen.dart:254-280` — SelectableText with letter spacing |
+| Admin badge | ✅ | `_MemberRow:1735-1741` — `GochanoBadge` with "Admin"/"অ্যাডমিন" |
+| Project CRUD | ✅ | `firestore_service.dart:129-209` — create/update/delete projects + cascade delete tasks |
+| Task CRUD | ✅ | `firestore_service.dart:211-271` — create/update/delete tasks |
+| Task assignment | ✅ | `_showCreateTaskSheet:1409-1429` — Dropdown with member list; `_handleTaskAction` reassign |
+| Progress bar colors | ✅ | `_ProjectCard:678-682` — 0-39% red, 40-79% yellow, 80-100% green |
+| Per-user task reminders | ✅ | `_showCreateTaskSheet` — ChoiceChip presets (None/10min/30min/1hr); `_handleTaskAction` reminder action |
+| Reminder cancellation on complete | ✅ | `_toggleTaskComplete:1357-1362` — Cancels assignee's reminder |
+| Reminder cancellation on delete | ✅ | `_handleTaskAction` delete:1886-1896 — Iterates `reminderByUser` map, cancels all |
+| Reminder cancellation on unassign | ✅ | `_handleTaskAction` assign:1770-1780 — Cancels old assignee's reminder |
+| Deterministic notification IDs | ✅ | `notification_service.dart:361-367` — `_communityTaskReminderId(groupId, projectId, taskId, userId)` = `'$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff` |
+| EN/Bangla localization | ✅ | All labels use `GochanoLanguage.text(en, bn)` |
+
+### Firestore Structure
+```
+groups/{groupId}/
+  projects/{projectId}/
+    name: String
+    description: String?
+    createdBy: String
+    createdByName: String
+    createdAt: Timestamp
+    updatedAt: Timestamp
+    tasks/{taskId}/
+      title: String
+      description: String?
+      assigneeId: String?
+      completed: Boolean
+      deadline: Timestamp?
+      reminderByUser: { userId: Timestamp }  // per-user reminders
+      createdBy: String
+      createdByName: String
+      createdAt: Timestamp
+      updatedAt: Timestamp
+```
+
+### Reminder System
+- **Storage**: `reminderByUser` map field on task document — each user's reminder is independent
+- **Scheduling**: `NotificationService.scheduleCommunityTaskReminder()` with deterministic ID `'$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff`
+- **Cancellation**: On task completion, deletion, unassignment, or reminder disabled
+- **Presets**: None / 10 min before / 30 min before / 1 hour before deadline
+- **UI**: ChoiceChip picker in create sheet + "Set reminder" action in task popup menu (assignee only)
+
+### Files Changed
+
+| File | Purpose |
+|------|---------|
+| `lib/features/community/presentation/group_detail_screen.dart` | 4-tab layout, Overview with members, Projects tab, task CRUD, reminders, member display |
+| `lib/services/firestore_service.dart` | Project/task CRUD methods, `reminderByUser` field, `setTaskReminder()` |
+| `lib/services/notification_service.dart` | `scheduleCommunityTaskReminder()`, `rescheduleCommunityTaskReminder()`, `cancelCommunityTaskReminder()` |
+
+### Preserved Existing Community Features
+- Optimistic chat sending
+- Group resources (PDF/image/note sharing)
+- Existing permissions model
+- Invite behavior
+- Member management (moved to Overview, not removed)
+
+### No Commit / Push / Deploy
+Confirmed.
+
+---
+
 ## Final Test Results
 
 | Suite | Result |
 |-------|--------|
-| Flutter analyze | **0 issues** |
+| Flutter analyze | **0 errors, 6 pre-existing info warnings** |
 | Flutter test | **292/292 passed** |
 | Backend (full) | **391/391 passed** (7 pre-existing FK constraint failures in `test_commute_postgres.py` and 7 pre-existing missing-script errors in `test_storage_migration.py` excluded) | |

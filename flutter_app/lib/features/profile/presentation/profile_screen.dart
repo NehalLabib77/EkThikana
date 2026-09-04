@@ -30,6 +30,7 @@ import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
+import '../../../services/usage_stats_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
@@ -616,6 +617,7 @@ class _SettingsCard extends StatefulWidget {
 
 class _SettingsCardState extends State<_SettingsCard> {
   bool? _notificationsEnabled;
+  bool? _usageAccessGranted;
 
   /// The month's amount, or null while unread. Kept separate from "zero" so
   /// a failed read is never shown as "not set".
@@ -627,6 +629,7 @@ class _SettingsCardState extends State<_SettingsCard> {
   void initState() {
     super.initState();
     _checkNotifications();
+    _checkUsageAccess();
     if (widget.isStudent) _loadBudget();
   }
 
@@ -669,6 +672,11 @@ class _SettingsCardState extends State<_SettingsCard> {
   Future<void> _checkNotifications() async {
     final enabled = await NotificationService.areNotificationsEnabled();
     if (mounted) setState(() => _notificationsEnabled = enabled);
+  }
+
+  Future<void> _checkUsageAccess() async {
+    final granted = await UsageStatsService.hasPermission();
+    if (mounted) setState(() => _usageAccessGranted = granted);
   }
 
   @override
@@ -757,6 +765,31 @@ class _SettingsCardState extends State<_SettingsCard> {
                           ),
                         )
                       : null,
+                ),
+                _SettingsRow(
+                  icon: Icons.screen_lock_portrait_rounded,
+                  title: GochanoLanguage.text(
+                    'Usage Access',
+                    'ব্যবহার অ্যাক্সেস',
+                  ),
+                  value: switch (_usageAccessGranted) {
+                    true => GochanoLanguage.text(
+                        'Granted',
+                        'দেওয়া হয়েছে',
+                      ),
+                    false => GochanoLanguage.text(
+                        'Permission required',
+                        'অনুমতি প্রয়োজন',
+                      ),
+                    null => GochanoLanguage.text(
+                        'Checking…',
+                        'দেখা হচ্ছে…',
+                      ),
+                  },
+                  onTap: () async {
+                    await UsageStatsService.openSettings();
+                    await _checkUsageAccess();
+                  },
                 ),
               ],
             );
