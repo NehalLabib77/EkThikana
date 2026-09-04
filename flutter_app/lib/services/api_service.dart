@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../core/app_config.dart';
 import 'auth_service.dart';
@@ -812,17 +813,47 @@ class ApiService {
 
   // ----- Profile photo ---------------------------------------------------
 
+  /// Determine MIME type from a file path extension.
+  ///
+  /// `ImagePicker` on Android may return files where the extension is missing
+  /// or mismatched (e.g. a HEIC image with a `.jpg` extension after
+  /// compression). `MultipartFile.fromPath` relies on `lookupMimeType` which
+  /// can fall back to `application/octet-stream`, causing a 415 from the
+  /// backend. This method explicitly maps known image extensions.
+  static String _imageContentType(String filePath) {
+    final ext = filePath.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+      case 'heif':
+        return 'image/heic';
+      default:
+        // Let the http package attempt detection; the backend will reject
+        // anything not in the allowed set with a clear 415.
+        return 'application/octet-stream';
+    }
+  }
+
   /// Upload a profile photo. Returns the signed URL for immediate display.
   static Future<String> uploadProfilePhoto(String filePath) async {
     return _guard(() async {
       final uri = _uri('/api/account/profile-photo');
-      final file = await http.MultipartFile.fromPath('file', filePath);
+      final contentType = _imageContentType(filePath);
+      final file = await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+        contentType: MediaType.parse(contentType),
+      );
       final request = http.MultipartRequest('POST', uri)
         ..headers.addAll(await _headers())
         ..files.add(file);
-      final streamed = await _client.send(
-        request,
-      );
+      final streamed = await _client.send(request);
       final response = await http.Response.fromStream(streamed);
       final data = _decode(response);
       return (data['photoURL'] as String?) ?? '';

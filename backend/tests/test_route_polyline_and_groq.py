@@ -186,7 +186,7 @@ class TestGrokProviderConfig:
     def test_groq_model_default(self):
         """The default GROQ model must be set."""
         settings = get_settings()
-        assert settings.groq_model == "llama-3.3-70b-versatile"
+        assert settings.groq_model == "qwen/qwen3.8-27b"
 
     def test_gemini_model_default(self):
         """The fallback Gemini model must be set."""

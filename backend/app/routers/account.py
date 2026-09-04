@@ -334,6 +334,41 @@ _ALLOWED_IMAGE_TYPES = {
     "image/webp": ".webp",
 }
 
+# When the Content-Type header is missing or wrong (common on Android when
+# ImagePicker returns files without a proper extension or with
+# application/octet-stream), infer the MIME type from the filename extension.
+_EXT_TO_MIME = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+}
+
+_REJECTED_MIME = {
+    "image/heic",
+    "image/heif",
+}
+
+
+def _infer_content_type(file: UploadFile) -> str:
+    """Return the best-guess MIME type for the uploaded file.
+
+    Priority: Content-Type header > filename extension > fallback.
+    """
+    ct = (file.content_type or "").lower().strip()
+    if ct and ct != "application/octet-stream":
+        return ct
+
+    # Try the filename extension.
+    filename = (file.filename or "").lower()
+    for ext, mime in _EXT_TO_MIME.items():
+        if filename.endswith(ext):
+            return mime
+
+    return ct  # remains application/octet-stream if truly unknown
+
 
 @router.post("/account/profile-photo")
 async def upload_profile_photo(
@@ -346,7 +381,18 @@ async def upload_profile_photo(
     document stores only the B2 storage path — a fresh signed URL is
     returned to the client so it can render the image immediately.
     """
-    content_type = (file.content_type or "").lower()
+    content_type = _infer_content_type(file)
+
+    # Explicitly reject HEIC/HEIF — these need conversion before upload.
+    if content_type in _REJECTED_MIME:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                "HEIC/HEIF images are not supported. "
+                "Please convert to JPEG or PNG before uploading."
+            ),
+        )
+
     if content_type not in _ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=415,
@@ -361,6 +407,20 @@ async def upload_profile_photo(
         raise HTTPException(
             status_code=413,
             detail="Profile photo must be under 5 MB.",
+        )
+
+    # Validate actual image bytes with Pillow — prevents a file with a
+    # valid extension but corrupt or non-image content from reaching B2.
+    try:
+        from io import BytesIO
+        from PIL import Image as _PilImage
+
+        img = _PilImage.open(BytesIO(raw))
+        img.verify()  # raises if the image data is corrupt
+    except Exception:
+        raise HTTPException(
+            status_code=415,
+            detail="The file is not a valid image. Please upload a JPEG, PNG or WebP.",
         )
 
     ext = _ALLOWED_IMAGE_TYPES[content_type]

@@ -7,6 +7,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from app.services.commute.graph_builder import load_coordinates
+
 DATA_ROOT = Path(__file__).resolve().parents[3] / "data" / "commutebd" / "core_dataset" / "csv"
 
 
@@ -81,6 +83,7 @@ class CommuteDataRepository:
         if len(q) < 2:
             return []
         scored: list[tuple[int, dict[str, Any]]] = []
+        coordinates = load_coordinates()
         for row in self.places:
             en = _clean(row.get("name_en"))
             bn = _clean(row.get("name_bn"))
@@ -89,13 +92,17 @@ class CommuteDataRepository:
             if q not in hay:
                 continue
             score = 0 if norm == q or normalize_name(en) == q or normalize_name(bn) == q else 1
+            place_id = row.get("place_id")
+            coords = coordinates.get(str(place_id)) if place_id else None
             scored.append(
                 (
                     score,
                     {
-                        "placeId": row.get("place_id"),
+                        "placeId": place_id,
                         "nameEn": en,
                         "nameBn": bn,
+                        "lat": coords[0] if coords else None,
+                        "lon": coords[1] if coords else None,
                         "geocodeStatus": row.get("geocode_status") or "pending",
                         "source": row.get("source_id"),
                     },

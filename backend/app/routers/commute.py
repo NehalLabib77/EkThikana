@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -16,6 +17,8 @@ from app.services.commute.fare_quality import duplicate_key, validate_report
 from app.services.commute.ml_status import readiness as ml_readiness
 from app.services.commute.routing import Coordinate, get_routing_provider
 from app.services.commute.service import get_commute_service
+
+logger = logging.getLogger("gochano.commute")
 
 router = APIRouter()
 
@@ -254,18 +257,44 @@ async def routes_supabase(
     body: CommuteRoutesRequest,
     user: CurrentUser = Depends(get_current_user),
 ):
+    # Log input coordinates for diagnostics (no secrets, no Firebase IDs).
+    _o = body.origin
+    _d = body.destination
+    logger.info(
+        "Route request: origin=(place_id=%s, name=%s, lat=%s, lon=%s) "
+        "dest=(place_id=%s, name=%s, lat=%s, lon=%s)",
+        _o.place_id, _o.name, _o.lat, _o.lon,
+        _d.place_id, _d.name, _d.lat, _d.lon,
+    )
     try:
-        return await get_commute_service().routes(body)
+        result = await get_commute_service().routes(body)
+        logger.info(
+            "Route OK: distance=%s km, duration=%s min, polyline_pts=%s",
+            result.get("distanceKm"),
+            result.get("estimatedDurationMin"),
+            len(result.get("polyline") or []),
+        )
+        return result
     except ValueError as exc:
+        # Coordinate resolution failed — give the user a specific message.
+        logger.warning("Route resolution failed: %s", exc)
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
         message = str(exc)
+        logger.warning("Route runtime error: %s", message)
         if "No route" in message:
             raise HTTPException(status_code=404, detail=message)
         raise HTTPException(status_code=503, detail=message)
     except HTTPException:
         raise
-    except Exception:
-        raise HTTPException(status_code=503, detail="CommuteBD route calculation is unavailable")
+    except Exception as exc:
+        logger.exception("Route calculation failed unexpectedly")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Road route is temporarily unavailable. "
+                "Please try a different origin or destination."
+            ),
+        )
 
 

@@ -123,11 +123,22 @@ class CommuteService:
         place: dict[str, Any] | None = None
         if item.place_id:
             place = self.repo.get_place(item.place_id)
+            logger.debug(
+                "DB lookup place_id=%s → %s",
+                item.place_id,
+                "found" if place else "NOT FOUND",
+            )
         elif item.name:
             results = self.repo.search_places(item.name, limit=5)
             if results:
                 first = results[0]
                 place = self.repo.get_place(str(first["placeId"]))
+                logger.debug(
+                    "Name search '%s' → place_id=%s → %s",
+                    item.name,
+                    first.get("placeId"),
+                    "found" if place else "NOT FOUND",
+                )
 
         name = item.name or (str(place.get("name_en")) if place else "")
         place_id = item.place_id or (str(place.get("place_id")) if place else None)
@@ -158,6 +169,9 @@ class CommuteService:
             derived = load_coordinates().get(str(place_id))
             if derived:
                 lat, lon = derived
+                logger.debug("CSV fallback place_id=%s → (%s, %s)", place_id, lat, lon)
+            else:
+                logger.debug("CSV fallback: place_id=%s NOT in place_coordinates.csv", place_id)
 
         # Only genuinely unknown places reach the geocoder now, and the
         # answers are cached so the same place is never looked up twice.
@@ -165,9 +179,20 @@ class CommuteService:
             external = await self._geocode_once(name)
             if external:
                 lat, lon = external
+                logger.debug("Nominatim '%s' → (%s, %s)", name, lat, lon)
+            else:
+                logger.debug("Nominatim '%s' → no result", name)
 
         if lat is None or lon is None:
             label = name or place_id or "the selected place"
+            logger.warning(
+                "Could not resolve coordinates for '%s' (place_id=%s). "
+                "DB=%s, CSV=%s, Nominatim=%s",
+                label, place_id,
+                "found" if place else "not found",
+                "hit" if (place_id and load_coordinates().get(str(place_id))) else "miss",
+                "checked",
+            )
             raise ValueError(
                 f"Could not find where {label} is on the map. "
                 "Try a nearby landmark instead."

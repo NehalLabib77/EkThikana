@@ -50,6 +50,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
 
   bool _searching = false;
   String _error = '';
+  String _errorTitle = '';
   Map<String, dynamic>? _result;
 
   bool get _canSearch =>
@@ -72,6 +73,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       // A new endpoint invalidates the previous answer.
       _result = null;
       _error = '';
+      _errorTitle = '';
     });
   }
 
@@ -82,6 +84,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       _destination = from;
       _result = null;
       _error = '';
+      _errorTitle = '';
     });
   }
 
@@ -96,6 +99,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       // A new endpoint invalidates the previous answer.
       _result = null;
       _error = '';
+      _errorTitle = '';
     });
   }
 
@@ -107,6 +111,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
     setState(() {
       _searching = true;
       _error = '';
+      _errorTitle = '';
       _result = null;
     });
 
@@ -128,9 +133,29 @@ class _CommuteScreenState extends State<CommuteScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+      final msg = friendlyErrorMessage(error);
+      String title;
+      if (msg.contains('Could not find')) {
+        title = GochanoLanguage.text(
+          'Location not found',
+          'লোকেশন পাওয়া যায়নি',
+        );
+      } else if (msg.contains('temporarily unavailable') ||
+          msg.contains('route calculation')) {
+        title = GochanoLanguage.text(
+          'Routing unavailable',
+          'রুট ব্যবস্থা অনুপলব্ধ',
+        );
+      } else {
+        title = GochanoLanguage.text(
+          'Could not find routes',
+          'রুট খুঁজে পাওয়া যায়নি',
+        );
+      }
       setState(() {
         _searching = false;
-        _error = friendlyErrorMessage(error);
+        _error = msg;
+        _errorTitle = title;
       });
     }
   }
@@ -184,6 +209,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
             const SizedBox(height: GochanoSpacing.lg),
             ErrorState(
               compact: true,
+              title: _errorTitle.isNotEmpty ? _errorTitle : null,
               message: _error,
               onRetry: _canSearch ? _findRoutes : null,
             ),

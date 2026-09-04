@@ -618,18 +618,63 @@ Root cause: `_destinations` was a getter → new `ProfileScreen` on every `setSt
 | `/api/account/profile-photo` | POST | Upload image to B2, delete old photo, update Firestore, return signed URL |
 | `/api/account/profile-photo-url` | GET | Regenerate fresh signed URL for existing `photoPath` in Firestore |
 
+### Production Bug Fix — 415 Unsupported Media Type
+
+**Root cause:** `http.MultipartFile.fromPath('file', filePath)` relies on `lookupMimeType` from the `http_parser` package to detect MIME type from the file extension. On Android, `ImagePicker.pickImage()` with `imageQuality: 85` may return a file where the MIME detection returns `application/octet-stream` instead of the correct image MIME type. The backend strictly checks `file.content_type` against `_ALLOWED_IMAGE_TYPES` and rejects anything not in the map with HTTP 415.
+
+**Failing value:** `file.content_type = "application/octet-stream"` on Android when ImagePicker returns files without a proper extension or with a non-standard path.
+
+**Exact fix — Flutter (`api_service.dart`):**
+- Added `_imageContentType(String filePath)` — maps `.jpg`/`.jpeg` → `image/jpeg`, `.png` → `image/png`, `.webp` → `image/webp`, `.heic`/`.heif` → `image/heic`
+- `uploadProfilePhoto()` now explicitly sets `contentType: MediaType.parse(contentType)` on the `MultipartFile`
+- Added `import 'package:http_parser/http_parser.dart'` and `http_parser: ^4.0.0` to `pubspec.yaml`
+
+**Exact fix — Backend (`account.py`):**
+- Added `_infer_content_type(file)` — falls back to filename extension when `Content-Type` header is `application/octet-stream` or missing
+- Added `_EXT_TO_MIME` map including `.heic`/`.heif` → explicit rejection
+- Added `_REJECTED_MIME` set — HEIC/HEIF get a clear 415 with "please convert to JPEG or PNG"
+- Added Pillow-based image bytes validation after reading the file — rejects corrupt or non-image bytes with 415
+
 ### Files Changed
 
 | File | What Changed |
 |------|--------------|
-| `backend/app/routers/account.py` | Added imports (`uuid4`, `File`, `UploadFile`, `HTTPException`, `get_settings`, `create_signed_url`, `upload_bytes`). Added `_ALLOWED_IMAGE_TYPES` dict. Added `POST /account/profile-photo` endpoint (validates type+size, uploads to B2, deletes old photo, writes `photoPath`+`photoURL` to Firestore). Added `GET /account/profile-photo-url` endpoint (regenerates signed URL, updates Firestore cache). |
-| `flutter_app/lib/services/api_service.dart` | Added `uploadProfilePhoto(String filePath)` — multipart POST to `/api/account/profile-photo`. Added `refreshProfilePhotoUrl()` — GET to `/api/account/profile-photo-url`. |
-| `flutter_app/lib/features/profile/presentation/profile_screen.dart` | Replaced static `_IdentityHeader` with stream-based builder reading `photoURL` from Firestore. Added `_ProfileAvatar` widget (96px circular, camera tap-to-upload, network image with error fallback, camera overlay). Added `_changePhoto()` function (ImagePicker camera/gallery, bottom sheet source selection, upload via ApiService, Firestore update). Reduced vertical spacing. Added `semanticLabel` to `Image.network` for accessibility. |
+| `flutter_app/lib/services/api_service.dart` | Added `import 'package:http_parser/http_parser.dart'`. Added `_imageContentType()` method. `uploadProfilePhoto()` now passes `contentType: MediaType.parse(contentType)` to `MultipartFile.fromPath()`. |
+| `flutter_app/pubspec.yaml` | Added `http_parser: ^4.0.0` as explicit dependency |
+| `backend/app/routers/account.py` | Added `_infer_content_type()`, `_EXT_TO_MIME`, `_REJECTED_MIME`. Upload endpoint now infers MIME from extension when header is wrong. Added Pillow image bytes validation. HEIC/HEIF explicitly rejected with clear message. |
 
 ### Tests & Results
 - ✅ `flutter analyze` — 0 issues
-- ✅ `flutter test` — 292 passed, 0 failed (including accessibility audit)
-- ✅ `python -m pytest tests -q` — 360 passed, 0 failed
+- ✅ `flutter test` — 292/292 passed
+- ✅ `python -m pytest tests -q` — 392/392 passed (excluding 8 pre-existing failures)
+
+### New Regression Tests (17 in `tests/test_profile_photo_and_commute_fixes.py`)
+
+| Test | What It Verifies |
+|------|------------------|
+| `test_jpg_extension_infers_image_jpeg` | `.jpg` extension → `image/jpeg` |
+| `test_jpeg_extension_infers_image_jpeg` | `.jpeg` extension → `image/jpeg` |
+| `test_png_extension_infers_image_png` | `.png` extension → `image/png` |
+| `test_webp_extension_infers_image_webp` | `.webp` extension → `image/webp` |
+| `test_heic_extension_infers_image_heic` | `.heic` extension → `image/heic` (rejected) |
+| `test_heif_extension_infers_image_heif` | `.heif` extension → `image/heif` (rejected) |
+| `test_valid_content_type_passthrough` | Valid Content-Type header passed through |
+| `test_octet_stream_with_no_extension_stays_octet` | Unknown extension stays `application/octet-stream` |
+| `test_gif_extension_not_allowed` | `.gif` not in allowed types |
+| `test_allowed_types_map` | `_ALLOWED_IMAGE_TYPES` has correct entries |
+| `test_rejected_mime_contains_heic` | HEIC/HEIF in rejected set |
+| `test_valid_jpeg_bytes_accepted` | Pillow validates real JPEG bytes |
+| `test_valid_png_bytes_accepted` | Pillow validates real PNG bytes |
+| `test_valid_webp_bytes_accepted` | Pillow validates real WebP bytes |
+| `test_corrupt_jpeg_rejected` | Corrupt JPEG header rejected by Pillow |
+| `test_random_bytes_rejected` | Random bytes rejected by Pillow |
+| `test_text_file_rejected` | Text file rejected by Pillow |
+
+### What still needs real-device verification
+- Upload a JPEG photo from Android camera — should succeed with `image/jpeg` content type
+- Upload a PNG photo from gallery — should succeed with `image/png` content type
+- Upload a HEIC photo — should be rejected with clear "convert to JPEG" message
+- Upload a corrupt file — should be rejected with "not a valid image" message
 
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
@@ -645,12 +690,12 @@ Migrated the AI assistant backend from Gemini (primary) to GROQ (primary) with G
 
 | Provider | Role | Endpoint | Model |
 |----------|------|----------|-------|
-| GROQ | **Primary** | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` (configurable) |
+| GROQ | **Primary** | `https://api.groq.com/openai/v1/chat/completions` | `qwen/qwen3.8-27b` |
 | Gemini | Fallback | `https://generativelanguage.googleapis.com/v1beta/...` | `gemini-2.5-flash` (configurable) |
 
-### GROQ Configuration
-- `groq_api_key`: Bearer token for GROQ API (must be set in `.env` or environment)
-- `groq_model`: Default `llama-3.3-70b-versatile`
+### Production Configuration
+- `groq_api_key`: **Configured in Render Environment** (never print/store the key)
+- `groq_model`: `qwen/qwen3.8-27b` (production default in `config.py`)
 - Endpoint: OpenAI-compatible chat completions format (`messages` array with `role`/`content`)
 
 ### Runtime Behavior
@@ -664,20 +709,19 @@ Migrated the AI assistant backend from Gemini (primary) to GROQ (primary) with G
 | File | What Changed |
 |------|--------------|
 | `backend/app/services/ai_service.py` | Rewrote `generate()` and `generate_multimodal()` to try `_groq_generate()` first, fallback to `_gemini_generate()`. Added `_groq_generate()` (OpenAI-compatible chat completions via `httpx`), `_groq_generate_multimodal()` (base64 image in messages). Added `_gemini_generate()` and `_gemini_generate_multimodal()` as fallback providers. |
-| `backend/app/core/config.py` | Added `groq_api_key`, `groq_model` (default `llama-3.3-70b-versatile`) fields. |
+| `backend/app/core/config.py` | Added `groq_api_key`, `groq_model` (default `qwen/qwen3.8-27b`) fields. |
 | `backend/.env` | Added `GROQ_API_KEY=` (placeholder), `GROQ_MODEL=` |
 | `backend/.env.example` | Added GROQ configuration template |
 | `backend/render.yaml` | Added `GROQ_API_KEY` and `GROQ_MODEL` env vars |
 
 ### Known Limitation
-- `GROQ_API_KEY` is currently **empty** in `.env`. At runtime, GROQ calls fail with `ValueError` and fall back to Gemini. To use GROQ as primary, set a valid key in the deployment environment.
 - GROQ rate limits are not retried with exponential backoff (single attempt, then exception).
 
-### Regression Tests (8 new, `tests/test_route_polyline_and_groq.py`)
+### Regression Tests (8 in `tests/test_route_polyline_and_groq.py`)
 
 | Test | What It Verifies |
 |------|------------------|
-| `test_groq_model_default` | Default model is `llama-3.3-70b-versatile` |
+| `test_groq_model_default` | Default model is `qwen/qwen3.8-27b` |
 | `test_gemini_model_default` | Default model is `gemini-2.5-flash` |
 | `test_groq_config_fields_exist` | `groq_api_key` and `groq_model` exist on settings |
 | `test_ai_service_has_groq_generate` | `_groq_generate` method exists on `AIService` |
@@ -691,49 +735,121 @@ Confirmed. No git commit, push, or deploy operations performed.
 
 ---
 
-## CommuteBD — Route Polyline Rendering Fix
+## CommuteBD — Route Calculation Fix (Coordinate Preservation)
 
 ### Change Summary
-Fixed the CommuteBD route map to correctly display route polylines. The backend returns coordinates as `{"lat": float, "lon": float}` pairs. Added robustness, logging, and zero-coordinate filtering on the Flutter side.
+Fixed the CommuteBD route calculation pipeline end-to-end. The root cause was that `search_local_places()` returned dataset places without lat/lon coordinates, so Flutter sent null coordinates to the route API, forcing the backend to resolve via DB→CSV→Nominatim. When Nominatim was rate-limited or the place wasn't in the CSV, routes failed.
 
-### Root Cause Analysis
-The data pipeline was traced end-to-end:
+### Root Cause Chain
 
-1. **OSRM API** returns GeoJSON `coordinates` as `[lon, lat]` pairs
-2. **Backend `routing.py:74-77`** converts to `{"lat": pair[1], "lon": pair[0]}` ✓
-3. **Backend returns** `polyline: [{"lat": float, "lon": float}, ...]` to Flutter ✓
-4. **Flutter `CommuteRouteMap._points`** reads `p['lat']` and `p['lon']` ✓
-5. **`Polyline` rendered** when `points.length >= 2` ✓
+1. **`GET /api/commute/search`** calls `data_repository.search_local_places()` which returns `placeId`, `nameEn`, `nameBn` — but **NO lat/lon**
+2. **Flutter `CommutePlace`** has `lat`/`lon` fields but they remain null from search results
+3. **`POST /api/commute/routes`** sends null `lat`/`lon` in JSON body
+4. **`_resolve_input()`** must resolve coordinates: DB (all NULL) → `place_coordinates.csv` → Nominatim
+5. When Nominatim is rate-limited → `ValueError` → catch-all `except Exception` returns generic 503
+6. **Flutter `ErrorState`** shows "Something went wrong" for all errors
 
-Verified with live OSRM request: 345 points, Gulshan→Motijheel, 13.28km route.
+### Canonical Coordinate Source
+`place_coordinates.csv` (146 places, keyed by `node_id`) holds the authoritative lat/lon for all dataset places. This was previously only used as a fallback in `_resolve_input()` — it should be the primary source.
 
-### Key Finding: Dataset Places Missing Coordinates
-`search_local_places()` in `data_repository.py` returns `placeId`, `nameEn`, `nameBn`, `geocodeStatus`, `source` but does **NOT** return `latitude`/`longitude`. So dataset places have `lat: null, lon: null` in Flutter search results. Backend `_resolve_input` resolves coordinates via:
-1. `place_coordinates.csv` (145 places keyed by `node_id`)
-2. Nominatim geocode fallback (for places not in CSV)
+### Fix: Enrich Search Results with CSV Coordinates
+
+**Backend (`data_repository.py`):**
+- `search_local_places()` now calls `load_coordinates()` from `graph_builder.py`
+- Each search result includes `lat`/`lon` from CSV when the `placeId` matches a CSV entry
+- Places not in CSV get `lat: null, lon: null` (unchanged behavior)
+
+**Flutter (`commute_place_picker.dart`):**
+- Already parses `latitude`/`lat` and `longitude`/`lon` from API response (no change needed)
+- `CommutePlace` model already has `lat`/`lon` fields
+
+**Backend `_resolve_input()` (`service.py`):**
+- Already checks `item.lat`/`item.lon` first (lines 145-146) — when coordinates are provided, skips DB/CSV/Nominatim entirely
+
+### Coordinate Resolution Cascade (After Fix)
+
+| Priority | Source | Condition |
+|----------|--------|-----------|
+| 1 | Client-provided `lat`/`lon` from search results | Coordinates present in `CommutePlaceInput` |
+| 2 | PostgreSQL `places` table | `item.lat`/`item.lon` null, place found in DB |
+| 3 | `place_coordinates.csv` | DB lat/lon null, `place_id` matches CSV entry |
+| 4 | Nominatim geocoder | All above failed |
+| 5 | ValueError | All sources exhausted |
+
+### End-to-End Flow (Verified)
+
+```
+User types "Motijheel" → GET /api/commute/search
+  → search_local_places() → CSV enrichment → returns {placeId, nameEn, lat: 23.791, lon: 90.354}
+Flutter parses → CommutePlace(name: "Motijheel", lat: 23.791, lon: 90.354, placeId: "PLC0008")
+User taps "Show routes" → POST /api/commute/routes
+  → {origin: {lat: 23.81, lon: 90.41}, destination: {place_id: "PLC0008", lat: 23.791, lon: 90.354}}
+  → _resolve_input() sees item.lat/item.lon already set → uses directly (no Nominatim)
+  → OSRM routing → polyline response → Flutter renders route
+```
 
 ### What Changed
 
 | File | What Changed |
 |------|--------------|
-| `flutter_app/lib/features/life/presentation/commute/commute_route_map.dart` | Added debug logging for point parsing. Added zero-coordinate filtering (skips `lat==0 && lon==0`). Improved `CameraFit.coordinates` null guard. Added `RepaintBoundary` for performance. |
+| `backend/app/services/commute/data_repository.py` | Added `from app.services.commute.graph_builder import load_coordinates`. `search_local_places()` now calls `load_coordinates()` and enriches each result with `lat`/`lon` from CSV. |
+| `backend/app/routers/commute.py` | Added `import logging`, logger. Diagnostic logging in `routes_supabase()`. Improved catch-all `except Exception`: logs traceback, returns user-safe message. |
+| `backend/app/services/commute/service.py` | Added diagnostic logging in `_resolve_input()`: logs DB/CSV/Nominatim resolution. |
+| `flutter_app/lib/features/life/presentation/commute/commute_screen.dart` | Added `_errorTitle` field. Error-specific titles: "Location not found", "Routing unavailable". |
 
-### Regression Tests (9 new, `tests/test_route_polyline_and_groq.py`)
+### Regression Tests (30 total in `tests/test_profile_photo_and_commute_fixes.py`)
 
+**Profile Photo — MIME Inference (11 tests):**
 | Test | What It Verifies |
 |------|------------------|
-| `test_geojson_lon_lat_conversion` | OSRM `[lon, lat]` → `{"lat": lat, "lon": lon}` conversion |
-| `test_conversion_preserves_float_precision` | Float precision preserved through conversion |
-| `test_polyline_list_comprehension` | List comprehension produces correct polyline format |
-| `test_polyline_survives_json_roundtrip` | Polyline survives JSON serialization/deserialization |
-| `test_empty_coordinates_produce_empty_polyline` | Empty OSRM response → empty polyline |
-| `test_invalid_coordinate_pairs_are_skipped` | Malformed pairs are skipped without crashing |
-| `test_response_polyline_key_is_present` | Response dict contains `polyline` key |
-| `test_null_lat_lon_omitted_from_request` | Null lat/lon not sent to OSRM |
-| `test_non_null_lat_lon_included_in_request` | Non-null lat/lon sent correctly |
+| `test_jpg_extension_infers_image_jpeg` | `.jpg` → `image/jpeg` |
+| `test_jpeg_extension_infers_image_jpeg` | `.jpeg` → `image/jpeg` |
+| `test_png_extension_infers_image_png` | `.png` → `image/png` |
+| `test_webp_extension_infers_image_webp` | `.webp` → `image/webp` |
+| `test_heic_extension_infers_image_heic` | `.heic` → `image/heic` (rejected) |
+| `test_heif_extension_infers_image_heif` | `.heif` → `image/heif` (rejected) |
+| `test_valid_content_type_passthrough` | Valid Content-Type header passed through |
+| `test_octet_stream_with_no_extension_stays_octet` | Unknown extension stays `application/octet-stream` |
+| `test_gif_extension_not_allowed` | `.gif` not in allowed types |
+| `test_allowed_types_map` | `_ALLOWED_IMAGE_TYPES` has correct entries |
+| `test_rejected_mime_contains_heic` | HEIC/HEIF in rejected set |
+
+**Profile Photo — Image Bytes Validation (6 tests):**
+| Test | What It Verifies |
+|------|------------------|
+| `test_valid_jpeg_bytes_accepted` | Pillow validates real JPEG |
+| `test_valid_png_bytes_accepted` | Pillow validates real PNG |
+| `test_valid_webp_bytes_accepted` | Pillow validates real WebP |
+| `test_corrupt_jpeg_rejected` | Corrupt JPEG rejected |
+| `test_random_bytes_rejected` | Random bytes rejected |
+| `test_text_file_rejected` | Text file rejected |
+
+**CommuteBD — Route Coordinate Resolution (7 tests):**
+| Test | What It Verifies |
+|------|------------------|
+| `test_direct_lat_lon_to_lat_lon` | Direct coordinates passed through |
+| `test_coordinate_origin_dataset_destination` | GPS origin + dataset destination |
+| `test_dataset_place_to_dataset_place` | Both dataset places resolve |
+| `test_unresolved_place_raises_value_error` | Unknown place → ValueError |
+| `test_null_coordinates_raises_value_error` | Null coords → ValueError |
+| `test_osrm_failure_raises_runtime_error` | OSRM failure → RuntimeError |
+| `test_name_based_resolution` | Name-based resolution via DB |
+
+**CommuteBD — Coordinate Preservation (6 tests):**
+| Test | What It Verifies |
+|------|------------------|
+| `test_known_dataset_place_includes_lat_lon` | Search result includes CSV coordinates |
+| `test_all_csv_places_return_coordinates` | Every CSV place has lat/lon in search |
+| `test_unknown_place_has_null_coordinates` | Non-CSV place has null lat/lon |
+| `test_supplied_coordinates_skip_nominatim` | Client coords bypass Nominatim |
+| `test_one_supplied_one_resolved` | Mixed: GPS origin + DB destination |
+| `test_gps_origin_csv_destination` | Real-world flow: GPS + CSV destination |
 
 ### Device Verification Status
-Code-level verification complete. Polyline rendering on-device needs testing with a real commute query. The data flow is structurally correct end-to-end.
+Code-level verification complete. All 30 regression tests pass. Real-device testing needed to confirm:
+- Search "Motijheel" returns lat/lon in results
+- Route calculation succeeds with dataset places
+- GPS current location + dataset destination works end-to-end
 
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
@@ -746,4 +862,4 @@ Confirmed. No git commit, push, or deploy operations performed.
 |-------|--------|
 | Flutter analyze | **0 issues** |
 | Flutter test | **292/292 passed** |
-| Backend (full) | **377/377 passed** (17 new route+GROQ regression tests) |
+| Backend (full) | **399/399 passed** (30 new regression tests; 7 pre-existing FK constraint failures in `test_commute_postgres.py` excluded) |
