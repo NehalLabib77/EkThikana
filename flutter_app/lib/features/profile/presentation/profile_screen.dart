@@ -108,12 +108,28 @@ class _IdentityHeader extends StatelessWidget {
             const SizedBox(height: GochanoSpacing.sm),
             _ProfileAvatar(photoUrl: photoUrl),
             const SizedBox(height: GochanoSpacing.sm),
-            Text(
-              name.isEmpty
-                  ? GochanoLanguage.text('Your account', 'আপনার অ্যাকাউন্ট')
-                  : name,
-              style: context.type.pageTitle,
-              textAlign: TextAlign.center,
+            GestureDetector(
+              onTap: () => _editProfile(context, data),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      name.isEmpty
+                          ? GochanoLanguage.text('Your account', 'আপনার অ্যাকাউন্ট')
+                          : name,
+                      style: context.type.pageTitle,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Icon(
+                    Icons.edit_rounded,
+                    size: 18,
+                    color: colors.brand,
+                  ),
+                ],
+              ),
             ),
             if (email.isNotEmpty)
               Text(
@@ -136,19 +152,7 @@ class _IdentityHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.only(top: GochanoSpacing.xs),
-              child: GestureDetector(
-                onTap: () => _editProfile(context, data),
-                child: Text(
-                  GochanoLanguage.text('Edit profile', 'প্রোফাইল সম্পাদনা'),
-                  style: context.type.bodySecondary.copyWith(
-                    color: colors.brand,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
+
           ],
         );
       },

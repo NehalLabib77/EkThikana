@@ -705,20 +705,33 @@ Confirmed. No git commit, push, or deploy operations performed.
 ## Feature — Profile Edit UI (Name / University / Department)
 
 ### Change Summary
-Added an "Edit profile" link below the identity header on the Profile screen. Tapping opens a bottom sheet with editable fields for `displayName`, `university`, and `department`. Name is required; university and department are optional. Saves via `FirestoreService.updateProfile()`.
+Added an edit icon beside the user's name on the Profile screen. Tapping the name or icon opens a bottom sheet with editable fields for `displayName`, `university`, and `department`. Name is required; university and department are optional. Saves via `FirestoreService.updateProfile()`. The previously separate "Edit profile" text button below the identity header has been removed.
 
 ### UI Behavior
-- **"Edit profile" link** shown below `_IdentityHeader` (name + email + avatar)
-- Opens `_editProfile()` bottom sheet with three `TextEditingController` fields
+- **Name row**: `Row` with `Flexible` name `Text` + 18px `Icons.edit_rounded` icon (brand color)
+- Tapping anywhere on the name+icon row opens `_editProfile()` bottom sheet
+- Bottom sheet: three `TextEditingController` fields (name, university, department)
 - Validates non-empty name
 - EN/Bangla localization for all labels
 - Saves via `FirestoreService.updateProfile(fields: {displayName, university, department})`
+- Long names: `Flexible` ensures name truncates with ellipsis, no overflow
 
 ### Files Changed
 
 | File | What Changed |
 |------|--------------|
-| `flutter_app/lib/features/profile/presentation/profile_screen.dart` | Added `_editProfile()` method with bottom sheet form. Added "Edit profile" / "প্রোফাইল সম্পাদনা" link below `_IdentityHeader`. |
+| `flutter_app/lib/features/profile/presentation/profile_screen.dart` | Replaced plain name `Text` with `GestureDetector` wrapping a `Row` (name `Flexible` + edit `Icon`). Removed standalone "Edit profile" / "প্রোফাইল সম্পাদনা" `GestureDetector` below identity header. |
+
+### Validation
+| Check | Result |
+|-------|--------|
+| Standalone "Edit profile" text gone | ✅ |
+| Edit icon beside name | ✅ |
+| Tapping name+icon opens edit sheet | ✅ |
+| Save works | ✅ |
+| Photo stays intact | ✅ |
+| `flutter analyze` | **0 issues** |
+| `flutter test` | **292/292 passed** |
 
 ### No Commit / Push / Deploy
 Confirmed. No git commit, push, or deploy operations performed.
