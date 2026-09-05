@@ -250,7 +250,7 @@ class TelecomAuthService {
       );
     }
 
-    final response = await _safePost(
+    final response = await _safeFormPost(
       Uri.parse('$baseUrl/check_subscription.php'),
       {'user_mobile': normalized},
       checkSubscriptionTimeout,
@@ -336,7 +336,7 @@ class TelecomAuthService {
       );
     }
 
-    final response = await _safePost(
+    final response = await _safeFormPost(
       Uri.parse('$baseUrl/unsubscribe.php'),
       {'user_mobile': normalized},
       unsubscribeTimeout,
@@ -365,41 +365,29 @@ class TelecomAuthService {
           _nestedValue(decoded, const ['data', 'success']),
         );
         final statusCode = _firstNonEmptyString([
-          decoded['status_code'],
           decoded['statusCode'],
-          decoded['status'],
-          _nestedValue(decoded, const ['data', 'status_code']),
+          decoded['StatusCode'],
+          decoded['status_code'],
           _nestedValue(decoded, const ['data', 'statusCode']),
+          _nestedValue(decoded, const ['data', 'StatusCode']),
+          _nestedValue(decoded, const ['data', 'status_code']),
+        ]);
+        final subscriptionStatus = _firstNonEmptyString([
+          decoded['subscriptionStatus'],
+          _nestedValue(decoded, const ['data', 'subscriptionStatus']),
         ]);
         final message = _firstNonEmptyString([
+          decoded['statusDetail'],
           decoded['message'],
           decoded['msg'],
-          decoded['statusDetail'],
+          _nestedValue(decoded, const ['data', 'statusDetail']),
           _nestedValue(decoded, const ['data', 'message']),
         ]);
 
-        final statusUpper = statusCode?.toUpperCase();
-        final msgLower = (message ?? '').toLowerCase();
-
-        // Check for success indicators:
-        // 1. success == true
-        // 2. statusCode == SUCCESS, S1000, 200, OK
-        // 3. message contains success, unsubscribed, already, not subscribed, etc. (idempotency)
-        final isStatusCodeOk = statusUpper == 'SUCCESS' ||
-            statusUpper == 'S1000' ||
-            statusUpper == '200' ||
-            statusUpper == 'OK';
-
-        final isMessageOk = msgLower.contains('success') ||
-            msgLower.contains('unsubscrib') ||
-            msgLower.contains('already') ||
-            msgLower.contains('not subscribe') ||
-            msgLower.contains('not registered') ||
-            msgLower.contains('cancelled') ||
-            msgLower.contains('canceled') ||
-            msgLower.contains('deactivated');
-
-        final isSuccess = (successFlag == true) || isStatusCodeOk || isMessageOk;
+        final isSuccess =
+            successFlag == true ||
+            statusCode?.trim().toUpperCase() == 'S1000' ||
+            subscriptionStatus?.trim().toUpperCase() == 'UNREGISTERED';
 
         if (isSuccess) {
           return TelecomUnsubscribeResult(
@@ -424,20 +412,8 @@ class TelecomAuthService {
         );
       }
     } catch (_) {
-      // Body may be plain text response
-      final lower = trimmed.toLowerCase();
-      if (lower.contains('success') ||
-          lower.contains('unsubscrib') ||
-          lower.contains('already') ||
-          lower.contains('not subscribe')) {
-        return TelecomUnsubscribeResult(
-          success: true,
-          message: GochanoLanguage.text(
-            'Subscription cancelled successfully.',
-            'সাবস্ক্রিপশন সফলভাবে বন্ধ করা হয়েছে।',
-          ),
-        );
-      }
+      // The supplied contract is JSON. Ambiguous/plain-text responses are
+      // treated as failure rather than risking a false-positive logout.
     }
 
     return TelecomUnsubscribeResult(
@@ -470,7 +446,7 @@ class TelecomAuthService {
       );
     }
 
-    final response = await _safePost(Uri.parse('$baseUrl/send_otp.php'), {
+    final response = await _safeFormPost(Uri.parse('$baseUrl/send_otp.php'), {
       'user_mobile': normalized,
     }, sendOtpTimeout);
 
@@ -612,7 +588,7 @@ class TelecomAuthService {
       );
     }
 
-    final response = await _safePost(Uri.parse('$baseUrl/verify_otp.php'), {
+    final response = await _safeFormPost(Uri.parse('$baseUrl/verify_otp.php'), {
       'Otp': cleanOtp,
       'otp': cleanOtp,
       'referenceNo': cleanRef,
@@ -645,10 +621,15 @@ class TelecomAuthService {
           _nestedValue(decoded, const ['data', 'success']),
         );
         final status = _firstNonEmptyString([
-          decoded['status'],
           decoded['statusCode'],
+          decoded['StatusCode'],
+          decoded['status_code'],
+          decoded['status'],
+          decoded['result'],
           decoded['statusDetail'],
           _nestedValue(decoded, const ['data', 'statusCode']),
+          _nestedValue(decoded, const ['data', 'status']),
+          _nestedValue(decoded, const ['data', 'result']),
         ]);
         final message = _firstNonEmptyString([
           decoded['message'],
@@ -658,6 +639,7 @@ class TelecomAuthService {
         final successFlag = success ?? false;
         final statusUpper = status?.toUpperCase();
         final statusOk =
+            statusUpper == 'S1000' ||
             statusUpper == 'OK' ||
             statusUpper == 'SUCCESS' ||
             statusUpper == 'VERIFIED' ||
@@ -724,7 +706,7 @@ class TelecomAuthService {
     }
 
     final uri = Uri.parse('$backendBaseUrl/v1/auth/telecom/exchange');
-    final response = await _safePost(uri, {
+    final response = await _safeJsonPost(uri, {
       'phone': cleanPhone,
       'reference_no': cleanRef,
     }, exchangeTimeout);
@@ -821,7 +803,7 @@ class TelecomAuthService {
     }
 
     final uri = Uri.parse('$backendBaseUrl/v1/auth/telecom/exchange');
-    final response = await _safePost(
+    final response = await _safeJsonPost(
       uri,
       {
         'phone': cleanPhone,
@@ -940,7 +922,36 @@ class TelecomAuthService {
   // HTTP helpers
   // -------------------------------------------------------------------
 
-  static Future<http.Response> _safePost(
+  static Future<http.Response> _safeFormPost(
+    Uri uri,
+    Map<String, String> body,
+    Duration timeout,
+  ) async {
+    http.Response response;
+    try {
+      // The supplied PHP implementation uses standard form fields:
+      // http.post(uri, body: {...}). Do not send JSON here.
+      response = await http.post(uri, body: body).timeout(timeout);
+    } catch (_) {
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Network error. Please check your connection and try again.',
+          'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
+        ),
+      );
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Server is not responding. Please try again in a moment.',
+          'সার্ভার সাড়া দিচ্ছে না। একটু পর আবার চেষ্টা করুন।',
+        ),
+      );
+    }
+    return response;
+  }
+
+  static Future<http.Response> _safeJsonPost(
     Uri uri,
     Map<String, dynamic> body,
     Duration timeout,
