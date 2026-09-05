@@ -91,22 +91,30 @@ class _AuthGateState extends State<AuthGate> {
         ? (await TelecomAuthService.readUserPhone()) ?? ''
         : '';
     if (!mounted) return;
+
+    // _loggedIn is determined by the combination of the local flag
+    // AND FirebaseAuth.currentUser. Only set _loggedIn here if Firebase
+    // already has a currentUser (cold start path); the authState
+    // listener owns the rest.
+    final current = FirebaseAuth.instance.currentUser;
+    final staleFlag = isLoggedIn && current == null;
+    if (staleFlag) {
+      // Flag set but Firebase did not restore the user. Refuse entry;
+      // clear the stale flag so LoginScreen does not loop.
+      await TelecomAuthService.clearSession();
+    }
+
+    if (!mounted) return;
     setState(() {
       _phone = phone;
       _checked = true;
-      // _loggedIn is updated by the authState listener; only set it
-      // here if Firebase already has a currentUser (cold start path).
-      final current = FirebaseAuth.instance.currentUser;
       if (isLoggedIn && current != null) {
         _loggedIn = true;
         _resumeError = null;
-      } else if (isLoggedIn && current == null) {
-        // Flag set but Firebase did not restore the user. Refuse
-        // entry; clear the stale flag so LoginScreen does not loop.
+      } else if (staleFlag) {
         _loggedIn = false;
         _resumeError =
             'Your Gochano session expired. Please sign in again.';
-        await TelecomAuthService.clearSession();
       } else {
         _loggedIn = false;
       }

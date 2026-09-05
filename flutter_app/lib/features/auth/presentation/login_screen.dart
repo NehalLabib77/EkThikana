@@ -208,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       Icon(
                         Icons.refresh_rounded,
-                        color: colors.accent,
+                        color: colors.brand,
                       ),
                       const SizedBox(width: GochanoSpacing.sm),
                       Expanded(

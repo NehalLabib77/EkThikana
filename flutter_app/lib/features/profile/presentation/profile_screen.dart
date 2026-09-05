@@ -15,6 +15,7 @@
 // Firebase project id and the build flags are not surfaced here.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -26,6 +27,7 @@ import '../../../core/design_system/gochano_illustration.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../../core/services/telecom_auth_service.dart';
 import '../../../core/settings/gochano_appearance.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
@@ -35,6 +37,7 @@ import '../../../services/usage_stats_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../auth/presentation/auth_gate.dart';
 import '../../home/presentation/home_screen.dart' show formatTaka;
 import '../../life/presentation/expense/monthly_budget_sheet.dart';
 
@@ -73,8 +76,8 @@ class ProfileScreen extends StatelessWidget {
 
           const SizedBox(height: GochanoSpacing.lg),
           SecondaryButton(
-            label: GochanoLanguage.text('Sign out', 'সাইন আউট'),
-            icon: Icons.logout_rounded,
+            label: GochanoLanguage.text('Unsubscribe', 'আনসাবস্ক্রাইব করুন'),
+            icon: Icons.phonelink_erase_rounded,
             onPressed: () => _signOut(context),
           ),
         ],
@@ -1068,14 +1071,120 @@ Future<void> _pickAppearance(BuildContext context) async {
 Future<void> _signOut(BuildContext context) async {
   final confirmed = await showConfirmationSheet(
     context,
-    title: GochanoLanguage.text('Sign out?', 'সাইন আউট করবেন?'),
-    message: GochanoLanguage.text(
-      'Your data stays safe and will be here when you sign back in.',
-      'আপনার ডেটা নিরাপদ থাকবে এবং আবার সাইন ইন করলে ফিরে পাবেন।',
+    title: GochanoLanguage.text(
+      'Unsubscribe from Robi / Cirkle?',
+      'রবি / সার্কেল সাবস্ক্রিপশন বাতিল করবেন?',
     ),
-    confirmLabel: GochanoLanguage.text('Sign out', 'সাইন আউট'),
-    destructive: false,
+    message: GochanoLanguage.text(
+      'Cancelling your subscription will end your active session on this device. Your notes, study materials, and personal data will remain safe and will be here when you re-subscribe.',
+      'সাবস্ক্রিপশন বাতিল করলে এই ডিভাইসে আপনার সেশন বন্ধ হয়ে যাবে। তবে আপনার নোটস, স্টাডি ম্যাটেরিয়াল এবং ব্যক্তিগত তথ্য সুরক্ষিত থাকবে এবং পুনরায় সাবস্ক্রাইব করার পর দেখতে পাবেন।',
+    ),
+    confirmLabel: GochanoLanguage.text('Unsubscribe', 'আনসাবস্ক্রাইব করুন'),
+    cancelLabel: GochanoLanguage.text('Keep Subscription', 'চালু রাখুন'),
+    destructive: true,
   );
-  if (!confirmed) return;
+  if (!confirmed || !context.mounted) return;
+
+  final phone = (await TelecomAuthService.readUserPhone()) ??
+      (await TelecomAuthService.readPhone()) ??
+      FirebaseAuth.instance.currentUser?.phoneNumber ??
+      '';
+
+  if (phone.isEmpty) {
+    if (!context.mounted) return;
+    showGochanoMessage(
+      context,
+      GochanoLanguage.text(
+        'Unable to find an active phone number to unsubscribe.',
+        'আনসাবস্ক্রাইব করার মতো সক্রিয় ফোন নম্বর পাওয়া যায়নি।',
+      ),
+      isError: true,
+    );
+    return;
+  }
+
+  // Show a non-dismissible loading indicator dialog while request is in flight
+  if (!context.mounted) return;
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogCtx) => PopScope(
+      canPop: false,
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(GochanoSpacing.lg),
+            decoration: BoxDecoration(
+              color: dialogCtx.colors.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(dialogCtx.colors.brand),
+                ),
+                const SizedBox(height: GochanoSpacing.md),
+                Text(
+                  GochanoLanguage.text(
+                    'Cancelling subscription…',
+                    'সাবস্ক্রিপশন বাতিল করা হচ্ছে…',
+                  ),
+                  style: dialogCtx.type.body,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  TelecomUnsubscribeResult result;
+  try {
+    result = await TelecomAuthService.unsubscribe(phone);
+  } on TelecomAuthException catch (e) {
+    result = TelecomUnsubscribeResult(success: false, message: e.message);
+  } catch (_) {
+    result = TelecomUnsubscribeResult(
+      success: false,
+      message: GochanoLanguage.text(
+        'Network error. Please check your connection and try again.',
+        'নেটওয়ার্ক ত্রুটি। অনুগ্রহ করে ইন্টারনেট সংযোগ চেক করে আবার চেষ্টা করুন।',
+      ),
+    );
+  } finally {
+    if (context.mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
+
+  if (!context.mounted) return;
+
+  if (!result.success) {
+    showGochanoMessage(
+      context,
+      result.message,
+      isError: true,
+    );
+    return;
+  }
+
+  // Authoritative session termination (only on success):
+  // 1. Clear telecom session storage completely
+  await TelecomAuthService.clearSession();
+
+  // 2. Sign out Firebase session without deleting account/data
   await AuthService.logout();
+
+  if (!context.mounted) return;
+
+  // 3. Clear navigation stack and return to AuthGate
+  final rootNav = Navigator.of(context, rootNavigator: true);
+  await rootNav.pushAndRemoveUntil(
+    MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+    (route) => false,
+  );
 }

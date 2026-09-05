@@ -129,6 +129,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
       final ok = await TelecomAuthService.verifyOtp(
         referenceNo: _referenceNo!,
         otp: _otpController.text,
+        phone: widget.phone,
       );
       if (!mounted) return;
       if (ok) {

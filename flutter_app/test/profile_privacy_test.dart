@@ -87,18 +87,18 @@ void main() {
       );
     });
 
-    test('keeps the sign-out button wired and full-width', () {
+    test('keeps the unsubscribe button wired and full-width (PART 17)', () {
       final hasButton = profile.contains('SecondaryButton(') &&
-          profile.contains("GochanoLanguage.text('Sign out'");
+          profile.contains("GochanoLanguage.text('Unsubscribe'");
       expect(
         hasButton,
         isTrue,
-        reason: 'Sign out SecondaryButton must remain on the screen',
+        reason: 'Unsubscribe SecondaryButton must replace Sign out on the screen',
       );
       expect(
         profile.contains("onPressed: () => _signOut(context)"),
         isTrue,
-        reason: 'Sign out SecondaryButton must still call _signOut(context)',
+        reason: 'Unsubscribe SecondaryButton must call _signOut(context)',
       );
     });
   });
