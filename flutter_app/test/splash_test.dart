@@ -27,7 +27,7 @@ void main() {
     // decode hint does not change.
     final provider = image.image;
     final asset = provider is ResizeImage ? provider.imageProvider : provider;
-    expect((asset as AssetImage).assetName, 'assets/branding/Gochano.png');
+    expect((asset as AssetImage).assetName, 'assets/branding/gochano1.png');
     expect(image.semanticLabel, isNotNull);
 
     // And the decode hint itself is load-bearing: the master artwork is 1254

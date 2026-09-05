@@ -18,7 +18,11 @@ import '../../../core/localization/gochano_language.dart';
 import '../../../services/auth_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
-import 'login_screen.dart' show authErrorMessage;
+// Note: this screen is legacy Firebase-email registration code left in
+// place from before PART 16. PART 17 (Unsubscribe) is expected to retire
+// it. Until then, we no longer reach across to `login_screen.dart` for
+// the `authErrorMessage` helper that screen used to expose — we extract
+// the message inline so this file still compiles.
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -92,9 +96,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = authErrorMessage(error);
+        _error = _extractAuthError(error);
       });
     }
+  }
+
+  // Legacy Firebase error stringification kept so this pre-PART-16 screen
+  // still compiles. PART 17 is expected to delete this whole file.
+  String _extractAuthError(Object error) {
+    final raw = error.toString();
+    final firebaseMatch = RegExp(r'\[([^]]+)\]').firstMatch(raw);
+    if (firebaseMatch != null) return firebaseMatch.group(1) ?? raw;
+    return raw;
   }
 
   @override

@@ -121,9 +121,9 @@ class GochanoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => Size.fromHeight(
-        (subtitle == null ? kToolbarHeight : kToolbarHeight + 14) +
-            (bottom?.preferredSize.height ?? 0),
-      );
+    (subtitle == null ? kToolbarHeight : kToolbarHeight + 14) +
+        (bottom?.preferredSize.height ?? 0),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -214,33 +214,25 @@ class AppCard extends StatelessWidget {
       );
     }
 
-    final decorated = DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surface,
+    final Widget card = Material(
+      color: colors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: GochanoRadius.lgAll,
-        border: Border.all(color: colors.border, width: GochanoBorders.hairline),
+        side: BorderSide(color: colors.border, width: GochanoBorders.hairline),
       ),
-      child: ClipRRect(borderRadius: GochanoRadius.lgAll, child: content),
+      clipBehavior: Clip.antiAlias,
+      child: onTap == null ? content : InkWell(onTap: onTap, child: content),
     );
 
-    if (onTap == null) {
-      return semanticLabel == null
-          ? decorated
-          : Semantics(label: semanticLabel, container: true, child: decorated);
+    if (semanticLabel == null && onTap == null) {
+      return card;
     }
 
     return Semantics(
       label: semanticLabel,
-      button: true,
+      button: onTap != null,
       container: true,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: GochanoRadius.lgAll,
-          child: decorated,
-        ),
-      ),
+      child: card,
     );
   }
 }
@@ -362,8 +354,9 @@ class StatCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: (compact ? type.statisticSmall : type.statistic)
-                  .copyWith(color: accent ?? colors.textPrimary),
+              style: (compact ? type.statisticSmall : type.statistic).copyWith(
+                color: accent ?? colors.textPrimary,
+              ),
               maxLines: 1,
             ),
           ),
@@ -402,16 +395,14 @@ class CardGroup extends StatelessWidget {
       rows.add(children[i]);
     }
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surface,
+    return Material(
+      color: colors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: GochanoRadius.lgAll,
-        border: Border.all(color: colors.border, width: GochanoBorders.hairline),
+        side: BorderSide(color: colors.border, width: GochanoBorders.hairline),
       ),
-      child: ClipRRect(
-        borderRadius: GochanoRadius.lgAll,
-        child: Column(mainAxisSize: MainAxisSize.min, children: rows),
-      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(mainAxisSize: MainAxisSize.min, children: rows),
     );
   }
 }

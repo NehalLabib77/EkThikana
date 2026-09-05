@@ -1,34 +1,44 @@
-// Decides what a launch shows: sign-in, email verification, or the app.
+// Auth gate for the Robi / Cirkle telecom login.
 //
-// Three gates in order, each with a real state rather than a spinner that
-// might never resolve:
+// PART 16.1 — CRITICAL CORRECTION: the gate now requires BOTH a
+// successful telecom session flag AND a non-null
+// `FirebaseAuth.instance.currentUser`. PART 16 only checked the local
+// SharedPreferences flag, which let the user reach GochanoShell while
+// `FirebaseAuth.currentUser` was null. Every Firestore read/write
+// (`notes`, `tasks`, `expenses`, `medicines`, `dena_pawna`,
+// `materials`) would then fail with `permission-denied`, because
+// `firestore.rules` requires `request.auth.token.email_verified ==
+// true` and the FastAPI backend's `get_verified_identity` reads the
+// same claim via `verify_id_token`.
 //
-//   1. Firebase auth state — signed in at all?
-//   2. Email verified? The backend rejects an unverified token, so showing
-//      the app would produce 403s on every request.
-//   3. Firestore profile — the role the shell needs. `get_current_user`
-//      requires this document to exist, so a missing profile is a real,
-//      explainable failure, not a blank screen.
+// Boot sequence:
+//
+//   * No local session flag       -> LoginScreen.
+//   * Flag is true, but currentUser is null (e.g. cold start where
+//     Firebase did not restore the user, or session was cleared
+//     outside the app) -> LoginScreen with a one-shot "Please sign
+//     in again" message. We never let the user into GochanoShell
+//     with a half-authenticated state.
+//   * Flag is true AND currentUser is non-null AND the ID token
+//     carries `email_verified == true` -> GochanoShell.
+//   * Flag is true AND currentUser is non-null but the ID token is
+//     missing `email_verified == true` (should never happen for a
+//     token minted by our backend, but we guard anyway) -> LoginScreen
+//     with the same message.
+//
+// PART 17 will replace the legacy `logout` plumbing with an
+// "Unsubscribe" + "Logout" pairing.
 
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/localization/gochano_language.dart';
-import '../../../services/auth_service.dart';
-import '../../../shared/states/gochano_states.dart';
+import '../../../core/services/telecom_auth_service.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../shell/presentation/gochano_shell.dart';
 import 'login_screen.dart';
-import 'verify_email_screen.dart';
 
-/// `StatefulWidget` so the post-verification preparation
-/// (token force-refresh + profile repair) can be memoized by uid +
-/// verified state. Doing this from a `StatelessWidget`'s `build` would
-/// re-fire on every `authState()` tick.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -37,239 +47,88 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  /// Memoizes the one-shot post-verification preparation.
-  ///
-  /// Keyed by `${uid}|verified` so a rebuild for the same user does not
-  /// re-fire `forceRefreshIdToken()` (which would burn Firebase quota),
-  /// and so signing out and back in as a different user does not skip
-  /// the preparation.
-  final Set<String> _preparedKeys = <String>{};
+  bool _checked = false;
+  bool _loggedIn = false;
+  String _phone = '';
+  String? _resumeError;
 
-  /// uids that have already had `ensureProfile()` run successfully.
-  /// The method is itself idempotent, but we still gate it to avoid the
-  /// extra Firestore round trip on every rebuild.
-  final Set<String> _profileRepaired = <String>{};
+  StreamSubscription<User?>? _firebaseAuthSub;
 
-  /// In-flight profile-repair future, used by the missing-profile branch
-  /// to coalesce parallel rebuilds.
-  Future<bool>? _profileRepair;
-
-  void _debugLog(String message) {
-    if (kReleaseMode) return;
-    // Never log token, password, or full user objects.
-    debugPrint('[AuthGate] $message');
+  @override
+  void initState() {
+    super.initState();
+    // Listen to FirebaseAuth state changes so that a successful
+    // signInWithCustomToken() in otp_verify_screen routes us straight
+    // into GochanoShell without a manual rebuild, and so that an
+    // unexpected sign-out (token revoked, etc.) drops the user back to
+    // LoginScreen instead of leaving them in a half-authenticated
+    // shell.
+    _firebaseAuthSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted) return;
+      setState(() {
+        _loggedIn = user != null;
+        if (user == null) {
+          _resumeError =
+              'Your Gochano session expired. Please sign in again.';
+          // Also wipe the local flag so the LoginScreen CTA can show
+          // the resume message rather than the first-time empty state.
+          TelecomAuthService.clearSession();
+        }
+      });
+    });
+    _restore();
   }
 
-  /// Run the post-verification preparation exactly once per
-  /// (uid, verified) pair. Must run before any Firestore rule check
-  /// from Home, hence the `await` before any `GochanoShell` is returned.
-  Future<void> _runPrepare(User user) async {
-    try {
-      // 1. Invalidate the cached JWT so the next request sees
-      //    `email_verified: true`.
-      await AuthService.forceRefreshIdToken();
-      // 2. Repair the users/{uid} doc so the next backend call does
-      //    not 403 with "User profile is missing".
-      if (!_profileRepaired.contains(user.uid)) {
-        final ok = await AuthService.ensureProfile();
-        if (ok) _profileRepaired.add(user.uid);
+  @override
+  void dispose() {
+    _firebaseAuthSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _restore() async {
+    final isLoggedIn = await TelecomAuthService.readIsLoggedIn();
+    final phone = isLoggedIn
+        ? (await TelecomAuthService.readUserPhone()) ?? ''
+        : '';
+    if (!mounted) return;
+    setState(() {
+      _phone = phone;
+      _checked = true;
+      // _loggedIn is updated by the authState listener; only set it
+      // here if Firebase already has a currentUser (cold start path).
+      final current = FirebaseAuth.instance.currentUser;
+      if (isLoggedIn && current != null) {
+        _loggedIn = true;
+        _resumeError = null;
+      } else if (isLoggedIn && current == null) {
+        // Flag set but Firebase did not restore the user. Refuse
+        // entry; clear the stale flag so LoginScreen does not loop.
+        _loggedIn = false;
+        _resumeError =
+            'Your Gochano session expired. Please sign in again.';
+        await TelecomAuthService.clearSession();
+      } else {
+        _loggedIn = false;
       }
-    } catch (e) {
-      _debugLog('AuthGate: prepare failed (uid=${user.uid}): $e');
-      // Non-fatal: the gate will continue and the user can manually
-      // trigger reload from the error state.
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: AuthService.authState(),
-      builder: (context, authSnapshot) {
-        if (authSnapshot.connectionState == ConnectionState.waiting) {
-          return _Gate(
-            child: StaticLoadingState(
-              message: GochanoLanguage.text(
-                'Signing you in…',
-                'সাইন ইন করা হচ্ছে…',
-              ),
-            ),
-          );
-        }
-        if (authSnapshot.hasError) {
-          return _Gate(
-            child: ErrorState(
-              title: GochanoLanguage.text(
-                'Could not reach your account',
-                'আপনার অ্যাকাউন্টে পৌঁছানো যায়নি',
-              ),
-              message: friendlyErrorMessage(authSnapshot.error),
-              onRetry: AuthService.reloadUser,
-            ),
-          );
-        }
+    if (!_checked) {
+      return const GochanoScaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-        final user = authSnapshot.data;
-        if (user == null) {
-          // Clear memo on sign-out so a different user signing in does
-          // not inherit the previous user's "prepared" marker.
-          _preparedKeys.clear();
-          _profileRepaired.clear();
-          _profileRepair = null;
-          return const LoginScreen();
-        }
-        if (!user.emailVerified) return const VerifyEmailScreen();
-
-        // Memoization key for the post-verification preparation.
-        final prepKey = '${user.uid}|verified';
-        final needsPrepare = !_preparedKeys.contains(prepKey);
-
-        if (needsPrepare) {
-          // Mark immediately so any in-flight rebuild that re-enters this
-          // branch does not schedule a second preparation.
-          _preparedKeys.add(prepKey);
-          // Schedule after the current frame so we do not call
-          // setState / show a duplicate spinner from inside build().
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            await _runPrepare(user);
-          });
-          return _Gate(
-            child: StaticLoadingState(
-              message: GochanoLanguage.text(
-                'Preparing your session…',
-                'আপনার সেশন প্রস্তুত হচ্ছে…',
-              ),
-            ),
-          );
-        }
-
-        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .snapshots(),
-          builder: (context, profileSnapshot) {
-            if (profileSnapshot.connectionState == ConnectionState.waiting) {
-              return _Gate(
-                child: StaticLoadingState(
-                  message: GochanoLanguage.text(
-                    'Loading your profile…',
-                    'আপনার প্রোফাইল লোড হচ্ছে…',
-                  ),
-                ),
-              );
-            }
-            if (profileSnapshot.hasError) {
-              return _Gate(
-                child: ErrorState(
-                  message: friendlyErrorMessage(profileSnapshot.error),
-                  onRetry: AuthService.reloadUser,
-                ),
-              );
-            }
-
-            final data = profileSnapshot.data?.data();
-            if (data == null) {
-              // Half-built / missing profile. Repair through
-              // AuthService.ensureProfile() — it is idempotent
-              // (`SetOptions(merge: true)`), so a second call is safe
-              // but a no-op in practice.
-              final inFlight = _profileRepair;
-              if (inFlight != null) {
-                return FutureBuilder<bool>(
-                  future: inFlight,
-                  builder: (context, snap) {
-                    if (snap.connectionState != ConnectionState.done) {
-                      return _Gate(
-                        child: StaticLoadingState(
-                          message: GochanoLanguage.text(
-                            'Repairing your profile…',
-                            'আপনার প্রোফাইল ঠিক করা হচ্ছে…',
-                          ),
-                        ),
-                      );
-                    }
-                    if (snap.hasError || snap.data != true) {
-                      return _Gate(
-                        child: ErrorState(
-                          title: GochanoLanguage.text(
-                            'Your profile is missing',
-                            'আপনার প্রোফাইল পাওয়া যাচ্ছে না',
-                          ),
-                          message: GochanoLanguage.text(
-                            'We could not repair your profile. Try again — '
-                            'if it keeps happening, sign out and register '
-                            'again.',
-                            'আপনার প্রোফাইল ঠিক করা যায়নি। আবার চেষ্টা করুন — '
-                            'বারবার হলে সাইন আউট করে আবার রেজিস্টার করুন।',
-                          ),
-                          onRetry: () {
-                            final future = AuthService.ensureProfile();
-                            _profileRepair = future;
-                            future.then((ok) {
-                              if (ok) _profileRepaired.add(user.uid);
-                            }).catchError((Object e, StackTrace _) {
-                              _debugLog(
-                                'AuthGate: profile repair retry failed: $e',
-                              );
-                            });
-                          },
-                        ),
-                      );
-                    }
-                    if (snap.data == true) {
-                      _profileRepaired.add(user.uid);
-                    }
-                    // The Firestore snapshot will re-emit shortly now
-                    // that the doc exists; show a transient loading
-                    // state instead of flashing an error.
-                    return _Gate(
-                      child: StaticLoadingState(
-                        message: GochanoLanguage.text(
-                          'Loading your profile…',
-                          'আপনার প্রোফাইল লোড হচ্ছে…',
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }
-              // No in-flight repair yet — kick one off and re-render.
-              final future = AuthService.ensureProfile();
-              _profileRepair = future;
-              future.then((ok) {
-                if (ok) _profileRepaired.add(user.uid);
-              }).catchError((Object e, StackTrace _) {
-                _debugLog('AuthGate: profile repair failed: $e');
-              });
-              return _Gate(
-                child: StaticLoadingState(
-                  message: GochanoLanguage.text(
-                    'Repairing your profile…',
-                    'আপনার প্রোফাইল ঠিক করা হচ্ছে…',
-                  ),
-                ),
-              );
-            }
-
-            return GochanoShell(
-              role: data['role']?.toString() ?? 'general',
-              displayName: data['displayName']?.toString() ?? '',
-            );
-          },
-        );
-      },
-    );
+    if (_loggedIn && FirebaseAuth.instance.currentUser != null) {
+      return GochanoShell(
+        role: 'student',
+        displayName: _phone.isEmpty
+            ? (FirebaseAuth.instance.currentUser?.phoneNumber ?? 'student')
+            : _phone,
+      );
+    }
+    return LoginScreen(resumeMessage: _resumeError);
   }
-}
-
-/// A bare scaffold for the pre-app states, so loading and error screens sit
-/// on the Gochano background rather than on raw white.
-class _Gate extends StatelessWidget {
-  const _Gate({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => GochanoScaffold(body: child);
 }

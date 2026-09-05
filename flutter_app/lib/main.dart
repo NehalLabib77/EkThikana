@@ -12,7 +12,7 @@ import 'firebase_options.dart';
 import 'services/connectivity_service.dart';
 import 'services/notification_service.dart';
 
-const String _kLogoAsset = 'assets/branding/Gochano.png';
+const String _kLogoAsset = 'assets/branding/gochano1.png';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

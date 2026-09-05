@@ -194,32 +194,46 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         });
 
         if (docs.isEmpty) {
+          final bool isFiltered = widget.mimeFilter != null || widget.subjectFilter != null;
+          final String emptyTitle;
+          final String emptyMessage;
+
+          if (_query.isNotEmpty) {
+            emptyTitle = GochanoLanguage.text('Nothing matched', 'কিছু মেলেনি');
+            emptyMessage = GochanoLanguage.text(
+              'Try a different word.',
+              'অন্য একটি শব্দ চেষ্টা করুন।',
+            );
+          } else if (widget.mimeFilter?.startsWith('image/') == true) {
+            emptyTitle = GochanoLanguage.text('No saved images yet', 'এখনো কোনো সংরক্ষিত ছবি নেই');
+            emptyMessage = GochanoLanguage.text(
+              'Upload images using the + button.',
+              '+ বোতাম দিয়ে ছবি আপলোড করুন।',
+            );
+          } else if (widget.mimeFilter?.contains('pdf') == true) {
+            emptyTitle = GochanoLanguage.text('No PDFs yet', 'এখনো কোনো পিডিএফ নেই');
+            emptyMessage = GochanoLanguage.text(
+              'Upload PDFs using the + button.',
+              '+ বোতাম দিয়ে পিডিএফ আপলোড করুন।',
+            );
+          } else if (isFiltered) {
+            emptyTitle = GochanoLanguage.text('No materials yet', 'এখনো কোনো উপকরণ নেই');
+            emptyMessage = GochanoLanguage.text(
+              'Upload materials using the + button.',
+              '+ বোতাম দিয়ে উপকরণ আপলোড করুন।',
+            );
+          } else {
+            emptyTitle = GochanoLanguage.text('No materials yet', 'এখনো কোনো উপকরণ নেই');
+            emptyMessage = GochanoLanguage.text(
+              'Upload your first note, PDF or study resource using the + button.',
+              '+ বোতাম দিয়ে আপনার প্রথম নোট, পিডিএফ বা পড়ার উপকরণ আপলোড করুন।',
+            );
+          }
+
           return EmptyState(
             illustration: GochanoArt.emptyMaterials,
-            title: _query.isEmpty
-                ? GochanoLanguage.text('No materials yet', 'এখনো কোনো উপকরণ নেই')
-                : GochanoLanguage.text('Nothing matched', 'কিছু মেলেনি'),
-            message: _query.isEmpty
-                ? GochanoLanguage.text(
-                    'Add your first note, PDF or study resource.',
-                    'আপনার প্রথম নোট, পিডিএফ বা পড়ার উপকরণ যোগ করুন।',
-                  )
-                : GochanoLanguage.text(
-                    'Try a different word.',
-                    'অন্য একটি শব্দ চেষ্টা করুন।',
-                  ),
-            actionLabel: _query.isEmpty
-                ? GochanoLanguage.text('Add material', 'উপকরণ যোগ করুন')
-                : null,
-            onAction: _query.isEmpty
-                ? () => Navigator.of(context).push(
-                      GochanoRoute.to(
-                        builder: (_) => MaterialUploadScreen(
-                          subject: widget.subjectFilter ?? '',
-                        ),
-                      ),
-                    )
-                : null,
+            title: emptyTitle,
+            message: emptyMessage,
           );
         }
 

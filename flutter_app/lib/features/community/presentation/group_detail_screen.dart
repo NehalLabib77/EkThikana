@@ -88,7 +88,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         final ownerId = data['ownerId']?.toString() ?? '';
         final currentUid = FirestoreService.uid;
         final isAdmin =
-            currentUid != null && (adminIds.contains(currentUid) || (ownerId.isNotEmpty && ownerId == currentUid));
+            currentUid != null &&
+            (adminIds.contains(currentUid) ||
+                (ownerId.isNotEmpty && ownerId == currentUid));
 
         return GochanoScaffold(
           padBody: false,
@@ -631,7 +633,6 @@ class _ProjectsTab extends StatelessWidget {
                       'No projects have been created yet.',
                       'এখনো কোনো প্রজেক্ট তৈরি হয়নি।',
                     ),
-
             );
           }
 
@@ -1189,7 +1190,8 @@ class _TaskTile extends StatelessWidget {
     final completed = taskData['completed'] == true;
     final deadline = taskData['deadline'];
     final currentUid = FirestoreService.uid;
-    final isMyTask = assigneeId != null && currentUid != null && assigneeId == currentUid;
+    final isMyTask =
+        assigneeId != null && currentUid != null && assigneeId == currentUid;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
@@ -1547,7 +1549,7 @@ Future<void> _showCreateTaskSheet(
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
-                    if (picked != null) {
+                    if (picked != null && sheetContext.mounted) {
                       final time = await showTimePicker(
                         context: sheetContext,
                         initialTime: TimeOfDay.fromDateTime(
@@ -1901,7 +1903,9 @@ void _handleTaskAction(
                 ListTile(
                   leading: Radio<String>(
                     value: uid,
+                    // ignore: deprecated_member_use
                     groupValue: selected,
+                    // ignore: deprecated_member_use
                     onChanged: (v) => setSheetState(() => selected = v),
                   ),
                   title: _FutureChip(

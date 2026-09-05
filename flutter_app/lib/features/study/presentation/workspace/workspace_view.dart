@@ -152,18 +152,28 @@ class _QuickAccessState extends State<_QuickAccess> {
             ),
           ),
           if (hasMore)
-            TextButton.icon(
-              onPressed: () => setState(() => _expanded = !_expanded),
-              icon: Icon(
-                _expanded
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                size: GochanoSizes.iconSm,
-              ),
-              label: Text(
-                _expanded
-                    ? GochanoLanguage.text('See less', 'কম দেখুন')
-                    : GochanoLanguage.text('See more', 'আরো দেখুন'),
+            Center(
+              child: InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                borderRadius: GochanoRadius.mdAll,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: GochanoSpacing.md,
+                    vertical: GochanoSpacing.xs,
+                  ),
+                  child: Tooltip(
+                    message: _expanded
+                        ? GochanoLanguage.text('See less', 'কম দেখুন')
+                        : GochanoLanguage.text('See more', 'আরো দেখুন'),
+                    child: Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: GochanoSizes.iconMd,
+                      color: context.colors.textSecondary,
+                    ),
+                  ),
+                ),
               ),
             ),
         ],

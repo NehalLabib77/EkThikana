@@ -41,7 +41,10 @@ class LifeScreen extends StatelessWidget {
           'টাকা, ওষুধ ও যাতায়াত',
         ),
         automaticallyImplyLeading: false,
-        actions: const [LanguageToggle(), SizedBox(width: GochanoSpacing.xs)],
+        actions: const [
+          LanguageToggle(),
+          SizedBox(width: GochanoSpacing.xs),
+        ],
       ),
       body: ListView(
         padding: GochanoSpacing.scrollBody,
@@ -51,14 +54,14 @@ class LifeScreen extends StatelessWidget {
           _ModuleCard(
             title: GochanoLanguage.text('Expense', 'খরচ'),
             description: GochanoLanguage.text(
-              'Daily spending, grocery, budget and history',
-              'দৈনিক খরচ, বাজার, বাজেট ও ইতিহাস',
+              'Daily spending, grocery, Dena/Pawna and monthly overview',
+              'দৈনিক খরচ, বাজার, দেনা/পাওনা ও মাসিক সারাংশ',
             ),
             illustration: GochanoArt.featureExpense,
             accent: colors.expense,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const ExpenseScreen()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const ExpenseScreen())),
           ),
           const SizedBox(height: GochanoSpacing.sm),
           _ModuleCard(
@@ -69,9 +72,9 @@ class LifeScreen extends StatelessWidget {
             ),
             illustration: GochanoArt.featureMedicine,
             accent: colors.medicine,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const MedicineScreen()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
           ),
           const SizedBox(height: GochanoSpacing.sm),
           _ModuleCard(
@@ -82,9 +85,9 @@ class LifeScreen extends StatelessWidget {
             ),
             illustration: GochanoArt.featureCommute,
             accent: colors.commute,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const CommuteScreen()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const CommuteScreen())),
           ),
         ],
       ),
@@ -114,86 +117,102 @@ class _MonthSummaryState extends State<_MonthSummary> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final now = DateTime.now();
 
-    return StreamBuilder<List<FinancialTransactionModel>>(
-      stream: FinancialService.monthStream(DateTime.now()),
-      builder: (context, snapshot) {
-        final summary = FinancialSummary.fromTransactions(
-          snapshot.data ?? const <FinancialTransactionModel>[],
-        );
-        final spent = summary.totalSpending;
+    return StreamBuilder<Map<String, double>>(
+      stream: FinancialService.denaPawnaSettlementTotalsStream(now),
+      builder: (context, settlementSnap) {
+        final settlements =
+            settlementSnap.data ?? const {'pawnaReceived': 0, 'denaPaid': 0};
+        final pawnaReceived = settlements['pawnaReceived'] ?? 0;
+        final denaPaid = settlements['denaPaid'] ?? 0;
 
-        return FutureBuilder<Map<String, dynamic>>(
-          future: _budget,
-          builder: (context, budgetSnap) {
-            final available =
-                (budgetSnap.data?['available'] as num?)?.toDouble();
-            final remaining =
-                (budgetSnap.data?['remaining'] as num?)?.toDouble();
-            final hasBudget = available != null && available > 0;
-            final avail = hasBudget ? available : 0.0;
-            final rem = hasBudget ? (remaining ?? avail) : null;
-            final overspent = rem != null && rem < 0;
+        return StreamBuilder<List<FinancialTransactionModel>>(
+          stream: FinancialService.monthStream(now),
+          builder: (context, snapshot) {
+            final summary = FinancialSummary.fromTransactions(
+              snapshot.data ?? const <FinancialTransactionModel>[],
+            );
+            final spent = summary.totalSpending;
 
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: AppCard(
-                      padding: const EdgeInsets.all(GochanoSpacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            GochanoLanguage.text('Remaining', 'বাকি'),
-                            style: context.type.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: GochanoSpacing.xxs),
-                          Text(
-                            rem != null ? formatTaka(rem) : '—',
-                            style: context.type.statistic.copyWith(
-                              color: overspent
-                                  ? colors.error
-                                  : hasBudget
+            return FutureBuilder<Map<String, dynamic>>(
+              future: _budget,
+              builder: (context, budgetSnap) {
+                final available = (budgetSnap.data?['available'] as num?)
+                    ?.toDouble();
+                final remaining = (budgetSnap.data?['remaining'] as num?)
+                    ?.toDouble();
+                final hasBudget = available != null && available > 0;
+                final avail = hasBudget ? available : 0.0;
+                final baseRem = hasBudget ? (remaining ?? avail) : null;
+                final rem = baseRem != null
+                    ? (baseRem + pawnaReceived - denaPaid)
+                    : null;
+                final overspent = rem != null && rem < 0;
+
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: AppCard(
+                          padding: const EdgeInsets.all(GochanoSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                GochanoLanguage.text('Remaining', 'বাকি'),
+                                style: context.type.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: GochanoSpacing.xxs),
+                              Text(
+                                rem != null ? formatTaka(rem) : '—',
+                                style: context.type.statistic.copyWith(
+                                  color: overspent
+                                      ? colors.error
+                                      : hasBudget
                                       ? colors.success
                                       : colors.textTertiary,
-                            ),
-                          ),
-                          if (hasBudget) ...[
-                            const SizedBox(height: GochanoSpacing.xs),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: avail <= 0
-                                    ? 0.0
-                                    : ((avail - (rem ?? 0)) / avail)
-                                        .clamp(0.0, 1.0),
-                                minHeight: 5,
-                                backgroundColor: colors.surfaceVariant,
-                                color: overspent
-                                    ? colors.error
-                                    : colors.expense,
+                                ),
                               ),
-                            ),
-                          ],
-                        ],
+                              if (hasBudget) ...[
+                                const SizedBox(height: GochanoSpacing.xs),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: avail <= 0
+                                        ? 0.0
+                                        : ((avail - (rem ?? 0)) / avail).clamp(
+                                            0.0,
+                                            1.0,
+                                          ),
+                                    minHeight: 5,
+                                    backgroundColor: colors.surfaceVariant,
+                                    color: overspent
+                                        ? colors.error
+                                        : colors.expense,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: GochanoSpacing.sm),
+                      Expanded(
+                        child: StatCard(
+                          label: GochanoLanguage.text('Spent', 'খরচ'),
+                          value: formatTaka(spent),
+                          accent: colors.expense,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: GochanoSpacing.sm),
-                  Expanded(
-                    child: StatCard(
-                      label: GochanoLanguage.text('Spent', 'খরচ'),
-                      value: formatTaka(spent),
-                      accent: colors.expense,
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             );
           },
         );
@@ -240,10 +259,7 @@ class _ModuleCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: GochanoSpacing.xs),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: context.colors.textTertiary,
-          ),
+          Icon(Icons.chevron_right_rounded, color: context.colors.textTertiary),
         ],
       ),
     );

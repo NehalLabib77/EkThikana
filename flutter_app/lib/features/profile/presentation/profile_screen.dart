@@ -214,7 +214,10 @@ class _ProfileAvatar extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.surface,
-                border: Border.all(color: colors.border, width: GochanoBorders.hairline),
+                border: Border.all(
+                  color: colors.border,
+                  width: GochanoBorders.hairline,
+                ),
               ),
               child: Icon(
                 Icons.camera_alt_rounded,
@@ -671,9 +674,7 @@ class _SettingsCardState extends State<_SettingsCard>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       if (kDebugMode) {
-        debugPrint(
-          '[Profile] App resumed — re-checking usage access.',
-        );
+        debugPrint('[Profile] App resumed — re-checking usage access.');
       }
       _checkUsageAccess();
     }
@@ -903,6 +904,7 @@ class _DangerCardState extends State<_DangerCard> {
     // student recognises it as destructive before reading the label.
     return AppCard(
       accent: colors.error,
+      padding: EdgeInsets.zero,
       child: ListTile(
         leading: Icon(Icons.delete_forever_outlined, color: colors.error),
         title: Text(

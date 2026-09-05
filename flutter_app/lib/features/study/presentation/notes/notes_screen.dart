@@ -76,13 +76,8 @@ class NotesList extends StatelessWidget {
             illustration: GochanoArt.fileNote,
             title: GochanoLanguage.text('No notes yet', 'এখনো কোনো নোট নেই'),
             message: GochanoLanguage.text(
-              'Write your first note. You can ask AI to clean it up or '
-              'summarise it later.',
-              'আপনার প্রথম নোট লিখুন। পরে এআই দিয়ে গুছিয়ে বা সারাংশ করে নিতে পারবেন।',
-            ),
-            actionLabel: GochanoLanguage.text('Write a note', 'নোট লিখুন'),
-            onAction: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const NoteEditorScreen()),
+              'Tap the + button to write your first note.',
+              '+ বোতামে ট্যাপ করে আপনার প্রথম নোট লিখুন।',
             ),
           );
         }
@@ -160,7 +155,15 @@ class _NoteRow extends StatelessWidget {
           label: GochanoLanguage.text('Delete', 'মুছুন'),
           icon: Icons.delete_outline_rounded,
           destructive: true,
-          onSelected: () => deleteNote(context, doc),
+          onSelected: () async {
+            final deleted = await deleteNote(context, doc);
+            if (deleted && context.mounted) {
+              showGochanoMessage(
+                context,
+                GochanoLanguage.text('Note deleted.', 'নোট মুছে ফেলা হয়েছে।'),
+              );
+            }
+          },
         ),
       ],
     );

@@ -365,8 +365,11 @@ void main() {
       expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Pawna received'"));
     });
 
-    test('today card has brand accent', () {
-      expect(source, contains('accent: isToday ? colors.brand : null'));
+    test('Cash Flow and Day Details sections removed', () {
+      expect(source, isNot(contains('Cash flow')));
+      expect(source, isNot(contains('Day details')));
+      expect(source, isNot(contains('class _CashFlowCard')));
+      expect(source, isNot(contains('class _DayDetail')));
     });
   });
 }

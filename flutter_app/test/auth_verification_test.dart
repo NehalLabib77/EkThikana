@@ -1,13 +1,29 @@
-// Email verification flow guards.
+// Email verification + telecom auth wiring guards.
+//
+// PART 16.1 update: the legacy email-verification flow is no longer
+// the production login path. The live AuthGate now drives a dual
+// check (SharedPreferences flag + FirebaseAuth.currentUser), so the
+// AuthGate group below tests that behavior. The legacy
+// `VerifyEmailScreen` / `AuthService.login` / `AuthService
+// .resendVerification` / `LoginResult` / debug-seam groups below
+// still hold because `lib/services/auth_service.dart` and
+// `lib/features/auth/presentation/verify_email_screen.dart` are
+// preserved on disk for legacy callers even though the live login
+// path has switched to the Robi/Cirkle telecom flow.
 //
 // The behavior under test here is structural rather than behavioral
 // (we do not boot a real Firebase SDK in unit tests). The intent is
-// to fail loudly if a later edit re-introduces the bug that the
-// verify-screen rewrite fixed:
+// to fail loudly if a later edit re-introduces:
 //
-//   * `AuthGate` must listen to `AuthService.authState()` — the merged
-//     stream — not raw `auth.authStateChanges()`. The raw stream does
-//     not emit on `emailVerified` flip; only the merged stream does.
+//   * `AuthGate` must require BOTH the local SharedPreferences flag
+//     (`TelecomAuthService.readIsLoggedIn()`) AND a real
+//     `FirebaseAuth.instance.currentUser` before constructing
+//     `GochanoShell`. A flag-only check is the PART 16 bug that
+//     caused every Firestore read/write to fail permission-denied.
+//   * When the local flag is set but Firebase did not restore the
+//     user, `AuthGate` must call `TelecomAuthService.clearSession()`
+//     and surface a `resumeMessage` to `LoginScreen` instead of
+//     letting the user into the shell half-authenticated.
 //   * `VerifyEmailScreen` must drive verification detection from at
 //     least one automatic source (lifecycle resume or polling), and
 //     must never push to a home shell itself.
@@ -26,36 +42,57 @@ String _read(String path) =>
     File(path).readAsStringSync().replaceAll('\r\n', '\n');
 
 void main() {
-  group('AuthGate wiring', () {
+  group('AuthGate wiring (PART 16.1 dual gate)', () {
     late String gateSource;
 
     setUpAll(() => gateSource =
         _read('lib/features/auth/presentation/auth_gate.dart'));
 
-    test('listens to AuthService.authState() (merged stream)', () {
+    test('subscribes to FirebaseAuth.authStateChanges', () {
+      // PART 16.1: the live gate watches FirebaseAuth (not the legacy
+      // merged AuthService.authState() stream) because the telecom
+      // login path goes through signInWithCustomToken, which IS
+      // reflected on the raw stream.
       expect(
         gateSource,
-        contains("AuthService.authState()"),
-        reason:
-            'AuthGate must listen to the merged stream so the gate can see '
-            'emailVerified flips — Firebase authStateChanges does not emit '
-            'on its own when emailVerified changes.',
+        contains('authStateChanges'),
+        reason: 'AuthGate must watch FirebaseAuth.authStateChanges so '
+            'signInWithCustomToken (telecom login path) ticks the gate.',
       );
+      expect(gateSource, contains('FirebaseAuth.instance'));
     });
 
-    test('does NOT listen to raw authStateChanges', () {
-      // The gate should never directly subscribe to `firebase_auth`'s
-      // raw stream, because that stream does not tick on emailVerified.
+    test('checks the local SharedPreferences flag', () {
+      // PART 16.1: in addition to currentUser, the gate must look at
+      // the telecom session flag so a cold start with a valid session
+      // (and the Firebase user already in memory) routes straight in.
+      expect(gateSource, contains('readIsLoggedIn'));
+    });
+
+    test('refuses GochanoShell entry without a currentUser', () {
+      // The whole point of PART 16.1: a flag with null currentUser
+      // must NOT be enough to enter the shell. Both must be non-null.
+      expect(gateSource, contains('currentUser'));
+      expect(gateSource, contains('GochanoShell('));
+    });
+
+    test('clears stale session when Firebase did not restore the user', () {
       expect(
-        gateSource.contains('authStateChanges()'),
-        isFalse,
-        reason: 'AuthGate must go through AuthService.authState() — the raw '
-            'stream does not emit on emailVerified flip.',
+        gateSource,
+        contains('clearSession'),
+        reason: 'Stale flags (Firebase restored null on cold start) '
+            'must be wiped so the user is re-prompted cleanly.',
       );
     });
 
-    test('routes on emailVerified from FirebaseAuth.currentUser', () {
-      expect(gateSource, contains('emailVerified'));
+    test('surfaces a resume message on the LoginScreen', () {
+      expect(gateSource, contains('resumeMessage'));
+      expect(gateSource, contains('LoginScreen('));
+    });
+
+    test('does NOT depend on the legacy email-verification flow', () {
+      expect(gateSource.contains('emailVerified'), isFalse);
+      expect(gateSource.contains('signInWithEmailAndPassword'), isFalse);
     });
   });
 

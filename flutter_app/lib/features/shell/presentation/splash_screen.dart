@@ -17,7 +17,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 
-const String _kLogoAsset = 'assets/branding/Gochano.png';
+const String _kLogoAsset = 'assets/branding/gochano1.png';
 
 /// Upper bound on how long to wait for [GochanoSplashScreen.onReady].
 const Duration _kHardTimeout = Duration(milliseconds: 1500);

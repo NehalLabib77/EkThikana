@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
+import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_dates.dart';
@@ -84,9 +85,7 @@ class _PlanViewState extends State<PlanView> {
             onDaySelected: (day) => setState(() => _selectedDay = day),
           ),
           const SizedBox(height: GochanoSpacing.md),
-          _ScheduleSection(selectedDay: _selectedDay),
-          const SizedBox(height: GochanoSpacing.md),
-          _AssignmentTaskBento(selectedDay: _selectedDay),
+          _CombinedPlannerList(selectedDay: _selectedDay),
           const SizedBox(height: GochanoSpacing.md),
           _StudyGoalSection(
             stats: _stats,
@@ -108,25 +107,60 @@ class _PlanViewState extends State<PlanView> {
 // 1. Date / Week strip
 // ---------------------------------------------------------------------------
 
-class _DateStrip extends StatelessWidget {
+class _DateStrip extends StatefulWidget {
   const _DateStrip({required this.selectedDay, required this.onDaySelected});
 
   final DateTime selectedDay;
   final ValueChanged<DateTime> onDaySelected;
 
   @override
+  State<_DateStrip> createState() => _DateStripState();
+}
+
+class _DateStripState extends State<_DateStrip> {
+  late final ScrollController _scrollController;
+  static const _cellWidth = 44.0 + 8.0; // cell width + right margin
+  static const _visibleBeforeToday = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToToday());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToToday() {
+    if (!_scrollController.hasClients) return;
+    final totalDays = _totalDays;
+    final todayIndex = totalDays - 15; // today is 15 days from start
+    final targetOffset = (todayIndex - _visibleBeforeToday) * _cellWidth;
+    _scrollController.jumpTo(targetOffset.clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    ));
+  }
+
+  static const _totalDays = 31; // ~1 month of scrollable dates
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
-    final days = List.generate(7, (i) => startOfWeek.add(Duration(days: i)));
+    final startDate = today.subtract(const Duration(days: 15));
+    final days = List.generate(_totalDays, (i) => startDate.add(Duration(days: i)));
 
     final months = [
       'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December',
     ];
-    final currentMonth = '${months[selectedDay.month - 1]} ${selectedDay.year}';
+    final currentMonth = '${months[widget.selectedDay.month - 1]} ${widget.selectedDay.year}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,12 +169,15 @@ class _DateStrip extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                GochanoLanguage.text(currentMonth, '${selectedDay.month} মাস ${selectedDay.year}'),
+                GochanoLanguage.text(currentMonth, '${widget.selectedDay.month} মাস ${widget.selectedDay.year}'),
                 style: context.type.sectionHeading,
               ),
             ),
             TextButton(
-              onPressed: () => onDaySelected(today),
+              onPressed: () {
+                widget.onDaySelected(today);
+                _scrollToToday();
+              },
               child: Text(GochanoLanguage.text('Today', 'আজ')),
             ),
           ],
@@ -149,17 +186,18 @@ class _DateStrip extends StatelessWidget {
         SizedBox(
           height: 56,
           child: ListView.builder(
+            controller: _scrollController,
             scrollDirection: Axis.horizontal,
             itemCount: days.length,
             itemBuilder: (context, i) {
               final day = days[i];
               final isSelected = DateTime(day.year, day.month, day.day) ==
-                  DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+                  DateTime(widget.selectedDay.year, widget.selectedDay.month, widget.selectedDay.day);
               final isToday = day == today;
               final dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
               return GestureDetector(
-                onTap: () => onDaySelected(day),
+                onTap: () => widget.onDaySelected(day),
                 child: Container(
                   width: 44,
                   margin: const EdgeInsets.only(right: GochanoSpacing.xs),
@@ -206,11 +244,11 @@ class _DateStrip extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Today's Schedule — tasks due on the selected day
+// Combined Tasks & Assignments — single chronological list with category badges
 // ---------------------------------------------------------------------------
 
-class _ScheduleSection extends StatelessWidget {
-  const _ScheduleSection({required this.selectedDay});
+class _CombinedPlannerList extends StatelessWidget {
+  const _CombinedPlannerList({required this.selectedDay});
 
   final DateTime selectedDay;
 
@@ -231,80 +269,19 @@ class _ScheduleSection extends StatelessWidget {
         );
         final endOfDay = dayKey.add(const Duration(days: 1));
 
-        final tasks = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
         for (final doc in [...?snapshot.data?.docs]) {
           final data = doc.data();
           if (data['done'] == true) continue;
           final due = (data['dueAt'] as Timestamp?)?.toDate();
           if (due == null) continue;
-          if (!due.isAfter(dayKey) && due.isBefore(endOfDay)) {
-            tasks.add(doc);
+          if (!due.isBefore(dayKey) && due.isBefore(endOfDay)) {
+            docs.add(doc);
           }
         }
 
-        if (tasks.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionHeader(
-              title: GochanoLanguage.text("Today's schedule", 'আজকের সময়সূচি'),
-            ),
-            CardGroup(
-              children: tasks.map((doc) {
-                final data = doc.data();
-                final due = (data['dueAt'] as Timestamp?)?.toDate();
-                return GochanoListRow(
-                  illustration: GochanoArt.featureTasks,
-                  accent: context.colors.brand,
-                  title: data['title']?.toString() ?? '',
-                  metadata: [if (due != null) _clock(due)],
-                  onTap: () => showAddTaskSheet(context, existing: doc),
-                );
-              }).toList(),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 3+4. Assignments & Tasks — single combined card with two sections
-// ---------------------------------------------------------------------------
-
-class _AssignmentTaskBento extends StatelessWidget {
-  const _AssignmentTaskBento({required this.selectedDay});
-
-  final DateTime selectedDay;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 300),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-        if (snapshot.hasError) return const SizedBox.shrink();
-
-        final docs = snapshot.data?.docs ?? [];
-
-        final deadlines = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        final tasks = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        for (final doc in docs) {
-          final data = doc.data();
-          if (data['done'] == true) continue;
-          final isAssignment = data['type']?.toString() == 'assignment';
-          if (isAssignment) {
-            deadlines.add(doc);
-          } else {
-            tasks.add(doc);
-          }
-        }
-
-        deadlines.sort((a, b) {
+        // Sort by dueAt ascending (items with no due go last).
+        docs.sort((a, b) {
           final ad = (a.data()['dueAt'] as Timestamp?)?.toDate();
           final bd = (b.data()['dueAt'] as Timestamp?)?.toDate();
           if (ad == null && bd == null) return 0;
@@ -313,17 +290,38 @@ class _AssignmentTaskBento extends StatelessWidget {
           return ad.compareTo(bd);
         });
 
-        tasks.sort((a, b) {
-          final ad = (a.data()['dueAt'] as Timestamp?)?.toDate();
-          final bd = (b.data()['dueAt'] as Timestamp?)?.toDate();
-          if (ad == null && bd == null) return 0;
-          if (ad == null) return 1;
-          if (bd == null) return -1;
-          return ad.compareTo(bd);
-        });
-
-        final shownDeadlines = deadlines.take(3).toList();
-        final shownTasks = tasks.take(3).toList();
+        if (docs.isEmpty) {
+          return AppCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GochanoIllustration(
+                  GochanoArt.emptyTasks,
+                  size: GochanoSizes.illustrationEmpty,
+                  accent: context.colors.textTertiary,
+                ),
+                const SizedBox(height: GochanoSpacing.sm),
+                Text(
+                  GochanoLanguage.text(
+                    'Nothing due on this day.',
+                    'এই দিনে কিছু নেই।',
+                  ),
+                  style: context.type.sectionHeading,
+                ),
+                const SizedBox(height: GochanoSpacing.sm),
+                Center(
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        showAddTaskSheet(context, initialDate: selectedDay),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text(
+                        GochanoLanguage.text('Add task', 'কাজ যোগ করুন')),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
         return AppCard(
           padding: const EdgeInsets.all(GochanoSpacing.sm),
@@ -331,70 +329,66 @@ class _AssignmentTaskBento extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ── Assignments section ──
-              _SectionRow(
-                icon: Icons.assignment_outlined,
-                label: GochanoLanguage.text('Assignments', 'অ্যাসাইনমেন্ট'),
-                count: deadlines.length,
-                accent: context.colors.brand,
-                onAdd: () => showAddTaskSheet(context, type: 'assignment'),
+              Row(
+                children: [
+                  Icon(Icons.event_rounded, size: 14, color: context.colors.brand),
+                  const SizedBox(width: GochanoSpacing.xxs),
+                  Expanded(
+                    child: Text(
+                      GochanoLanguage.text(
+                        'Due this day',
+                        'এই দিনের কাজ',
+                      ),
+                      style: context.type.label.copyWith(
+                        fontSize: 13,
+                        color: context.colors.brand,
+                      ),
+                    ),
+                  ),
+                  GochanoBadge(
+                    label: '${docs.length}',
+                    tone: GochanoBadgeTone.brand,
+                  ),
+                ],
               ),
               const SizedBox(height: GochanoSpacing.xs),
-              if (deadlines.isEmpty)
-                _EmptyInline(
-                  label: GochanoLanguage.text('No assignments', 'কোনো অ্যাসাইনমেন্ট নেই'),
-                  onAdd: () => showAddTaskSheet(context, type: 'assignment'),
-                )
-              else
-                for (final doc in shownDeadlines)
-                  _AssignmentRow(doc: doc),
-              if (deadlines.length > 3)
-                Padding(
-                  padding: const EdgeInsets.only(top: GochanoSpacing.xxs),
-                  child: Text(
-                    GochanoLanguage.text(
-                      '+${deadlines.length - 3} more',
-                      'আরও ${deadlines.length - 3} টি',
-                    ),
-                    style: context.type.caption,
+              for (final doc in docs) ...[
+                _PlannerItemRow(doc: doc),
+                if (doc != docs.last)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Divider(height: 1, color: context.colors.border),
                   ),
-                ),
-
-              // ── Divider ──
-              if (deadlines.isNotEmpty && tasks.isNotEmpty) ...[
-                const SizedBox(height: GochanoSpacing.sm),
-                Divider(height: 1, color: context.colors.border),
-                const SizedBox(height: GochanoSpacing.sm),
               ],
-
-              // ── Tasks section ──
-              _SectionRow(
-                icon: Icons.check_circle_outline_rounded,
-                label: GochanoLanguage.text('Tasks', 'কাজ'),
-                count: tasks.length,
-                accent: context.colors.study,
-                onAdd: () => showAddTaskSheet(context, type: 'task'),
-              ),
               const SizedBox(height: GochanoSpacing.xs),
-              if (tasks.isEmpty)
-                _EmptyInline(
-                  label: GochanoLanguage.text('No tasks', 'কোনো কাজ নেই'),
-                  onAdd: () => showAddTaskSheet(context, type: 'task'),
-                )
-              else
-                for (final doc in shownTasks)
-                  _TaskRow(doc: doc),
-              if (tasks.length > 3)
-                Padding(
-                  padding: const EdgeInsets.only(top: GochanoSpacing.xxs),
-                  child: Text(
-                    GochanoLanguage.text(
-                      '+${tasks.length - 3} more',
-                      'আরও ${tasks.length - 3} টি',
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => showAddTaskSheet(
+                        context,
+                        type: 'task',
+                        initialDate: selectedDay,
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: Text(GochanoLanguage.text('Task', 'কাজ')),
                     ),
-                    style: context.type.caption,
                   ),
-                ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => showAddTaskSheet(
+                        context,
+                        type: 'assignment',
+                        initialDate: selectedDay,
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: Text(
+                          GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -404,171 +398,11 @@ class _AssignmentTaskBento extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Compact section header row (icon + label + count + add button)
+// 3+4. Single planner row — shows category badge, title, due, and actions
 // ---------------------------------------------------------------------------
 
-class _SectionRow extends StatelessWidget {
-  const _SectionRow({
-    required this.icon,
-    required this.label,
-    required this.count,
-    required this.accent,
-    required this.onAdd,
-  });
-
-  final IconData icon;
-  final String label;
-  final int count;
-  final Color accent;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: accent),
-        const SizedBox(width: GochanoSpacing.xxs),
-        Expanded(
-          child: Text(
-            label,
-            style: context.type.label.copyWith(fontSize: 13, color: accent),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (count > 0)
-          Container(
-            margin: const EdgeInsets.only(right: GochanoSpacing.xxs),
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              borderRadius: GochanoRadius.smAll,
-            ),
-            child: Text(
-              '$count',
-              style: context.type.caption.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
-              ),
-            ),
-          ),
-        GestureDetector(
-          onTap: onAdd,
-          child: Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              borderRadius: GochanoRadius.smAll,
-            ),
-            child: Icon(Icons.add_rounded, size: 14, color: accent),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 3a. Inline empty state — single row
-// ---------------------------------------------------------------------------
-
-class _EmptyInline extends StatelessWidget {
-  const _EmptyInline({required this.label, required this.onAdd});
-
-  final String label;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xxs),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: context.type.caption.copyWith(
-              color: context.colors.textSecondary,
-            ),
-          ),
-          const SizedBox(width: GochanoSpacing.xs),
-          GestureDetector(
-            onTap: onAdd,
-            child: Text(
-              GochanoLanguage.text('+ Add', '+ যোগ'),
-              style: context.type.caption.copyWith(
-                color: context.colors.brand,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 3b. Assignment row — compact, tappable
-// ---------------------------------------------------------------------------
-
-class _AssignmentRow extends StatelessWidget {
-  const _AssignmentRow({required this.doc});
-
-  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
-
-  @override
-  Widget build(BuildContext context) {
-    final data = doc.data();
-    final due = (data['dueAt'] as Timestamp?)?.toDate();
-    final overdue = due != null && due.isBefore(DateTime.now());
-
-    return InkWell(
-      onTap: () => showAddTaskSheet(context, existing: doc),
-      borderRadius: GochanoRadius.smAll,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          children: [
-            Icon(
-              due != null ? Icons.event_rounded : Icons.schedule_rounded,
-              size: 12,
-              color: overdue ? context.colors.warning : context.colors.textTertiary,
-            ),
-            const SizedBox(width: GochanoSpacing.xxs),
-            Expanded(
-              child: Text(
-                data['title']?.toString() ?? '',
-                style: context.type.body.copyWith(fontSize: 13),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (due != null) ...[
-              Text(
-                '${formatShortDate(due)} ${formatClock12(due)}',
-                style: context.type.caption.copyWith(
-                  fontSize: 10,
-                  color: overdue ? context.colors.warning : context.colors.textTertiary,
-                ),
-              ),
-              const SizedBox(width: GochanoSpacing.xxs),
-              _deadlineStateBadgeCompact(context, due),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 4. Task row — compact checklist with overflow menu
-// ---------------------------------------------------------------------------
-
-class _TaskRow extends StatelessWidget {
-  const _TaskRow({required this.doc});
+class _PlannerItemRow extends StatelessWidget {
+  const _PlannerItemRow({required this.doc});
 
   final QueryDocumentSnapshot<Map<String, dynamic>> doc;
 
@@ -579,21 +413,50 @@ class _TaskRow extends StatelessWidget {
     final title = data['title']?.toString() ?? '';
     final due = (data['dueAt'] as Timestamp?)?.toDate();
     final overdue = !done && due != null && due.isBefore(DateTime.now());
+    final isAssignment = data['type']?.toString() == 'assignment';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: Checkbox(
-              value: done,
-              onChanged: (value) => _setDone(context, doc, value ?? false),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+          if (!isAssignment)
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: Checkbox(
+                value: done,
+                onChanged: (value) => _setDone(context, doc, value ?? false),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            )
+          else
+            Icon(
+              Icons.assignment_outlined,
+              size: 16,
+              color: context.colors.brand,
+            ),
+          const SizedBox(width: GochanoSpacing.xxs),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: isAssignment
+                  ? context.colors.brand.withValues(alpha: 0.10)
+                  : context.colors.study.withValues(alpha: 0.10),
+              borderRadius: GochanoRadius.smAll,
+            ),
+            child: Text(
+              isAssignment
+                  ? GochanoLanguage.text('Asm', 'অ্যাস')
+                  : GochanoLanguage.text('Task', 'কাজ'),
+              style: context.type.caption.copyWith(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: isAssignment ? context.colors.brand : context.colors.study,
+              ),
             ),
           ),
+          const SizedBox(width: GochanoSpacing.xxs),
           Expanded(
             child: InkWell(
               onTap: () => showAddTaskSheet(context, existing: doc),
@@ -865,70 +728,6 @@ class _StudyGoalSection extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-String _clock(DateTime when) {
-  final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
-  final minute = when.minute.toString().padLeft(2, '0');
-  return '$hour:$minute ${when.hour < 12 ? 'am' : 'pm'}';
-}
-
-Widget _deadlineStateBadgeCompact(BuildContext context, DateTime due) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final day = DateTime(due.year, due.month, due.day);
-  final diff = day.difference(today).inDays;
-
-  if (diff < 0) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: context.colors.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        GochanoLanguage.text('Overdue', 'বিলম্বিত'),
-        style: TextStyle(fontSize: 8, color: context.colors.error, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-  if (diff == 0) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: context.colors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        GochanoLanguage.text('Today', 'আজ'),
-        style: TextStyle(fontSize: 8, color: context.colors.warning, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-  if (diff == 1) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: context.colors.brand.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        GochanoLanguage.text('Tmrw', 'আগামীকাল'),
-        style: TextStyle(fontSize: 8, color: context.colors.brand, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-    decoration: BoxDecoration(
-      color: context.colors.surfaceVariant,
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: Text(
-      GochanoLanguage.text('${diff}d', '$diffদিন'),
-      style: TextStyle(fontSize: 8, color: context.colors.textSecondary, fontWeight: FontWeight.w600),
-    ),
-  );
-}
 
 String _formatDuration(int totalSeconds) {
   final hours = totalSeconds ~/ 3600;

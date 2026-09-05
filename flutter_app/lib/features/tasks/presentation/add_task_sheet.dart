@@ -22,15 +22,21 @@ import '../../../shared/widgets/gochano_controls.dart';
 /// [type] defaults to `'task'`. Pass `'assignment'` to preselect the form
 /// as an assignment — the document is stamped with this value so the Plan
 /// cards can filter reliably.
+///
+/// [initialDate] pre-fills the due date for new tasks (ignored for edits).
+/// When provided, the due time defaults to 09:00 on that date so the task
+/// appears immediately in the selected Plan day's list.
 Future<bool> showAddTaskSheet(
   BuildContext context, {
   DocumentSnapshot<Map<String, dynamic>>? existing,
   String type = 'task',
+  DateTime? initialDate,
 }) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => _TaskForm(existing: existing, type: type),
+    builder: (sheetContext) =>
+        _TaskForm(existing: existing, type: type, initialDate: initialDate),
   );
   return saved ?? false;
 }
@@ -44,10 +50,14 @@ const _kPresetDurations = <Duration>[
 ];
 
 class _TaskForm extends StatefulWidget {
-  const _TaskForm({this.existing, this.type = 'task'});
+  const _TaskForm({this.existing, this.type = 'task', this.initialDate});
 
   final DocumentSnapshot<Map<String, dynamic>>? existing;
   final String type;
+  /// Pre-fills the due date for a new task (9 am on this date). Ignored when
+  /// [existing] is provided (edit mode).
+  final DateTime? initialDate;
+
 
   @override
   State<_TaskForm> createState() => _TaskFormState();
@@ -69,6 +79,14 @@ class _TaskFormState extends State<_TaskForm> {
     final data = widget.existing?.data() ?? const <String, dynamic>{};
     _title = TextEditingController(text: data['title']?.toString() ?? '');
     _dueAt = (data['dueAt'] as Timestamp?)?.toDate();
+    // For a new task, if the caller supplied a date (e.g. from Plan view's
+    // selected day), pre-fill due time to 09:00 on that date so the task
+    // shows up immediately in the correct day's list without the user having
+    // to tap the date picker.
+    if (_dueAt == null && widget.initialDate != null && !_isEdit) {
+      final d = widget.initialDate!;
+      _dueAt = DateTime(d.year, d.month, d.day, 9, 0);
+    }
     _remindAt = (data['remindAt'] as Timestamp?)?.toDate();
     _reminderPreset = _detectPreset();
   }
