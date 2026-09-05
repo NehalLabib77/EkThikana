@@ -637,4 +637,190 @@ class FinancialService {
   ) {
     return FinancialSummary.fromTransactions(transactions);
   }
+
+  // -------------------------------------------------------------------------
+  // Dena / Pawna (lending / borrowing)
+  //
+  // Records are stored in `dena_pawna_items` with settlement history inline.
+  //
+  // CRITICAL CASH-FLOW RULE:
+  // - Creating a Dena/Pawna record does NOT affect Remaining
+  // - Only ACTUAL money movement (settlement) affects Remaining:
+  //   * Pawna received = Cash Inflow (Remaining increases)
+  //   * Dena paid = Cash Outflow (Remaining decreases)
+  // - Monthly Money never changes
+  //
+  // Settlements are stored IN the dena_pawna_items document (not in
+  // financial_transactions) to avoid double-counting the backend's
+  // remaining calculation.  The UI fetches both the backend remaining
+  // and the settlement totals, then computes the adjusted remaining.
+  // -------------------------------------------------------------------------
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> denaPawnaStream() {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
+        db.collection('dena_pawna_items').limit(0).get(),
+      );
+    }
+    return db
+        .collection('dena_pawna_items')
+        .where('ownerId', isEqualTo: currentUid)
+        .orderBy('date', descending: true)
+        .snapshots();
+  }
+
+  static Future<String> saveDenaPawna({
+    String? id,
+    required String personName,
+    required double amount,
+    required String type,
+    required DateTime date,
+    String note = '',
+    DateTime? dueDate,
+  }) async {
+    if (amount <= 0) throw Exception('Amount must be greater than zero.');
+    if (!{'lend', 'borrow'}.contains(type)) {
+      throw Exception('Type must be lend or borrow.');
+    }
+
+    final ref = id == null
+        ? db.collection('dena_pawna_items').doc()
+        : db.collection('dena_pawna_items').doc(id);
+
+    await ref.set(
+      {
+        'ownerId': uid,
+        'personName': personName.trim(),
+        'amount': amount,
+        'outstandingAmount': amount,
+        'type': type,
+        'status': 'outstanding',
+        'settled': false,
+        'note': note.trim(),
+        'date': Timestamp.fromDate(date),
+        'dateKey': dateKey(date),
+        'monthKey': monthKey(date),
+        'settlements': <dynamic>[],
+        if (dueDate != null) 'dueDate': Timestamp.fromDate(dueDate),
+        if (dueDate != null) 'dueDateKey': dateKey(dueDate),
+        if (id == null) 'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    return ref.id;
+  }
+
+  /// Partial or full settlement of a Dena/Pawna record.
+  ///
+  /// Settlement history is stored inline in the dena_pawna_items document.
+  /// Each settlement gets a deterministic ID for idempotency.
+  static Future<void> settleDenaPawna(
+    String id, {
+    required double settleAmount,
+  }) async {
+    if (settleAmount <= 0) {
+      throw Exception('Settlement amount must be greater than zero.');
+    }
+
+    final currentUid = uid;
+    if (currentUid == null) throw Exception('User not signed in.');
+
+    final docSnap = await db.collection('dena_pawna_items').doc(id).get();
+    if (!docSnap.exists) throw Exception('Record not found.');
+    final data = docSnap.data()!;
+    if (data['ownerId'] != currentUid) {
+      throw Exception('You can only settle your own records.');
+    }
+
+    final amount = (data['amount'] as num?)?.toDouble() ?? 0;
+    final currentOutstanding =
+        (data['outstandingAmount'] as num?)?.toDouble() ?? amount;
+
+    if (settleAmount > currentOutstanding + 0.001) {
+      throw Exception('Settlement amount cannot exceed outstanding amount.');
+    }
+
+    final newOutstanding = (currentOutstanding - settleAmount).clamp(0.0, amount);
+    final isFullySettled = newOutstanding <= 0.001;
+    final newStatus =
+        isFullySettled ? 'settled' : 'partially_settled';
+    final settlementId =
+        'settlement_${id}_${DateTime.now().millisecondsSinceEpoch}';
+
+    final settlementRecord = {
+      'id': settlementId,
+      'amount': settleAmount,
+      'date': Timestamp.fromDate(DateTime.now()),
+      'dateKey': dateKey(DateTime.now()),
+    };
+
+    final existingSettlements =
+        (data['settlements'] as List<dynamic>?) ?? [];
+
+    await db.collection('dena_pawna_items').doc(id).update({
+      'outstandingAmount': isFullySettled ? 0.0 : newOutstanding,
+      'status': newStatus,
+      'settled': isFullySettled,
+      'settlements': [...existingSettlements, settlementRecord],
+      if (isFullySettled) 'settledAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> deleteDenaPawna(String id) async {
+    final currentUid = uid;
+    if (currentUid == null) throw Exception('User not signed in.');
+
+    final docSnap = await db.collection('dena_pawna_items').doc(id).get();
+    if (docSnap.exists && docSnap.data()?['ownerId'] != currentUid) {
+      throw Exception('You can only delete your own records.');
+    }
+
+    await db.collection('dena_pawna_items').doc(id).delete();
+  }
+
+  /// Stream of Dena/Pawna settlement totals for a given month.
+  ///
+  /// Returns `{pawnaReceived: X, denaPaid: Y}` so the UI can compute:
+  /// `Adjusted Remaining = Backend Remaining + pawnaReceived - denaPaid`
+  static Stream<Map<String, double>> denaPawnaSettlementTotalsStream(
+    DateTime month,
+  ) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<Map<String, double>>.value(
+        const {'pawnaReceived': 0, 'denaPaid': 0},
+      );
+    }
+    final mk = monthKey(month);
+    return db
+        .collection('dena_pawna_items')
+        .where('ownerId', isEqualTo: currentUid)
+        .snapshots()
+        .map((snapshot) {
+      var pawnaReceived = 0.0;
+      var denaPaid = 0.0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final type = data['type']?.toString() ?? 'lend';
+        final settlementsList =
+            (data['settlements'] as List<dynamic>?) ?? [];
+        for (final s in settlementsList) {
+          final sm = s as Map<String, dynamic>;
+          final sdk = sm['dateKey']?.toString() ?? '';
+          if (sdk.startsWith(mk)) {
+            final amt = (sm['amount'] as num?)?.toDouble() ?? 0;
+            if (type == 'lend') {
+              pawnaReceived += amt;
+            } else {
+              denaPaid += amt;
+            }
+          }
+        }
+      }
+      return {'pawnaReceived': pawnaReceived, 'denaPaid': denaPaid};
+    });
+  }
 }

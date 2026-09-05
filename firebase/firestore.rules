@@ -237,7 +237,7 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.type == 'expense'
-        && request.resource.data.source in ['daily', 'bazar', 'medicine', 'commute']
+        && request.resource.data.source in ['daily', 'bazar', 'medicine', 'commute', 'dena_paid', 'pawna_received']
         && request.resource.data.sourceRecordId is string
         && request.resource.data.amount is number
         && request.resource.data.amount >= 0;
@@ -262,7 +262,7 @@ service cloud.firestore {
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.type == 'expense'
-        && request.resource.data.source in ['daily', 'bazar', 'medicine', 'commute']
+        && request.resource.data.source in ['daily', 'bazar', 'medicine', 'commute', 'dena_paid', 'pawna_received']
         && request.resource.data.sourceRecordId == resource.data.sourceRecordId
         && request.resource.data.amount is number
         && request.resource.data.amount >= 0;

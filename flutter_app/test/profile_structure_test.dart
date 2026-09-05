@@ -175,13 +175,79 @@ void main() {
       // Quick Access navigation grid lives in the body.
       expect(source, contains('_QuickAccess'));
       expect(source, contains('_QuickAccessCell'));
-      expect(source, contains('GridView.count'));
+      expect(source, contains('SliverGridDelegateWithFixedCrossAxisCount'));
+      expect(source, contains('crossAxisCount: 3'));
       expect(source, contains('AiAssistantScreen'));
       expect(source, contains('NotesScreen'));
       expect(source, contains('SemesterListScreen'));
       expect(source, contains('SharedBoxScreen'));
       // Recent Materials stays in the body.
       expect(source, contains('_RecentMaterials()'));
+    });
+
+    test('collapses to three with See more / See less toggle', () {
+      final source = _read(
+        'lib/features/study/presentation/workspace/workspace_view.dart',
+      );
+      expect(source, contains('_collapsedCount = 3'));
+      expect(source, contains('See more'));
+      expect(source, contains('See less'));
+      expect(source, contains('আরো দেখুন'));
+      expect(source, contains('কম দেখুন'));
+      expect(source, contains('_expanded = !_expanded'));
+    });
+
+    test('uses 3-column grid with fixed mainAxisExtent', () {
+      final source = _read(
+        'lib/features/study/presentation/workspace/workspace_view.dart',
+      );
+      expect(source, contains('GridView.builder'));
+      expect(source, contains('crossAxisCount: 3'));
+      final match =
+          RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(source);
+      expect(match, isNotNull,
+          reason: 'Quick Access grid must declare a finite mainAxisExtent');
+      final value = int.parse(match!.group(1)!);
+      expect(value, greaterThanOrEqualTo(80));
+      expect(value, lessThanOrEqualTo(96),
+          reason: 'mainAxisExtent should be between 80-96px for overflow-safe tiles');
+    });
+
+    test('every existing destination is still reachable', () {
+      final source = _read(
+        'lib/features/study/presentation/workspace/workspace_view.dart',
+      );
+      for (final destination in const [
+        'AiAssistantScreen',
+        'NotesScreen',
+        'MaterialsScreen',
+        'SemesterListScreen',
+        'SharedBoxScreen',
+      ]) {
+        expect(
+          source,
+          contains(destination),
+          reason: '$destination must stay one tap from Study Workspace',
+        );
+      }
+    });
+
+    test('is a StatefulWidget for expand/collapse state', () {
+      final source = _read(
+        'lib/features/study/presentation/workspace/workspace_view.dart',
+      );
+      expect(source, contains('StatefulWidget'));
+      expect(source, contains('State<_QuickAccess>'));
+    });
+
+    test('has no childAspectRatio (overflow-safe design)', () {
+      final source = _read(
+        'lib/features/study/presentation/workspace/workspace_view.dart',
+      );
+      // The old design used childAspectRatio: 2.8 which caused overflow.
+      // The new design uses mainAxisExtent instead.
+      expect(source, isNot(contains('childAspectRatio')),
+          reason: 'Must not use childAspectRatio which caused the overflow');
     });
   });
 

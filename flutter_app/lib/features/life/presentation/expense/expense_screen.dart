@@ -1,6 +1,6 @@
 // Expense — the one financial module (spec §47).
 //
-// Overview / Daily / Grocery / History as tabs on a single screen, rather
+// Daily / Grocery / Dena-Pawna / Overview as tabs on a single screen, rather
 // than "Daily Expenses" and "BazarBuddy" as two unrelated products in Life.
 // Every tab reads the same `financial_transactions` ledger, so the number on
 // Overview is always the sum of what the other tabs show.
@@ -8,6 +8,10 @@
 // Budget lives on Overview rather than in its own tab: a budget with no
 // spending next to it is not useful, and a fifth tab on a phone is one too
 // many (spec §86).
+//
+// Historical data is NOT deleted when the History tab is removed — it remains
+// accessible through the Overview tab's Recent section and all financial
+// calculations (monthStream, dayStream, etc.) continue to include it.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -17,8 +21,6 @@ import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
-import '../../../../models/financial_transaction.dart';
-import '../../../../services/api_service.dart';
 import '../../../../services/financial_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
@@ -26,8 +28,9 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../home/presentation/home_screen.dart' show formatTaka;
 import '../../domain/expense_categories.dart';
 import 'add_expense_sheet.dart';
+import 'dena_pawna_tab.dart';
 import 'grocery_tab.dart';
-import 'monthly_budget_sheet.dart';
+import 'overview_tab.dart';
 
 class ExpenseScreen extends StatefulWidget {
   const ExpenseScreen({super.key});
@@ -39,7 +42,7 @@ class ExpenseScreen extends StatefulWidget {
 class _ExpenseScreenState extends State<ExpenseScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
-  final _overviewKey = GlobalKey<_OverviewTabState>();
+  final _overviewKey = GlobalKey<OverviewTabState>();
 
   @override
   void initState() {
@@ -49,10 +52,8 @@ class _ExpenseScreenState extends State<ExpenseScreen>
   }
 
   void _onTabChanged() {
-    // Refresh the Overview budget when the user switches to the Overview tab,
-    // so stale FutureBuilder data is never visible after a spend or budget edit.
-    if (_tabs.index == 0) {
-      _overviewKey.currentState?._onSheetClosed();
+    if (_tabs.index == 3) {
+      _overviewKey.currentState?.refresh();
     }
   }
 
@@ -64,8 +65,7 @@ class _ExpenseScreenState extends State<ExpenseScreen>
   }
 
   void _onExpenseAdded() {
-    // Reload the Overview budget after a new expense is recorded.
-    _overviewKey.currentState?._onSheetClosed();
+    _overviewKey.currentState?.refresh();
   }
 
   @override
@@ -79,25 +79,25 @@ class _ExpenseScreenState extends State<ExpenseScreen>
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           tabs: [
-            Tab(text: GochanoLanguage.text('Overview', 'সারাংশ')),
             Tab(text: GochanoLanguage.text('Daily', 'দৈনিক')),
             Tab(text: GochanoLanguage.text('Grocery', 'বাজার')),
-            Tab(text: GochanoLanguage.text('History', 'ইতিহাস')),
+            Tab(text: GochanoLanguage.text('Dena/Pawna', 'দেনা/পাওনা')),
+            Tab(text: GochanoLanguage.text('Overview', 'সারাংশ')),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
         children: [
-          _OverviewTab(key: _overviewKey),
           const _DailyTab(),
           const GroceryTab(),
-          const _HistoryTab(),
+          const DenaPawnaTab(),
+          OverviewTab(key: _overviewKey),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final isGrocery = _tabs.index == 2;
+          final isGrocery = _tabs.index == 1;
           if (isGrocery) {
             final sessionId = FinancialService.bazarSessionId(DateTime.now());
             final saved = await showGroceryItemSheet(
@@ -115,426 +115,6 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Overview (spec §48)
-// ---------------------------------------------------------------------------
-
-class _OverviewTab extends StatefulWidget {
-  const _OverviewTab({super.key});
-
-  @override
-  State<_OverviewTab> createState() => _OverviewTabState();
-}
-
-class _OverviewTabState extends State<_OverviewTab> {
-  late Future<Map<String, dynamic>> _budget;
-
-  @override
-  void initState() {
-    super.initState();
-    _budget = _loadBudget();
-  }
-
-  Future<Map<String, dynamic>> _loadBudget() =>
-      ApiService.getRemaining(DateTime.now());
-
-  void _reloadBudget() {
-    if (mounted) setState(() => _budget = _loadBudget());
-  }
-
-  /// Reload budget after returning from any sub-sheet (expense edit, budget set).
-  void _onSheetClosed() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _reloadBudget();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final now = DateTime.now();
-
-    return StreamBuilder<List<FinancialTransactionModel>>(
-      stream: FinancialService.monthStream(now),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return StaticLoadingState(
-            message: GochanoLanguage.text(
-              'Loading your spending…',
-              'আপনার খরচ লোড হচ্ছে…',
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return ErrorState(
-            message: friendlyErrorMessage(snapshot.error),
-            onRetry: _reloadBudget,
-          );
-        }
-
-        final items = snapshot.data ?? const <FinancialTransactionModel>[];
-        final summary = FinancialSummary.fromTransactions(items);
-        final todayKey = FinancialService.dateKey(now);
-        final todayTotal = items
-            .where((e) => FinancialService.dateKey(e.date) == todayKey)
-            .fold<double>(0, (running, e) => running + e.amount);
-
-        return ListView(
-          padding: GochanoSpacing.scrollBody,
-          children: [
-            // Monthly available / spent / remaining — the three numbers a
-            // student opens this screen for (spec §48).
-            FutureBuilder<Map<String, dynamic>>(
-              future: _budget,
-              builder: (context, budgetSnap) {
-                // "We could not read your budget" and "you have not set one"
-                // are different facts. Collapsing them meant a failed request
-                // rendered as "Not set" forever: a student would set the
-                // amount, see "Not set" again, and reasonably conclude that
-                // saving was broken.
-                if (budgetSnap.hasError) {
-                  return ErrorState(
-                    compact: true,
-                    message: friendlyErrorMessage(budgetSnap.error),
-                    onRetry: _reloadBudget,
-                  );
-                }
-
-                final available =
-                    (budgetSnap.data?['available'] as num?)?.toDouble();
-                final remaining =
-                    (budgetSnap.data?['remaining'] as num?)?.toDouble();
-                final hasBudget = available != null && available > 0;
-
-                return Column(
-                  children: [
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: _RemainingSummaryCard(
-                              available: available,
-                              remaining: remaining,
-                              hasBudget: hasBudget,
-                              onTap: () async {
-                                await showMonthlyBudgetSheet(context);
-                                _onSheetClosed();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: GochanoSpacing.sm),
-                          Expanded(
-                            child: StatCard(
-                              compact: true,
-                              label: GochanoLanguage.text('Spent', 'খরচ'),
-                              value: formatTaka(summary.totalSpending),
-                              accent: colors.expense,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!hasBudget) ...[
-                      const SizedBox(height: GochanoSpacing.sm),
-                      _SetBudgetPrompt(onSet: () async {
-                        await showMonthlyBudgetSheet(context);
-                        _onSheetClosed();
-                      }),
-                    ],
-                  ],
-                );
-              },
-            ),
-
-            SectionHeader(
-              title: GochanoLanguage.text('Today', 'আজ'),
-            ),
-            StatCard(
-              label: GochanoLanguage.text('Spent today', 'আজকের খরচ'),
-              value: formatTaka(todayTotal),
-              caption: todayTotal == 0
-                  ? GochanoLanguage.text(
-                      'Nothing recorded yet today.',
-                      'আজ এখনো কিছু যোগ করা হয়নি।',
-                    )
-                  : null,
-            ),
-
-            SectionHeader(
-              title: GochanoLanguage.text('Where it went', 'কোথায় গেল'),
-            ),
-            _SourceBreakdown(summary: summary),
-
-            SectionHeader(
-              title: GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
-            ),
-            if (items.isEmpty)
-              EmptyState(
-                compact: true,
-                illustration: GochanoArt.emptyExpenses,
-                title: GochanoLanguage.text('No expenses yet', 'এখনো কোনো খরচ নেই'),
-                message: GochanoLanguage.text(
-                  'Nothing has been recorded this month.',
-                  'এই মাসে এখনো কিছু রেকর্ড করা হয়নি।',
-                ),
-              )
-            else
-              CardGroup(
-                children: [
-                  for (final item in items.take(6))
-                    _LedgerRow(item: item),
-                ],
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// Top summary card for Remaining — shows amount, progress bar, and usage text.
-///
-/// Reuses the same budget calculations as the former _RemainingCard.
-class _RemainingSummaryCard extends StatelessWidget {
-  const _RemainingSummaryCard({
-    required this.available,
-    required this.remaining,
-    required this.hasBudget,
-    this.onTap,
-  });
-
-  final double? available;
-  final double? remaining;
-  final bool hasBudget;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-
-    if (!hasBudget || available == null) {
-      return StatCard(
-        compact: true,
-        label: GochanoLanguage.text('Remaining', 'বাকি'),
-        value: GochanoLanguage.text('Not set', 'সেট করা নেই'),
-        onTap: onTap,
-      );
-    }
-
-    final avail = available!;
-    final rem = remaining ?? avail;
-    final used = (avail - rem).clamp(0, avail);
-    final fraction = avail <= 0 ? 0.0 : (used / avail).clamp(0.0, 1.0);
-    final overspent = rem < 0;
-
-    return AppCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(GochanoSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  GochanoLanguage.text('Remaining', 'বাকি'),
-                  style: type.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (overspent)
-                GochanoBadge(
-                  label: GochanoLanguage.text('Over budget', 'বাজেট পেরিয়েছে'),
-                  tone: GochanoBadgeTone.error,
-                  icon: Icons.warning_amber_rounded,
-                ),
-            ],
-          ),
-          const SizedBox(height: GochanoSpacing.xxs),
-          Text(
-            formatTaka(rem),
-            style: type.statistic.copyWith(
-              color: overspent ? colors.error : colors.success,
-            ),
-          ),
-          const SizedBox(height: GochanoSpacing.xs),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: fraction,
-              minHeight: 6,
-              backgroundColor: colors.surfaceVariant,
-              color: overspent ? colors.error : colors.expense,
-            ),
-          ),
-          const SizedBox(height: GochanoSpacing.xxs),
-          Text(
-            GochanoLanguage.text(
-              '${formatTaka(used.toDouble())} of ${formatTaka(avail)} used',
-              '${formatTaka(avail)} এর মধ্যে ${formatTaka(used.toDouble())} খরচ',
-            ),
-            style: type.caption,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SetBudgetPrompt extends StatelessWidget {
-  const _SetBudgetPrompt({required this.onSet});
-
-  final VoidCallback onSet;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onSet,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  GochanoLanguage.text(
-                    'Set your monthly money',
-                    'মাসিক টাকা নির্ধারণ করুন',
-                  ),
-                  style: context.type.cardHeading,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  GochanoLanguage.text(
-                    'Gochano can then show what is left after each expense.',
-                    'তাহলে প্রতিটি খরচের পর কত বাকি তা দেখানো যাবে।',
-                  ),
-                  style: context.type.bodySecondary,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: GochanoSpacing.xs),
-          Icon(Icons.chevron_right_rounded, color: context.colors.textTertiary),
-        ],
-      ),
-    );
-  }
-}
-
-/// Spending split by where it came from.
-///
-/// A labelled bar per source rather than a pie chart: on a phone, four
-/// labelled rows are read faster than four slices and a legend (spec §48 —
-/// "Use charts only if genuinely useful").
-class _SourceBreakdown extends StatelessWidget {
-  const _SourceBreakdown({required this.summary});
-
-  final FinancialSummary summary;
-
-  static const _order = ['daily', 'bazar', 'medicine', 'commute'];
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final total = summary.totalSpending;
-
-    if (total <= 0) {
-      return AppCard(
-        child: Text(
-          GochanoLanguage.text(
-            'No spending recorded this month.',
-            'এই মাসে কোনো খরচ রেকর্ড হয়নি।',
-          ),
-          style: context.type.bodySecondary,
-        ),
-      );
-    }
-
-    final rows = <Widget>[];
-    for (final source in _order) {
-      final amount = summary.bySource[source] ?? 0;
-      if (amount <= 0) continue;
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(_label(source), style: context.type.body),
-                  ),
-                  Text(
-                    formatTaka(amount),
-                    style: context.type.body.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: GochanoSpacing.xxs),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: (amount / total).clamp(0.0, 1.0),
-                  minHeight: 5,
-                  backgroundColor: colors.surfaceVariant,
-                  color: _color(colors, source),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return AppCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ...rows,
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  GochanoLanguage.text('Total', 'মোট'),
-                  style: context.type.cardHeading,
-                ),
-              ),
-              Text(formatTaka(total), style: context.type.cardHeading),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _label(String source) => switch (source) {
-        'daily' => GochanoLanguage.text('Daily expenses', 'দৈনিক খরচ'),
-        'bazar' => GochanoLanguage.text('Grocery', 'বাজার'),
-        'medicine' => GochanoLanguage.text('Medicine', 'ওষুধ'),
-        'commute' => GochanoLanguage.text('Commute', 'যাতায়াত'),
-        _ => GochanoLanguage.text('Other', 'অন্যান্য'),
-      };
-
-  static Color _color(GochanoColors c, String source) => switch (source) {
-        'daily' => c.expense,
-        'bazar' => c.community,
-        'medicine' => c.medicine,
-        'commute' => c.commute,
-        _ => c.textSecondary,
-      };
 }
 
 // ---------------------------------------------------------------------------
@@ -687,146 +267,8 @@ class _DailyExpenseRow extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// History (spec §47)
-// ---------------------------------------------------------------------------
-
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<FinancialTransactionModel>>(
-      stream: FinancialService.allTransactionsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return StaticLoadingState(
-            message: GochanoLanguage.text(
-              'Loading your history…',
-              'আপনার ইতিহাস লোড হচ্ছে…',
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return ErrorState(message: friendlyErrorMessage(snapshot.error));
-        }
-
-        final items = snapshot.data ?? const <FinancialTransactionModel>[];
-        if (items.isEmpty) {
-          return EmptyState(
-            illustration: GochanoArt.emptyExpenses,
-            title: GochanoLanguage.text('No history yet', 'এখনো কোনো ইতিহাস নেই'),
-            message: GochanoLanguage.text(
-              'Expenses you record will be listed here by day.',
-              'আপনার রেকর্ড করা খরচ এখানে দিন অনুযায়ী দেখা যাবে।',
-            ),
-          );
-        }
-
-        // Group by day so the list reads as a diary rather than a flat dump.
-        final byDay = <String, List<FinancialTransactionModel>>{};
-        for (final item in items) {
-          byDay.putIfAbsent(FinancialService.dateKey(item.date), () => []).add(item);
-        }
-        final days = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
-
-        return ListView.builder(
-          padding: GochanoSpacing.scrollBody,
-          itemCount: days.length,
-          itemBuilder: (context, i) {
-            final day = days[i];
-            final entries = byDay[day]!;
-            final total = entries.fold<double>(0, (running, e) => running + e.amount);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SectionHeader(
-                  title: _dayLabel(entries.first.date),
-                  action: Text(
-                    formatTaka(total),
-                    style: context.type.cardHeading,
-                  ),
-                  padding: const EdgeInsets.only(
-                    top: GochanoSpacing.md,
-                    bottom: GochanoSpacing.xs,
-                  ),
-                ),
-                CardGroup(
-                  children: [for (final e in entries) _LedgerRow(item: e)],
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// A read-only ledger entry, used by Overview and History.
-///
-/// Entries mirrored from grocery, medicine and commute are shown but not
-/// editable here: the truth lives in the source record, and editing it from
-/// two places is how a ledger drifts (spec §36).
-class _LedgerRow extends StatelessWidget {
-  const _LedgerRow({required this.item});
-
-  final FinancialTransactionModel item;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final (illustration, accent, sourceLabel) = switch (item.source) {
-      'bazar' => (
-          GochanoArt.featureGrocery,
-          colors.community,
-          GochanoLanguage.text('Grocery', 'বাজার'),
-        ),
-      'medicine' => (
-          GochanoArt.featureMedicine,
-          colors.medicine,
-          GochanoLanguage.text('Medicine', 'ওষুধ'),
-        ),
-      'commute' => (
-          GochanoArt.featureCommute,
-          colors.commute,
-          GochanoLanguage.text('Commute', 'যাতায়াত'),
-        ),
-      _ => (
-          ExpenseCategories.byId(item.category).illustration,
-          colors.expense,
-          ExpenseCategories.byId(item.category).label,
-        ),
-    };
-
-    return GochanoListRow(
-      illustration: illustration,
-      accent: accent,
-      title: item.title.isEmpty ? sourceLabel : item.title,
-      subtitle: sourceLabel,
-      metadata: [_clock(item.date)],
-      trailing: Text(formatTaka(item.amount), style: context.type.cardHeading),
-    );
-  }
-}
-
 String _clock(DateTime when) {
   final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
   final minute = when.minute.toString().padLeft(2, '0');
   return '$hour:$minute ${when.hour < 12 ? 'am' : 'pm'}';
-}
-
-String _dayLabel(DateTime when) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final day = DateTime(when.year, when.month, when.day);
-  final diff = today.difference(day).inDays;
-  if (diff == 0) return GochanoLanguage.text('Today', 'আজ');
-  if (diff == 1) return GochanoLanguage.text('Yesterday', 'গতকাল');
-
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return '${when.day} ${months[when.month - 1]} ${when.year}';
 }

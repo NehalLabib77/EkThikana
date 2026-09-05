@@ -43,8 +43,17 @@ class WorkspaceView extends StatelessWidget {
 // Quick Access
 // ---------------------------------------------------------------------------
 
-class _QuickAccess extends StatelessWidget {
+class _QuickAccess extends StatefulWidget {
   const _QuickAccess();
+
+  @override
+  State<_QuickAccess> createState() => _QuickAccessState();
+}
+
+class _QuickAccessState extends State<_QuickAccess> {
+  static const _collapsedCount = 3;
+
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +115,10 @@ class _QuickAccess extends StatelessWidget {
       ),
     ];
 
+    final hasMore = items.length > _collapsedCount;
+    final visible =
+        (_expanded || !hasMore) ? items : items.take(_collapsedCount).toList();
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,23 +133,39 @@ class _QuickAccess extends StatelessWidget {
               bottom: GochanoSpacing.xs,
             ),
           ),
-          GridView.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: GochanoSpacing.xs,
-            crossAxisSpacing: GochanoSpacing.xs,
+          GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 2.8,
-            children: [
-              for (final item in items)
-                _QuickAccessCell(
-                  icon: item.icon,
-                  label: item.label,
-                  accent: item.accent,
-                  onTap: item.onTap,
-                ),
-            ],
+            padding: EdgeInsets.zero,
+            itemCount: visible.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisExtent: 84,
+              crossAxisSpacing: GochanoSpacing.xs,
+              mainAxisSpacing: GochanoSpacing.xs,
+            ),
+            itemBuilder: (context, i) => _QuickAccessCell(
+              icon: visible[i].icon,
+              label: visible[i].label,
+              accent: visible[i].accent,
+              onTap: visible[i].onTap,
+            ),
           ),
+          if (hasMore)
+            TextButton.icon(
+              onPressed: () => setState(() => _expanded = !_expanded),
+              icon: Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                size: GochanoSizes.iconSm,
+              ),
+              label: Text(
+                _expanded
+                    ? GochanoLanguage.text('See less', 'কম দেখুন')
+                    : GochanoLanguage.text('See more', 'আরো দেখুন'),
+              ),
+            ),
         ],
       ),
     );
@@ -172,32 +201,46 @@ class _QuickAccessCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: GochanoRadius.mdAll,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: GochanoRadius.smAll,
-            ),
-            child: Icon(icon, size: 22, color: accent),
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: GochanoRadius.mdAll,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 2,
+            vertical: GochanoSpacing.xxs,
           ),
-          const SizedBox(height: GochanoSpacing.xxs),
-          Text(
-            label,
-            style: context.type.caption.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: GochanoRadius.smAll,
+                ),
+                child: Icon(icon, size: 22, color: accent),
+              ),
+              const SizedBox(height: GochanoSpacing.xxs),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: context.type.caption.copyWith(
+                    color: context.colors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

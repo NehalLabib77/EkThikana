@@ -48,11 +48,11 @@ void main() {
     });
 
     test('uses a 4-column grid at normal phone width', () {
-      // The redesign asked for "4-column grid". The grid is wrapped in a
-      // LayoutBuilder that must branch on width — confirm we did not just
+      // The redesign asked for "4-column grid". The grid now uses
+      // MediaQuery to determine column count — confirm we did not just
       // keep the legacy 2-vs-3 split.
       expect(
-        RegExp(r'columns\s*=\s*constraints\.maxWidth\s*>=\s*380\s*\?\s*4\s*:')
+        RegExp(r'(screenWidth|constraints\.maxWidth)\s*>=\s*380\s*\?\s*4\s*:')
             .hasMatch(homeScreen),
         isTrue,
         reason:

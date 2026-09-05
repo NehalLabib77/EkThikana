@@ -158,6 +158,27 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
     return count <= 0 ? 0 : price / count;
   }
 
+  /// Whether at least one scheduled (date, time) pair is strictly in the
+  /// future.  If the start date is in the future any clock time is valid;
+  /// if the start date is today the time must be after [DateTime.now()].
+  bool _hasFutureTime() {
+    final now = DateTime.now();
+    for (final hhmm in _times) {
+      final parts = hhmm.split(':');
+      final hour = int.tryParse(parts.first) ?? 0;
+      final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+      final candidate = DateTime(
+        _startDate.year,
+        _startDate.month,
+        _startDate.day,
+        hour,
+        minute,
+      );
+      if (candidate.isAfter(now)) return true;
+    }
+    return false;
+  }
+
   Future<void> _addTime() async {
     final picked = await showTimePicker(
       context: context,
@@ -171,6 +192,24 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
     final value = '${picked.hour.toString().padLeft(2, '0')}:'
         '${picked.minute.toString().padLeft(2, '0')}';
     if (_times.contains(value)) return;
+
+    final candidate = DateTime(
+      _startDate.year,
+      _startDate.month,
+      _startDate.day,
+      picked.hour,
+      picked.minute,
+    );
+    if (!candidate.isAfter(DateTime.now())) {
+      setState(() {
+        _error = GochanoLanguage.text(
+          'Choose a future time.',
+          'ভবিষ্যতের একটি সময় নির্বাচন করুন।',
+        );
+      });
+      return;
+    }
+
     setState(() {
       _times = [..._times, value]..sort();
       _error = null;
@@ -222,6 +261,11 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
         'Add at least one reminder time. Gochano will not guess when to take '
         'a medicine.',
         'অন্তত একটি রিমাইন্ডারের সময় যোগ করুন। কখন ওষুধ খেতে হবে গোছানো তা অনুমান করবে না।',
+      );
+    } else if (!_hasFutureTime()) {
+      problem = GochanoLanguage.text(
+        'Choose a future time.',
+        'ভবিষ্যতের একটি সময় নির্বাচন করুন।',
       );
     }
 

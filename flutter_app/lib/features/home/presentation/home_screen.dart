@@ -161,19 +161,17 @@ class _AccentRailCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: GochanoRadius.lgAll,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(width: 3, child: ColoredBox(color: accent)),
-                Expanded(
-                  child: Padding(
-                    padding: padding ?? GochanoSpacing.card,
-                    child: child,
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 3, child: ColoredBox(color: accent)),
+              Expanded(
+                child: Padding(
+                  padding: padding ?? GochanoSpacing.card,
+                  child: child,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1271,6 +1269,9 @@ class _QuickActionsState extends State<_QuickActions> {
     final visible =
         (_expanded || !hasMore) ? actions : actions.take(_collapsedCount).toList();
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final columns = screenWidth >= 380 ? 4 : 3;
+
     return _AccentRailCard(
       accent: context.colors.brand,
       padding: const EdgeInsets.symmetric(
@@ -1280,23 +1281,18 @@ class _QuickActionsState extends State<_QuickActions> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 380 ? 4 : 3;
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: visible.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  mainAxisExtent: 88,
-                  crossAxisSpacing: GochanoSpacing.xxs,
-                  mainAxisSpacing: GochanoSpacing.xs,
-                ),
-                itemBuilder: (context, i) => visible[i],
-              );
-            },
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: visible.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisExtent: 88,
+              crossAxisSpacing: GochanoSpacing.xxs,
+              mainAxisSpacing: GochanoSpacing.xs,
+            ),
+            itemBuilder: (context, i) => visible[i],
           ),
           if (hasMore)
             TextButton.icon(
