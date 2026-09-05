@@ -44,15 +44,15 @@ class UsageStatsService {
     return granted ?? false;
   }
 
+  /// Opens Android's Usage Access settings. The user grants or revokes access
+  /// there; the app never changes this permission itself.
   static Future<void> openSettings() async {
     await UsageStats.grantUsagePermission();
   }
 
   /// Today's screen time from LOCAL 00:00 → now.
   /// Returns ALL apps (including Gochano) sorted by usage descending.
-  static Future<ScreenTimeSummary> getScreenTimeSummary({
-    DateTime? day,
-  }) async {
+  static Future<ScreenTimeSummary> getScreenTimeSummary({DateTime? day}) async {
     final now = DateTime.now();
     final startTime = day ?? DateTime(now.year, now.month, now.day);
 
@@ -96,9 +96,11 @@ class UsageStatsService {
   }
 
   /// 7 days of screen time ending today (Sun–Sat for current week).
+  /// Deduplicates by package within each day and caps at 24 hours.
   static Future<List<DayScreenTime>> getWeeklyScreenTime() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    const maxDailyMs = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
     final days = <DayScreenTime>[];
     for (int i = 6; i >= 0; i--) {
@@ -111,13 +113,28 @@ class UsageStatsService {
         intervalType: IntervalType.best,
       );
 
-      int totalMs = 0;
+      // Deduplicate by package (take max per package) to avoid double-counting
+      // overlapping UsageStats rows.
+      final appMaxMs = <String, int>{};
       for (final stat in usage) {
+        final pkg = stat.packageName ?? '';
+        if (pkg.isEmpty) continue;
         final ms = stat.totalTimeInForegroundMs ?? 0;
-        if (ms > 0) totalMs += ms;
+        if (ms <= 0) continue;
+        final existing = appMaxMs[pkg] ?? 0;
+        if (ms > existing) appMaxMs[pkg] = ms;
       }
 
-      days.add(DayScreenTime(date: day, total: Duration(milliseconds: totalMs)));
+      int totalMs = appMaxMs.values.fold<int>(0, (a, b) => a + b);
+      // Cap at 24 hours — a single day cannot have more than 24h of usage.
+      if (totalMs > maxDailyMs) totalMs = maxDailyMs;
+
+      days.add(
+        DayScreenTime(
+          date: day,
+          total: Duration(milliseconds: totalMs),
+        ),
+      );
     }
 
     return days;

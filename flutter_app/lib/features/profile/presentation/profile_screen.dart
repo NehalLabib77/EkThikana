@@ -117,18 +117,17 @@ class _IdentityHeader extends StatelessWidget {
                   Flexible(
                     child: Text(
                       name.isEmpty
-                          ? GochanoLanguage.text('Your account', 'আপনার অ্যাকাউন্ট')
+                          ? GochanoLanguage.text(
+                              'Your account',
+                              'আপনার অ্যাকাউন্ট',
+                            )
                           : name,
                       style: context.type.pageTitle,
                       textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(width: GochanoSpacing.xs),
-                  Icon(
-                    Icons.edit_rounded,
-                    size: 18,
-                    color: colors.brand,
-                  ),
+                  Icon(Icons.edit_rounded, size: 18, color: colors.brand),
                 ],
               ),
             ),
@@ -144,7 +143,10 @@ class _IdentityHeader extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  [university, department].where((e) => e.isNotEmpty).join(' · '),
+                  [
+                    university,
+                    department,
+                  ].where((e) => e.isNotEmpty).join(' · '),
                   style: context.type.caption.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -153,7 +155,6 @@ class _IdentityHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-
           ],
         );
       },
@@ -252,7 +253,12 @@ Future<void> _changePhoto(BuildContext context) async {
           ),
           ListTile(
             leading: const Icon(Icons.photo_library_rounded),
-            title: Text(GochanoLanguage.text('Choose from gallery', 'গ্যালারি থেকে বাছুন')),
+            title: Text(
+              GochanoLanguage.text(
+                'Choose from gallery',
+                'গ্যালারি থেকে বাছুন',
+              ),
+            ),
             onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
           ),
           const SizedBox(height: GochanoSpacing.sm),
@@ -289,11 +295,7 @@ Future<void> _changePhoto(BuildContext context) async {
     );
   } catch (error) {
     if (context.mounted) {
-      showGochanoMessage(
-        context,
-        friendlyErrorMessage(error),
-        isError: true,
-      );
+      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
   }
 }
@@ -378,18 +380,14 @@ Future<void> _editProfile(
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(sheetContext).pop(false),
-                      child: Text(
-                        GochanoLanguage.text('Cancel', 'বাতিল'),
-                      ),
+                      child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
                     ),
                   ),
                   const SizedBox(width: GochanoSpacing.sm),
                   Expanded(
                     child: FilledButton(
                       onPressed: () => Navigator.of(sheetContext).pop(true),
-                      child: Text(
-                        GochanoLanguage.text('Save', 'সংরক্ষণ'),
-                      ),
+                      child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
                     ),
                   ),
                 ],
@@ -408,10 +406,7 @@ Future<void> _editProfile(
   if (name.isEmpty) {
     showGochanoMessage(
       context,
-      GochanoLanguage.text(
-        'Name cannot be empty.',
-        'নাম খালি রাখা যাবে না।',
-      ),
+      GochanoLanguage.text('Name cannot be empty.', 'নাম খালি রাখা যাবে না।'),
       isError: true,
     );
     return;
@@ -430,11 +425,7 @@ Future<void> _editProfile(
     );
   } catch (error) {
     if (context.mounted) {
-      showGochanoMessage(
-        context,
-        friendlyErrorMessage(error),
-        isError: true,
-      );
+      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
   }
 }
@@ -595,7 +586,8 @@ class _SettingsRow extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-      trailing: trailing ??
+      trailing:
+          trailing ??
           (onTap == null
               ? null
               : Icon(Icons.chevron_right_rounded, color: colors.textTertiary)),
@@ -615,7 +607,8 @@ class _SettingsCard extends StatefulWidget {
   State<_SettingsCard> createState() => _SettingsCardState();
 }
 
-class _SettingsCardState extends State<_SettingsCard> {
+class _SettingsCardState extends State<_SettingsCard>
+    with WidgetsBindingObserver {
   bool? _notificationsEnabled;
   bool? _usageAccessGranted;
 
@@ -628,9 +621,23 @@ class _SettingsCardState extends State<_SettingsCard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkNotifications();
     _checkUsageAccess();
     if (widget.isStudent) _loadBudget();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkUsageAccess();
+    }
   }
 
   Future<void> _loadBudget() async {
@@ -645,7 +652,10 @@ class _SettingsCardState extends State<_SettingsCard> {
     } catch (_) {
       if (!mounted) return;
       // Says so rather than claiming nothing is set.
-      setState(() { _budgetFailed = true; _loaded = true; });
+      setState(() {
+        _budgetFailed = true;
+        _loaded = true;
+      });
     }
   }
 
@@ -732,16 +742,16 @@ class _SettingsCardState extends State<_SettingsCard> {
                     // Says plainly that reminders will not fire, rather than
                     // leaving a student to discover it when a dose is missed.
                     false => GochanoLanguage.text(
-                        'Turned off in system settings. Medicine and task '
-                        'reminders will not appear.',
-                        'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
-                      ),
+                      'Turned off in system settings. Medicine and task '
+                          'reminders will not appear.',
+                      'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
+                    ),
                     true => GochanoLanguage.text(
-                        'Medicine and task reminders are on. Tap to change '
-                        'this in system settings.',
-                        'ওষুধ ও কাজের রিমাইন্ডার চালু আছে। বদলাতে সিস্টেম '
-                        'সেটিংসে যেতে চাপ দিন।',
-                      ),
+                      'Medicine and task reminders are on. Tap to change '
+                          'this in system settings.',
+                      'ওষুধ ও কাজের রিমাইন্ডার চালু আছে। বদলাতে সিস্টেম '
+                          'সেটিংসে যেতে চাপ দিন।',
+                    ),
                     null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
                   },
                   // Always tappable. Whether reminders are on is an Android
@@ -773,18 +783,12 @@ class _SettingsCardState extends State<_SettingsCard> {
                     'ব্যবহার অ্যাক্সেস',
                   ),
                   value: switch (_usageAccessGranted) {
-                    true => GochanoLanguage.text(
-                        'Granted',
-                        'দেওয়া হয়েছে',
-                      ),
+                    true => GochanoLanguage.text('Granted', 'দেওয়া হয়েছে'),
                     false => GochanoLanguage.text(
-                        'Permission required',
-                        'অনুমতি প্রয়োজন',
-                      ),
-                    null => GochanoLanguage.text(
-                        'Checking…',
-                        'দেখা হচ্ছে…',
-                      ),
+                      'Permission required',
+                      'অনুমতি প্রয়োজন',
+                    ),
+                    null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
                   },
                   onTap: () async {
                     await UsageStatsService.openSettings();
@@ -801,11 +805,13 @@ class _SettingsCardState extends State<_SettingsCard> {
 }
 
 String _appearanceLabel(ThemeMode mode) => switch (mode) {
-      ThemeMode.system =>
-        GochanoLanguage.text('Follow system', 'সিস্টেম অনুসরণ করে'),
-      ThemeMode.light => GochanoLanguage.text('Light', 'উজ্জ্বল'),
-      ThemeMode.dark => GochanoLanguage.text('Dark', 'অন্ধকার'),
-    };
+  ThemeMode.system => GochanoLanguage.text(
+    'Follow system',
+    'সিস্টেম অনুসরণ করে',
+  ),
+  ThemeMode.light => GochanoLanguage.text('Light', 'উজ্জ্বল'),
+  ThemeMode.dark => GochanoLanguage.text('Dark', 'অন্ধকার'),
+};
 
 // ---------------------------------------------------------------------------
 // Destructive and about
@@ -960,7 +966,7 @@ Future<void> _deleteAccount(BuildContext context) async {
     ),
     message: GochanoLanguage.text(
       'This permanently removes your account, uploaded files, expenses, '
-      'medicines and study records. It cannot be undone.',
+          'medicines and study records. It cannot be undone.',
       'এটি আপনার অ্যাকাউন্ট, আপলোড করা ফাইল, খরচ, ওষুধ ও পড়াশোনার রেকর্ড স্থায়ীভাবে মুছে ফেলবে। এটি ফেরানো যাবে না।',
     ),
     confirmLabel: GochanoLanguage.text('Delete everything', 'সবকিছু মুছুন'),

@@ -217,32 +217,20 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-/// The Gochano logo on a plain plate.
+/// The Gochano logo displayed directly without extra framing.
 class _BrandMark extends StatelessWidget {
   const _BrandMark();
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
-      width: 88,
-      height: 88,
-      padding: const EdgeInsets.all(GochanoSpacing.sm),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: GochanoRadius.xlAll,
-        border: Border.all(color: colors.border),
-      ),
-      child: Image.asset(
-        'assets/branding/Gochano.png',
-        fit: BoxFit.contain,
-        gaplessPlayback: true,
-        // Drawn at ~64 logical px. The master artwork is 1254 square, which
-        // would decode to roughly 6 MB of RAM; 512 is still far above the
-        // physical size on a 4x display, so nothing looks different.
-        cacheWidth: 512,
-        semanticLabel: '${AppConfig.appName} logo',
-      ),
+    return Image.asset(
+      'assets/branding/Gochano.png',
+      width: 120,
+      height: 120,
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      cacheWidth: 512,
+      semanticLabel: '${AppConfig.appName} logo',
     );
   }
 }

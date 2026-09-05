@@ -45,16 +45,27 @@ class _DistractionViewState extends State<DistractionView>
     try {
       final hasPermission = await UsageStatsService.hasPermission();
       if (!hasPermission) {
+        if (!mounted) return;
         setState(() {
           _hasPermission = false;
+          _summary = null;
+          _weekly = null;
+          _error = null;
           _loading = false;
         });
         return;
       }
 
-      _hasPermission = true;
+      if (mounted) {
+        setState(() {
+          _hasPermission = true;
+          _loading = true;
+          _error = null;
+        });
+      }
       await _loadData();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Permission check failed';
         _loading = false;
@@ -101,9 +112,7 @@ class _DistractionViewState extends State<DistractionView>
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (!_hasPermission) {
@@ -162,8 +171,8 @@ class _DistractionViewState extends State<DistractionView>
               ),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: context.colors.textTertiary,
-                  ),
+                color: context.colors.textTertiary,
+              ),
             ),
           ],
         ),
@@ -192,9 +201,7 @@ class _DistractionViewState extends State<DistractionView>
             const SizedBox(height: GochanoSpacing.lg),
             FilledButton.tonal(
               onPressed: _loadData,
-              child: Text(
-                GochanoLanguage.text('Retry', 'আবার চেষ্টা করুন'),
-              ),
+              child: Text(GochanoLanguage.text('Retry', 'আবার চেষ্টা করুন')),
             ),
           ],
         ),
@@ -214,8 +221,6 @@ class _DistractionViewState extends State<DistractionView>
       child: ListView(
         padding: const EdgeInsets.all(GochanoSpacing.md),
         children: [
-          _buildSummaryCard(summary),
-          const SizedBox(height: GochanoSpacing.md),
           _buildWeeklyChart(weekly),
           const SizedBox(height: GochanoSpacing.md),
           _buildAppList(summary),
@@ -224,33 +229,11 @@ class _DistractionViewState extends State<DistractionView>
     );
   }
 
-  Widget _buildSummaryCard(ScreenTimeSummary summary) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            GochanoLanguage.text(
-              'Today\'s Screen Time',
-              'আজকের স্ক্রিন টাইম',
-            ),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          Text(
-            _formatDuration(summary.totalScreenTime),
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: context.colors.brand,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildWeeklyChart(List<DayScreenTime> weekly) {
-    final maxMinutes = weekly.fold<int>(0, (m, d) => d.minutes > m ? d.minutes : m);
+    final maxMinutes = weekly.fold<int>(
+      0,
+      (m, d) => d.minutes > m ? d.minutes : m,
+    );
     final today = DateTime.now();
     final todayStr =
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
@@ -272,7 +255,9 @@ class _DistractionViewState extends State<DistractionView>
                 final dayStr =
                     '${day.date.year}-${day.date.month.toString().padLeft(2, '0')}-${day.date.day.toString().padLeft(2, '0')}';
                 final isToday = dayStr == todayStr;
-                final fraction = maxMinutes > 0 ? day.minutes / maxMinutes : 0.0;
+                final fraction = maxMinutes > 0
+                    ? day.minutes / maxMinutes
+                    : 0.0;
                 final barHeight = (fraction * 80).clamp(2.0, 80.0);
 
                 return Expanded(
@@ -284,7 +269,8 @@ class _DistractionViewState extends State<DistractionView>
                         if (day.minutes > 0)
                           Text(
                             _shortDuration(day.total),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   fontSize: 9,
                                   color: isToday
                                       ? context.colors.brand
@@ -305,9 +291,12 @@ class _DistractionViewState extends State<DistractionView>
                         const SizedBox(height: 4),
                         Text(
                           _dayLabel(day.date),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
                                 fontSize: 10,
-                                fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                                fontWeight: isToday
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
                                 color: isToday
                                     ? context.colors.brand
                                     : context.colors.textTertiary,
@@ -369,19 +358,14 @@ class _DistractionViewState extends State<DistractionView>
     final color = isGochano
         ? _getGochanoColor(context, minutes)
         : _getOtherAppColor(context, minutes);
-    final barFraction =
-        highestMinutes > 0 ? (minutes / highestMinutes).clamp(0.0, 1.0) : 0.0;
+    final barFraction = highestMinutes > 0
+        ? (minutes / highestMinutes).clamp(0.0, 1.0)
+        : 0.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(
-            isGochano ? Icons.school_rounded : Icons.circle,
-            size: 14,
-            color: color,
-          ),
-          const SizedBox(width: GochanoSpacing.xs),
           SizedBox(
             width: 90,
             child: Text(
@@ -413,9 +397,9 @@ class _DistractionViewState extends State<DistractionView>
             child: Text(
               _formatDuration(app.usage),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: context.colors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: context.colors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
               textAlign: TextAlign.end,
             ),
           ),
@@ -446,10 +430,7 @@ class _DistractionViewState extends State<DistractionView>
         '$hours ঘ $minutes মি',
       );
     }
-    return GochanoLanguage.text(
-      '$minutes m',
-      '$minutes মি',
-    );
+    return GochanoLanguage.text('$minutes m', '$minutes মি');
   }
 
   String _shortDuration(Duration duration) {

@@ -80,7 +80,15 @@ class _ExpenseScreenState extends State<ExpenseScreen>
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showAddExpenseSheet(context),
+        onPressed: () {
+          final isGrocery = _tabs.index == 2;
+          if (isGrocery) {
+            final sessionId = FinancialService.bazarSessionId(DateTime.now());
+            showGroceryItemSheet(context, sessionId: sessionId);
+          } else {
+            showAddExpenseSheet(context);
+          }
+        },
         icon: const Icon(Icons.add_rounded),
         label: Text(GochanoLanguage.text('Add expense', 'খরচ যোগ')),
       ),
@@ -544,8 +552,6 @@ class _DailyTab extends StatelessWidget {
               'Nothing has been recorded yet.',
               'এখনো কিছু রেকর্ড করা হয়নি।',
             ),
-            actionLabel: GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
-            onAction: () => showAddExpenseSheet(context),
           );
         }
 

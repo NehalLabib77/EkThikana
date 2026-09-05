@@ -65,23 +65,17 @@ class GroceryTab extends StatelessWidget {
           });
 
         if (docs.isEmpty) {
-          return Stack(
-            children: [
-              EmptyState(
-                illustration: GochanoArt.featureGrocery,
-                title: GochanoLanguage.text(
-                  'Nothing on the list',
-                  'তালিকায় কিছু নেই',
-                ),
-                message: GochanoLanguage.text(
-                  'Add what you need to buy. Marking an item purchased records '
-                  'it as an expense.',
-                  'যা কিনতে হবে যোগ করুন। কেনা হয়েছে চিহ্নিত করলে সেটি খরচ হিসেবে যোগ হবে।',
-                ),
-                actionLabel: GochanoLanguage.text('Add item', 'আইটেম যোগ'),
-                onAction: () => showGroceryItemSheet(context, sessionId: sessionId),
-              ),
-            ],
+          return EmptyState(
+            illustration: GochanoArt.featureGrocery,
+            title: GochanoLanguage.text(
+              'Nothing on the list',
+              'তালিকায় কিছু নেই',
+            ),
+            message: GochanoLanguage.text(
+              'Add what you need to buy. Marking an item purchased records '
+              'it as an expense.',
+              'যা কিনতে হবে যোগ করুন। কেনা হয়েছে চিহ্নিত করলে সেটি খরচ হিসেবে যোগ হবে।',
+            ),
           );
         }
 

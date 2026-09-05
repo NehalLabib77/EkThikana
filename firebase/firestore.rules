@@ -51,7 +51,7 @@ service cloud.firestore {
     function isGroupAdmin(groupId) {
       return isStudent()
         && groupId is string
-        && request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.adminId;
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
     }
 
     function groupHasChatEnabled(groupId) {
@@ -135,6 +135,30 @@ service cloud.firestore {
     match /groups/{id} {
       allow read: if isStudent() && request.auth.uid in resource.data.memberIds;
       allow create, update, delete: if false; // trusted backend only
+
+      match /projects/{projectId} {
+        // Any group member can read projects
+        allow read: if isStudent() && request.auth.uid in get(/databases/$(database)/documents/groups/$(id)).data.memberIds;
+
+        // Only admins can create, update, or delete projects
+        allow create, update, delete: if isStudent()
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(id)).data.adminIds;
+
+        match /tasks/{taskId} {
+          // Any group member can read tasks
+          allow read: if isStudent() && request.auth.uid in get(/databases/$(database)/documents/groups/$(id)).data.memberIds;
+
+          // Only admins can create or delete tasks
+          allow create, delete: if isStudent()
+            && request.auth.uid in get(/databases/$(database)/documents/groups/$(id)).data.adminIds;
+
+          // Admins or the assigned user can update tasks (toggle complete, reassign, set reminder)
+          allow update: if isStudent() && (
+            request.auth.uid in get(/databases/$(database)/documents/groups/$(id)).data.adminIds
+            || resource.data.assigneeId == request.auth.uid
+          );
+        }
+      }
     }
 
     // ---------------- STUDENT + GENERAL PERSONAL DATA ----------------

@@ -54,12 +54,31 @@ class MedicineScreen extends StatelessWidget {
         ],
       ),
       body: const _MedicineBody(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const MedicineFormScreen()),
-        ),
-        icon: const Icon(Icons.add_rounded),
-        label: Text(GochanoLanguage.text('Add medicine', 'ওষুধ যোগ')),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'medicine-scan-prescription',
+            tooltip: GochanoLanguage.text(
+              'Scan prescription',
+              'প্রেসক্রিপশন স্ক্যান',
+            ),
+            onPressed: () => Navigator.of(context).push(
+              GochanoRoute.to(builder: (_) => const PrescriptionScanScreen()),
+            ),
+            child: const Icon(Icons.document_scanner_outlined),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+          FloatingActionButton.extended(
+            heroTag: 'medicine-add',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const MedicineFormScreen())),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(GochanoLanguage.text('Add medicine', 'ওষুধ যোগ')),
+          ),
+        ],
       ),
     );
   }
@@ -89,19 +108,13 @@ class _MedicineBody extends StatelessWidget {
         if (medicines.isEmpty) {
           return EmptyState(
             illustration: GochanoArt.emptyMedicines,
-            title: GochanoLanguage.text('No medicines yet', 'এখনো কোনো ওষুধ নেই'),
+            title: GochanoLanguage.text(
+              'No medicines yet',
+              'এখনো কোনো ওষুধ নেই',
+            ),
             message: GochanoLanguage.text(
               'Add a medicine to get reminders at the times you choose.',
               'রিমাইন্ডার পেতে একটি ওষুধ যোগ করুন এবং সময় নির্ধারণ করুন।',
-            ),
-            actionLabel: GochanoLanguage.text('Add medicine', 'ওষুধ যোগ করুন'),
-            onAction: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const MedicineFormScreen()),
-            ),
-            secondaryActionLabel:
-                GochanoLanguage.text('Scan a prescription', 'প্রেসক্রিপশন স্ক্যান'),
-            onSecondaryAction: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const PrescriptionScanScreen()),
             ),
           );
         }
@@ -175,18 +188,6 @@ class _MedicineBody extends StatelessWidget {
 
                 SectionHeader(
                   title: GochanoLanguage.text('Your medicines', 'আপনার ওষুধ'),
-                  action: TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      GochanoRoute.to(
-                        builder: (_) => const PrescriptionScanScreen(),
-                      ),
-                    ),
-                    icon: const Icon(
-                      Icons.document_scanner_outlined,
-                      size: GochanoSizes.iconSm,
-                    ),
-                    label: Text(GochanoLanguage.text('Scan', 'স্ক্যান')),
-                  ),
                 ),
                 CardGroup(
                   children: [
@@ -228,7 +229,10 @@ class _NextReminderCard extends StatelessWidget {
                 child: Text(
                   overdue
                       ? GochanoLanguage.text('Overdue dose', 'সময় পেরোনো ডোজ')
-                      : GochanoLanguage.text('Next reminder', 'পরবর্তী রিমাইন্ডার'),
+                      : GochanoLanguage.text(
+                          'Next reminder',
+                          'পরবর্তী রিমাইন্ডার',
+                        ),
                   style: context.type.label,
                 ),
               ),
@@ -282,40 +286,40 @@ class _DoseRow extends StatelessWidget {
 
     final (illustration, accent, badge) = switch (dose.status) {
       DoseStatus.taken => (
-          GochanoArt.stateTaken,
-          colors.success,
-          GochanoBadge(
-            label: GochanoLanguage.text('Taken', 'নেওয়া হয়েছে'),
-            tone: GochanoBadgeTone.success,
-            icon: Icons.check_rounded,
-          ),
+        GochanoArt.stateTaken,
+        colors.success,
+        GochanoBadge(
+          label: GochanoLanguage.text('Taken', 'নেওয়া হয়েছে'),
+          tone: GochanoBadgeTone.success,
+          icon: Icons.check_rounded,
         ),
+      ),
       DoseStatus.skipped => (
-          GochanoArt.stateSkipped,
-          colors.textSecondary,
-          GochanoBadge(
-            label: GochanoLanguage.text('Skipped', 'বাদ দেওয়া'),
-            icon: Icons.remove_rounded,
-          ),
+        GochanoArt.stateSkipped,
+        colors.textSecondary,
+        GochanoBadge(
+          label: GochanoLanguage.text('Skipped', 'বাদ দেওয়া'),
+          icon: Icons.remove_rounded,
         ),
+      ),
       DoseStatus.missed => (
-          GochanoArt.featureReminder,
-          colors.warning,
-          GochanoBadge(
-            label: GochanoLanguage.text('Missed', 'মিস'),
-            tone: GochanoBadgeTone.warning,
-            icon: Icons.schedule_rounded,
-          ),
+        GochanoArt.featureReminder,
+        colors.warning,
+        GochanoBadge(
+          label: GochanoLanguage.text('Missed', 'মিস'),
+          tone: GochanoBadgeTone.warning,
+          icon: Icons.schedule_rounded,
         ),
+      ),
       DoseStatus.pending => (
-          GochanoArt.featureMedicine,
-          colors.medicine,
-          GochanoBadge(
-            label: formatTime12(dose.time),
-            tone: GochanoBadgeTone.info,
-            icon: Icons.access_time_rounded,
-          ),
+        GochanoArt.featureMedicine,
+        colors.medicine,
+        GochanoBadge(
+          label: formatTime12(dose.time),
+          tone: GochanoBadgeTone.info,
+          icon: Icons.access_time_rounded,
         ),
+      ),
     };
 
     return GochanoListRow(
@@ -330,8 +334,7 @@ class _DoseRow extends StatelessWidget {
               GochanoMenuAction(
                 label: GochanoLanguage.text('Mark taken', 'নেওয়া হয়েছে'),
                 icon: Icons.check_rounded,
-                onSelected: () =>
-                    _recordDose(context, dose, DoseStatus.taken),
+                onSelected: () => _recordDose(context, dose, DoseStatus.taken),
               ),
               GochanoMenuAction(
                 label: GochanoLanguage.text('Skip', 'বাদ দিন'),
@@ -353,11 +356,12 @@ class _MedicineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = doc.data();
-    final times = ((data['times'] as List?) ?? const [])
-        .map((e) => e.toString())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
+    final times =
+        ((data['times'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
     final paused = data['paused'] == true || data['active'] != true;
 
     return GochanoListRow(
@@ -377,9 +381,7 @@ class _MedicineRow extends StatelessWidget {
             )
           : null,
       onTap: () => Navigator.of(context).push(
-        GochanoRoute.to(
-          builder: (_) => MedicineFormScreen(medicineId: doc.id),
-        ),
+        GochanoRoute.to(builder: (_) => MedicineFormScreen(medicineId: doc.id)),
       ),
       menuItems: [
         GochanoMenuAction(
@@ -495,19 +497,19 @@ Future<void> _confirmAndDeleteMedicine(
                     medicineName.isEmpty
                         ? GochanoLanguage.text(
                             'This will permanently remove the medicine, '
-                            'every dose record, and any expense entry it '
-                            'created.',
+                                'every dose record, and any expense entry it '
+                                'created.',
                             'এটি ওষুধটি, প্রতিটি ডোজের রেকর্ড এবং এটি থেকে '
-                            'তৈরি হওয়া যেকোনো খরচের এন্ট্রি স্থায়ীভাবে '
-                            'মুছে ফেলবে।',
+                                'তৈরি হওয়া যেকোনো খরচের এন্ট্রি স্থায়ীভাবে '
+                                'মুছে ফেলবে।',
                           )
                         : GochanoLanguage.text(
                             'This will permanently remove "$medicineName", '
-                            'every dose record, and any expense entry it '
-                            'created.',
+                                'every dose record, and any expense entry it '
+                                'created.',
                             '"$medicineName", প্রতিটি ডোজের রেকর্ড এবং '
-                            'এটি থেকে তৈরি হওয়া যেকোনো খরচের এন্ট্রি '
-                            'স্থায়ীভাবে মুছে যাবে।',
+                                'এটি থেকে তৈরি হওয়া যেকোনো খরচের এন্ট্রি '
+                                'স্থায়ীভাবে মুছে যাবে।',
                           ),
                     style: innerContext.type.body,
                   ),
@@ -536,9 +538,9 @@ Future<void> _confirmAndDeleteMedicine(
                   Text(
                     GochanoLanguage.text(
                       'Gochano does not recommend stopping prescribed '
-                      'medicine. Follow professional medical advice.',
+                          'medicine. Follow professional medical advice.',
                       'গোছানো প্রেসক্রাইব করা ওষুধ বন্ধ করার পরামর্শ '
-                      'দেয় না। পেশাদার চিকিৎসা পরামর্শ অনুসরণ করুন।',
+                          'দেয় না। পেশাদার চিকিৎসা পরামর্শ অনুসরণ করুন।',
                     ),
                     style: innerContext.type.caption.copyWith(
                       color: colors.textSecondary,
@@ -553,14 +555,11 @@ Future<void> _confirmAndDeleteMedicine(
                 child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: colors.error,
-                ),
-                onPressed:
-                    canConfirm ? () => Navigator.pop(dialogContext, true) : null,
-                child: Text(
-                  GochanoLanguage.text('Delete', 'মুছুন'),
-                ),
+                style: FilledButton.styleFrom(backgroundColor: colors.error),
+                onPressed: canConfirm
+                    ? () => Navigator.pop(dialogContext, true)
+                    : null,
+                child: Text(GochanoLanguage.text('Delete', 'মুছুন')),
               ),
             ],
           );
@@ -585,18 +584,11 @@ Future<void> _confirmAndDeleteMedicine(
     if (!context.mounted) return;
     showGochanoMessage(
       context,
-      GochanoLanguage.text(
-        'Medicine deleted.',
-        'ওষুধ মুছে ফেলা হয়েছে।',
-      ),
+      GochanoLanguage.text('Medicine deleted.', 'ওষুধ মুছে ফেলা হয়েছে।'),
     );
   } catch (error) {
     if (!context.mounted) return;
-    showGochanoMessage(
-      context,
-      friendlyErrorMessage(error),
-      isError: true,
-    );
+    showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
   }
 }
 
@@ -626,7 +618,7 @@ class _MedicalDisclaimer extends StatelessWidget {
             child: Text(
               GochanoLanguage.text(
                 'Gochano does not provide medical advice. It only reminds you '
-                'of the times you saved and records what you mark.',
+                    'of the times you saved and records what you mark.',
                 'গোছানো কোনো চিকিৎসা পরামর্শ দেয় না। এটি শুধু আপনার সংরক্ষণ করা সময়ে মনে করিয়ে দেয় এবং আপনি যা চিহ্নিত করেন তা রেকর্ড করে।',
               ),
               style: context.type.caption,
