@@ -33,6 +33,7 @@ class OverviewTabState extends State<OverviewTab> {
   DateTime _selectedMonth = DateTime.now();
   int? _selectedDay;
   bool _dayExpanded = false;
+  int _budgetRefreshKey = 0;
 
   @override
   void initState() {
@@ -43,9 +44,9 @@ class OverviewTabState extends State<OverviewTab> {
   }
 
   /// Called by the parent ExpenseScreen when the user switches to this tab
-  /// or after an expense is added.
+  /// or after an expense is added. Forces a full re-fetch of budget data.
   void refresh() {
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _budgetRefreshKey++);
   }
 
   void _prevMonth() {
@@ -148,8 +149,9 @@ class OverviewTabState extends State<OverviewTab> {
             final pawnaReceived = settlements['pawnaReceived'] ?? 0;
             final denaPaid = settlements['denaPaid'] ?? 0;
 
-            // Budget for the selected month
+            // Budget for the selected month — keyed to force re-fetch on refresh()
             return FutureBuilder<Map<String, dynamic>>(
+              key: ValueKey('budget-${_selectedMonth.year}-${_selectedMonth.month}-$_budgetRefreshKey'),
               future: ApiService.getRemaining(_selectedMonth),
               builder: (context, budgetSnap) {
                 final available =
@@ -474,126 +476,117 @@ class _SummaryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final type = context.type;
+    final budget = monthlyMoney ?? 0;
+    final spentRatio = hasBudget && budget > 0
+        ? (totalSpent / budget).clamp(0.0, 1.0)
+        : 0.0;
+    final remainingRatio = hasBudget && budget > 0
+        ? (adjustedRemaining / budget).clamp(0.0, 1.0)
+        : 0.0;
 
     return Column(
       children: [
-        // Top row: Monthly Money, Spent, Remaining
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        // ── Top summary: Monthly Money / Spent / Remaining ──
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
-                  value: hasBudget
-                      ? formatTaka(monthlyMoney ?? 0)
-                      : GochanoLanguage.text('Not set', 'সেট করা নেই'),
-                  accent: colors.brand,
-                ),
+              // Monthly Money
+              _SummaryRow(
+                label: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
+                value: hasBudget ? formatTaka(budget) : GochanoLanguage.text('Not set', 'সেট করা নেই'),
+                color: colors.brand,
               ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Spent', 'খরচ'),
-                  value: formatTaka(totalSpent),
-                  accent: colors.expense,
+              if (hasBudget) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                _ProgressBar(
+                  ratio: spentRatio,
+                  color: colors.expense,
+                  height: 6,
                 ),
+              ],
+              const SizedBox(height: GochanoSpacing.md),
+              // Spent
+              _SummaryRow(
+                label: GochanoLanguage.text('Total spent', 'মোট খরচ'),
+                value: formatTaka(totalSpent),
+                color: colors.expense,
               ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Remaining', 'বাকি'),
-                  value: hasBudget ? formatTaka(adjustedRemaining) : '—',
-                  accent: adjustedRemaining < 0 ? colors.error : colors.success,
+              const SizedBox(height: GochanoSpacing.md),
+              // Remaining
+              _SummaryRow(
+                label: GochanoLanguage.text('Remaining', 'বাকি'),
+                value: hasBudget ? formatTaka(adjustedRemaining) : '—',
+                color: adjustedRemaining < 0 ? colors.error : colors.success,
+                isBold: true,
+              ),
+              if (hasBudget) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                _ProgressBar(
+                  ratio: remainingRatio,
+                  color: adjustedRemaining < 0 ? colors.error : colors.success,
+                  height: 4,
                 ),
-              ),
+              ],
             ],
           ),
         ),
-        const SizedBox(height: GochanoSpacing.sm),
-        // Second row: Money In
-        if (moneyIn > 0)
-          Padding(
-            padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
-            child: StatCard(
-              compact: true,
+
+        // ── Money In (only when positive) ──
+        if (moneyIn > 0) ...[
+          const SizedBox(height: GochanoSpacing.sm),
+          AppCard(
+            accent: colors.success,
+            child: _SummaryRow(
               label: GochanoLanguage.text('Money in', 'আয়'),
               value: formatTaka(moneyIn),
-              accent: colors.success,
+              color: colors.success,
             ),
           ),
-        // Category breakdown: 2-column grid
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Daily', 'দৈনিক'),
-                  value: formatTaka(dailyExpenseTotal),
-                  accent: colors.expense,
-                ),
-              ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Grocery', 'বাজার'),
-                  value: formatTaka(groceryTotal),
-                  accent: colors.community,
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
+
+        // ── Category breakdown: colored horizontal bars ──
         const SizedBox(height: GochanoSpacing.sm),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Medicine', 'ওষুধ'),
-                  value: formatTaka(medicineTotal),
-                  accent: colors.medicine,
-                ),
+              Text(
+                GochanoLanguage.text('Categories', 'ক্যাটাগরি'),
+                style: type.cardHeading,
               ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Dena paid', 'দেনা'),
-                  value: denaPaid > 0
-                      ? formatTaka(denaPaid)
-                      : '৳0',
-                  accent: colors.warning,
-                ),
+              const SizedBox(height: GochanoSpacing.sm),
+              _CategoryBar(
+                label: GochanoLanguage.text('Daily', 'দৈনিক'),
+                value: dailyExpenseTotal,
+                total: totalSpent > 0 ? totalSpent : 1,
+                color: colors.expense,
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: GochanoSpacing.sm),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: StatCard(
-                  compact: true,
-                  label: GochanoLanguage.text('Pawna received', 'পাওনা'),
-                  value: pawnaReceived > 0
-                      ? formatTaka(pawnaReceived)
-                      : '৳0',
-                  accent: colors.success,
-                ),
+              _CategoryBar(
+                label: GochanoLanguage.text('Grocery', 'বাজার'),
+                value: groceryTotal,
+                total: totalSpent > 0 ? totalSpent : 1,
+                color: colors.community,
               ),
-              const SizedBox(width: GochanoSpacing.sm),
-              const Expanded(child: SizedBox.shrink()),
+              _CategoryBar(
+                label: GochanoLanguage.text('Medicine', 'ওষুধ'),
+                value: medicineTotal,
+                total: totalSpent > 0 ? totalSpent : 1,
+                color: colors.medicine,
+              ),
+              _CategoryBar(
+                label: GochanoLanguage.text('Dena paid', 'দেনা'),
+                value: denaPaid,
+                total: totalSpent > 0 ? totalSpent : 1,
+                color: colors.warning,
+              ),
+              _CategoryBar(
+                label: GochanoLanguage.text('Pawna received', 'পাওনা'),
+                value: pawnaReceived,
+                total: totalSpent > 0 ? totalSpent : 1,
+                color: colors.success,
+              ),
             ],
           ),
         ),
@@ -605,6 +598,136 @@ class _SummaryGrid extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Set Budget Prompt
 // ---------------------------------------------------------------------------
+
+/// A compact label + value row used inside summary cards.
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.isBold = false,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final bool isBold;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = context.type;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(label, style: isBold ? type.cardHeading : type.body),
+        ),
+        Text(
+          value,
+          style: (isBold ? type.cardHeading : type.body).copyWith(
+            color: color,
+            fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A thin horizontal progress bar.
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({
+    required this.ratio,
+    required this.color,
+    this.height = 6,
+  });
+
+  final double ratio;
+  final Color color;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(height / 2),
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          children: [
+            // Track
+            Container(color: colors.surfaceVariant),
+            // Fill
+            FractionallySizedBox(
+              widthFactor: ratio,
+              child: Container(color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A category summary row: label, amount, and a colored bar showing proportion.
+class _CategoryBar extends StatelessWidget {
+  const _CategoryBar({
+    required this.label,
+    required this.value,
+    required this.total,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final double total;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+    final ratio = total > 0 ? (value / total).clamp(0.0, 1.0) : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xxs),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(label, style: type.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: SizedBox(
+                height: 8,
+                child: Stack(
+                  children: [
+                    Container(color: colors.surfaceVariant),
+                    if (value > 0)
+                      FractionallySizedBox(
+                        widthFactor: ratio,
+                        child: Container(color: color),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: GochanoSpacing.sm),
+          SizedBox(
+            width: 72,
+            child: Text(
+              formatTaka(value),
+              style: type.body.copyWith(fontWeight: FontWeight.w600),
+              textAlign: TextAlign.end,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _SetBudgetPrompt extends StatelessWidget {
   const _SetBudgetPrompt({required this.onSet});
@@ -981,6 +1104,7 @@ class _DayDetail extends StatelessWidget {
     final showDetailed = isToday || isExpanded;
 
     return AppCard(
+      accent: isToday ? colors.brand : null,
       onTap: isToday ? null : onToggle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

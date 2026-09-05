@@ -421,11 +421,9 @@ class _TodaysTasksCard extends StatelessWidget {
                   children: [
                     Icon(Icons.today_rounded, size: 18, color: colors.brand),
                     const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text("Today", 'আজ'),
-                        style: context.type.sectionHeading,
-                      ),
+                    Text(
+                      GochanoLanguage.text("Today", 'আজ'),
+                      style: context.type.sectionHeading,
                     ),
                   ],
                 ),
@@ -479,12 +477,11 @@ class _TodaysTasksCard extends StatelessWidget {
                 children: [
                   Icon(Icons.today_rounded, size: 18, color: colors.brand),
                   const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      GochanoLanguage.text("Today", 'আজ'),
-                      style: context.type.sectionHeading,
-                    ),
+                  Text(
+                    GochanoLanguage.text("Today", 'আজ'),
+                    style: context.type.sectionHeading,
                   ),
+                  const Spacer(),
                   if (overdue > 0)
                     GochanoBadge(
                       label: GochanoLanguage.text(
@@ -568,11 +565,9 @@ class _UpcomingTasksCard extends StatelessWidget {
                   children: [
                     Icon(Icons.upcoming_rounded, size: 18, color: colors.commute),
                     const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text('Upcoming', 'আসন্ন'),
-                        style: context.type.sectionHeading,
-                      ),
+                    Text(
+                      GochanoLanguage.text('Upcoming', 'আসন্ন'),
+                      style: context.type.sectionHeading,
                     ),
                   ],
                 ),
@@ -627,11 +622,9 @@ class _UpcomingTasksCard extends StatelessWidget {
                 children: [
                   Icon(Icons.upcoming_rounded, size: 18, color: colors.commute),
                   const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      GochanoLanguage.text('Upcoming', 'আসন্ন'),
-                      style: context.type.sectionHeading,
-                    ),
+                  Text(
+                    GochanoLanguage.text('Upcoming', 'আসন্ন'),
+                    style: context.type.sectionHeading,
                   ),
                 ],
               ),
@@ -781,11 +774,9 @@ class _StudyProgressCardState extends State<_StudyProgressCard> {
             children: [
               Icon(Icons.school_rounded, size: 18, color: colors.study),
               const SizedBox(width: GochanoSpacing.xs),
-              Expanded(
-                child: Text(
-                  GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
-                  style: context.type.sectionHeading,
-                ),
+              Text(
+                GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
+                style: context.type.sectionHeading,
               ),
             ],
           ),
@@ -860,11 +851,18 @@ class _StatPill extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: context.type.caption),
+          Text(
+            label,
+            style: context.type.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 2),
           Text(
             value,
             style: context.type.cardHeading.copyWith(color: color),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -930,11 +928,9 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
                   children: [
                     Icon(Icons.account_balance_wallet_rounded, size: 18, color: colors.expense),
                     const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text('Life Snapshot', 'জীবন পরিসংখ্যান'),
-                        style: context.type.sectionHeading,
-                      ),
+                    Text(
+                      GochanoLanguage.text('Life Snapshot', 'জীবন পরিসংখ্যান'),
+                      style: context.type.sectionHeading,
                     ),
                   ],
                 ),
@@ -977,11 +973,9 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
                 children: [
                   Icon(Icons.account_balance_wallet_rounded, size: 18, color: colors.expense),
                   const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      GochanoLanguage.text('Life Snapshot', 'জীবন পরিসংখ্যান'),
-                      style: context.type.sectionHeading,
-                    ),
+                  Text(
+                    GochanoLanguage.text('Life Snapshot', 'জীবন পরিসংখ্যান'),
+                    style: context.type.sectionHeading,
                   ),
                 ],
               ),
@@ -1058,11 +1052,9 @@ class _RecentMaterialsCard extends StatelessWidget {
                   children: [
                     Icon(Icons.schedule_rounded, size: 18, color: colors.study),
                     const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
-                        style: context.type.sectionHeading,
-                      ),
+                    Text(
+                      GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
+                      style: context.type.sectionHeading,
                     ),
                   ],
                 ),
@@ -1098,11 +1090,9 @@ class _RecentMaterialsCard extends StatelessWidget {
                   children: [
                     Icon(Icons.schedule_rounded, size: 18, color: colors.study),
                     const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
-                        style: context.type.sectionHeading,
-                      ),
+                    Text(
+                      GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
+                      style: context.type.sectionHeading,
                     ),
                   ],
                 ),
@@ -1126,18 +1116,16 @@ class _RecentMaterialsCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.schedule_rounded, size: 18, color: colors.study),
-                  const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: Text(
+                Row(
+                  children: [
+                    Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Text(
                       GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
                       style: context.type.sectionHeading,
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               const SizedBox(height: GochanoSpacing.xs),
               for (final doc in docs.take(3))
                 _RecentRow(doc: doc),

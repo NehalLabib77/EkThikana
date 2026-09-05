@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:gochano/features/life/presentation/expense/overview_tab.dart';
 import 'package:gochano/models/financial_transaction.dart';
 import 'package:gochano/services/financial_service.dart';
@@ -307,6 +309,64 @@ void main() {
       final isExpanded = true;
       final showDetailed = isToday || isExpanded;
       expect(showDetailed, isTrue);
+    });
+  });
+
+  group('Overview refresh mechanism', () {
+    late String source;
+
+    setUpAll(() {
+      source = File('lib/features/life/presentation/expense/overview_tab.dart')
+          .readAsStringSync()
+          .replaceAll('\r\n', '\n');
+    });
+
+    test('OverviewTab has _budgetRefreshKey for forced refresh', () {
+      expect(source, contains('_budgetRefreshKey'));
+      expect(source, contains('_budgetRefreshKey++'));
+    });
+
+    test('FutureBuilder uses ValueKey with refresh counter', () {
+      expect(source, contains("ValueKey('budget-"));
+      expect(source, contains('_budgetRefreshKey'));
+    });
+
+    test('refresh() increments the budget refresh key', () {
+      expect(source, contains('setState(() => _budgetRefreshKey++)'));
+    });
+  });
+
+  group('Overview category bars', () {
+    late String source;
+
+    setUpAll(() {
+      source = File('lib/features/life/presentation/expense/overview_tab.dart')
+          .readAsStringSync()
+          .replaceAll('\r\n', '\n');
+    });
+
+    test('has _CategoryBar widget', () {
+      expect(source, contains('class _CategoryBar'));
+    });
+
+    test('has _ProgressBar widget', () {
+      expect(source, contains('class _ProgressBar'));
+    });
+
+    test('has _SummaryRow widget', () {
+      expect(source, contains('class _SummaryRow'));
+    });
+
+    test('category bars show Daily, Grocery, Medicine, Dena paid, Pawna received', () {
+      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Daily'"));
+      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Grocery'"));
+      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Medicine'"));
+      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Dena paid'"));
+      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Pawna received'"));
+    });
+
+    test('today card has brand accent', () {
+      expect(source, contains('accent: isToday ? colors.brand : null'));
     });
   });
 }

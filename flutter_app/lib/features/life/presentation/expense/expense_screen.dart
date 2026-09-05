@@ -91,7 +91,7 @@ class _ExpenseScreenState extends State<ExpenseScreen>
         children: [
           const _DailyTab(),
           const GroceryTab(),
-          const DenaPawnaTab(),
+          DenaPawnaTab(onChanged: _onExpenseAdded),
           OverviewTab(key: _overviewKey),
         ],
       ),

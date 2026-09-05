@@ -23,7 +23,11 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../home/presentation/home_screen.dart' show formatTaka;
 
 class DenaPawnaTab extends StatelessWidget {
-  const DenaPawnaTab({super.key});
+  const DenaPawnaTab({super.key, this.onChanged});
+
+  /// Called when a Dena/Pawna record is added, edited, settled, or deleted.
+  /// The parent can use this to refresh dependent data (e.g. Overview tab).
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +128,7 @@ class DenaPawnaTab extends StatelessWidget {
             SectionHeader(
               title: GochanoLanguage.text('Open', 'খোলা'),
               action: TextButton.icon(
-                onPressed: () => showDenaPawnaSheet(context),
+                onPressed: () => showDenaPawnaSheet(context, onChanged: onChanged),
                 icon: const Icon(Icons.add_rounded, size: GochanoSizes.iconSm),
                 label: Text(GochanoLanguage.text('Add', 'যোগ')),
               ),
@@ -143,7 +147,7 @@ class DenaPawnaTab extends StatelessWidget {
               CardGroup(
                 children: [
                   for (final doc in unsettled)
-                    _DenaPawnaRow(doc: doc),
+                    _DenaPawnaRow(doc: doc, onChanged: onChanged),
                 ],
               ),
             if (settledDocs.isNotEmpty) ...[
@@ -153,7 +157,7 @@ class DenaPawnaTab extends StatelessWidget {
               CardGroup(
                 children: [
                   for (final doc in settledDocs)
-                    _DenaPawnaRow(doc: doc),
+                    _DenaPawnaRow(doc: doc, onChanged: onChanged),
                 ],
               ),
             ],
@@ -165,9 +169,10 @@ class DenaPawnaTab extends StatelessWidget {
 }
 
 class _DenaPawnaRow extends StatelessWidget {
-  const _DenaPawnaRow({required this.doc});
+  const _DenaPawnaRow({required this.doc, this.onChanged});
 
   final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +260,7 @@ class _DenaPawnaRow extends StatelessWidget {
           GochanoMenuAction(
             label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
             icon: Icons.edit_outlined,
-            onSelected: () => showDenaPawnaSheet(context, existing: doc),
+            onSelected: () => showDenaPawnaSheet(context, existing: doc, onChanged: onChanged),
           ),
         ],
         GochanoMenuAction(
@@ -296,6 +301,7 @@ class _DenaPawnaRow extends StatelessWidget {
             doc.id,
             settleAmount: settleAmount,
           );
+          onChanged?.call();
         } catch (error) {
           if (context.mounted) {
             showGochanoMessage(
@@ -322,6 +328,7 @@ class _DenaPawnaRow extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
     try {
       await FinancialService.deleteDenaPawna(doc.id);
+      onChanged?.call();
     } catch (error) {
       if (context.mounted) {
         showGochanoMessage(
@@ -501,19 +508,21 @@ class _QuickAmountChip extends StatelessWidget {
 Future<bool> showDenaPawnaSheet(
   BuildContext context, {
   DocumentSnapshot<Map<String, dynamic>>? existing,
+  VoidCallback? onChanged,
 }) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => _DenaPawnaForm(existing: existing),
+    builder: (sheetContext) => _DenaPawnaForm(existing: existing, onChanged: onChanged),
   );
   return saved ?? false;
 }
 
 class _DenaPawnaForm extends StatefulWidget {
-  const _DenaPawnaForm({this.existing});
+  const _DenaPawnaForm({this.existing, this.onChanged});
 
   final DocumentSnapshot<Map<String, dynamic>>? existing;
+  final VoidCallback? onChanged;
 
   @override
   State<_DenaPawnaForm> createState() => _DenaPawnaFormState();
@@ -591,6 +600,7 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
         note: _note.text.trim(),
         dueDate: _dueDate,
       );
+      widget.onChanged?.call();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;

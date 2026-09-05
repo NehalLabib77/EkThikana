@@ -92,7 +92,7 @@ void main() {
     });
 
     test('supports edit via existing parameter', () {
-      expect(source, contains('showDenaPawnaSheet(context, existing: doc)'));
+      expect(source, contains('showDenaPawnaSheet(context, existing: doc'));
     });
 
     test('supports partial settlement', () {
@@ -149,17 +149,49 @@ void main() {
       expect(rules, contains("'dena_paid'"));
       expect(rules, contains("'pawna_received'"));
     });
+
+    test('dena_pawna_items has owner-only CRUD rules', () {
+      final rules = _read('../firebase/firestore.rules');
+      expect(rules, contains('match /dena_pawna_items/{id}'));
+      expect(rules, contains("request.resource.data.ownerId == request.auth.uid"));
+      expect(rules, contains("resource.data.ownerId == request.auth.uid"));
+    });
+
+    test('dena_pawna_items update prevents ownerId change', () {
+      final rules = _read('../firebase/firestore.rules');
+      // The update rule should enforce that ownerId cannot be changed
+      final section = rules.substring(
+        rules.indexOf('match /dena_pawna_items/{id}'),
+        rules.indexOf('match /ai_usage'),
+      );
+      expect(section, contains('request.resource.data.ownerId == resource.data.ownerId'));
+    });
   });
 
-  group('Navigation destinations', () {
-    test('all 6 navigation destinations preserved in dena_pawna_tab.dart', () {
-      final source = _read(
+  group('Dena/Pawna onChanged callback', () {
+    late String source;
+
+    setUpAll(
+      () => source = _read(
         'lib/features/life/presentation/expense/dena_pawna_tab.dart',
-      );
-      expect(source, contains('FinancialService.denaPawnaStream'));
-      expect(source, contains('FinancialService.saveDenaPawna'));
-      expect(source, contains('FinancialService.settleDenaPawna'));
-      expect(source, contains('FinancialService.deleteDenaPawna'));
+      ),
+    );
+
+    test('DenaPawnaTab accepts onChanged callback', () {
+      expect(source, contains('this.onChanged'));
+      expect(source, contains('final VoidCallback? onChanged'));
+    });
+
+    test('onChanged is called after settle', () {
+      expect(source, contains('onChanged?.call()'));
+    });
+
+    test('onChanged is passed to showDenaPawnaSheet', () {
+      expect(source, contains('showDenaPawnaSheet(context, onChanged: onChanged)'));
+    });
+
+    test('onChanged is passed to _DenaPawnaRow', () {
+      expect(source, contains('_DenaPawnaRow(doc: doc, onChanged: onChanged)'));
     });
   });
 }

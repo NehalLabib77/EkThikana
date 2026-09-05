@@ -81,9 +81,9 @@ void main() {
 
     test('read is still restricted to the owner', () {
       // The delete became permissive on purpose; the read must not have.
-      final section = rules.substring(
-        rules.indexOf('match /financial_transactions/{id}'),
-      );
+      final start = rules.indexOf('match /financial_transactions/{id}');
+      final end = rules.indexOf('\n    }', start);
+      final section = rules.substring(start, end);
 
       expect(
         section,

@@ -6,7 +6,7 @@
 // Sections:
 //   1. Date / week strip — 7-day selector with a "Today" shortcut.
 //   2. Today's Schedule — tasks due on the selected day.
-//   3+4. Assignment Deadlines + Tasks — compact side-by-side bento cards.
+//   3+4. Assignments & Tasks — single combined card with two sections.
 //   5. Study Goal — weekly focus target, completed focus, progress %.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -271,7 +271,7 @@ class _ScheduleSection extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 3+4. Assignment Deadlines + Tasks — compact side-by-side bento cards
+// 3+4. Assignments & Tasks — single combined card with two sections
 // ---------------------------------------------------------------------------
 
 class _AssignmentTaskBento extends StatelessWidget {
@@ -291,12 +291,6 @@ class _AssignmentTaskBento extends StatelessWidget {
 
         final docs = snapshot.data?.docs ?? [];
 
-        // Split into assignments and tasks.
-        //
-        // Documents carry an explicit `type` field ('assignment' / 'task').
-        // Legacy documents written before the type field existed have
-        // type == null and default to Task.  We never infer the type from
-        // the due date — a future-dated normal task is still a task.
         final deadlines = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
         final tasks = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
         for (final doc in docs) {
@@ -328,28 +322,81 @@ class _AssignmentTaskBento extends StatelessWidget {
           return ad.compareTo(bd);
         });
 
-        // Always render both cards side-by-side, even when empty.
-        // On very narrow screens (<320dp) stack vertically.
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final sideBySide = constraints.maxWidth >= 300;
-            final cards = [
-              Expanded(
-                flex: 1,
-                child: _AssignmentCard(deadlines: deadlines),
-              ),
-              if (sideBySide) const SizedBox(width: GochanoSpacing.sm),
-              if (!sideBySide) const SizedBox(height: GochanoSpacing.sm),
-              Expanded(
-                flex: 1,
-                child: _TaskCard(tasks: tasks),
-              ),
-            ];
+        final shownDeadlines = deadlines.take(3).toList();
+        final shownTasks = tasks.take(3).toList();
 
-            return sideBySide
-                ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: cards)
-                : Column(children: cards);
-          },
+        return AppCard(
+          padding: const EdgeInsets.all(GochanoSpacing.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Assignments section ──
+              _SectionRow(
+                icon: Icons.assignment_outlined,
+                label: GochanoLanguage.text('Assignments', 'অ্যাসাইনমেন্ট'),
+                count: deadlines.length,
+                accent: context.colors.brand,
+                onAdd: () => showAddTaskSheet(context, type: 'assignment'),
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              if (deadlines.isEmpty)
+                _EmptyInline(
+                  label: GochanoLanguage.text('No assignments', 'কোনো অ্যাসাইনমেন্ট নেই'),
+                  onAdd: () => showAddTaskSheet(context, type: 'assignment'),
+                )
+              else
+                for (final doc in shownDeadlines)
+                  _AssignmentRow(doc: doc),
+              if (deadlines.length > 3)
+                Padding(
+                  padding: const EdgeInsets.only(top: GochanoSpacing.xxs),
+                  child: Text(
+                    GochanoLanguage.text(
+                      '+${deadlines.length - 3} more',
+                      'আরও ${deadlines.length - 3} টি',
+                    ),
+                    style: context.type.caption,
+                  ),
+                ),
+
+              // ── Divider ──
+              if (deadlines.isNotEmpty && tasks.isNotEmpty) ...[
+                const SizedBox(height: GochanoSpacing.sm),
+                Divider(height: 1, color: context.colors.border),
+                const SizedBox(height: GochanoSpacing.sm),
+              ],
+
+              // ── Tasks section ──
+              _SectionRow(
+                icon: Icons.check_circle_outline_rounded,
+                label: GochanoLanguage.text('Tasks', 'কাজ'),
+                count: tasks.length,
+                accent: context.colors.study,
+                onAdd: () => showAddTaskSheet(context, type: 'task'),
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              if (tasks.isEmpty)
+                _EmptyInline(
+                  label: GochanoLanguage.text('No tasks', 'কোনো কাজ নেই'),
+                  onAdd: () => showAddTaskSheet(context, type: 'task'),
+                )
+              else
+                for (final doc in shownTasks)
+                  _TaskRow(doc: doc),
+              if (tasks.length > 3)
+                Padding(
+                  padding: const EdgeInsets.only(top: GochanoSpacing.xxs),
+                  child: Text(
+                    GochanoLanguage.text(
+                      '+${tasks.length - 3} more',
+                      'আরও ${tasks.length - 3} টি',
+                    ),
+                    style: context.type.caption,
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
@@ -357,159 +404,105 @@ class _AssignmentTaskBento extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Assignment Deadlines card — compact
+// 3. Compact section header row (icon + label + count + add button)
 // ---------------------------------------------------------------------------
 
-class _AssignmentCard extends StatelessWidget {
-  const _AssignmentCard({required this.deadlines});
+class _SectionRow extends StatelessWidget {
+  const _SectionRow({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.accent,
+    required this.onAdd,
+  });
 
-  final List<QueryDocumentSnapshot<Map<String, dynamic>>> deadlines;
+  final IconData icon;
+  final String label;
+  final int count;
+  final Color accent;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
-    final shown = deadlines.take(3).toList();
-
-    return AppCard(
-      padding: const EdgeInsets.all(GochanoSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  GochanoLanguage.text('Assignments', 'অ্যাসাইনমেন্ট'),
-                  style: context.type.label.copyWith(fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (deadlines.length > 3)
-                GestureDetector(
-                  onTap: () {},
-                  child: Text(
-                    GochanoLanguage.text('View all', 'সব দেখুন'),
-                    style: context.type.caption.copyWith(
-                      color: context.colors.brand,
-                    ),
-                  ),
-                ),
-              const SizedBox(width: GochanoSpacing.xxs),
-              GestureDetector(
-                onTap: () => showAddTaskSheet(context, type: 'assignment'),
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: context.colors.brandSoft,
-                    borderRadius: GochanoRadius.smAll,
-                  ),
-                  child: Icon(
-                    Icons.add_rounded,
-                    size: 16,
-                    color: context.colors.brand,
-                  ),
-                ),
-              ),
-            ],
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: accent),
+        const SizedBox(width: GochanoSpacing.xxs),
+        Expanded(
+          child: Text(
+            label,
+            style: context.type.label.copyWith(fontSize: 13, color: accent),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: GochanoSpacing.xs),
-          // Content
-          if (deadlines.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.sm),
-              child: Column(
-                children: [
-                  Text(
-                    GochanoLanguage.text('No assignments', 'কোনো অ্যাসাইনমেন্ট নেই'),
-                    style: context.type.caption.copyWith(
-                      color: context.colors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: GochanoSpacing.xxs),
-                  GestureDetector(
-                    onTap: () => showAddTaskSheet(context, type: 'assignment'),
-                    child: Text(
-                      GochanoLanguage.text('+ Add', '+ যোগ'),
-                      style: context.type.caption.copyWith(
-                        color: context.colors.brand,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+        ),
+        if (count > 0)
+          Container(
+            margin: const EdgeInsets.only(right: GochanoSpacing.xxs),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: GochanoRadius.smAll,
+            ),
+            child: Text(
+              '$count',
+              style: context.type.caption.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w700,
+                fontSize: 10,
               ),
-            )
-          else
-            ...shown.map((doc) {
-              final data = doc.data();
-              final due = (data['dueAt'] as Timestamp?)?.toDate();
-              final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
-              final overdue = due != null && due.isBefore(DateTime.now());
+            ),
+          ),
+        GestureDetector(
+          onTap: onAdd,
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: GochanoRadius.smAll,
+            ),
+            child: Icon(Icons.add_rounded, size: 14, color: accent),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-              return InkWell(
-                onTap: () => showAddTaskSheet(context, existing: doc),
-                borderRadius: GochanoRadius.smAll,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        data['title']?.toString() ?? '',
-                        style: context.type.body.copyWith(fontSize: 13),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(
-                            due != null
-                                ? Icons.event_rounded
-                                : Icons.schedule_rounded,
-                            size: 10,
-                            color: overdue
-                                ? context.colors.warning
-                                : context.colors.textTertiary,
-                          ),
-                          const SizedBox(width: 2),
-                          Flexible(
-                            child: Text(
-                              due != null
-                                  ? '${formatShortDate(due)} ${formatClock12(due)}'
-                                  : GochanoLanguage.text(
-                                      'No due date',
-                                      'কোনো সময়সীমা নেই',
-                                    ),
-                              style: context.type.caption.copyWith(
-                                fontSize: 10,
-                                color: overdue
-                                    ? context.colors.warning
-                                    : context.colors.textTertiary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (due != null) ...[
-                            const SizedBox(width: 4),
-                            _deadlineStateBadgeCompact(context, due),
-                          ],
-                        ],
-                      ),
-                      if (remindAt != null) ...[
-                        const SizedBox(height: 2),
-                        _reminderInfoCompact(context, remindAt),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            }),
+// ---------------------------------------------------------------------------
+// 3a. Inline empty state — single row
+// ---------------------------------------------------------------------------
+
+class _EmptyInline extends StatelessWidget {
+  const _EmptyInline({required this.label, required this.onAdd});
+
+  final String label;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xxs),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: context.type.caption.copyWith(
+              color: context.colors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          GestureDetector(
+            onTap: onAdd,
+            child: Text(
+              GochanoLanguage.text('+ Add', '+ যোগ'),
+              style: context.type.caption.copyWith(
+                color: context.colors.brand,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -517,216 +510,145 @@ class _AssignmentCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Tasks card — compact checklist with complete/undo
+// 3b. Assignment row — compact, tappable
 // ---------------------------------------------------------------------------
 
-class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.tasks});
+class _AssignmentRow extends StatelessWidget {
+  const _AssignmentRow({required this.doc});
 
-  final List<QueryDocumentSnapshot<Map<String, dynamic>>> tasks;
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
 
   @override
   Widget build(BuildContext context) {
-    final shown = tasks.take(3).toList();
+    final data = doc.data();
+    final due = (data['dueAt'] as Timestamp?)?.toDate();
+    final overdue = due != null && due.isBefore(DateTime.now());
 
-    return AppCard(
-      padding: const EdgeInsets.all(GochanoSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  GochanoLanguage.text('Tasks', 'কাজ'),
-                  style: context.type.label.copyWith(fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+    return InkWell(
+      onTap: () => showAddTaskSheet(context, existing: doc),
+      borderRadius: GochanoRadius.smAll,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            Icon(
+              due != null ? Icons.event_rounded : Icons.schedule_rounded,
+              size: 12,
+              color: overdue ? context.colors.warning : context.colors.textTertiary,
+            ),
+            const SizedBox(width: GochanoSpacing.xxs),
+            Expanded(
+              child: Text(
+                data['title']?.toString() ?? '',
+                style: context.type.body.copyWith(fontSize: 13),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (due != null) ...[
+              Text(
+                '${formatShortDate(due)} ${formatClock12(due)}',
+                style: context.type.caption.copyWith(
+                  fontSize: 10,
+                  color: overdue ? context.colors.warning : context.colors.textTertiary,
                 ),
               ),
-              if (tasks.length > 3)
-                GestureDetector(
-                  onTap: () {},
-                  child: Text(
-                    GochanoLanguage.text('View all', 'সব দেখুন'),
-                    style: context.type.caption.copyWith(
-                      color: context.colors.brand,
-                    ),
-                  ),
-                ),
               const SizedBox(width: GochanoSpacing.xxs),
-              GestureDetector(
-                onTap: () => showAddTaskSheet(context, type: 'task'),
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: context.colors.brandSoft,
-                    borderRadius: GochanoRadius.smAll,
-                  ),
-                  child: Icon(
-                    Icons.add_rounded,
-                    size: 16,
-                    color: context.colors.brand,
-                  ),
+              _deadlineStateBadgeCompact(context, due),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4. Task row — compact checklist with overflow menu
+// ---------------------------------------------------------------------------
+
+class _TaskRow extends StatelessWidget {
+  const _TaskRow({required this.doc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data();
+    final done = data['done'] == true;
+    final title = data['title']?.toString() ?? '';
+    final due = (data['dueAt'] as Timestamp?)?.toDate();
+    final overdue = !done && due != null && due.isBefore(DateTime.now());
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: Checkbox(
+              value: done,
+              onChanged: (value) => _setDone(context, doc, value ?? false),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: () => showAddTaskSheet(context, existing: doc),
+              borderRadius: GochanoRadius.smAll,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: context.type.body.copyWith(
+                        fontSize: 13,
+                        color: done ? context.colors.textSecondary : null,
+                        decoration: done ? TextDecoration.lineThrough : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (due != null)
+                      Text(
+                        '${formatShortDate(due)} ${formatClock12(due)}',
+                        style: context.type.caption.copyWith(
+                          fontSize: 10,
+                          color: overdue ? context.colors.warning : context.colors.textTertiary,
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+            ),
+          ),
+          GochanoOverflowMenu(
+            items: [
+              GochanoMenuAction(
+                label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
+                icon: Icons.edit_outlined,
+                onSelected: () => showAddTaskSheet(context, existing: doc),
+              ),
+              GochanoMenuAction(
+                label: done
+                    ? GochanoLanguage.text('Mark not done', 'অসম্পন্ন করুন')
+                    : GochanoLanguage.text('Mark done', 'সম্পন্ন করুন'),
+                icon: done ? Icons.undo_rounded : Icons.check_rounded,
+                onSelected: () => _setDone(context, doc, !done),
+              ),
+              GochanoMenuAction(
+                label: GochanoLanguage.text('Delete', 'মুছুন'),
+                icon: Icons.delete_outline_rounded,
+                destructive: true,
+                onSelected: () => _delete(context, doc, title),
               ),
             ],
           ),
-          const SizedBox(height: GochanoSpacing.xs),
-          // Content
-          if (tasks.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.sm),
-              child: Column(
-                children: [
-                  Text(
-                    GochanoLanguage.text('No tasks', 'কোনো কাজ নেই'),
-                    style: context.type.caption.copyWith(
-                      color: context.colors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: GochanoSpacing.xxs),
-                  GestureDetector(
-                    onTap: () => showAddTaskSheet(context, type: 'task'),
-                    child: Text(
-                      GochanoLanguage.text('+ Add', '+ যোগ'),
-                      style: context.type.caption.copyWith(
-                        color: context.colors.brand,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ...shown.map((doc) {
-              final data = doc.data();
-              final done = data['done'] == true;
-              final title = data['title']?.toString() ?? '';
-              final due = (data['dueAt'] as Timestamp?)?.toDate();
-              final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
-              final overdue = !done && due != null && due.isBefore(DateTime.now());
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: Checkbox(
-                        value: done,
-                        onChanged: (value) =>
-                            _setDone(context, doc, value ?? false),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => showAddTaskSheet(context, existing: doc),
-                        borderRadius: GochanoRadius.smAll,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                title,
-                                style: context.type.body.copyWith(
-                                  fontSize: 13,
-                                  color: done
-                                      ? context.colors.textSecondary
-                                      : null,
-                                  decoration: done
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Icon(
-                                    due != null
-                                        ? (remindAt != null
-                                            ? Icons.notifications_active_outlined
-                                            : Icons.event_rounded)
-                                        : Icons.schedule_rounded,
-                                    size: 10,
-                                    color: overdue
-                                        ? context.colors.warning
-                                        : context.colors.textTertiary,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Flexible(
-                                    child: Text(
-                                      due != null
-                                          ? '${formatShortDate(due)} ${formatClock12(due)}'
-                                          : GochanoLanguage.text(
-                                              'No due date',
-                                              'কোনো সময়সীমা নেই',
-                                            ),
-                                      style: context.type.caption.copyWith(
-                                        fontSize: 10,
-                                        color: overdue
-                                            ? context.colors.warning
-                                            : null,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (remindAt != null) ...[
-                                const SizedBox(height: 2),
-                                _reminderInfoCompact(context, remindAt),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    GochanoOverflowMenu(
-                      items: [
-                        GochanoMenuAction(
-                          label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
-                          icon: Icons.edit_outlined,
-                          onSelected: () =>
-                              showAddTaskSheet(context, existing: doc),
-                        ),
-                        GochanoMenuAction(
-                          label: done
-                              ? GochanoLanguage.text(
-                                  'Mark not done',
-                                  'অসম্পন্ন করুন',
-                                )
-                              : GochanoLanguage.text('Mark done', 'সম্পন্ন করুন'),
-                          icon: done ? Icons.undo_rounded : Icons.check_rounded,
-                          onSelected: () => _setDone(context, doc, !done),
-                        ),
-                        GochanoMenuAction(
-                          label: GochanoLanguage.text('Delete', 'মুছুন'),
-                          icon: Icons.delete_outline_rounded,
-                          destructive: true,
-                          onSelected: () => _delete(context, doc, title),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
         ],
       ),
     );
@@ -1005,26 +927,6 @@ Widget _deadlineStateBadgeCompact(BuildContext context, DateTime due) {
       GochanoLanguage.text('${diff}d', '$diffদিন'),
       style: TextStyle(fontSize: 8, color: context.colors.textSecondary, fontWeight: FontWeight.w600),
     ),
-  );
-}
-
-Widget _reminderInfoCompact(BuildContext context, DateTime remindAt) {
-  return Row(
-    children: [
-      Icon(
-        Icons.notifications_active_outlined,
-        size: 10,
-        color: context.colors.textTertiary,
-      ),
-      const SizedBox(width: 2),
-      Text(
-        formatClock12(remindAt),
-        style: context.type.caption.copyWith(
-          fontSize: 10,
-          color: context.colors.textTertiary,
-        ),
-      ),
-    ],
   );
 }
 
