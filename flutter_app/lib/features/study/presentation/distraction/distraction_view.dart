@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/usage_stats_service.dart';
+import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 
 class DistractionView extends StatefulWidget {
@@ -19,29 +22,55 @@ class _DistractionViewState extends State<DistractionView>
   List<DayScreenTime>? _weekly;
   bool _loading = true;
   bool _hasPermission = false;
+  bool _refreshing = false;
+  DateTime? _lastLoadedLocalDate;
+  Timer? _midnightTimer;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scheduleNextMidnight();
     _checkPermissionAndLoad();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _midnightTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkPermissionAndLoad();
+      _refreshOnceOnResume();
     }
   }
 
-  Future<void> _checkPermissionAndLoad() async {
+  DateTime _localDate() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  void _scheduleNextMidnight() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    final next = DateTime(now.year, now.month, now.day + 1);
+    _midnightTimer = Timer(next.difference(now), () {
+      if (!mounted) return;
+      _scheduleNextMidnight();
+      if (_lastLoadedLocalDate != null &&
+          _localDate() != _lastLoadedLocalDate) {
+        _checkPermissionAndLoad(showLoading: false);
+      }
+    });
+  }
+
+  Future<void> _checkPermissionAndLoad({bool showLoading = true}) async {
+    if (_refreshing) return;
+    _refreshing = true;
     try {
       final hasPermission = await UsageStatsService.hasPermission();
       if (!hasPermission) {
@@ -53,43 +82,63 @@ class _DistractionViewState extends State<DistractionView>
           _error = null;
           _loading = false;
         });
+        _lastLoadedLocalDate = null;
         return;
       }
 
       if (mounted) {
         setState(() {
           _hasPermission = true;
-          _loading = true;
+          if (showLoading && (_summary == null || _weekly == null)) {
+            _loading = true;
+          }
           _error = null;
         });
       }
-      await _loadData();
+      await _loadData(showLoading: showLoading);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = 'Permission check failed';
         _loading = false;
       });
+    } finally {
+      _refreshing = false;
     }
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _refreshOnceOnResume() async {
+    final dateChanged =
+        _lastLoadedLocalDate != null && _localDate() != _lastLoadedLocalDate;
+    await _checkPermissionAndLoad(showLoading: false);
+    if (dateChanged) _scheduleNextMidnight();
+  }
+
+  Future<void> _loadData({bool showLoading = true}) async {
+    if (!mounted) return;
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else if (_error != null) {
+      setState(() => _error = null);
+    }
 
     try {
       final results = await Future.wait([
         UsageStatsService.getScreenTimeSummary(),
         UsageStatsService.getWeeklyScreenTime(),
       ]);
+      if (!mounted) return;
       setState(() {
         _summary = results[0] as ScreenTimeSummary;
         _weekly = results[1] as List<DayScreenTime>;
         _loading = false;
+        _lastLoadedLocalDate = _localDate();
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load screen time data';
         _loading = false;
@@ -97,11 +146,14 @@ class _DistractionViewState extends State<DistractionView>
     }
   }
 
+  Future<void> _refreshData() => _checkPermissionAndLoad(showLoading: false);
+
   Future<void> _requestPermission() async {
     try {
       await UsageStatsService.openSettings();
-      await _checkPermissionAndLoad();
+      await _checkPermissionAndLoad(showLoading: false);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to open settings';
         _loading = false;
@@ -111,7 +163,7 @@ class _DistractionViewState extends State<DistractionView>
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    if (_loading && (_summary == null || _weekly == null)) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -200,7 +252,7 @@ class _DistractionViewState extends State<DistractionView>
             ),
             const SizedBox(height: GochanoSpacing.lg),
             FilledButton.tonal(
-              onPressed: _loadData,
+              onPressed: _refreshData,
               child: Text(GochanoLanguage.text('Retry', 'আবার চেষ্টা করুন')),
             ),
           ],
@@ -217,10 +269,15 @@ class _DistractionViewState extends State<DistractionView>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadData,
+      onRefresh: _refreshData,
       child: ListView(
         padding: const EdgeInsets.all(GochanoSpacing.md),
         children: [
+          if (_refreshing) const LinearProgressIndicator(minHeight: 2),
+          if (_error != null) ...[
+            const SizedBox(height: GochanoSpacing.sm),
+            ErrorState(compact: true, message: _error!),
+          ],
           _buildWeeklyChart(weekly),
           const SizedBox(height: GochanoSpacing.md),
           _buildAppList(summary),
@@ -409,15 +466,15 @@ class _DistractionViewState extends State<DistractionView>
   }
 
   Color _getOtherAppColor(BuildContext context, int minutes) {
-    if (minutes <= 38) return context.colors.success;
-    if (minutes <= 70) return context.colors.warning;
-    return context.colors.error;
+    if (minutes <= 38) return context.colors.usageLow;
+    if (minutes <= 70) return context.colors.usageMedium;
+    return context.colors.usageHigh;
   }
 
   Color _getGochanoColor(BuildContext context, int minutes) {
-    if (minutes <= 38) return context.colors.error;
-    if (minutes <= 70) return context.colors.warning;
-    return context.colors.success;
+    if (minutes <= 38) return context.colors.usageHigh;
+    if (minutes <= 70) return context.colors.usageMedium;
+    return context.colors.usageLow;
   }
 
   String _formatDuration(Duration duration) {

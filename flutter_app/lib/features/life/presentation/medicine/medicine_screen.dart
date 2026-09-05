@@ -75,7 +75,7 @@ class MedicineScreen extends StatelessWidget {
             onPressed: () => Navigator.of(
               context,
             ).push(GochanoRoute.to(builder: (_) => const MedicineFormScreen())),
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(Icons.medication_rounded),
             label: Text(GochanoLanguage.text('Add medicine', 'ওষুধ যোগ')),
           ),
         ],

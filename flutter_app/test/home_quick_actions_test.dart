@@ -96,7 +96,7 @@ void main() {
       // The fifth action (Find a route) must remain in the actions list so
       // it can still be revealed by the toggle.
       expect(
-        homeScreen.contains("GochanoArt.featureCommute"),
+        homeScreen.contains('CommuteScreen'),
         isTrue,
         reason: 'Find-a-route tile must still be in the action list',
       );

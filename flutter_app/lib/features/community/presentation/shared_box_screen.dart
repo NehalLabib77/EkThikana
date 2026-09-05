@@ -194,6 +194,19 @@ class _GroupResourcesSection extends StatelessWidget {
   }
 }
 
+String _sharedByLabel(Map<String, dynamic> data) {
+  final ownerName = data['ownerName']?.toString();
+  final ownerId = data['ownerId']?.toString();
+  if (ownerId == FirestoreService.uid) {
+    return GochanoLanguage.text('Shared by you', 'আপনি দ্বারা শেয়ার করা');
+  }
+  if (ownerName == null || ownerName.isEmpty) return '';
+  return GochanoLanguage.text(
+    'Shared by $ownerName',
+    '$ownerName দ্বারা শেয়ার করা',
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Resource row — reuses MaterialReaderScreen (same as _ResourcesTab)
 // ---------------------------------------------------------------------------
@@ -211,7 +224,7 @@ class _ResourceRow extends StatelessWidget {
         : data['fileName']?.toString() ?? '';
     final fileName = data['fileName']?.toString() ?? '';
     final mimeType = data['mimeType']?.toString() ?? '';
-    final ownerName = data['ownerName']?.toString();
+    final sharedBy = _sharedByLabel(data);
 
     final sizeBytes = (data['sizeBytes'] as num?)?.toInt() ?? 0;
     final meta = <String>[];
@@ -229,7 +242,7 @@ class _ResourceRow extends StatelessWidget {
       illustration: GochanoArt.fileIdFor(fileName: fileName, mimeType: mimeType),
       accent: context.colors.community,
       title: title,
-      subtitle: ownerName,
+      subtitle: sharedBy,
       metadata: meta,
       onTap: () => Navigator.of(context).push(
         GochanoRoute.to(
@@ -258,13 +271,13 @@ class _NoteRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = doc.data();
     final title = data['title']?.toString() ?? '';
-    final ownerName = data['ownerName']?.toString();
+    final sharedBy = _sharedByLabel(data);
 
     return GochanoListRow(
       illustration: GochanoArt.fileNote,
       accent: context.colors.community,
       title: title,
-      subtitle: ownerName,
+      subtitle: sharedBy,
       onTap: () => Navigator.of(context).push(
         GochanoRoute.to(
           builder: (_) => NoteEditorScreen(

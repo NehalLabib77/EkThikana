@@ -39,17 +39,33 @@ class ExpenseScreen extends StatefulWidget {
 class _ExpenseScreenState extends State<ExpenseScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
+  final _overviewKey = GlobalKey<_OverviewTabState>();
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 4, vsync: this);
+    _tabs.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    // Refresh the Overview budget when the user switches to the Overview tab,
+    // so stale FutureBuilder data is never visible after a spend or budget edit.
+    if (_tabs.index == 0) {
+      _overviewKey.currentState?._onSheetClosed();
+    }
   }
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _onExpenseAdded() {
+    // Reload the Overview budget after a new expense is recorded.
+    _overviewKey.currentState?._onSheetClosed();
   }
 
   @override
@@ -72,24 +88,29 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [
-          _OverviewTab(),
-          _DailyTab(),
-          GroceryTab(),
-          _HistoryTab(),
+        children: [
+          _OverviewTab(key: _overviewKey),
+          const _DailyTab(),
+          const GroceryTab(),
+          const _HistoryTab(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        onPressed: () async {
           final isGrocery = _tabs.index == 2;
           if (isGrocery) {
             final sessionId = FinancialService.bazarSessionId(DateTime.now());
-            showGroceryItemSheet(context, sessionId: sessionId);
+            final saved = await showGroceryItemSheet(
+              context,
+              sessionId: sessionId,
+            );
+            if (saved) _onExpenseAdded();
           } else {
-            showAddExpenseSheet(context);
+            final saved = await showAddExpenseSheet(context);
+            if (saved) _onExpenseAdded();
           }
         },
-        icon: const Icon(Icons.add_rounded),
+        icon: const Icon(Icons.receipt_long_rounded),
         label: Text(GochanoLanguage.text('Add expense', 'খরচ যোগ')),
       ),
     );
@@ -101,7 +122,7 @@ class _ExpenseScreenState extends State<ExpenseScreen>
 // ---------------------------------------------------------------------------
 
 class _OverviewTab extends StatefulWidget {
-  const _OverviewTab();
+  const _OverviewTab({super.key});
 
   @override
   State<_OverviewTab> createState() => _OverviewTabState();
@@ -119,7 +140,16 @@ class _OverviewTabState extends State<_OverviewTab> {
   Future<Map<String, dynamic>> _loadBudget() =>
       ApiService.getRemaining(DateTime.now());
 
-  void _reloadBudget() => setState(() => _budget = _loadBudget());
+  void _reloadBudget() {
+    if (mounted) setState(() => _budget = _loadBudget());
+  }
+
+  /// Reload budget after returning from any sub-sheet (expense edit, budget set).
+  void _onSheetClosed() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reloadBudget();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,9 +220,8 @@ class _OverviewTabState extends State<_OverviewTab> {
                               remaining: remaining,
                               hasBudget: hasBudget,
                               onTap: () async {
-                                final changed =
-                                    await showMonthlyBudgetSheet(context);
-                                if (changed) _reloadBudget();
+                                await showMonthlyBudgetSheet(context);
+                                _onSheetClosed();
                               },
                             ),
                           ),
@@ -211,8 +240,8 @@ class _OverviewTabState extends State<_OverviewTab> {
                     if (!hasBudget) ...[
                       const SizedBox(height: GochanoSpacing.sm),
                       _SetBudgetPrompt(onSet: () async {
-                        final changed = await showMonthlyBudgetSheet(context);
-                        if (changed) _reloadBudget();
+                        await showMonthlyBudgetSheet(context);
+                        _onSheetClosed();
                       }),
                     ],
                   ],

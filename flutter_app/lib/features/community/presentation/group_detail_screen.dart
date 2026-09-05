@@ -78,13 +78,16 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? const <String, dynamic>{};
         final name = data['name']?.toString() ?? widget.groupName;
-        final memberIds =
-            ((data['memberIds'] as List?) ?? const []).map((e) => e.toString()).toList();
-        final adminIds =
-            ((data['adminIds'] as List?) ?? const []).map((e) => e.toString()).toList();
+        final memberIds = ((data['memberIds'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList();
+        final adminIds = ((data['adminIds'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList();
         final chatEnabled = data['chatEnabled'] == true;
         final ownerId = data['ownerId']?.toString() ?? '';
-        final isAdmin = adminIds.contains(FirestoreService.uid) ||
+        final isAdmin =
+            adminIds.contains(FirestoreService.uid) ||
             (ownerId.isNotEmpty && ownerId == FirestoreService.uid);
 
         return GochanoScaffold(
@@ -201,7 +204,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       title: GochanoLanguage.text('Leave this group?', 'গ্রুপটি ছাড়বেন?'),
       message: GochanoLanguage.text(
         'You will lose access to "$name" resources and chat. Anything you '
-        'shared stays with the group.',
+            'shared stays with the group.',
         '"$name" এর উপকরণ ও চ্যাটে আপনার অ্যাক্সেস থাকবে না। আপনি যা শেয়ার করেছেন তা গ্রুপে থেকে যাবে।',
       ),
       confirmLabel: GochanoLanguage.text('Leave', 'ছাড়ুন'),
@@ -247,9 +250,7 @@ class _OverviewTab extends StatelessWidget {
       padding: GochanoSpacing.scrollBody,
       children: [
         if (description.isNotEmpty) ...[
-          AppCard(
-            child: Text(description, style: context.type.body),
-          ),
+          AppCard(child: Text(description, style: context.type.body)),
           const SizedBox(height: GochanoSpacing.md),
         ],
 
@@ -405,8 +406,6 @@ class _ResourcesTab extends StatelessWidget {
                 'Share the first resource with your group.',
                 'আপনার গ্রুপে প্রথম উপকরণটি শেয়ার করুন।',
               ),
-              actionLabel: GochanoLanguage.text('Share a file', 'একটি ফাইল শেয়ার'),
-              onAction: () => _showShareOptions(context, groupId, groupName),
             );
           }
 
@@ -632,12 +631,7 @@ class _ProjectsTab extends StatelessWidget {
                       'No projects have been created yet.',
                       'এখনো কোনো প্রজেক্ট তৈরি হয়নি।',
                     ),
-              actionLabel: isAdmin
-                  ? GochanoLanguage.text('Create project', 'প্রজেক্ট তৈরি')
-                  : null,
-              onAction: isAdmin
-                  ? () => _showCreateProjectSheet(context, groupId)
-                  : null,
+
             );
           }
 
@@ -694,15 +688,17 @@ class _ProjectCard extends StatelessWidget {
         builder: (context, snapshot) {
           final tasks = [...?snapshot.data?.docs];
           final total = tasks.length;
-          final completed = tasks.where((t) => t.data()['completed'] == true).length;
+          final completed = tasks
+              .where((t) => t.data()['completed'] == true)
+              .length;
           final progress = total > 0 ? completed / total : 0.0;
           final progressPercent = (progress * 100).round();
 
           final progressColor = progress < 0.4
               ? colors.error
               : progress < 0.8
-                  ? colors.warning
-                  : colors.success;
+              ? colors.warning
+              : colors.success;
 
           return AppCard(
             onTap: () => Navigator.of(context).push(
@@ -747,7 +743,9 @@ class _ProjectCard extends StatelessWidget {
                         itemBuilder: (_) => [
                           PopupMenuItem(
                             value: 'edit',
-                            child: Text(GochanoLanguage.text('Edit', 'সম্পাদনা')),
+                            child: Text(
+                              GochanoLanguage.text('Edit', 'সম্পাদনা'),
+                            ),
                           ),
                           PopupMenuItem(
                             value: 'delete',
@@ -790,9 +788,7 @@ class _ProjectCard extends StatelessWidget {
                           'No tasks yet',
                           'এখনো কোনো কাজ নেই',
                         ),
-                  style: context.type.caption.copyWith(
-                    color: progressColor,
-                  ),
+                  style: context.type.caption.copyWith(color: progressColor),
                 ),
               ],
             ),
@@ -803,7 +799,10 @@ class _ProjectCard extends StatelessWidget {
   }
 }
 
-Future<void> _showCreateProjectSheet(BuildContext context, String groupId) async {
+Future<void> _showCreateProjectSheet(
+  BuildContext context,
+  String groupId,
+) async {
   final nameCtl = TextEditingController();
   final descCtl = TextEditingController();
 
@@ -818,58 +817,63 @@ Future<void> _showCreateProjectSheet(BuildContext context, String groupId) async
         top: GochanoSpacing.lg,
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              GochanoLanguage.text('New project', 'নতুন প্রজেক্ট'),
-              style: sheetContext.type.pageTitle,
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-            TextField(
-              controller: nameCtl,
-              decoration: InputDecoration(
-                labelText: GochanoLanguage.text('Project name', 'প্রজেক্টের নাম'),
-                border: const OutlineInputBorder(),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                GochanoLanguage.text('New project', 'নতুন প্রজেক্ট'),
+                style: sheetContext.type.pageTitle,
               ),
-              textCapitalization: TextCapitalization.sentences,
-              maxLength: 80,
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-            TextField(
-              controller: descCtl,
-              decoration: InputDecoration(
-                labelText: GochanoLanguage.text(
-                  'Description (optional)',
-                  'বিবরণ (ঐচ্ছিক)',
+              const SizedBox(height: GochanoSpacing.md),
+              TextField(
+                controller: nameCtl,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text(
+                    'Project name',
+                    'প্রজেক্টের নাম',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
-                border: const OutlineInputBorder(),
+                textCapitalization: TextCapitalization.sentences,
+                maxLength: 80,
               ),
-              textCapitalization: TextCapitalization.sentences,
-              maxLength: 240,
-              maxLines: 2,
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(false),
-                    child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+              const SizedBox(height: GochanoSpacing.sm),
+              TextField(
+                controller: descCtl,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text(
+                    'Description (optional)',
+                    'বিবরণ (ঐচ্ছিক)',
                   ),
+                  border: const OutlineInputBorder(),
                 ),
-                const SizedBox(width: GochanoSpacing.sm),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(true),
-                    child: Text(GochanoLanguage.text('Create', 'তৈরি')),
+                textCapitalization: TextCapitalization.sentences,
+                maxLength: 240,
+                maxLines: 2,
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(false),
+                      child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-          ],
+                  const SizedBox(width: GochanoSpacing.sm),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(true),
+                      child: Text(GochanoLanguage.text('Create', 'তৈরি')),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+            ],
+          ),
         ),
       ),
     ),
@@ -907,7 +911,9 @@ void _handleProjectAction(
 ) async {
   if (action == 'edit') {
     final nameCtl = TextEditingController(text: data['name']?.toString() ?? '');
-    final descCtl = TextEditingController(text: data['description']?.toString() ?? '');
+    final descCtl = TextEditingController(
+      text: data['description']?.toString() ?? '',
+    );
 
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -920,58 +926,63 @@ void _handleProjectAction(
           top: GochanoSpacing.lg,
         ),
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                GochanoLanguage.text('Edit project', 'প্রজেক্ট সম্পাদনা'),
-                style: sheetContext.type.pageTitle,
-              ),
-              const SizedBox(height: GochanoSpacing.md),
-              TextField(
-                controller: nameCtl,
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('Project name', 'প্রজেক্টের নাম'),
-                  border: const OutlineInputBorder(),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  GochanoLanguage.text('Edit project', 'প্রজেক্ট সম্পাদনা'),
+                  style: sheetContext.type.pageTitle,
                 ),
-                textCapitalization: TextCapitalization.sentences,
-                maxLength: 80,
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-              TextField(
-                controller: descCtl,
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text(
-                    'Description (optional)',
-                    'বিবরণ (ঐচ্ছিক)',
+                const SizedBox(height: GochanoSpacing.md),
+                TextField(
+                  controller: nameCtl,
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text(
+                      'Project name',
+                      'প্রজেক্টের নাম',
+                    ),
+                    border: const OutlineInputBorder(),
                   ),
-                  border: const OutlineInputBorder(),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 80,
                 ),
-                textCapitalization: TextCapitalization.sentences,
-                maxLength: 240,
-                maxLines: 2,
-              ),
-              const SizedBox(height: GochanoSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(false),
-                      child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+                const SizedBox(height: GochanoSpacing.sm),
+                TextField(
+                  controller: descCtl,
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text(
+                      'Description (optional)',
+                      'বিবরণ (ঐচ্ছিক)',
                     ),
+                    border: const OutlineInputBorder(),
                   ),
-                  const SizedBox(width: GochanoSpacing.sm),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(true),
-                      child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 240,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: GochanoSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-            ],
+                    const SizedBox(width: GochanoSpacing.sm),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GochanoSpacing.sm),
+              ],
+            ),
           ),
         ),
       ),
@@ -985,10 +996,7 @@ void _handleProjectAction(
       await FirestoreService.updateProject(
         groupId: groupId,
         projectId: projectId,
-        fields: {
-          'name': name,
-          'description': descCtl.text.trim(),
-        },
+        fields: {'name': name, 'description': descCtl.text.trim()},
       );
     } catch (error) {
       if (context.mounted) {
@@ -1008,11 +1016,17 @@ void _handleProjectAction(
     if (!confirmed || !context.mounted) return;
 
     try {
-      await FirestoreService.deleteProject(groupId: groupId, projectId: projectId);
+      await FirestoreService.deleteProject(
+        groupId: groupId,
+        projectId: projectId,
+      );
       if (context.mounted) {
         showGochanoMessage(
           context,
-          GochanoLanguage.text('Project deleted.', 'প্রজেক্ট মুছে ফেলা হয়েছে।'),
+          GochanoLanguage.text(
+            'Project deleted.',
+            'প্রজেক্ট মুছে ফেলা হয়েছে।',
+          ),
         );
       }
     } catch (error) {
@@ -1052,9 +1066,7 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.projectName),
-      ),
+      appBar: AppBar(title: Text(widget.projectName)),
       floatingActionButton: widget.isAdmin
           ? FloatingActionButton.extended(
               onPressed: () => _showCreateTaskSheet(
@@ -1068,17 +1080,11 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
             )
           : null,
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.projectTasks(
-          widget.groupId,
-          widget.projectId,
-        ),
+        stream: FirestoreService.projectTasks(widget.groupId, widget.projectId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return StaticLoadingState(
-              message: GochanoLanguage.text(
-                'Loading tasks…',
-                'কাজ লোড হচ্ছে…',
-              ),
+              message: GochanoLanguage.text('Loading tasks…', 'কাজ লোড হচ্ছে…'),
             );
           }
           if (snapshot.hasError) {
@@ -1089,10 +1095,7 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
           if (docs.isEmpty) {
             return EmptyState(
               illustration: GochanoArt.emptyTasks,
-              title: GochanoLanguage.text(
-                'No tasks yet',
-                'এখনো কোনো কাজ নেই',
-              ),
+              title: GochanoLanguage.text('No tasks yet', 'এখনো কোনো কাজ নেই'),
               message: widget.isAdmin
                   ? GochanoLanguage.text(
                       'Add the first task to this project.',
@@ -1106,8 +1109,12 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
           }
 
           // Separate into incomplete and completed
-          final incomplete = docs.where((d) => d.data()['completed'] != true).toList();
-          final completed = docs.where((d) => d.data()['completed'] == true).toList();
+          final incomplete = docs
+              .where((d) => d.data()['completed'] != true)
+              .toList();
+          final completed = docs
+              .where((d) => d.data()['completed'] == true)
+              .toList();
 
           return ListView(
             padding: GochanoSpacing.scrollBody,
@@ -1193,7 +1200,12 @@ class _TaskTile extends StatelessWidget {
               GestureDetector(
                 onTap: (isAdmin || isMyTask)
                     ? () => _toggleTaskComplete(
-                        context, groupId, projectId, taskId, !completed)
+                        context,
+                        groupId,
+                        projectId,
+                        taskId,
+                        !completed,
+                      )
                     : null,
                 child: Container(
                   width: 24,
@@ -1201,15 +1213,17 @@ class _TaskTile extends StatelessWidget {
                   margin: const EdgeInsets.only(top: 2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: completed
-                        ? colors.success
-                        : colors.border,
+                    color: completed ? colors.success : colors.border,
                     border: Border.all(
                       color: completed ? colors.success : colors.textTertiary,
                     ),
                   ),
                   child: completed
-                      ? Icon(Icons.check_rounded, size: 16, color: colors.onBrand)
+                      ? Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: colors.onBrand,
+                        )
                       : null,
                 ),
               ),
@@ -1276,7 +1290,9 @@ class _TaskTile extends StatelessWidget {
                   if (isMyTask)
                     PopupMenuItem(
                       value: 'reminder',
-                      child: Text(GochanoLanguage.text('Set reminder', 'রিমাইন্ডার সেট')),
+                      child: Text(
+                        GochanoLanguage.text('Set reminder', 'রিমাইন্ডার সেট'),
+                      ),
                     ),
                   PopupMenuItem(
                     value: 'assign',
@@ -1302,6 +1318,23 @@ class _TaskTile extends StatelessWidget {
   }
 }
 
+/// In-memory cache for user profiles to avoid repeated Firestore reads.
+/// Each _FutureChip used to fire an uncached get() per uid, causing
+/// 20+ network round trips for a group with 20 members.
+/// Cache persists for the app session; entries are small and bounded by
+/// the number of users the student interacts with.
+class _UserProfileCache {
+  static final Map<String, Map<String, dynamic>> _cache = {};
+
+  static Future<Map<String, dynamic>?> get(String uid) async {
+    if (_cache.containsKey(uid)) return _cache[uid];
+    final snap = await FirestoreService.db.collection('users').doc(uid).get();
+    final data = snap.data();
+    if (data != null) _cache[uid] = data;
+    return data;
+  }
+}
+
 class _FutureChip extends StatelessWidget {
   const _FutureChip({required this.uid, required this.icon});
 
@@ -1310,10 +1343,10 @@ class _FutureChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future: FirestoreService.db.collection('users').doc(uid).get(),
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _UserProfileCache.get(uid),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data();
+        final data = snapshot.data;
         // Prefer nickname over displayName.
         final name = (data?['nickname']?.toString().isNotEmpty == true)
             ? data!['nickname']!.toString()
@@ -1346,8 +1379,18 @@ String _formatDeadline(dynamic deadline) {
   if (diff.inDays == 0) return 'Today';
   if (diff.inDays == 1) return 'Tomorrow';
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${dt.day} ${months[dt.month - 1]}';
 }
@@ -1462,12 +1505,17 @@ Future<void> _showCreateTaskSheet(
                   items: [
                     DropdownMenuItem(
                       value: null,
-                      child: Text(GochanoLanguage.text('Unassigned', 'নির্ধারিত নয়')),
+                      child: Text(
+                        GochanoLanguage.text('Unassigned', 'নির্ধারিত নয়'),
+                      ),
                     ),
                     for (final uid in memberIds)
                       DropdownMenuItem(
                         value: uid,
-                        child: _FutureChip(uid: uid, icon: Icons.person_outline_rounded),
+                        child: _FutureChip(
+                          uid: uid,
+                          icon: Icons.person_outline_rounded,
+                        ),
                       ),
                   ],
                   onChanged: (v) => setSheetState(() => selectedAssignee = v),
@@ -1479,7 +1527,10 @@ Future<void> _showCreateTaskSheet(
                   title: Text(
                     deadline != null
                         ? '${deadline!.day}/${deadline!.month}/${deadline!.year}'
-                        : GochanoLanguage.text('Set deadline', 'সময়সীমা নির্ধারণ'),
+                        : GochanoLanguage.text(
+                            'Set deadline',
+                            'সময়সীমা নির্ধারণ',
+                          ),
                   ),
                   subtitle: Text(
                     GochanoLanguage.text('Optional', 'ঐচ্ছিক'),
@@ -1495,7 +1546,9 @@ Future<void> _showCreateTaskSheet(
                     if (picked != null) {
                       final time = await showTimePicker(
                         context: sheetContext,
-                        initialTime: TimeOfDay.fromDateTime(deadline ?? DateTime.now()),
+                        initialTime: TimeOfDay.fromDateTime(
+                          deadline ?? DateTime.now(),
+                        ),
                       );
                       setSheetState(() {
                         deadline = DateTime(
@@ -1519,10 +1572,42 @@ Future<void> _showCreateTaskSheet(
                   Wrap(
                     spacing: GochanoSpacing.xs,
                     children: [
-                      _reminderChip(sheetContext, setSheetState, 0, 'None', 'নেই', reminderPreset, (v) => reminderPreset = v),
-                      _reminderChip(sheetContext, setSheetState, 1, '10 min before', '১০ মিনিট আগে', reminderPreset, (v) => reminderPreset = v),
-                      _reminderChip(sheetContext, setSheetState, 2, '30 min before', '৩০ মিনিট আগে', reminderPreset, (v) => reminderPreset = v),
-                      _reminderChip(sheetContext, setSheetState, 3, '1 hour before', '১ ঘণ্টা আগে', reminderPreset, (v) => reminderPreset = v),
+                      _reminderChip(
+                        sheetContext,
+                        setSheetState,
+                        0,
+                        'None',
+                        'নেই',
+                        reminderPreset,
+                        (v) => reminderPreset = v,
+                      ),
+                      _reminderChip(
+                        sheetContext,
+                        setSheetState,
+                        1,
+                        '10 min before',
+                        '১০ মিনিট আগে',
+                        reminderPreset,
+                        (v) => reminderPreset = v,
+                      ),
+                      _reminderChip(
+                        sheetContext,
+                        setSheetState,
+                        2,
+                        '30 min before',
+                        '৩০ মিনিট আগে',
+                        reminderPreset,
+                        (v) => reminderPreset = v,
+                      ),
+                      _reminderChip(
+                        sheetContext,
+                        setSheetState,
+                        3,
+                        '1 hour before',
+                        '১ ঘণ্টা আগে',
+                        reminderPreset,
+                        (v) => reminderPreset = v,
+                      ),
                     ],
                   ),
                 ],
@@ -1623,10 +1708,14 @@ Widget _reminderChip(
 
 DateTime? _reminderOffset(DateTime deadline, int preset) {
   switch (preset) {
-    case 1: return deadline.subtract(const Duration(minutes: 10));
-    case 2: return deadline.subtract(const Duration(minutes: 30));
-    case 3: return deadline.subtract(const Duration(hours: 1));
-    default: return null;
+    case 1:
+      return deadline.subtract(const Duration(minutes: 10));
+    case 2:
+      return deadline.subtract(const Duration(minutes: 30));
+    case 3:
+      return deadline.subtract(const Duration(hours: 1));
+    default:
+      return null;
   }
 }
 
@@ -1678,14 +1767,48 @@ void _handleTaskAction(
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: GochanoSpacing.md,
+                ),
                 child: Wrap(
                   spacing: GochanoSpacing.xs,
                   children: [
-                    _reminderChip(sheetContext, setSheetState, 0, 'None', 'নেই', selectedPreset, (v) => selectedPreset = v),
-                    _reminderChip(sheetContext, setSheetState, 1, '10 min before', '১০ মিনিট আগে', selectedPreset, (v) => selectedPreset = v),
-                    _reminderChip(sheetContext, setSheetState, 2, '30 min before', '৩০ মিনিট আগে', selectedPreset, (v) => selectedPreset = v),
-                    _reminderChip(sheetContext, setSheetState, 3, '1 hour before', '১ ঘণ্টা আগে', selectedPreset, (v) => selectedPreset = v),
+                    _reminderChip(
+                      sheetContext,
+                      setSheetState,
+                      0,
+                      'None',
+                      'নেই',
+                      selectedPreset,
+                      (v) => selectedPreset = v,
+                    ),
+                    _reminderChip(
+                      sheetContext,
+                      setSheetState,
+                      1,
+                      '10 min before',
+                      '১০ মিনিট আগে',
+                      selectedPreset,
+                      (v) => selectedPreset = v,
+                    ),
+                    _reminderChip(
+                      sheetContext,
+                      setSheetState,
+                      2,
+                      '30 min before',
+                      '৩০ মিনিট আগে',
+                      selectedPreset,
+                      (v) => selectedPreset = v,
+                    ),
+                    _reminderChip(
+                      sheetContext,
+                      setSheetState,
+                      3,
+                      '1 hour before',
+                      '১ ঘণ্টা আগে',
+                      selectedPreset,
+                      (v) => selectedPreset = v,
+                    ),
                   ],
                 ),
               ),
@@ -1718,7 +1841,9 @@ void _handleTaskAction(
     if (result != true || !context.mounted) return;
 
     final title = taskData['title']?.toString() ?? '';
-    final reminderTime = selectedPreset > 0 ? _reminderOffset(deadlineDt, selectedPreset) : null;
+    final reminderTime = selectedPreset > 0
+        ? _reminderOffset(deadlineDt, selectedPreset)
+        : null;
 
     try {
       await FirestoreService.setTaskReminder(
@@ -1741,7 +1866,10 @@ void _handleTaskAction(
           context,
           reminderTime != null
               ? GochanoLanguage.text('Reminder set.', 'রিমাইন্ডার সেট হয়েছে।')
-              : GochanoLanguage.text('Reminder cleared.', 'রিমাইন্ডার মুছে ফেলা হয়েছে।'),
+              : GochanoLanguage.text(
+                  'Reminder cleared.',
+                  'রিমাইন্ডার মুছে ফেলা হয়েছে।',
+                ),
         );
       }
     } catch (error) {
@@ -1771,7 +1899,10 @@ void _handleTaskAction(
                     groupValue: selected,
                     onChanged: (v) => setSheetState(() => selected = v),
                   ),
-                  title: _FutureChip(uid: uid, icon: Icons.person_outline_rounded),
+                  title: _FutureChip(
+                    uid: uid,
+                    icon: Icons.person_outline_rounded,
+                  ),
                   onTap: () => setSheetState(() => selected = uid),
                 ),
               Padding(
@@ -1787,7 +1918,8 @@ void _handleTaskAction(
                     const SizedBox(width: GochanoSpacing.sm),
                     Expanded(
                       child: FilledButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(selected),
+                        onPressed: () =>
+                            Navigator.of(sheetContext).pop(selected),
                         child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
                       ),
                     ),
@@ -1826,8 +1958,12 @@ void _handleTaskAction(
       }
     }
   } else if (action == 'edit') {
-    final titleCtl = TextEditingController(text: taskData['title']?.toString() ?? '');
-    final descCtl = TextEditingController(text: taskData['description']?.toString() ?? '');
+    final titleCtl = TextEditingController(
+      text: taskData['title']?.toString() ?? '',
+    );
+    final descCtl = TextEditingController(
+      text: taskData['description']?.toString() ?? '',
+    );
 
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -1840,58 +1976,60 @@ void _handleTaskAction(
           top: GochanoSpacing.lg,
         ),
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা'),
-                style: sheetContext.type.pageTitle,
-              ),
-              const SizedBox(height: GochanoSpacing.md),
-              TextField(
-                controller: titleCtl,
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('Task name', 'কাজের নাম'),
-                  border: const OutlineInputBorder(),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা'),
+                  style: sheetContext.type.pageTitle,
                 ),
-                textCapitalization: TextCapitalization.sentences,
-                maxLength: 80,
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-              TextField(
-                controller: descCtl,
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text(
-                    'Description (optional)',
-                    'বিবরণ (ঐচ্ছিক)',
+                const SizedBox(height: GochanoSpacing.md),
+                TextField(
+                  controller: titleCtl,
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text('Task name', 'কাজের নাম'),
+                    border: const OutlineInputBorder(),
                   ),
-                  border: const OutlineInputBorder(),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 80,
                 ),
-                textCapitalization: TextCapitalization.sentences,
-                maxLength: 240,
-                maxLines: 2,
-              ),
-              const SizedBox(height: GochanoSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(false),
-                      child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+                const SizedBox(height: GochanoSpacing.sm),
+                TextField(
+                  controller: descCtl,
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text(
+                      'Description (optional)',
+                      'বিবরণ (ঐচ্ছিক)',
                     ),
+                    border: const OutlineInputBorder(),
                   ),
-                  const SizedBox(width: GochanoSpacing.sm),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(true),
-                      child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 240,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: GochanoSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-            ],
+                    const SizedBox(width: GochanoSpacing.sm),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GochanoSpacing.sm),
+              ],
+            ),
           ),
         ),
       ),
@@ -1906,10 +2044,7 @@ void _handleTaskAction(
         groupId: groupId,
         projectId: projectId,
         taskId: taskId,
-        fields: {
-          'title': title,
-          'description': descCtl.text.trim(),
-        },
+        fields: {'title': title, 'description': descCtl.text.trim()},
       );
     } catch (error) {
       if (context.mounted) {
@@ -2009,8 +2144,18 @@ String _date(Object? value) {
   if (value is! Timestamp) return '';
   final when = value.toDate();
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${when.day} ${months[when.month - 1]}';
 }

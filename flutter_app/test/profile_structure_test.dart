@@ -25,8 +25,11 @@ void main() {
   group('Profile', () {
     late String source;
 
-    setUpAll(() =>
-        source = _read('lib/features/profile/presentation/profile_screen.dart'));
+    setUpAll(
+      () => source = _read(
+        'lib/features/profile/presentation/profile_screen.dart',
+      ),
+    );
 
     test('data export is not on the screen', () {
       expect(source, isNot(contains('Export my data')));
@@ -58,13 +61,37 @@ void main() {
         source.indexOf('class _SettingsCard'),
         source.indexOf('class _DangerCard'),
       );
-      expect(settings, isNot(contains('_deleteAccount')),
-          reason: 'account deletion must not sit among everyday settings');
+      expect(
+        settings,
+        isNot(contains('_deleteAccount')),
+        reason: 'account deletion must not sit among everyday settings',
+      );
     });
 
     test('sign out is still separate and still confirmed', () {
       expect(source, contains('_signOut'));
       expect(source, contains('showConfirmationSheet'));
+    });
+
+    test('usage access stays tappable in both permission states', () {
+      final row = source.substring(
+        source.indexOf("'Usage Access'"),
+        source.indexOf('String _appearanceLabel'),
+      );
+      expect(row, contains('_usageAccessGranted'));
+      expect(row, contains('UsageStatsService.openSettings()'));
+      expect(row, contains('_checkUsageAccess()'));
+      expect(row, isNot(contains('IgnorePointer')));
+      expect(row, isNot(contains('AbsorbPointer')));
+    });
+
+    test('settings row uses GestureDetector for reliable hit-test', () {
+      // _SettingsRow must use a single GestureDetector with
+      // HitTestBehavior.opaque wrapping the entire row, not ListTile.onTap,
+      // to avoid gesture-arena conflicts inside CardGroup's ClipRRect.
+      expect(source, contains('class _SettingsRow'));
+      expect(source, contains('HitTestBehavior.opaque'));
+      expect(source, contains('GestureDetector'));
     });
 
     test('profile editing writes only the displayed fields', () {
@@ -94,8 +121,9 @@ void main() {
   group('Home quick actions', () {
     late String source;
 
-    setUpAll(() =>
-        source = _read('lib/features/home/presentation/home_screen.dart'));
+    setUpAll(
+      () => source = _read('lib/features/home/presentation/home_screen.dart'),
+    );
 
     test('collapses to three with an expander', () {
       expect(source, contains('_collapsedCount = 3'));
@@ -115,18 +143,20 @@ void main() {
         'PrescriptionScanScreen',
         'CommuteScreen',
       ]) {
-        expect(source, contains(destination),
-            reason: '$destination must stay one tap from Home');
+        expect(
+          source,
+          contains(destination),
+          reason: '$destination must stay one tap from Home',
+        );
       }
     });
   });
 
   group('Tasks', () {
     test('the empty state no longer duplicates the floating add button', () {
-      final source =
-          _read('lib/features/tasks/presentation/tasks_view.dart');
+      final source = _read('lib/features/tasks/presentation/tasks_view.dart');
       final emptyState = source.substring(
-        source.indexOf('if (docs.isEmpty) {'),
+        source.indexOf('if (effectiveDocs.isEmpty)'),
         source.indexOf('return ListView.builder('),
       );
 
@@ -134,6 +164,63 @@ void main() {
       expect(emptyState, isNot(contains('onAction')));
       // The floating button itself must still be there.
       expect(source, contains('showAddTaskSheet(context)'));
+    });
+  });
+
+  group('Study Workspace', () {
+    test('body has Quick Access grid and Recent Materials', () {
+      final source = _read(
+        'lib/features/study/presentation/workspace/workspace_view.dart',
+      );
+      // Quick Access navigation grid lives in the body.
+      expect(source, contains('_QuickAccess'));
+      expect(source, contains('_QuickAccessTile'));
+      expect(source, contains('AiAssistantScreen'));
+      expect(source, contains('NotesScreen'));
+      expect(source, contains('SemesterListScreen'));
+      expect(source, contains('SharedBoxScreen'));
+      // Recent Materials stays in the body.
+      expect(source, contains('_RecentMaterials()'));
+    });
+  });
+
+  group('Home bento layout', () {
+    late String source;
+
+    setUpAll(
+      () => source = _read('lib/features/home/presentation/home_screen.dart'),
+    );
+
+    test('has all required bento sections', () {
+      expect(source, contains('_SmartSummaryCard'));
+      expect(source, contains('_TodaysTasksCard'));
+      expect(source, contains('_UpcomingTasksCard'));
+      expect(source, contains('_StudyProgressCard'));
+      expect(source, contains('_LifeSnapshotCard'));
+      expect(source, contains('_RecentMaterialsCard'));
+    });
+
+    test('uses accent-rail cards with colored left border', () {
+      expect(source, contains('_AccentRailCard'));
+      expect(source, contains('SizedBox(width: 3'));
+    });
+
+    test('uses bento row for side-by-side layout', () {
+      expect(source, contains('_BentoRow'));
+    });
+
+    test('quick actions use Material Design icons, not illustrations', () {
+      expect(source, contains('Icons.auto_awesome_rounded'));
+      expect(source, contains('Icons.receipt_long_rounded'));
+      expect(source, contains('Icons.task_alt_rounded'));
+      expect(source, contains('Icons.document_scanner_rounded'));
+      expect(source, contains('Icons.directions_bus_rounded'));
+    });
+
+    test('Life Snapshot shows remaining and spent', () {
+      expect(source, contains('Life Snapshot'));
+      expect(source, contains('Spent'));
+      expect(source, contains('Remaining'));
     });
   });
 }

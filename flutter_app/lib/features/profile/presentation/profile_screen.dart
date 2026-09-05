@@ -213,7 +213,7 @@ class _ProfileAvatar extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.surface,
-                border: Border.all(color: colors.border, width: 1),
+                border: Border.all(color: colors.border, width: GochanoBorders.hairline),
               ),
               child: Icon(
                 Icons.camera_alt_rounded,
@@ -555,6 +555,13 @@ class _StudyStatsRowState extends State<_StudyStatsRow> {
 /// Shared rather than repeated four times, because the value line is the part
 /// that makes a collapsed row honest: it says what the setting currently is,
 /// so nothing was hidden by folding the radio lists away.
+/// One row inside a grouped settings card.
+///
+/// Uses a single [GestureDetector] wrapping the entire row to guarantee
+/// full-width tap target on all devices — [ListTile] nested inside
+/// [CardGroup]'s [ClipRRect] causes gesture-arena conflicts on some
+/// Android builds where the [ListTile]'s own [Material]/[InkWell] eats
+/// the tap before the outer [onTap] sees it.
 class _SettingsRow extends StatelessWidget {
   const _SettingsRow({
     required this.icon,
@@ -575,23 +582,49 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return ListTile(
-      leading: Icon(icon, color: iconColor ?? colors.textSecondary),
-      title: Text(title, style: context.type.body),
-      subtitle: value.isEmpty
-          ? null
-          : Text(
-              value,
-              style: context.type.caption,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-      trailing:
-          trailing ??
-          (onTap == null
-              ? null
-              : Icon(Icons.chevron_right_rounded, color: colors.textTertiary)),
+    final effectiveTrailing =
+        trailing ??
+        (onTap == null
+            ? null
+            : Icon(Icons.chevron_right_rounded, color: colors.textTertiary));
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: GochanoSpacing.md,
+          vertical: GochanoSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor ?? colors.textSecondary, size: 22),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: context.type.body),
+                  if (value.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: context.type.caption,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (effectiveTrailing != null) ...[
+              const SizedBox(width: GochanoSpacing.xs),
+              effectiveTrailing,
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -819,8 +852,15 @@ String _appearanceLabel(ThemeMode mode) => switch (mode) {
 
 /// Deleting the account stands alone, away from settings a student changes
 /// casually, so it can never be tapped on the way to something else.
-class _DangerCard extends StatelessWidget {
+class _DangerCard extends StatefulWidget {
   const _DangerCard();
+
+  @override
+  State<_DangerCard> createState() => _DangerCardState();
+}
+
+class _DangerCardState extends State<_DangerCard> {
+  bool _deleting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -843,10 +883,43 @@ class _DangerCard extends StatelessWidget {
           ),
           style: context.type.caption,
         ),
-        trailing: Icon(Icons.chevron_right_rounded, color: colors.textTertiary),
-        onTap: () => _deleteAccount(context),
+        trailing: _deleting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(Icons.chevron_right_rounded, color: colors.textTertiary),
+        onTap: _deleting ? null : () => _deleteAccount(),
       ),
     );
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showConfirmationSheet(
+      context,
+      title: GochanoLanguage.text(
+        'Delete your account?',
+        'আপনার অ্যাকাউন্ট মুছবেন?',
+      ),
+      message: GochanoLanguage.text(
+        'This permanently removes your account, uploaded files, expenses, medicines and study records. It cannot be undone.',
+        'এটি আপনার অ্যাকাউন্ট, ফাইল, খরচ, ওষুধ ও পড়াশোনার রেকর্ড স্থায়ীভাবে মুছে ফেলবে। এটি ফেরানো যাবে না।',
+      ),
+      confirmLabel: GochanoLanguage.text('Delete everything', 'সবকিছু মুছুন'),
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await ApiService.deleteAccount();
+      // AuthGate listens to Firebase auth state and immediately replaces the
+      // profile shell with Login after this successful deletion.
+      await AuthService.logout();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
+    }
   }
 }
 
@@ -956,31 +1029,6 @@ Future<void> _pickAppearance(BuildContext context) async {
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-
-Future<void> _deleteAccount(BuildContext context) async {
-  final confirmed = await showConfirmationSheet(
-    context,
-    title: GochanoLanguage.text(
-      'Delete your account?',
-      'আপনার অ্যাকাউন্ট মুছবেন?',
-    ),
-    message: GochanoLanguage.text(
-      'This permanently removes your account, uploaded files, expenses, '
-          'medicines and study records. It cannot be undone.',
-      'এটি আপনার অ্যাকাউন্ট, আপলোড করা ফাইল, খরচ, ওষুধ ও পড়াশোনার রেকর্ড স্থায়ীভাবে মুছে ফেলবে। এটি ফেরানো যাবে না।',
-    ),
-    confirmLabel: GochanoLanguage.text('Delete everything', 'সবকিছু মুছুন'),
-  );
-  if (!confirmed || !context.mounted) return;
-  try {
-    await ApiService.deleteAccount();
-    await AuthService.logout();
-  } catch (error) {
-    if (context.mounted) {
-      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
-    }
-  }
-}
 
 Future<void> _signOut(BuildContext context) async {
   final confirmed = await showConfirmationSheet(

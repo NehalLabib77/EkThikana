@@ -29,7 +29,7 @@ class GochanoTypography {
 
   final GochanoColors _colors;
 
-  static const String fontFamily = 'Roboto';
+  static const String fontFamily = 'HindSiliguri';
 
   TextStyle get _base => TextStyle(
         fontFamily: fontFamily,

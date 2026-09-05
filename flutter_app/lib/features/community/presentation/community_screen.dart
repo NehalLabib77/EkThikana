@@ -82,12 +82,7 @@ class CommunityScreen extends StatelessWidget {
                 'code from a classmate.',
                 'আপনার ক্লাসের জন্য একটি গ্রুপ তৈরি করুন, অথবা সহপাঠীর ইনভাইট কোড দিয়ে যোগ দিন।',
               ),
-              actionLabel:
-                  GochanoLanguage.text('Create a group', 'গ্রুপ তৈরি করুন'),
-              onAction: () => showCreateGroupSheet(context),
-              secondaryActionLabel:
-                  GochanoLanguage.text('Join with a code', 'কোড দিয়ে যোগ দিন'),
-              onSecondaryAction: () => showJoinGroupSheet(context),
+
             );
           }
 

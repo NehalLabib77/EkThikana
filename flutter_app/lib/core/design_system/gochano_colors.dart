@@ -51,6 +51,9 @@ class GochanoColors extends ThemeExtension<GochanoColors> {
     required this.medicine,
     required this.commute,
     required this.community,
+    required this.usageLow,
+    required this.usageMedium,
+    required this.usageHigh,
     required this.illustrationInk,
     required this.illustrationFill,
     required this.illustrationPaper,
@@ -123,6 +126,16 @@ class GochanoColors extends ThemeExtension<GochanoColors> {
   final Color commute;
   final Color community;
 
+  // --- Usage bar colours (distraction / screen-time) ----------------------
+  /// Soft green for low / healthy usage bars.
+  final Color usageLow;
+
+  /// Warm amber for medium usage bars.
+  final Color usageMedium;
+
+  /// Soft coral for high usage bars.
+  final Color usageHigh;
+
   // --- Static illustration palette --------------------------------------
   /// Primary stroke/fill of a static illustration.
   final Color illustrationInk;
@@ -192,6 +205,9 @@ class GochanoColors extends ThemeExtension<GochanoColors> {
     medicine: Color(0xFF0F7C74),
     commute: Color(0xFF11688F),
     community: Color(0xFF9A5B22),
+    usageLow: Color(0xFF52A86B),
+    usageMedium: Color(0xFFD4994A),
+    usageHigh: Color(0xFFCC6B6B),
     illustrationInk: Color(0xFF3E4657),
     illustrationFill: Color(0xFFDDE2EC),
     illustrationPaper: Color(0xFFFFFFFF),
@@ -232,6 +248,9 @@ class GochanoColors extends ThemeExtension<GochanoColors> {
     medicine: Color(0xFF5FC7BD),
     commute: Color(0xFF74B9DC),
     community: Color(0xFFDCA771),
+    usageLow: Color(0xFF6CC484),
+    usageMedium: Color(0xFFE8B35E),
+    usageHigh: Color(0xFFE09090),
     illustrationInk: Color(0xFFB6BECD),
     illustrationFill: Color(0xFF2E3441),
     illustrationPaper: Color(0xFF181B23),
@@ -268,6 +287,9 @@ class GochanoColors extends ThemeExtension<GochanoColors> {
     Color? medicine,
     Color? commute,
     Color? community,
+    Color? usageLow,
+    Color? usageMedium,
+    Color? usageHigh,
     Color? illustrationInk,
     Color? illustrationFill,
     Color? illustrationPaper,
@@ -302,6 +324,9 @@ class GochanoColors extends ThemeExtension<GochanoColors> {
       medicine: medicine ?? this.medicine,
       commute: commute ?? this.commute,
       community: community ?? this.community,
+      usageLow: usageLow ?? this.usageLow,
+      usageMedium: usageMedium ?? this.usageMedium,
+      usageHigh: usageHigh ?? this.usageHigh,
       illustrationInk: illustrationInk ?? this.illustrationInk,
       illustrationFill: illustrationFill ?? this.illustrationFill,
       illustrationPaper: illustrationPaper ?? this.illustrationPaper,
@@ -342,6 +367,9 @@ class GochanoColors extends ThemeExtension<GochanoColors> {
       medicine: c(medicine, other.medicine),
       commute: c(commute, other.commute),
       community: c(community, other.community),
+      usageLow: c(usageLow, other.usageLow),
+      usageMedium: c(usageMedium, other.usageMedium),
+      usageHigh: c(usageHigh, other.usageHigh),
       illustrationInk: c(illustrationInk, other.illustrationInk),
       illustrationFill: c(illustrationFill, other.illustrationFill),
       illustrationPaper: c(illustrationPaper, other.illustrationPaper),

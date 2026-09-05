@@ -169,8 +169,8 @@ class _FocusViewState extends State<FocusView> {
             children: [
               for (final group in groupSessions(_history))
                 GochanoListRow(
-                  illustration: GochanoArt.stateTaken,
-                  accent: context.colors.success,
+                  illustration: GochanoArt.featureFocus,
+                  accent: context.colors.study,
                   title: group.label,
                   metadata: [
                     _durationLabel(group.totalSeconds),

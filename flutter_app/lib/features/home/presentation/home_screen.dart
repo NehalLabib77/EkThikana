@@ -1,16 +1,11 @@
 // Home — "what matters to me right now?" (spec §27).
 //
-// Home is not a directory of features. It surfaces the handful of things a
-// student needs on opening the app, in priority order, and gets out of the
-// way. There is deliberately no 15-icon feature grid: the five destinations
-// in the bottom bar are the map, and Home is the briefing.
+// Bento grid layout with accent-rail cards. Each section owns its own stream
+// for independent rebuilds (spec §83).
 //
-// Order (spec §27): greeting → continue studying → today's tasks → next
-// medicine → money → recent materials → group activity → quick actions.
-//
-// Each section owns its own stream. That is a performance decision as much as
-// a structural one: adding a task rebuilds the tasks card, not the whole
-// dashboard (spec §83).
+// Structure (spec §27):
+//   Header → Your Day / Smart Summary → Quick Actions → Today → Upcoming →
+//   Study Progress → Life Snapshot: Remaining + Spent → Recent
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -20,15 +15,14 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
-import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../models/financial_transaction.dart';
+import '../../../services/api_service.dart';
 import '../../../services/financial_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
-import '../../life/domain/medicine_schedule.dart';
 import '../../life/presentation/expense/add_expense_sheet.dart';
 import '../../life/presentation/commute/commute_screen.dart';
 import '../../life/presentation/medicine/prescription_scan_screen.dart';
@@ -47,10 +41,6 @@ class HomeScreen extends StatelessWidget {
 
   final String role;
   final String displayName;
-
-  /// Switches the shell to another primary destination, so a Home card can
-  /// say "See all" without pushing a duplicate copy of the Study or Life
-  /// screen onto the navigator (spec §85).
   final ValueChanged<int> onOpenDestination;
 
   bool get _isStudent => role == 'student';
@@ -87,25 +77,26 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
-          if (_isStudent) ...[
-            const _ContinueStudyingCard(),
-            const SizedBox(height: GochanoSpacing.sm),
-          ],
-          _TodaysTasksCard(onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2)),
+          _SmartSummaryCard(isStudent: _isStudent),
           const SizedBox(height: GochanoSpacing.sm),
-          _NextMedicineCard(
-            onOpenMedicine: () => onOpenDestination(_isStudent ? 2 : 1),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          _MoneyCard(onOpenExpense: () => onOpenDestination(_isStudent ? 2 : 1)),
-          if (_isStudent) ...[
-            const SizedBox(height: GochanoSpacing.sm),
-            _GroupActivityCard(onOpenCommunity: () => onOpenDestination(3)),
-          ],
-          SectionHeader(
-            title: GochanoLanguage.text('Quick actions', 'দ্রুত কাজ'),
-          ),
           _QuickActions(isStudent: _isStudent),
+          const SizedBox(height: GochanoSpacing.sm),
+          _BentoRow(
+            left: _TodaysTasksCard(onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2)),
+            right: _UpcomingTasksCard(onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2)),
+          ),
+          if (_isStudent) ...[
+            const SizedBox(height: GochanoSpacing.sm),
+            _BentoRow(
+              left: _StudyProgressCard(),
+              right: _LifeSnapshotCard(onOpenExpense: () => onOpenDestination(_isStudent ? 2 : 1)),
+            ),
+          ] else ...[
+            const SizedBox(height: GochanoSpacing.sm),
+            _LifeSnapshotCard(onOpenExpense: () => onOpenDestination(1)),
+          ],
+          const SizedBox(height: GochanoSpacing.sm),
+          _RecentMaterialsCard(onOpenStudy: () => onOpenDestination(0)),
         ],
       ),
     );
@@ -113,92 +104,237 @@ class HomeScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Continue studying
+// Bento grid helpers
 // ---------------------------------------------------------------------------
 
-/// The most recently added material, offered as a single resume action.
-///
-/// This is what removes the Semester → Subject → Materials walk from the most
-/// common case (spec §29: "Surface Recent Materials to reduce navigation
-/// depth").
-class _ContinueStudyingCard extends StatelessWidget {
-  const _ContinueStudyingCard();
+class _BentoRow extends StatelessWidget {
+  const _BentoRow({required this.left, required this.right});
+
+  final Widget left;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: left),
+        const SizedBox(width: GochanoSpacing.sm),
+        Expanded(child: right),
+      ],
+    );
+  }
+}
+
+/// Accent-rail card: a thin coloured strip on the leading edge of a bordered
+/// card, following the Gochano flat-surface spec (border, no shadow).
+class _AccentRailCard extends StatelessWidget {
+  const _AccentRailCard({
+    required this.accent,
+    required this.child,
+    this.onTap,
+    this.padding,
+  });
+
+  final Color accent;
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: GochanoRadius.lgAll,
+          border: Border.all(color: colors.border, width: GochanoBorders.hairline),
+        ),
+        child: ClipRRect(
+          borderRadius: GochanoRadius.lgAll,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: 3, child: ColoredBox(color: accent)),
+                Expanded(
+                  child: Padding(
+                    padding: padding ?? GochanoSpacing.card,
+                    child: child,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Smart summary
+// ---------------------------------------------------------------------------
+
+class _SmartSummaryCard extends StatelessWidget {
+  const _SmartSummaryCard({required this.isStudent});
+
+  final bool isStudent;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('materials', limit: 20),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) return const SizedBox.shrink();
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _SectionSkeleton();
-        }
-
-        final docs = [...?snapshot.data?.docs]..sort(_byCreatedAtDesc);
-        if (docs.isEmpty) return const SizedBox.shrink();
-
-        final doc = docs.first;
-        final data = doc.data();
-        final title = (data['title']?.toString().trim().isNotEmpty ?? false)
-            ? data['title'].toString()
-            : data['fileName']?.toString() ?? '';
-        final subject = data['subject']?.toString().trim() ?? '';
-
-        return AppCard(
-          accent: colors.study,
-          onTap: () => Navigator.of(context).push(
-            GochanoRoute.to(
-              builder: (_) => MaterialReaderScreen(
-                materialId: doc.id,
-                title: title,
-                mimeType: data['mimeType']?.toString() ?? '',
-              ),
+      stream: FirestoreService.ownerStream('tasks', limit: 100),
+      builder: (context, taskSnap) {
+        if (taskSnap.hasError) {
+          return _AccentRailCard(
+            accent: colors.brand,
+            padding: const EdgeInsets.symmetric(
+              horizontal: GochanoSpacing.md,
+              vertical: GochanoSpacing.sm,
             ),
-          ),
-          child: Row(
-            children: [
-              GochanoIllustrationTile(
-                GochanoArt.fileIdFor(
-                  fileName: data['fileName']?.toString(),
-                  mimeType: data['mimeType']?.toString(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  GochanoLanguage.text('Your Day', 'আপনার দিন'),
+                  style: context.type.sectionHeading,
                 ),
-                accent: colors.study,
-                plateSize: 48,
-              ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: GochanoSpacing.xs),
+                Row(
                   children: [
-                    Text(
-                      GochanoLanguage.text('Continue studying', 'পড়া চালিয়ে যান'),
-                      style: context.type.label,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      title,
-                      style: context.type.cardHeading,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (subject.isNotEmpty)
-                      Text(
-                        subject,
-                        style: context.type.caption,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Icon(Icons.cloud_off_rounded, size: 16, color: colors.textTertiary),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          'Unable to load summary',
+                          'সারসংক্ষেপ লোড হয়নি',
+                        ),
+                        style: context.type.bodySecondary,
                       ),
+                    ),
                   ],
                 ),
+              ],
+            ),
+          );
+        }
+        final taskDocs = [...?taskSnap.data?.docs];
+        final now = DateTime.now();
+        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        var todayCount = 0;
+        var overdueCount = 0;
+        for (final doc in taskDocs) {
+          final data = doc.data();
+          if (data['done'] == true) continue;
+          final due = (data['dueAt'] as Timestamp?)?.toDate();
+          if (due == null) continue;
+          if (due.isBefore(now)) overdueCount++;
+          if (due.isBefore(endOfToday)) todayCount++;
+        }
+
+        return StreamBuilder<List<FinancialTransactionModel>>(
+          stream: FinancialService.monthStream(now),
+          builder: (context, moneySnap) {
+            final items = moneySnap.data ?? const <FinancialTransactionModel>[];
+            final today = FinancialService.dateKey(now);
+            final todaySpent = items
+                .where((e) => FinancialService.dateKey(e.date) == today)
+                .fold<double>(0, (running, e) => running + e.amount);
+
+            return _AccentRailCard(
+              accent: colors.brand,
+              padding: const EdgeInsets.symmetric(
+                horizontal: GochanoSpacing.md,
+                vertical: GochanoSpacing.sm,
               ),
-              Icon(Icons.chevron_right_rounded, color: colors.textTertiary),
-            ],
-          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    GochanoLanguage.text('Your Day', 'আপনার দিন'),
+                    style: context.type.sectionHeading,
+                  ),
+                  const SizedBox(height: GochanoSpacing.xs),
+                  Row(
+                    children: [
+                      _SummaryPill(
+                        icon: Icons.task_alt_rounded,
+                        label: GochanoLanguage.text('$todayCount tasks', '$todayCount টি কাজ'),
+                        color: todayCount > 0 ? colors.brand : colors.success,
+                      ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      _SummaryPill(
+                        icon: Icons.receipt_long_rounded,
+                        label: formatTaka(todaySpent),
+                        color: colors.expense,
+                      ),
+                      if (overdueCount > 0) ...[
+                        const SizedBox(width: GochanoSpacing.xs),
+                        _SummaryPill(
+                          icon: Icons.warning_amber_rounded,
+                          label: GochanoLanguage.text(
+                            '$overdueCount overdue',
+                            '$overdueCount টি বাকি',
+                          ),
+                          color: colors.warning,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
+    );
+  }
+}
+
+class _SummaryPill extends StatelessWidget {
+  const _SummaryPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.xs,
+        vertical: GochanoSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: GochanoRadius.smAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: context.type.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -219,7 +355,45 @@ class _TodaysTasksCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('tasks', limit: 100),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return const SizedBox.shrink();
+        if (snapshot.hasError) {
+          return _AccentRailCard(
+            accent: colors.brand,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.today_rounded, size: 18, color: colors.brand),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text("Today", 'আজ'),
+                        style: context.type.sectionHeading,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GochanoSpacing.xs),
+                Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 14, color: colors.textTertiary),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          'Unable to load tasks',
+                          'কাজ লোড হয়নি',
+                        ),
+                        style: context.type.bodySecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SectionSkeleton();
         }
@@ -239,7 +413,7 @@ class _TodaysTasksCard extends StatelessWidget {
         }
         open.sort(_byDueAtAsc);
 
-        return AppCard(
+        return _AccentRailCard(
           accent: colors.brand,
           onTap: onSeeAll,
           child: Column(
@@ -248,9 +422,11 @@ class _TodaysTasksCard extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  Icon(Icons.today_rounded, size: 18, color: colors.brand),
+                  const SizedBox(width: GochanoSpacing.xs),
                   Expanded(
                     child: Text(
-                      GochanoLanguage.text("Today's tasks", 'আজকের কাজ'),
+                      GochanoLanguage.text("Today", 'আজ'),
                       style: context.type.sectionHeading,
                     ),
                   ),
@@ -271,15 +447,15 @@ class _TodaysTasksCard extends StatelessWidget {
                   children: [
                     GochanoIllustration(
                       GochanoArt.emptyTasks,
-                      size: 36,
+                      size: 28,
                       accent: colors.textTertiary,
                     ),
-                    const SizedBox(width: GochanoSpacing.sm),
+                    const SizedBox(width: GochanoSpacing.xs),
                     Expanded(
                       child: Text(
                         GochanoLanguage.text(
-                          'No tasks due today. Your schedule is clear.',
-                          'আজ কোনো কাজ নেই। আপনার দিন ফাঁকা।',
+                          'All clear today.',
+                          'আজ ফাঁকা।',
                         ),
                         style: context.type.bodySecondary,
                       ),
@@ -290,11 +466,135 @@ class _TodaysTasksCard extends StatelessWidget {
                 for (final doc in open.take(3))
                   _TaskLine(doc: doc, isLast: doc == open.take(3).last),
               if (open.length > 3) ...[
-                const SizedBox(height: GochanoSpacing.xs),
+                const SizedBox(height: GochanoSpacing.xxs),
                 Text(
                   GochanoLanguage.text(
-                    '+${open.length - 3} more today',
-                    'আজ আরও ${open.length - 3} টি',
+                    '+${open.length - 3} more',
+                    'আরও ${open.length - 3} টি',
+                  ),
+                  style: context.type.caption,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Upcoming tasks
+// ---------------------------------------------------------------------------
+
+class _UpcomingTasksCard extends StatelessWidget {
+  const _UpcomingTasksCard({required this.onSeeAll});
+
+  final VoidCallback onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('tasks', limit: 100),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _AccentRailCard(
+            accent: colors.commute,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.upcoming_rounded, size: 18, color: colors.commute),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text('Upcoming', 'আসন্ন'),
+                        style: context.type.sectionHeading,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GochanoSpacing.xs),
+                Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 14, color: colors.textTertiary),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          'Unable to load tasks',
+                          'কাজ লোড হয়নি',
+                        ),
+                        style: context.type.bodySecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _SectionSkeleton();
+        }
+
+        final now = DateTime.now();
+        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        final endOfWeek = endOfToday.add(const Duration(days: 7));
+        final upcoming = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+        for (final doc in [...?snapshot.data?.docs]) {
+          final data = doc.data();
+          if (data['done'] == true) continue;
+          final due = (data['dueAt'] as Timestamp?)?.toDate();
+          if (due == null) continue;
+          if (due.isAfter(endOfToday) && due.isBefore(endOfWeek)) {
+            upcoming.add(doc);
+          }
+        }
+        upcoming.sort(_byDueAtAsc);
+
+        return _AccentRailCard(
+          accent: colors.commute,
+          onTap: onSeeAll,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.upcoming_rounded, size: 18, color: colors.commute),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      GochanoLanguage.text('Upcoming', 'আসন্ন'),
+                      style: context.type.sectionHeading,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              if (upcoming.isEmpty)
+                Text(
+                  GochanoLanguage.text(
+                    'Nothing scheduled this week.',
+                    'এই সপ্তাহে কিছু নেই।',
+                  ),
+                  style: context.type.bodySecondary,
+                )
+              else
+                for (final doc in upcoming.take(3))
+                  _TaskLine(doc: doc, isLast: doc == upcoming.take(3).last),
+              if (upcoming.length > 3) ...[
+                const SizedBox(height: GochanoSpacing.xxs),
+                Text(
+                  GochanoLanguage.text(
+                    '+${upcoming.length - 3} more next week',
+                    'আরও ${upcoming.length - 3} টি',
                   ),
                   style: context.type.caption,
                 ),
@@ -308,9 +608,6 @@ class _TodaysTasksCard extends StatelessWidget {
 }
 
 /// A single task row with a working checkbox.
-///
-/// Completing from Home writes straight to Firestore — Home is not a
-/// read-only summary (spec §105).
 class _TaskLine extends StatelessWidget {
   const _TaskLine({required this.doc, required this.isLast});
 
@@ -329,8 +626,8 @@ class _TaskLine extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             child: Checkbox(
               value: false,
               onChanged: (_) => doc.reference.update({
@@ -363,100 +660,164 @@ class _TaskLine extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Next medicine
+// Study progress (student only)
 // ---------------------------------------------------------------------------
 
-class _NextMedicineCard extends StatelessWidget {
-  const _NextMedicineCard({required this.onOpenMedicine});
+class _StudyProgressCard extends StatefulWidget {
+  const _StudyProgressCard();
 
-  final VoidCallback onOpenMedicine;
+  @override
+  State<_StudyProgressCard> createState() => _StudyProgressCardState();
+}
+
+class _StudyProgressCardState extends State<_StudyProgressCard> {
+  Map<String, dynamic>? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final stats = await ApiService.getStudyStats();
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('medicines', limit: 200),
-      builder: (context, medSnapshot) {
-        if (medSnapshot.hasError) return const SizedBox.shrink();
-        final medicines = [...?medSnapshot.data?.docs];
-        if (medicines.isEmpty) return const SizedBox.shrink();
+    int read(String camel, String snake) {
+      if (_stats == null) return 0;
+      final raw = _stats![camel] ?? _stats![snake];
+      return raw is num ? raw.toInt() : 0;
+    }
 
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirestoreService.ownerStream('medicine_doses', limit: 500),
-          builder: (context, doseSnapshot) {
-            final schedule = MedicineSchedule.forDay(
-              medicines,
-              [...?doseSnapshot.data?.docs],
-            );
-            final next = MedicineSchedule.next(schedule);
-            if (next == null) return const SizedBox.shrink();
+    final todayMinutes = (read('todaySeconds', 'today_seconds') / 60).round();
+    final streak = read('streakDays', 'streak_days');
 
-            final overdue = next.status == DoseStatus.missed;
-
-            return AppCard(
-              accent: colors.medicine,
-              onTap: onOpenMedicine,
-              child: Row(
-                children: [
-                  GochanoIllustrationTile(
-                    GochanoArt.featureReminder,
-                    accent: colors.medicine,
-                    plateSize: 48,
-                  ),
-                  const SizedBox(width: GochanoSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          GochanoLanguage.text('Next medicine', 'পরবর্তী ওষুধ'),
-                          style: context.type.label,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${next.medicineName}'
-                          '${next.strength.isEmpty ? '' : ' · ${next.strength}'}',
-                          style: context.type.cardHeading,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          formatTime12(next.time),
-                          style: context.type.caption,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (overdue)
-                    GochanoBadge(
-                      label: GochanoLanguage.text('Overdue', 'সময় পেরিয়েছে'),
-                      tone: GochanoBadgeTone.warning,
-                      icon: Icons.schedule_rounded,
-                    ),
-                ],
+    return _AccentRailCard(
+      accent: colors.study,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.school_rounded, size: 18, color: colors.study),
+              const SizedBox(width: GochanoSpacing.xs),
+              Expanded(
+                child: Text(
+                  GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
+                  style: context.type.sectionHeading,
+                ),
               ),
-            );
-          },
-        );
-      },
+            ],
+          ),
+          const SizedBox(height: GochanoSpacing.xs),
+          if (_stats == null)
+            Text(
+              GochanoLanguage.text('Loading…', 'লোড হচ্ছে…'),
+              style: context.type.bodySecondary,
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _StatPill(
+                    label: GochanoLanguage.text('Today', 'আজ'),
+                    value: GochanoLanguage.text('$todayMinutes min', '$todayMinutes মি'),
+                    color: colors.study,
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.xs),
+                Expanded(
+                  child: _StatPill(
+                    label: GochanoLanguage.text('Streak', 'ধারা'),
+                    value: GochanoLanguage.text('$streak d', '$streak দি'),
+                    color: colors.ai,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.xs,
+        vertical: GochanoSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: GochanoRadius.smAll,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: context.type.caption),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: context.type.cardHeading.copyWith(color: color),
+          ),
+        ],
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Money
+// Life Snapshot: Remaining + Spent
 // ---------------------------------------------------------------------------
 
-/// This month's spending, split by where it came from.
-///
-/// Reads the same central ledger the Expense hub reads, so Home and Expense
-/// can never disagree about a total (spec §36).
-class _MoneyCard extends StatelessWidget {
-  const _MoneyCard({required this.onOpenExpense});
+class _LifeSnapshotCard extends StatefulWidget {
+  const _LifeSnapshotCard({required this.onOpenExpense});
 
   final VoidCallback onOpenExpense;
+
+  @override
+  State<_LifeSnapshotCard> createState() => _LifeSnapshotCardState();
+}
+
+class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
+  double? _budget;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBudget();
+  }
+
+  Future<void> _loadBudget() async {
+    try {
+      final body = await ApiService.getMonthlyBudget(DateTime.now());
+      if (!mounted) return;
+      setState(() {
+        _budget = (body['availableAmount'] as num?)?.toDouble() ?? 0;
+      });
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -466,156 +827,267 @@ class _MoneyCard extends StatelessWidget {
     return StreamBuilder<List<FinancialTransactionModel>>(
       stream: FinancialService.monthStream(now),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return const SizedBox.shrink();
+        if (snapshot.hasError) {
+          return _AccentRailCard(
+            accent: colors.expense,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.account_balance_wallet_rounded, size: 18, color: colors.expense),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text('Life Snapshot', 'জীবন পরিসংখ্যান'),
+                        style: context.type.sectionHeading,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GochanoSpacing.xs),
+                Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 14, color: colors.textTertiary),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          'Unable to load spending data',
+                          'খরচের তথ্য লোড হয়নি',
+                        ),
+                        style: context.type.bodySecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SectionSkeleton();
         }
 
         final items = snapshot.data ?? const <FinancialTransactionModel>[];
         final summary = FinancialSummary.fromTransactions(items);
-        final today = FinancialService.dateKey(now);
-        final todayTotal = items
-            .where((e) => FinancialService.dateKey(e.date) == today)
-            .fold<double>(0, (running, e) => running + e.amount);
+        final remaining = (_budget ?? 0) - summary.totalSpending;
 
-        return AppCard(
+        return _AccentRailCard(
           accent: colors.expense,
-          onTap: onOpenExpense,
+          onTap: widget.onOpenExpense,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                GochanoLanguage.text('This month', 'এই মাস'),
-                style: context.type.label,
-              ),
-              const SizedBox(height: GochanoSpacing.xxs),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  Icon(Icons.account_balance_wallet_rounded, size: 18, color: colors.expense),
+                  const SizedBox(width: GochanoSpacing.xs),
                   Expanded(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        formatTaka(summary.totalSpending),
-                        style: context.type.statistic,
-                      ),
+                    child: Text(
+                      GochanoLanguage.text('Life Snapshot', 'জীবন পরিসংখ্যান'),
+                      style: context.type.sectionHeading,
                     ),
-                  ),
-                  Text(
-                    GochanoLanguage.text(
-                      'Today ${formatTaka(todayTotal)}',
-                      'আজ ${formatTaka(todayTotal)}',
-                    ),
-                    style: context.type.caption,
                   ),
                 ],
               ),
-              if (summary.bySource.isNotEmpty) ...[
-                const SizedBox(height: GochanoSpacing.xs),
-                Wrap(
-                  spacing: GochanoSpacing.xs,
-                  runSpacing: GochanoSpacing.xxs,
-                  children: [
-                    for (final entry in _sortedSources(summary.bySource))
-                      GochanoBadge(
-                        label: '${_sourceLabel(entry.key)} '
-                            '${formatTaka(entry.value)}',
-                      ),
-                  ],
-                ),
-              ],
+              const SizedBox(height: GochanoSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatPill(
+                      label: GochanoLanguage.text('Spent', 'খরচ'),
+                      value: formatTaka(summary.totalSpending),
+                      color: colors.expense,
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: _StatPill(
+                      label: GochanoLanguage.text('Remaining', 'বাকি'),
+                      value: formatTaka(remaining),
+                      color: remaining > 0 ? colors.success : colors.error,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
       },
     );
   }
-
-  static List<MapEntry<String, double>> _sortedSources(Map<String, double> m) {
-    final entries = m.entries.where((e) => e.value > 0).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return entries.take(4).toList();
-  }
-
-  static String _sourceLabel(String source) => switch (source) {
-        'daily' => GochanoLanguage.text('Daily', 'দৈনিক'),
-        'bazar' => GochanoLanguage.text('Grocery', 'বাজার'),
-        'medicine' => GochanoLanguage.text('Medicine', 'ওষুধ'),
-        'commute' => GochanoLanguage.text('Commute', 'যাতায়াত'),
-        _ => GochanoLanguage.text('Other', 'অন্যান্য'),
-      };
 }
 
 // ---------------------------------------------------------------------------
-// Group activity
+// Recent materials
 // ---------------------------------------------------------------------------
 
-class _GroupActivityCard extends StatelessWidget {
-  const _GroupActivityCard({required this.onOpenCommunity});
+class _RecentMaterialsCard extends StatelessWidget {
+  const _RecentMaterialsCard({required this.onOpenStudy});
 
-  final VoidCallback onOpenCommunity;
+  final VoidCallback onOpenStudy;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.myGroups(),
+      stream: FirestoreService.ownerStream('materials', limit: 5),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return const SizedBox.shrink();
-        final groups = [...?snapshot.data?.docs];
-        if (groups.isEmpty) return const SizedBox.shrink();
-
-        return AppCard(
-          accent: colors.community,
-          onTap: onOpenCommunity,
-          child: Row(
-            children: [
-              GochanoIllustrationTile(
-                GochanoArt.featureGroups,
-                accent: colors.community,
-                plateSize: 48,
-              ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+        if (snapshot.hasError) {
+          return _AccentRailCard(
+            accent: colors.study,
+            onTap: onOpenStudy,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      GochanoLanguage.text('Your study groups', 'আপনার স্টাডি গ্রুপ'),
-                      style: context.type.label,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      groups
-                          .take(2)
-                          .map((g) => g.data()['name']?.toString() ?? '')
-                          .where((n) => n.isNotEmpty)
-                          .join(', '),
-                      style: context.type.cardHeading,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      GochanoLanguage.text(
-                        groups.length == 1
-                            ? '1 group'
-                            : '${groups.length} groups',
-                        '${groups.length} টি গ্রুপ',
+                    Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
+                        style: context.type.sectionHeading,
                       ),
-                      style: context.type.caption,
                     ),
                   ],
                 ),
+                const SizedBox(height: GochanoSpacing.xs),
+                Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 14, color: colors.textTertiary),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          'Unable to load materials',
+                          'উপকরণ লোড হয়নি',
+                        ),
+                        style: context.type.bodySecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+        final docs = [...?snapshot.data?.docs]..sort(_byCreatedAtDesc);
+        if (docs.isEmpty) {
+          return _AccentRailCard(
+            accent: colors.study,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
+                        style: context.type.sectionHeading,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  GochanoLanguage.text(
+                    'No materials yet.',
+                    'এখনো কোনো উপকরণ নেই।',
+                  ),
+                  style: context.type.bodySecondary,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return _AccentRailCard(
+          accent: colors.study,
+          onTap: onOpenStudy,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
+                      style: context.type.sectionHeading,
+                    ),
+                  ),
+                ],
               ),
-              Icon(Icons.chevron_right_rounded, color: colors.textTertiary),
+              const SizedBox(height: GochanoSpacing.xs),
+              for (final doc in docs.take(3))
+                _RecentRow(doc: doc),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _RecentRow extends StatelessWidget {
+  const _RecentRow({required this.doc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data();
+    final title = (data['title']?.toString().trim().isNotEmpty ?? false)
+        ? data['title'].toString()
+        : data['fileName']?.toString() ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: GochanoSpacing.xxs),
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => MaterialReaderScreen(
+              materialId: doc.id,
+              title: title,
+              mimeType: data['mimeType']?.toString() ?? '',
+            ),
+          ),
+        ),
+        borderRadius: GochanoRadius.smAll,
+        child: Row(
+          children: [
+            GochanoIllustrationTile(
+              GochanoArt.fileIdFor(
+                fileName: data['fileName']?.toString(),
+                mimeType: data['mimeType']?.toString(),
+              ),
+              accent: context.colors.study,
+              plateSize: 32,
+            ),
+            const SizedBox(width: GochanoSpacing.xs),
+            Expanded(
+              child: Text(
+                title,
+                style: context.type.body,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: context.colors.textTertiary),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -624,14 +1096,6 @@ class _GroupActivityCard extends StatelessWidget {
 // Quick actions
 // ---------------------------------------------------------------------------
 
-/// The actions worth one tap from Home (spec §27).
-///
-/// One compact card in four columns, not five large tiles. The tiles took a
-/// third of the first screen for five shortcuts, which pushed the actual
-/// briefing — today's tasks, the money left — below the fold.
-///
-/// Four are shown; the rest sit behind "See more", because four covers the
-/// daily habits and the fifth is a trip you plan occasionally.
 class _QuickActions extends StatefulWidget {
   const _QuickActions({required this.isStudent});
 
@@ -642,7 +1106,6 @@ class _QuickActions extends StatefulWidget {
 }
 
 class _QuickActionsState extends State<_QuickActions> {
-  /// How many fit before "See more".
   static const _collapsedCount = 3;
 
   bool _expanded = false;
@@ -653,7 +1116,7 @@ class _QuickActionsState extends State<_QuickActions> {
       if (widget.isStudent)
         _QuickAction(
           label: GochanoLanguage.text('Ask AI', 'AI-কে জিজ্ঞাসা'),
-          illustration: GochanoArt.featureAi,
+          icon: Icons.auto_awesome_rounded,
           accent: colors.ai,
           onTap: () => Navigator.of(context).push(
             GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
@@ -661,19 +1124,19 @@ class _QuickActionsState extends State<_QuickActions> {
         ),
       _QuickAction(
         label: GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
-        illustration: GochanoArt.featureExpense,
+        icon: Icons.receipt_long_rounded,
         accent: colors.expense,
         onTap: () => showAddExpenseSheet(context),
       ),
       _QuickAction(
         label: GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
-        illustration: GochanoArt.featureTasks,
+        icon: Icons.task_alt_rounded,
         accent: colors.brand,
         onTap: () => showAddTaskSheet(context),
       ),
       _QuickAction(
         label: GochanoLanguage.text('Scan prescription', 'প্রেসক্রিপশন স্ক্যান'),
-        illustration: GochanoArt.featurePrescription,
+        icon: Icons.document_scanner_rounded,
         accent: colors.medicine,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(builder: (_) => const PrescriptionScanScreen()),
@@ -681,7 +1144,7 @@ class _QuickActionsState extends State<_QuickActions> {
       ),
       _QuickAction(
         label: GochanoLanguage.text('Find a route', 'রুট খুঁজুন'),
-        illustration: GochanoArt.featureCommute,
+        icon: Icons.directions_bus_rounded,
         accent: colors.commute,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(builder: (_) => const CommuteScreen()),
@@ -697,7 +1160,8 @@ class _QuickActionsState extends State<_QuickActions> {
     final visible =
         (_expanded || !hasMore) ? actions : actions.take(_collapsedCount).toList();
 
-    return AppCard(
+    return _AccentRailCard(
+      accent: context.colors.brand,
       padding: const EdgeInsets.symmetric(
         horizontal: GochanoSpacing.xs,
         vertical: GochanoSpacing.sm,
@@ -707,10 +1171,7 @@ class _QuickActionsState extends State<_QuickActions> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              // Four across normally. A very narrow phone drops to three so a
-              // Bangla label keeps two comfortable lines instead of being
-              // clipped.
-                final columns = constraints.maxWidth >= 380 ? 4 : 3;
+              final columns = constraints.maxWidth >= 380 ? 4 : 3;
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -718,8 +1179,6 @@ class _QuickActionsState extends State<_QuickActions> {
                 itemCount: visible.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,
-                  // Tall enough for a 52 px icon plate and two lines of label
-                  // at the largest text scale this design supports.
                   mainAxisExtent: 88,
                   crossAxisSpacing: GochanoSpacing.xxs,
                   mainAxisSpacing: GochanoSpacing.xs,
@@ -738,7 +1197,6 @@ class _QuickActionsState extends State<_QuickActions> {
                 size: GochanoSizes.iconSm,
               ),
               label: Text(
-                // Show less (legacy alias for older clients)
                 _expanded
                     ? GochanoLanguage.text('See less', 'কম দেখুন')
                     : GochanoLanguage.text('See more', 'আরো দেখুন'),
@@ -750,17 +1208,16 @@ class _QuickActionsState extends State<_QuickActions> {
   }
 }
 
-/// One shortcut: a tinted circular icon area over a centred label.
 class _QuickAction extends StatelessWidget {
   const _QuickAction({
     required this.label,
-    required this.illustration,
+    required this.icon,
     required this.accent,
     required this.onTap,
   });
 
   final String label;
-  final String illustration;
+  final IconData icon;
   final Color accent;
   final VoidCallback onTap;
 
@@ -781,21 +1238,13 @@ class _QuickAction extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  // The accent at low opacity, so five shortcuts read as one
-                  // set rather than five competing colours.
                   color: accent.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: GochanoIllustration(
-                    illustration,
-                    size: 28,
-                    accent: accent,
-                  ),
-                ),
+                child: Icon(icon, size: 22, color: accent),
               ),
               const SizedBox(height: GochanoSpacing.xxs),
               Expanded(
@@ -823,9 +1272,6 @@ class _QuickAction extends StatelessWidget {
 // Shared bits
 // ---------------------------------------------------------------------------
 
-/// A static placeholder with the height of the card it stands in for, so the
-/// dashboard does not jump as each section resolves (spec §12 — no animated
-/// shimmer, just a stable box).
 class _SectionSkeleton extends StatelessWidget {
   const _SectionSkeleton();
 
@@ -875,9 +1321,6 @@ String _timeLabel(DateTime when) {
 }
 
 /// Formats an amount in Bangladeshi taka.
-///
-/// Whole numbers drop the decimals — "৳120" reads better than "৳120.00" for
-/// the amounts a student actually enters.
 String formatTaka(double amount) {
   final rounded = amount.roundToDouble();
   final text = (amount - rounded).abs() < 0.005
@@ -892,4 +1335,3 @@ String formatTaka(double amount) {
   }
   return '৳${buffer.toString()}${parts.length > 1 ? '.${parts[1]}' : ''}';
 }
-

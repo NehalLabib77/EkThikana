@@ -35,17 +35,12 @@ Future<bool> showAddExpenseSheet(
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-      ),
-      child: _ExpenseForm(
-        expenseId: expenseId,
-        initialCategory: initialCategory,
-        initialTitle: initialTitle,
-        initialAmount: initialAmount,
-        initialDate: initialDate,
-      ),
+    builder: (sheetContext) => _ExpenseForm(
+      expenseId: expenseId,
+      initialCategory: initialCategory,
+      initialTitle: initialTitle,
+      initialAmount: initialAmount,
+      initialDate: initialDate,
     ),
   );
   return saved ?? false;
@@ -196,107 +191,112 @@ class _ExpenseFormState extends State<_ExpenseForm> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          GochanoSpacing.lg,
-          GochanoSpacing.xs,
-          GochanoSpacing.lg,
-          GochanoSpacing.lg,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _isEdit
-                  ? GochanoLanguage.text('Edit expense', 'খরচ সম্পাদনা')
-                  : GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
-              style: type.sectionHeading,
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-
-            // Amount is the one field that always has to be filled, so it is
-            // the one field that gets focus and the numeric keypad.
-            TextField(
-              controller: _amount,
-              autofocus: !_isEdit,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-              ],
-              style: type.statistic,
-              decoration: InputDecoration(
-                labelText: GochanoLanguage.text('Amount', 'পরিমাণ'),
-                prefixText: '৳ ',
-                prefixStyle: type.statistic.copyWith(color: colors.textSecondary),
-              ),
-              onSubmitted: (_) => _save(),
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-
-            Text(GochanoLanguage.text('Category', 'ধরন'), style: type.label),
-            const SizedBox(height: GochanoSpacing.xs),
-            Wrap(
-              spacing: GochanoSpacing.xs,
-              runSpacing: GochanoSpacing.xs,
-              children: [
-                for (final category in ExpenseCategories.all)
-                  ChoiceChip(
-                    selected: category.id == _category.id,
-                    onSelected: (_) => setState(() => _category = category),
-                    avatar: GochanoIllustration(
-                      category.illustration,
-                      size: 18,
-                      accent: category.id == _category.id
-                          ? colors.brand
-                          : colors.textSecondary,
-                    ),
-                    label: Text(category.label),
-                  ),
-              ],
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-
-            TextField(
-              controller: _title,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: GochanoLanguage.text('Note (optional)', 'নোট (ঐচ্ছিক)'),
-                hintText: GochanoLanguage.text(
-                  'Rice and curry at the canteen',
-                  'ক্যান্টিনে ভাত ও তরকারি',
-                ),
-              ),
-              onSubmitted: (_) => _save(),
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-
-            InkWell(
-              onTap: _pickDate,
-              borderRadius: GochanoRadius.mdAll,
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('Date', 'তারিখ'),
-                  prefixIcon: const Icon(Icons.event_rounded),
-                ),
-                child: Text(_formatDate(_date), style: type.body),
-              ),
-            ),
-
-            if (_error != null) ...[
-              const SizedBox(height: GochanoSpacing.xs),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.lg,
+            GochanoSpacing.xs,
+            GochanoSpacing.lg,
+            GochanoSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Text(
-                _error!,
-                style: type.bodySecondary.copyWith(color: colors.error),
+                _isEdit
+                    ? GochanoLanguage.text('Edit expense', 'খরচ সম্পাদনা')
+                    : GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
+                style: type.sectionHeading,
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+
+              // Amount is the one field that always has to be filled, so it is
+              // the one field that gets focus and the numeric keypad.
+              TextField(
+                controller: _amount,
+                autofocus: !_isEdit,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                style: type.statistic,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text('Amount', 'পরিমাণ'),
+                  prefixText: '৳ ',
+                  prefixStyle: type.statistic.copyWith(color: colors.textSecondary),
+                ),
+                onSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+
+              Text(GochanoLanguage.text('Category', 'ধরন'), style: type.label),
+              const SizedBox(height: GochanoSpacing.xs),
+              Wrap(
+                spacing: GochanoSpacing.xs,
+                runSpacing: GochanoSpacing.xs,
+                children: [
+                  for (final category in ExpenseCategories.all)
+                    ChoiceChip(
+                      selected: category.id == _category.id,
+                      onSelected: (_) => setState(() => _category = category),
+                      avatar: GochanoIllustration(
+                        category.illustration,
+                        size: 18,
+                        accent: category.id == _category.id
+                            ? colors.brand
+                            : colors.textSecondary,
+                      ),
+                      label: Text(category.label),
+                    ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+
+              TextField(
+                controller: _title,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text('Note (optional)', 'নোট (ঐচ্ছিক)'),
+                  hintText: GochanoLanguage.text(
+                    'Rice and curry at the canteen',
+                    'ক্যান্টিনে ভাত ও তরকারি',
+                  ),
+                ),
+                onSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+
+              InkWell(
+                onTap: _pickDate,
+                borderRadius: GochanoRadius.mdAll,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text('Date', 'তারিখ'),
+                    prefixIcon: const Icon(Icons.event_rounded),
+                  ),
+                  child: Text(_formatDate(_date), style: type.body),
+                ),
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  _error!,
+                  style: type.bodySecondary.copyWith(color: colors.error),
+                ),
+              ],
+              const SizedBox(height: GochanoSpacing.md),
+              PrimaryButton(
+                label: GochanoLanguage.text('Save expense', 'খরচ সংরক্ষণ'),
+                busy: _saving,
+                busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
+                onPressed: _save,
               ),
             ],
-            const SizedBox(height: GochanoSpacing.md),
-            PrimaryButton(
-              label: GochanoLanguage.text('Save expense', 'খরচ সংরক্ষণ'),
-              busy: _saving,
-              busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
-              onPressed: _save,
-            ),
-          ],
+          ),
         ),
       ),
     );

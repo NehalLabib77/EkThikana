@@ -21,12 +21,7 @@ Future<bool> showMonthlyBudgetSheet(BuildContext context) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-      ),
-      child: const _BudgetForm(),
-    ),
+    builder: (sheetContext) => const _BudgetForm(),
   );
   return saved ?? false;
 }
@@ -119,79 +114,84 @@ class _BudgetFormState extends State<_BudgetForm> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          GochanoSpacing.lg,
-          GochanoSpacing.xs,
-          GochanoSpacing.lg,
-          GochanoSpacing.lg,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
-              style: type.sectionHeading,
-            ),
-            const SizedBox(height: GochanoSpacing.xxs),
-            Text(
-              GochanoLanguage.text(
-                'How much you have to spend this month. Gochano subtracts your '
-                'recorded expenses from it.',
-                'এই মাসে আপনার কাছে কত টাকা আছে। গোছানো এটি থেকে আপনার রেকর্ড করা খরচ বাদ দেবে।',
-              ),
-              style: type.bodySecondary,
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-            // The field is always here. It used to be replaced by a loading
-            // state until the current amount arrived, so a slow or failing
-            // read left the sheet with nothing to type into and a disabled
-            // Save -- which is exactly what "it will not take any value"
-            // looks like. Reading the current amount only prefills it.
-            TextField(
-                controller: _amount,
-                autofocus: true,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
-                style: type.statistic,
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('Available', 'উপলব্ধ'),
-                  prefixText: '৳ ',
-                  prefixStyle:
-                      type.statistic.copyWith(color: colors.textSecondary),
-                ),
-                onSubmitted: (_) => _save(),
-              ),
-            if (_error != null) ...[
-              const SizedBox(height: GochanoSpacing.xs),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.lg,
+            GochanoSpacing.xs,
+            GochanoSpacing.lg,
+            GochanoSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Text(
-                _error!,
-                style: type.bodySecondary.copyWith(color: colors.error),
+                GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
+                style: type.sectionHeading,
               ),
-            ],
-            if (_loading) ...[
-              const SizedBox(height: GochanoSpacing.xs),
-              StaticLoadingState(
-                compact: true,
-                message: GochanoLanguage.text(
-                  'Checking your current amount…',
-                  'আপনার বর্তমান পরিমাণ দেখা হচ্ছে…',
+              const SizedBox(height: GochanoSpacing.xxs),
+              Text(
+                GochanoLanguage.text(
+                  'How much you have to spend this month. Gochano subtracts your '
+                  'recorded expenses from it.',
+                  'এই মাসে আপনার কাছে কত টাকা আছে। গোছানো এটি থেকে আপনার রেকর্ড করা খরচ বাদ দেবে।',
                 ),
+                style: type.bodySecondary,
+              ),
+              const SizedBox(height: GochanoSpacing.md),
+              // The field is always here. It used to be replaced by a loading
+              // state until the current amount arrived, so a slow or failing
+              // read left the sheet with nothing to type into and a disabled
+              // Save -- which is exactly what "it will not take any value"
+              // looks like. Reading the current amount only prefills it.
+              TextField(
+                  controller: _amount,
+                  autofocus: true,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  ],
+                  style: type.statistic,
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text('Available', 'উপলব্ধ'),
+                    prefixText: '৳ ',
+                    prefixStyle:
+                        type.statistic.copyWith(color: colors.textSecondary),
+                  ),
+                  onSubmitted: (_) => _save(),
+                ),
+              if (_error != null) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  _error!,
+                  style: type.bodySecondary.copyWith(color: colors.error),
+                ),
+              ],
+              if (_loading) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                StaticLoadingState(
+                  compact: true,
+                  message: GochanoLanguage.text(
+                    'Checking your current amount…',
+                    'আপনার বর্তমান পরিমাণ দেখা হচ্ছে…',
+                  ),
+                ),
+              ],
+              const SizedBox(height: GochanoSpacing.md),
+              PrimaryButton(
+                label: GochanoLanguage.text('Save', 'সংরক্ষণ'),
+                busy: _saving,
+                busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
+                // Never gated on the *read*: a student who knows the figure can
+                // type it and save while the current one is still loading.
+                onPressed: _save,
               ),
             ],
-            const SizedBox(height: GochanoSpacing.md),
-            PrimaryButton(
-              label: GochanoLanguage.text('Save', 'সংরক্ষণ'),
-              busy: _saving,
-              busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
-              // Never gated on the *read*: a student who knows the figure can
-              // type it and save while the current one is still loading.
-              onPressed: _save,
-            ),
-          ],
+          ),
         ),
       ),
     );

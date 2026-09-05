@@ -44,7 +44,7 @@ class _TasksViewState extends State<TasksView> {
       backgroundColor: context.colors.background,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showAddTaskSheet(context),
-        icon: const Icon(Icons.add_rounded),
+        icon: const Icon(Icons.task_alt_rounded),
         label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ')),
       ),
       body: Column(
@@ -69,9 +69,42 @@ class _TasksViewState extends State<TasksView> {
     );
   }
 
+  /// Build a Firestore query with server-side filtering to avoid pulling
+  /// all 300 tasks and filtering client-side on every rebuild.
+  Query<Map<String, dynamic>> _taskQuery() {
+    final base = FirestoreService.db
+        .collection('tasks')
+        .where('ownerId', isEqualTo: FirestoreService.uid);
+
+    switch (_filter) {
+      case TaskFilter.completed:
+        return base
+            .where('done', isEqualTo: true)
+            .orderBy('updatedAt', descending: true)
+            .limit(100);
+      case TaskFilter.today:
+        final now = DateTime.now();
+        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        // Include undated tasks (dueAt == null) as "today" items.
+        return base
+            .where('done', isEqualTo: false)
+            .where('dueAt', isLessThanOrEqualTo: Timestamp.fromDate(endOfToday))
+            .orderBy('dueAt')
+            .limit(100);
+      case TaskFilter.upcoming:
+        final now = DateTime.now();
+        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        return base
+            .where('done', isEqualTo: false)
+            .where('dueAt', isGreaterThan: Timestamp.fromDate(endOfToday))
+            .orderBy('dueAt')
+            .limit(100);
+    }
+  }
+
   Widget _buildList(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 300),
+      stream: _taskQuery().snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return StaticLoadingState(
@@ -82,32 +115,33 @@ class _TasksViewState extends State<TasksView> {
           return ErrorState(message: friendlyErrorMessage(snapshot.error));
         }
 
-        final now = DateTime.now();
-        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final docs = [...?snapshot.data?.docs];
 
-        for (final doc in [...?snapshot.data?.docs]) {
-          final data = doc.data();
-          final done = data['done'] == true;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-
-          switch (_filter) {
-            case TaskFilter.completed:
-              if (done) docs.add(doc);
-            case TaskFilter.today:
-              // No due date counts as "today": an undated task is something
-              // to deal with now, not something to hide until it has a date.
-              if (!done && (due == null || !due.isAfter(endOfToday))) {
-                docs.add(doc);
-              }
-            case TaskFilter.upcoming:
-              if (!done && due != null && due.isAfter(endOfToday)) {
-                docs.add(doc);
-              }
+        // For the "today" filter, we also need to include tasks with no dueAt
+        // that the server-side query might have missed (null dueAt is not
+        // returned by isLessThanOrEqualTo). We do a single pass.
+        final todayDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        if (_filter == TaskFilter.today) {
+          for (final doc in docs) {
+            final data = doc.data();
+            final due = (data['dueAt'] as Timestamp?)?.toDate();
+            // Undated tasks (due == null) are included in "today".
+            if (due == null || !due.isAfter(
+              DateTime(
+                DateTime.now().year,
+                DateTime.now().month,
+                DateTime.now().day,
+                23, 59, 59,
+              ),
+            )) {
+              todayDocs.add(doc);
+            }
           }
         }
 
-        docs.sort((a, b) {
+        final effectiveDocs = _filter == TaskFilter.today ? todayDocs : docs;
+
+        effectiveDocs.sort((a, b) {
           final ad = (a.data()['dueAt'] as Timestamp?)?.toDate();
           final bd = (b.data()['dueAt'] as Timestamp?)?.toDate();
           if (ad == null && bd == null) return 0;
@@ -118,7 +152,7 @@ class _TasksViewState extends State<TasksView> {
               : ad.compareTo(bd);
         });
 
-        if (docs.isEmpty) {
+        if (effectiveDocs.isEmpty) {
           return EmptyState(
             illustration: GochanoArt.emptyTasks,
             title: switch (_filter) {
@@ -153,12 +187,12 @@ class _TasksViewState extends State<TasksView> {
 
         return ListView.builder(
           padding: GochanoSpacing.scrollBody,
-          itemCount: docs.length,
+          itemCount: effectiveDocs.length,
           itemBuilder: (context, i) => Padding(
             padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
             child: AppCard(
               padding: EdgeInsets.zero,
-              child: _TaskRow(doc: docs[i]),
+              child: _TaskRow(doc: effectiveDocs[i]),
             ),
           ),
         );

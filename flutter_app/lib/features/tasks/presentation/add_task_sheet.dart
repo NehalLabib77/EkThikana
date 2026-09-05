@@ -30,14 +30,7 @@ Future<bool> showAddTaskSheet(
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => Padding(
-      // Lift the sheet above the keyboard so the Save button and the field
-      // being typed into are both reachable (spec §23).
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-      ),
-      child: _TaskForm(existing: existing, type: type),
-    ),
+    builder: (sheetContext) => _TaskForm(existing: existing, type: type),
   );
   return saved ?? false;
 }
@@ -213,120 +206,125 @@ class _TaskFormState extends State<_TaskForm> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          GochanoSpacing.lg,
-          GochanoSpacing.xs,
-          GochanoSpacing.lg,
-          GochanoSpacing.lg,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _isEdit
-                  ? GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
-                  : widget.type == 'assignment'
-                      ? GochanoLanguage.text(
-                          'New assignment',
-                          'নতুন অ্যাসাইনমেন্ট',
-                        )
-                      : GochanoLanguage.text('New task', 'নতুন কাজ'),
-              style: context.type.sectionHeading,
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-            TextField(
-              controller: _title,
-              autofocus: !_isEdit,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: GochanoLanguage.text('What needs doing?', 'কী করতে হবে?'),
-                hintText: GochanoLanguage.text(
-                  'Finish DBMS assignment',
-                  'ডিবিএমএস অ্যাসাইনমেন্ট শেষ করা',
-                ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.lg,
+            GochanoSpacing.xs,
+            GochanoSpacing.lg,
+            GochanoSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _isEdit
+                    ? GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
+                    : widget.type == 'assignment'
+                        ? GochanoLanguage.text(
+                            'New assignment',
+                            'নতুন অ্যাসাইনমেন্ট',
+                          )
+                        : GochanoLanguage.text('New task', 'নতুন কাজ'),
+                style: context.type.sectionHeading,
               ),
-              onSubmitted: (_) => _save(),
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-            InkWell(
-              onTap: _pickDueDate,
-              borderRadius: GochanoRadius.mdAll,
-              child: InputDecorator(
+              const SizedBox(height: GochanoSpacing.md),
+              TextField(
+                controller: _title,
+                autofocus: !_isEdit,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('Due', 'সময়সীমা'),
-                  prefixIcon: const Icon(Icons.event_rounded),
-                  suffixIcon: _dueAt == null
-                      ? null
-                      : IconActionButton(
-                          icon: Icons.close_rounded,
-                          label: GochanoLanguage.text('Clear due date', 'সময়সীমা মুছুন'),
-                          onPressed: () => setState(() {
-                            _dueAt = null;
-                            _remindAt = null;
-                            _reminderPreset = 0;
-                          }),
-                        ),
-                ),
-                child: Text(
-                  _dueAt == null
-                      ? GochanoLanguage.text('No due date', 'কোনো সময়সীমা নেই')
-                      : _formatDueDate(_dueAt!),
-                  style: context.type.body.copyWith(
-                    color: _dueAt == null ? colors.textTertiary : null,
+                  labelText: GochanoLanguage.text('What needs doing?', 'কী করতে হবে?'),
+                  hintText: GochanoLanguage.text(
+                    'Finish DBMS assignment',
+                    'ডিবিএমএস অ্যাসাইনমেন্ট শেষ করা',
                   ),
                 ),
+                onSubmitted: (_) => _save(),
               ),
-            ),
-            if (_dueAt != null) ...[
               const SizedBox(height: GochanoSpacing.sm),
-              Text(
-                GochanoLanguage.text('Reminder', 'রিমাইন্ডার'),
-                style: context.type.label,
+              InkWell(
+                onTap: _pickDueDate,
+                borderRadius: GochanoRadius.mdAll,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text('Due', 'সময়সীমা'),
+                    prefixIcon: const Icon(Icons.event_rounded),
+                    suffixIcon: _dueAt == null
+                        ? null
+                        : IconActionButton(
+                            icon: Icons.close_rounded,
+                            label: GochanoLanguage.text('Clear due date', 'সময়সীমা মুছুন'),
+                            onPressed: () => setState(() {
+                              _dueAt = null;
+                              _remindAt = null;
+                              _reminderPreset = 0;
+                            }),
+                          ),
+                  ),
+                  child: Text(
+                    _dueAt == null
+                        ? GochanoLanguage.text('No due date', 'কোনো সময়সীমা নেই')
+                        : _formatDueDate(_dueAt!),
+                    style: context.type.body.copyWith(
+                      color: _dueAt == null ? colors.textTertiary : null,
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: GochanoSpacing.xs),
-              Wrap(
-                spacing: GochanoSpacing.xs,
-                runSpacing: GochanoSpacing.xs,
-                children: [
-                  _buildPresetChip(
-                    context,
-                    index: 0,
-                    label: GochanoLanguage.text('None', 'নেই'),
-                  ),
-                  _buildPresetChip(
-                    context,
-                    index: 1,
-                    label: GochanoLanguage.text('10 min before', '১০ মিনিট আগে'),
-                  ),
-                  _buildPresetChip(
-                    context,
-                    index: 2,
-                    label: GochanoLanguage.text('30 min before', '৩০ মিনিট আগে'),
-                  ),
-                  _buildPresetChip(
-                    context,
-                    index: 3,
-                    label: GochanoLanguage.text('1 hour before', '১ ঘণ্টা আগে'),
-                  ),
-                ],
+              if (_dueAt != null) ...[
+                const SizedBox(height: GochanoSpacing.sm),
+                Text(
+                  GochanoLanguage.text('Reminder', 'রিমাইন্ডার'),
+                  style: context.type.label,
+                ),
+                const SizedBox(height: GochanoSpacing.xs),
+                Wrap(
+                  spacing: GochanoSpacing.xs,
+                  runSpacing: GochanoSpacing.xs,
+                  children: [
+                    _buildPresetChip(
+                      context,
+                      index: 0,
+                      label: GochanoLanguage.text('None', 'নেই'),
+                    ),
+                    _buildPresetChip(
+                      context,
+                      index: 1,
+                      label: GochanoLanguage.text('10 min before', '১০ মিনিট আগে'),
+                    ),
+                    _buildPresetChip(
+                      context,
+                      index: 2,
+                      label: GochanoLanguage.text('30 min before', '৩০ মিনিট আগে'),
+                    ),
+                    _buildPresetChip(
+                      context,
+                      index: 3,
+                      label: GochanoLanguage.text('1 hour before', '১ ঘণ্টা আগে'),
+                    ),
+                  ],
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  _error!,
+                  style: context.type.bodySecondary.copyWith(color: colors.error),
+                ),
+              ],
+              const SizedBox(height: GochanoSpacing.md),
+              PrimaryButton(
+                label: GochanoLanguage.text('Save task', 'কাজ সংরক্ষণ'),
+                busy: _saving,
+                busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
+                onPressed: _save,
               ),
             ],
-            if (_error != null) ...[
-              const SizedBox(height: GochanoSpacing.xs),
-              Text(
-                _error!,
-                style: context.type.bodySecondary.copyWith(color: colors.error),
-              ),
-            ],
-            const SizedBox(height: GochanoSpacing.md),
-            PrimaryButton(
-              label: GochanoLanguage.text('Save task', 'কাজ সংরক্ষণ'),
-              busy: _saving,
-              busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
-              onPressed: _save,
-            ),
-          ],
+          ),
         ),
       ),
     );

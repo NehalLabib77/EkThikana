@@ -294,12 +294,7 @@ Future<bool> showGroceryItemSheet(
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-      ),
-      child: _GroceryForm(sessionId: sessionId, existing: existing),
-    ),
+    builder: (sheetContext) => _GroceryForm(sessionId: sessionId, existing: existing),
   );
   return saved ?? false;
 }
@@ -421,134 +416,139 @@ class _GroceryFormState extends State<_GroceryForm> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          GochanoSpacing.lg,
-          GochanoSpacing.xs,
-          GochanoSpacing.lg,
-          GochanoSpacing.lg,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _isEdit
-                  ? GochanoLanguage.text('Edit item', 'আইটেম সম্পাদনা')
-                  : GochanoLanguage.text('Add item', 'আইটেম যোগ'),
-              style: type.sectionHeading,
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-            TextField(
-              controller: _title,
-              autofocus: !_isEdit,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: GochanoLanguage.text('Item', 'আইটেম'),
-                hintText: GochanoLanguage.text('Rice', 'চাল'),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.lg,
+            GochanoSpacing.xs,
+            GochanoSpacing.lg,
+            GochanoSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _isEdit
+                    ? GochanoLanguage.text('Edit item', 'আইটেম সম্পাদনা')
+                    : GochanoLanguage.text('Add item', 'আইটেম যোগ'),
+                style: type.sectionHeading,
               ),
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _quantity,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
-                    decoration: InputDecoration(
-                      labelText: GochanoLanguage.text('Quantity', 'পরিমাণ'),
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
+              const SizedBox(height: GochanoSpacing.md),
+              TextField(
+                controller: _title,
+                autofocus: !_isEdit,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text('Item', 'আইটেম'),
+                  hintText: GochanoLanguage.text('Rice', 'চাল'),
                 ),
-                const SizedBox(width: GochanoSpacing.xs),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _unit,
-                    decoration: InputDecoration(
-                      labelText: GochanoLanguage.text('Unit', 'একক'),
-                    ),
-                    items: [
-                      for (final unit in _units)
-                        DropdownMenuItem(value: unit, child: Text(unit)),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _unit = value ?? _units.first),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-            TextField(
-              controller: _unitPrice,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-              ],
-              decoration: InputDecoration(
-                labelText: GochanoLanguage.text('Unit price', 'একক দাম'),
-                prefixText: '৳ ',
               ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-
-            // Live total, so the student can check the arithmetic before
-            // committing it to their spending (spec §51).
-            Container(
-              padding: const EdgeInsets.all(GochanoSpacing.sm),
-              decoration: BoxDecoration(
-                color: colors.surfaceVariant,
-                borderRadius: GochanoRadius.mdAll,
-              ),
-              child: Row(
+              const SizedBox(height: GochanoSpacing.sm),
+              Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      GochanoLanguage.text('Total', 'মোট'),
-                      style: type.label,
+                    child: TextField(
+                      controller: _quantity,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: GochanoLanguage.text('Quantity', 'পরিমাণ'),
+                      ),
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
-                  Text(formatTaka(_total), style: type.statisticSmall),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _unit,
+                      decoration: InputDecoration(
+                        labelText: GochanoLanguage.text('Unit', 'একক'),
+                      ),
+                      items: [
+                        for (final unit in _units)
+                          DropdownMenuItem(value: unit, child: Text(unit)),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _unit = value ?? _units.first),
+                    ),
+                  ),
                 ],
               ),
-            ),
-
-            SwitchListTile.adaptive(
-              value: _purchased,
-              onChanged: (value) => setState(() => _purchased = value),
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                GochanoLanguage.text('Already purchased', 'কেনা হয়ে গেছে'),
-                style: type.body,
-              ),
-              subtitle: Text(
-                GochanoLanguage.text(
-                  'Records it as an expense in your monthly total.',
-                  'এটি আপনার মাসিক মোটে খরচ হিসেবে যোগ হবে।',
+              const SizedBox(height: GochanoSpacing.sm),
+              TextField(
+                controller: _unitPrice,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text('Unit price', 'একক দাম'),
+                  prefixText: '৳ ',
                 ),
-                style: type.caption,
+                onChanged: (_) => setState(() {}),
               ),
-            ),
+              const SizedBox(height: GochanoSpacing.sm),
 
-            if (_error != null) ...[
-              const SizedBox(height: GochanoSpacing.xs),
-              Text(
-                _error!,
-                style: type.bodySecondary.copyWith(color: colors.error),
+              // Live total, so the student can check the arithmetic before
+              // committing it to their spending (spec §51).
+              Container(
+                padding: const EdgeInsets.all(GochanoSpacing.sm),
+                decoration: BoxDecoration(
+                  color: colors.surfaceVariant,
+                  borderRadius: GochanoRadius.mdAll,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text('Total', 'মোট'),
+                        style: type.label,
+                      ),
+                    ),
+                    Text(formatTaka(_total), style: type.statisticSmall),
+                  ],
+                ),
+              ),
+
+              SwitchListTile.adaptive(
+                value: _purchased,
+                onChanged: (value) => setState(() => _purchased = value),
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  GochanoLanguage.text('Already purchased', 'কেনা হয়ে গেছে'),
+                  style: type.body,
+                ),
+                subtitle: Text(
+                  GochanoLanguage.text(
+                    'Records it as an expense in your monthly total.',
+                    'এটি আপনার মাসিক মোটে খরচ হিসেবে যোগ হবে।',
+                  ),
+                  style: type.caption,
+                ),
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  _error!,
+                  style: type.bodySecondary.copyWith(color: colors.error),
+                ),
+              ],
+              const SizedBox(height: GochanoSpacing.sm),
+              PrimaryButton(
+                label: GochanoLanguage.text('Save item', 'আইটেম সংরক্ষণ'),
+                busy: _saving,
+                busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
+                onPressed: _save,
               ),
             ],
-            const SizedBox(height: GochanoSpacing.sm),
-            PrimaryButton(
-              label: GochanoLanguage.text('Save item', 'আইটেম সংরক্ষণ'),
-              busy: _saving,
-              busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
-              onPressed: _save,
-            ),
-          ],
+          ),
         ),
       ),
     );
