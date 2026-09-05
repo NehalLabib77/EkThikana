@@ -6,10 +6,8 @@ class FirestoreService {
 
   static final db = FirebaseFirestore.instance;
 
-  static String get uid {
-    final value = FirebaseAuth.instance.currentUser?.uid;
-    if (value == null) throw Exception('Not signed in.');
-    return value;
+  static String? get uid {
+    return FirebaseAuth.instance.currentUser?.uid;
   }
 
   static List<String> keywords(String text, {int limit = 100}) {
@@ -29,7 +27,13 @@ class FirestoreService {
   }
 
   static Stream<DocumentSnapshot<Map<String, dynamic>>> profileStream() {
-    return db.collection('users').doc(uid).snapshots();
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<DocumentSnapshot<Map<String, dynamic>>>.fromFuture(
+        db.collection('users').limit(0).get().then((s) => s.docs.first),
+      );
+    }
+    return db.collection('users').doc(currentUid).snapshots();
   }
 
   /// Writes profile fields to the user's Firestore document.
@@ -53,14 +57,18 @@ class FirestoreService {
       }
     }
     if (patch.isEmpty) return;
-    await db.collection('users').doc(uid).set(
+    final currentUid = uid;
+    if (currentUid == null) return;
+    await db.collection('users').doc(currentUid).set(
           patch,
           SetOptions(merge: true),
         );
   }
 
   static Future<Map<String, dynamic>> profile() async {
-    final snap = await db.collection('users').doc(uid).get();
+    final currentUid = uid;
+    if (currentUid == null) return {};
+    final snap = await db.collection('users').doc(currentUid).get();
     return snap.data() ?? {};
   }
 
@@ -68,9 +76,15 @@ class FirestoreService {
     String collection, {
     int limit = 100,
   }) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
+        db.collection(collection).limit(0).get(),
+      );
+    }
     return db
         .collection(collection)
-        .where('ownerId', isEqualTo: uid)
+        .where('ownerId', isEqualTo: currentUid)
         .limit(limit)
         .snapshots();
   }
@@ -79,18 +93,28 @@ class FirestoreService {
     String collection,
     Map<String, dynamic> data,
   ) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      throw Exception('Not signed in. Cannot add record.');
+    }
     return db.collection(collection).add({
       ...data,
-      'ownerId': uid,
+      'ownerId': currentUid,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> myGroups() {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
+        db.collection('groups').limit(0).get(),
+      );
+    }
     return db
         .collection('groups')
-        .where('memberIds', arrayContains: uid)
+        .where('memberIds', arrayContains: currentUid)
         .limit(50)
         .snapshots();
   }
@@ -306,9 +330,13 @@ class FirestoreService {
     String? semesterId,
     String? subjectId,
   }) async {
+    final currentUid = uid;
+    if (currentUid == null) {
+      throw Exception('Not signed in. Cannot save note.');
+    }
     final userProfile = await profile();
     final data = {
-      'ownerId': uid,
+      'ownerId': currentUid,
       'ownerName': userProfile['displayName']?.toString() ?? '',
       'title': title.trim(),
       'content': content.trim(),

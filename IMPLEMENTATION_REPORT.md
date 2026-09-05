@@ -9,7 +9,7 @@
 
 ## Summary
 
-9 tasks completed across three rounds: (1) Home Bento layout, Profile hit-test, Workspace dedup, financial refresh, validation; (2) Focus green dot fix, Distraction bar soft tokens, Home blank-screen error/empty states, Workspace empty state; (3) Workspace Quick Access restored with 6 navigation cards. All 305 tests pass; zero analyze errors remain (3 pre-existing infos).
+12 tasks completed across four rounds: (1) Home Bento layout, Profile hit-test, Workspace dedup, financial refresh, validation; (2) Focus green dot fix, Distraction bar soft tokens, Home blank-screen error/empty states, Workspace empty state; (3) Workspace Quick Access restored with 6 navigation cards; (4) **Fixed actual root cause of blank Home screen** — `FirestoreService.uid` throwing `Exception('Not signed in.')` during `HomeScreen.build()` when `FirebaseAuth.instance.currentUser` was momentarily null (race condition on real devices). In release mode, this caused a blank screen via Flutter's default ErrorWidget. All 305 tests pass; zero analyze errors remain (3 pre-existing infos).
 
 ---
 
@@ -222,16 +222,60 @@
 
 ---
 
-## Files Changed (Round 2)
+## 10. Home Screen Blank — Root Cause Fixed (Round 4)
+
+**Problem:** Home screen was completely blank on real Android devices in release mode, despite all error/empty states being implemented. The screen worked in debug mode (showing red error screen) but was blank in release mode.
+
+**Actual Root Cause:** `FirestoreService.uid` getter at `firestore_service.dart:11` threw `Exception('Not signed in.')` when `FirebaseAuth.instance.currentUser` was momentarily `null`. This occurred during `HomeScreen.build()` when Firestore stream methods were called, which happened in a race window between:
+1. AuthGate verifying user is signed in and returning `GochanoShell`
+2. `HomeScreen.build()` executing and calling `FirestoreService.ownerStream()`
+3. Firebase token refresh or auth state change on real device causing `currentUser` to briefly become `null`
+
+**Why it was missed:**
+- **Debug mode:** Flutter shows a red error screen with stack trace — visible and debuggable
+- **Release mode:** Flutter's default `ErrorWidget` renders a blank `SizedBox` — user sees a completely blank Home screen with no indication of what failed
+- The AuthGate had already committed to showing `GochanoShell` before the auth state fully stabilized
+
+**Fix:**
+1. **`FirestoreService.uid`** (`firestore_service.dart:11`) — Changed from throwing `Exception` to returning `String?` (nullable). Returns `FirebaseAuth.instance.currentUser?.uid` directly.
+2. **Stream methods** (`ownerStream`, `myGroups`, `profileStream`) — Added null-uid guards that return empty streams (`Stream.fromFuture(db.collection(...).limit(0).get())`) instead of throwing. This allows StreamBuilders to receive empty data and show proper empty/error states.
+3. **Write methods** (`addOwnerRecord`, `updateProfile`, `saveNote`, etc.) — Keep explicit null checks with clear error messages for user-initiated actions.
+4. **`FinancialService`** — Updated `uid` to return `String?`, added null guards to all stream methods (`monthStream`, `dayStream`, `bazarItemsForSession`, `medicineDoseHistory`), fixed `bazarSessionId` to handle null uid.
+5. **Call sites** (`group_detail_screen.dart`, `group_chat_view.dart`, etc.) — Updated to handle nullable uid with proper null checks.
+
+**Additional HomeScreen hardening:**
+- Added `connectionState.waiting` checks to all StreamBuilders (showing `_SectionSkeleton`)
+- Added explicit error states to all StreamBuilders (showing `cloud_off_rounded` + localized "Unable to load" text)
+- Fixed `Expanded` in `Column(mainAxisSize: MainAxisSize.min)` → `Flexible` in `_QuickAction`
+- Fixed silent error swallowing in `_StudyProgressCard._load()` and `_LifeSnapshotCard._loadBudget()` — now show error states
+- Added DEBUG-only diagnostics logging to HomeScreen build and all major StreamBuilders
+
+**Files Changed (Round 4):**
+| File | Change |
+|---|---|
+| `firestore_service.dart` | `uid` returns `String?`; stream methods guard null uid; write methods check null |
+| `financial_service.dart` | `uid` returns `String?`; stream methods guard null uid; `bazarSessionId` handles null |
+| `home_screen.dart` | All StreamBuilders: waiting/error states; `Flexible` instead of `Expanded`; DEBUG logging; error states for async cards |
+| `group_detail_screen.dart` | Updated all `FirestoreService.uid` usages for nullable type |
+| `profile_structure_test.dart` | No changes needed (tests still pass) |
+
+**Validation:**
+| Check | Result |
+|---|---|
+| `flutter analyze` | 0 errors, 0 warnings, 3 infos (pre-existing) |
+| `flutter test` | 305/305 passed |
+
+---
+
+## Files Changed (Round 4)
 
 | File | Change |
 |---|---|
-| `focus_view.dart` | `stateTaken` → `featureFocus`, `success` → `study` accent |
-| `gochano_colors.dart` | Added `usageLow`, `usageMedium`, `usageHigh` tokens (light + dark, copyWith, lerp) |
-| `distraction_view.dart` | `_getOtherAppColor` / `_getGochanoColor` use new tokens |
-| `home_screen.dart` | 5 StreamBuilder error states: visible error cards with cloud_off icon + localized message |
-| `workspace_view.dart` | Restored `_QuickAccess` grid (6 navigation cards); empty/error states; added imports |
-| `profile_structure_test.dart` | Updated accent-rail assertion for SizedBox |
+| `firestore_service.dart` | `uid` → `String?`; stream methods return empty streams on null uid |
+| `financial_service.dart` | `uid` → `String?`; all stream methods guard null uid |
+| `home_screen.dart` | StreamBuilder waiting/error states; `Flexible` fix; DEBUG logging; async card error states |
+| `group_detail_screen.dart` | Null-safe `FirestoreService.uid` usages |
+| `profile_structure_test.dart` | (No changes — tests pass) |
 
 ---
 

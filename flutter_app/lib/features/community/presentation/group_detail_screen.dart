@@ -86,9 +86,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
             .toList();
         final chatEnabled = data['chatEnabled'] == true;
         final ownerId = data['ownerId']?.toString() ?? '';
+        final currentUid = FirestoreService.uid;
         final isAdmin =
-            adminIds.contains(FirestoreService.uid) ||
-            (ownerId.isNotEmpty && ownerId == FirestoreService.uid);
+            currentUid != null && (adminIds.contains(currentUid) || (ownerId.isNotEmpty && ownerId == currentUid));
 
         return GochanoScaffold(
           padBody: false,
@@ -1188,7 +1188,8 @@ class _TaskTile extends StatelessWidget {
     final assigneeId = taskData['assigneeId']?.toString();
     final completed = taskData['completed'] == true;
     final deadline = taskData['deadline'];
-    final isMyTask = assigneeId == FirestoreService.uid;
+    final currentUid = FirestoreService.uid;
+    final isMyTask = assigneeId != null && currentUid != null && assigneeId == currentUid;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
@@ -1421,12 +1422,15 @@ Future<void> _toggleTaskComplete(
 
     // Cancel the assignee's reminder when they complete the task.
     if (completed) {
-      await NotificationService.cancelCommunityTaskReminder(
-        groupId: groupId,
-        projectId: projectId,
-        taskId: taskId,
-        userId: FirestoreService.uid,
-      );
+      final currentUid = FirestoreService.uid;
+      if (currentUid != null) {
+        await NotificationService.cancelCommunityTaskReminder(
+          groupId: groupId,
+          projectId: projectId,
+          taskId: taskId,
+          userId: currentUid,
+        );
+      }
     }
   } catch (error) {
     if (context.mounted) {
@@ -1730,6 +1734,7 @@ void _handleTaskAction(
 ) async {
   if (action == 'reminder') {
     final userId = FirestoreService.uid;
+    if (userId == null) return;
     final deadline = taskData['deadline'];
     if (deadline is! Timestamp) return;
     final deadlineDt = deadline.toDate();
@@ -2110,7 +2115,8 @@ class _MemberRow extends StatelessWidget {
         final name = (data?['nickname']?.toString().isNotEmpty == true)
             ? data!['nickname']!.toString()
             : (data?['displayName']?.toString() ?? '');
-        final isMe = uid == FirestoreService.uid;
+        final currentUid = FirestoreService.uid;
+        final isMe = currentUid != null && uid == currentUid;
 
         return GochanoListRow(
           illustration: GochanoArt.featureProfile,

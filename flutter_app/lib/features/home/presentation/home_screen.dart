@@ -8,6 +8,7 @@
 //   Study Progress → Life Snapshot: Remaining + Spent → Recent
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_art.dart';
@@ -62,6 +63,12 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = _firstName();
     final title = name.isEmpty ? _greeting() : '${_greeting()}, $name';
+
+    // DEBUG: Log HomeScreen build and auth state
+    if (kDebugMode) {
+      final uid = FirestoreService.uid;
+      debugPrint('[HomeScreen] build called, role=$_isStudent, uid=$uid, displayName=$displayName');
+    }
 
     return GochanoScaffold(
       padBody: false,
@@ -190,6 +197,12 @@ class _SmartSummaryCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('tasks', limit: 100),
       builder: (context, taskSnap) {
+        if (kDebugMode) {
+          debugPrint('[HomeScreen._SmartSummaryCard] tasks stream: connectionState=${taskSnap.connectionState}, hasError=${taskSnap.hasError}, hasData=${taskSnap.hasData}, docCount=${taskSnap.data?.docs.length ?? 0}');
+        }
+        if (taskSnap.connectionState == ConnectionState.waiting) {
+          return const _SectionSkeleton();
+        }
         if (taskSnap.hasError) {
           return _AccentRailCard(
             accent: colors.brand,
@@ -242,6 +255,47 @@ class _SmartSummaryCard extends StatelessWidget {
         return StreamBuilder<List<FinancialTransactionModel>>(
           stream: FinancialService.monthStream(now),
           builder: (context, moneySnap) {
+            if (kDebugMode) {
+              debugPrint('[HomeScreen._SmartSummaryCard] financial stream: connectionState=${moneySnap.connectionState}, hasError=${moneySnap.hasError}, hasData=${moneySnap.hasData}, itemCount=${moneySnap.data?.length ?? 0}');
+            }
+            if (moneySnap.connectionState == ConnectionState.waiting) {
+              return const _SectionSkeleton();
+            }
+            if (moneySnap.hasError) {
+              return _AccentRailCard(
+                accent: colors.brand,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: GochanoSpacing.md,
+                  vertical: GochanoSpacing.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      GochanoLanguage.text('Your Day', 'আপনার দিন'),
+                      style: context.type.sectionHeading,
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs),
+                    Row(
+                      children: [
+                        Icon(Icons.cloud_off_rounded, size: 16, color: colors.textTertiary),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'Unable to load spending',
+                              'খরচ লোড হয়নি',
+                            ),
+                            style: context.type.bodySecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }
             final items = moneySnap.data ?? const <FinancialTransactionModel>[];
             final today = FinancialService.dateKey(now);
             final todaySpent = items
@@ -355,6 +409,9 @@ class _TodaysTasksCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('tasks', limit: 100),
       builder: (context, snapshot) {
+        if (kDebugMode) {
+          debugPrint('[HomeScreen._TodaysTasksCard] tasks stream: connectionState=${snapshot.connectionState}, hasError=${snapshot.hasError}, hasData=${snapshot.hasData}, docCount=${snapshot.data?.docs.length ?? 0}');
+        }
         if (snapshot.hasError) {
           return _AccentRailCard(
             accent: colors.brand,
@@ -499,6 +556,9 @@ class _UpcomingTasksCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('tasks', limit: 100),
       builder: (context, snapshot) {
+        if (kDebugMode) {
+          debugPrint('[HomeScreen._UpcomingTasksCard] tasks stream: connectionState=${snapshot.connectionState}, hasError=${snapshot.hasError}, hasData=${snapshot.hasData}, docCount=${snapshot.data?.docs.length ?? 0}');
+        }
         if (snapshot.hasError) {
           return _AccentRailCard(
             accent: colors.commute,
@@ -672,6 +732,7 @@ class _StudyProgressCard extends StatefulWidget {
 
 class _StudyProgressCardState extends State<_StudyProgressCard> {
   Map<String, dynamic>? _stats;
+  String? _error;
 
   @override
   void initState() {
@@ -682,13 +743,26 @@ class _StudyProgressCardState extends State<_StudyProgressCard> {
   Future<void> _load() async {
     try {
       final stats = await ApiService.getStudyStats();
-      if (mounted) setState(() => _stats = stats);
-    } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Unable to load study stats');
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+
+    if (kDebugMode) {
+      debugPrint('[HomeScreen._StudyProgressCard] build: stats=$_stats, error=$_error');
+    }
 
     int read(String camel, String snake) {
       if (_stats == null) return 0;
@@ -718,7 +792,20 @@ class _StudyProgressCardState extends State<_StudyProgressCard> {
             ],
           ),
           const SizedBox(height: GochanoSpacing.xs),
-          if (_stats == null)
+          if (_error != null)
+            Row(
+              children: [
+                Icon(Icons.cloud_off_rounded, size: 14, color: colors.textTertiary),
+                const SizedBox(width: GochanoSpacing.xs),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: context.type.bodySecondary,
+                  ),
+                ),
+              ],
+            )
+          else if (_stats == null)
             Text(
               GochanoLanguage.text('Loading…', 'লোড হচ্ছে…'),
               style: context.type.bodySecondary,
@@ -802,6 +889,7 @@ class _LifeSnapshotCard extends StatefulWidget {
 
 class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
   double? _budget;
+  String? _budgetError;
 
   @override
   void initState() {
@@ -815,8 +903,11 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
       if (!mounted) return;
       setState(() {
         _budget = (body['availableAmount'] as num?)?.toDouble() ?? 0;
+        _budgetError = null;
       });
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) setState(() => _budgetError = 'Unable to load budget');
+    }
   }
 
   @override
@@ -827,6 +918,9 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
     return StreamBuilder<List<FinancialTransactionModel>>(
       stream: FinancialService.monthStream(now),
       builder: (context, snapshot) {
+        if (kDebugMode) {
+          debugPrint('[HomeScreen._LifeSnapshotCard] financial stream: connectionState=${snapshot.connectionState}, hasError=${snapshot.hasError}, hasData=${snapshot.hasData}, itemCount=${snapshot.data?.length ?? 0}, budget=$_budget, budgetError=$_budgetError');
+        }
         if (snapshot.hasError) {
           return _AccentRailCard(
             accent: colors.expense,
@@ -894,25 +988,39 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
                 ],
               ),
               const SizedBox(height: GochanoSpacing.xs),
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatPill(
-                      label: GochanoLanguage.text('Spent', 'খরচ'),
-                      value: formatTaka(summary.totalSpending),
-                      color: colors.expense,
+              if (_budgetError != null)
+                Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 14, color: colors.textTertiary),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        _budgetError!,
+                        style: context.type.bodySecondary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: _StatPill(
-                      label: GochanoLanguage.text('Remaining', 'বাকি'),
-                      value: formatTaka(remaining),
-                      color: remaining > 0 ? colors.success : colors.error,
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatPill(
+                        label: GochanoLanguage.text('Spent', 'খরচ'),
+                        value: formatTaka(summary.totalSpending),
+                        color: colors.expense,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: _StatPill(
+                        label: GochanoLanguage.text('Remaining', 'বাকি'),
+                        value: formatTaka(remaining),
+                        color: remaining > 0 ? colors.success : colors.error,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         );
@@ -937,6 +1045,9 @@ class _RecentMaterialsCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('materials', limit: 5),
       builder: (context, snapshot) {
+        if (kDebugMode) {
+          debugPrint('[HomeScreen._RecentMaterialsCard] materials stream: connectionState=${snapshot.connectionState}, hasError=${snapshot.hasError}, hasData=${snapshot.hasData}, docCount=${snapshot.data?.docs.length ?? 0}');
+        }
         if (snapshot.hasError) {
           return _AccentRailCard(
             accent: colors.study,
@@ -1247,7 +1358,7 @@ class _QuickAction extends StatelessWidget {
                 child: Icon(icon, size: 22, color: accent),
               ),
               const SizedBox(height: GochanoSpacing.xxs),
-              Expanded(
+              Flexible(
                 child: Text(
                   label,
                   textAlign: TextAlign.center,

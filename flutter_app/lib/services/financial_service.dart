@@ -8,7 +8,7 @@ class FinancialService {
   FinancialService._();
 
   static FirebaseFirestore get db => FirestoreService.db;
-  static String get uid => FirestoreService.uid;
+  static String? get uid => FirestoreService.uid;
 
   static String dateKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'
@@ -34,9 +34,10 @@ class FinancialService {
     required double amount,
     required DateTime date,
   }) {
+    final currentUid = uid;
     return {
-      'ownerId': uid,
-      'userId': uid,
+      'ownerId': currentUid,
+      'userId': currentUid,
       'type': type,
       'source': source,
       'sourceRecordId': sourceRecordId,
@@ -61,9 +62,15 @@ class FinancialService {
   static Stream<List<FinancialTransactionModel>> allTransactionsStream({
     int limit = 2000,
   }) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<List<FinancialTransactionModel>>.fromFuture(
+        Future.value(<FinancialTransactionModel>[]),
+      );
+    }
     return db
         .collection('financial_transactions')
-        .where('ownerId', isEqualTo: uid)
+        .where('ownerId', isEqualTo: currentUid)
         .limit(limit)
         .snapshots()
         .map((snapshot) {
@@ -77,9 +84,15 @@ class FinancialService {
   }
 
   static Stream<List<FinancialTransactionModel>> monthStream(DateTime month) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<List<FinancialTransactionModel>>.fromFuture(
+        Future.value(<FinancialTransactionModel>[]),
+      );
+    }
     return db
         .collection('financial_transactions')
-        .where('ownerId', isEqualTo: uid)
+        .where('ownerId', isEqualTo: currentUid)
         .where('monthKey', isEqualTo: monthKey(month))
         .snapshots()
         .map((snapshot) {
@@ -93,9 +106,15 @@ class FinancialService {
   }
 
   static Stream<List<FinancialTransactionModel>> dayStream(DateTime day) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<List<FinancialTransactionModel>>.fromFuture(
+        Future.value(<FinancialTransactionModel>[]),
+      );
+    }
     return db
         .collection('financial_transactions')
-        .where('ownerId', isEqualTo: uid)
+        .where('ownerId', isEqualTo: currentUid)
         .where('dateKey', isEqualTo: dateKey(day))
         .snapshots()
         .map((snapshot) {
@@ -209,15 +228,26 @@ class FinancialService {
     await batch.commit();
   }
 
-  static String bazarSessionId(DateTime date) =>
-      '${uid}_${dateKey(date).replaceAll('-', '')}';
+  static String bazarSessionId(DateTime date) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return 'unknown_${dateKey(date).replaceAll('-', '')}';
+    }
+    return '${currentUid}_${dateKey(date).replaceAll('-', '')}';
+  }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> bazarItemsForSession(
     String sessionId,
   ) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
+        db.collection('bazar_items').limit(0).get(),
+      );
+    }
     return db
         .collection('bazar_items')
-        .where('ownerId', isEqualTo: uid)
+        .where('ownerId', isEqualTo: currentUid)
         .where('sessionId', isEqualTo: sessionId)
         .snapshots();
   }
@@ -422,9 +452,15 @@ class FinancialService {
   static Stream<QuerySnapshot<Map<String, dynamic>>> medicineDoseHistory(
     String medicineId,
   ) {
+    final currentUid = uid;
+    if (currentUid == null) {
+      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
+        db.collection('medicine_doses').limit(0).get(),
+      );
+    }
     return db
         .collection('medicine_doses')
-        .where('ownerId', isEqualTo: uid)
+        .where('ownerId', isEqualTo: currentUid)
         .where('medicineId', isEqualTo: medicineId)
         .limit(500)
         .snapshots();
