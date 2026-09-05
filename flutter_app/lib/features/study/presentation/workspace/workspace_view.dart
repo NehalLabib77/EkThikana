@@ -50,6 +50,62 @@ class _QuickAccess extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
+    final items = <_QuickAccessItem>[
+      _QuickAccessItem(
+        icon: Icons.auto_awesome_rounded,
+        label: GochanoLanguage.text('AI Assistant', 'এআই সহকারী'),
+        accent: colors.ai,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
+        ),
+      ),
+      _QuickAccessItem(
+        icon: Icons.notes_rounded,
+        label: GochanoLanguage.text('Notes', 'নোট'),
+        accent: colors.study,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const NotesScreen()),
+        ),
+      ),
+      _QuickAccessItem(
+        icon: Icons.picture_as_pdf_rounded,
+        label: GochanoLanguage.text('PDFs', 'পিডিএফ'),
+        accent: colors.error,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) =>
+                const MaterialsScreen(mimeFilter: 'application/pdf'),
+          ),
+        ),
+      ),
+      _QuickAccessItem(
+        icon: Icons.photo_library_rounded,
+        label: GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি'),
+        accent: colors.commute,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => const MaterialsScreen(mimeFilter: 'image/'),
+          ),
+        ),
+      ),
+      _QuickAccessItem(
+        icon: Icons.school_rounded,
+        label: GochanoLanguage.text('Semester', 'সেমিস্টার'),
+        accent: colors.expense,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const SemesterListScreen()),
+        ),
+      ),
+      _QuickAccessItem(
+        icon: Icons.folder_shared_rounded,
+        label: GochanoLanguage.text('Shared Box', 'শেয়ার্ড বক্স'),
+        accent: colors.community,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const SharedBoxScreen()),
+        ),
+      ),
+    ];
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,57 +120,22 @@ class _QuickAccess extends StatelessWidget {
               bottom: GochanoSpacing.xs,
             ),
           ),
-          _QuickAccessTile(
-            icon: Icons.auto_awesome_rounded,
-            label: GochanoLanguage.text('AI Assistant', 'এআই সহকারী'),
-            accent: colors.ai,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
-            ),
-          ),
-          _QuickAccessTile(
-            icon: Icons.notes_rounded,
-            label: GochanoLanguage.text('Notes', 'নোট'),
-            accent: colors.study,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const NotesScreen()),
-            ),
-          ),
-          _QuickAccessTile(
-            icon: Icons.picture_as_pdf_rounded,
-            label: GochanoLanguage.text('PDFs', 'পিডিএফ'),
-            accent: colors.error,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(
-                builder: (_) => const MaterialsScreen(mimeFilter: 'application/pdf'),
-              ),
-            ),
-          ),
-          _QuickAccessTile(
-            icon: Icons.photo_library_rounded,
-            label: GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি'),
-            accent: colors.commute,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(
-                builder: (_) => const MaterialsScreen(mimeFilter: 'image/'),
-              ),
-            ),
-          ),
-          _QuickAccessTile(
-            icon: Icons.school_rounded,
-            label: GochanoLanguage.text('Semester', 'সেমিস্টার'),
-            accent: colors.expense,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const SemesterListScreen()),
-            ),
-          ),
-          _QuickAccessTile(
-            icon: Icons.folder_shared_rounded,
-            label: GochanoLanguage.text('Shared Box', 'শেয়ার্ড বক্স'),
-            accent: colors.community,
-            onTap: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const SharedBoxScreen()),
-            ),
+          GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: GochanoSpacing.xs,
+            crossAxisSpacing: GochanoSpacing.xs,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 2.8,
+            children: [
+              for (final item in items)
+                _QuickAccessCell(
+                  icon: item.icon,
+                  label: item.label,
+                  accent: item.accent,
+                  onTap: item.onTap,
+                ),
+            ],
           ),
         ],
       ),
@@ -122,8 +143,22 @@ class _QuickAccess extends StatelessWidget {
   }
 }
 
-class _QuickAccessTile extends StatelessWidget {
-  const _QuickAccessTile({
+class _QuickAccessItem {
+  const _QuickAccessItem({
+    required this.icon,
+    required this.label,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color accent;
+  final VoidCallback onTap;
+}
+
+class _QuickAccessCell extends StatelessWidget {
+  const _QuickAccessCell({
     required this.icon,
     required this.label,
     required this.accent,
@@ -137,44 +172,32 @@ class _QuickAccessTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: GochanoSpacing.xxs),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: GochanoRadius.mdAll,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: GochanoSpacing.xs,
-            vertical: GochanoSpacing.xxs,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: GochanoRadius.mdAll,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: GochanoRadius.smAll,
+            ),
+            child: Icon(icon, size: 22, color: accent),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: GochanoRadius.smAll,
-                ),
-                child: Icon(icon, size: 20, color: accent),
-              ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: Text(
-                  label,
-                  style: context.type.body.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: context.colors.textTertiary,
-              ),
-            ],
+          const SizedBox(height: GochanoSpacing.xxs),
+          Text(
+            label,
+            style: context.type.caption.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
+        ],
       ),
     );
   }

@@ -127,14 +127,32 @@ class UsageStatsService {
   static final _inFlightDays = <String, Future<Map<String, int>>>{};
 
   static Future<bool> hasPermission() async {
+    if (kDebugMode) debugPrint('[UsageStats] hasPermission: checking…');
     final granted = await UsageStats.checkUsagePermission();
-    return granted ?? false;
+    final result = granted ?? false;
+    if (kDebugMode) debugPrint('[UsageStats] hasPermission: granted=$result');
+    return result;
   }
 
   /// Opens Android's Usage Access settings. The user grants or revokes access
   /// there; the app never changes this permission itself.
+  ///
+  /// Fires [UsageStats.grantUsagePermission] which sends the
+  /// `ACTION_USAGE_ACCESS_SETTINGS` intent on Android.
   static Future<void> openSettings() async {
+    if (kDebugMode) {
+      debugPrint(
+        '[UsageStats] openSettings: sending '
+        'ACTION_USAGE_ACCESS_SETTINGS intent…',
+      );
+    }
     await UsageStats.grantUsagePermission();
+    if (kDebugMode) {
+      debugPrint(
+        '[UsageStats] openSettings: intent sent. '
+        'User is now in system settings.',
+      );
+    }
   }
 
   /// Today's screen time from LOCAL 00:00 → now.

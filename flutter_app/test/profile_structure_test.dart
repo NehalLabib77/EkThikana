@@ -174,7 +174,8 @@ void main() {
       );
       // Quick Access navigation grid lives in the body.
       expect(source, contains('_QuickAccess'));
-      expect(source, contains('_QuickAccessTile'));
+      expect(source, contains('_QuickAccessCell'));
+      expect(source, contains('GridView.count'));
       expect(source, contains('AiAssistantScreen'));
       expect(source, contains('NotesScreen'));
       expect(source, contains('SemesterListScreen'));

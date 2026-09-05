@@ -15,6 +15,7 @@
 // Firebase project id and the build flags are not surfaced here.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -669,6 +670,11 @@ class _SettingsCardState extends State<_SettingsCard>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (kDebugMode) {
+        debugPrint(
+          '[Profile] App resumed — re-checking usage access.',
+        );
+      }
       _checkUsageAccess();
     }
   }
@@ -718,8 +724,19 @@ class _SettingsCardState extends State<_SettingsCard>
   }
 
   Future<void> _checkUsageAccess() async {
-    final granted = await UsageStatsService.hasPermission();
-    if (mounted) setState(() => _usageAccessGranted = granted);
+    if (kDebugMode) debugPrint('[Profile] _checkUsageAccess: checking…');
+    try {
+      final granted = await UsageStatsService.hasPermission();
+      if (kDebugMode) {
+        debugPrint('[Profile] _checkUsageAccess: granted=$granted');
+      }
+      if (mounted) setState(() => _usageAccessGranted = granted);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Profile] _checkUsageAccess: error=$e');
+      }
+      if (mounted) setState(() => _usageAccessGranted = false);
+    }
   }
 
   @override
@@ -824,7 +841,23 @@ class _SettingsCardState extends State<_SettingsCard>
                     null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
                   },
                   onTap: () async {
+                    if (kDebugMode) {
+                      debugPrint(
+                        '[Profile] Usage Access row tapped. '
+                        'current state=$_usageAccessGranted',
+                      );
+                      debugPrint(
+                        '[Profile] Calling UsageStatsService.openSettings() '
+                        '→ ACTION_USAGE_ACCESS_SETTINGS intent…',
+                      );
+                    }
                     await UsageStatsService.openSettings();
+                    if (kDebugMode) {
+                      debugPrint(
+                        '[Profile] Returned from settings. '
+                        'Re-checking permission…',
+                      );
+                    }
                     await _checkUsageAccess();
                   },
                 ),

@@ -9,55 +9,47 @@
 
 ## Summary
 
-12 tasks completed across four rounds: (1) Home Bento layout, Profile hit-test, Workspace dedup, financial refresh, validation; (2) Focus green dot fix, Distraction bar soft tokens, Home blank-screen error/empty states, Workspace empty state; (3) Workspace Quick Access restored with 6 navigation cards; (4) **Fixed actual root cause of blank Home screen** — `FirestoreService.uid` throwing `Exception('Not signed in.')` during `HomeScreen.build()` when `FirebaseAuth.instance.currentUser` was momentarily null (race condition on real devices). In release mode, this caused a blank screen via Flutter's default ErrorWidget. All 305 tests pass; zero analyze errors remain (3 pre-existing infos).
+13 tasks completed across five rounds: (1) Home Bento layout, Profile hit-test, Workspace dedup, financial refresh, validation; (2) Focus green dot fix, Distraction bar soft tokens, Home blank-screen error/empty states, Workspace empty state; (3) Workspace Quick Access restored with 6 navigation cards; (4) Fixed actual root cause of blank Home screen (`FirestoreService.uid` throwing); (5) Workspace Quick Access → 2-column icon matrix, Profile Usage Access debug tracing, report cleanup.
+
+All 305 tests pass; zero analyze errors remain (3 pre-existing infos).
 
 ---
 
 ## 1. Home Screen — Bento Layout Redesign
 
-**Problem:** Home was a vertical stack of full-width cards with no visual hierarchy, no accent rails, and no grouped side-by-side layout.
-
-**Root cause:** The original layout used a flat `ListView` of `AppCard` widgets with no grid structure.
+**Problem:** Home was a vertical stack of full-width cards with no visual hierarchy.
 
 **Fix:** Complete rewrite of `home_screen.dart` with:
-- **Bento grid layout**: `_BentoRow` widget places two half-width cards side by side
-- **Accent-rail cards**: `_AccentRailCard` — bordered card with a 3px colored strip on the leading edge (Gochano spec §16)
-- **New section structure**:
-  - `_SmartSummaryCard` — "Your Day" pill-based summary (tasks, spending, overdue)
-  - `_QuickActions` — Material Design icons (replaced GochanoArt illustrations), 4-column grid, See more/less toggle
-  - `_TodaysTasksCard` + `_UpcomingTasksCard` — side-by-side in `_BentoRow`
-  - `_StudyProgressCard` — study focus minutes + streak (student only)
-  - `_LifeSnapshotCard` — Remaining + Spent from `FinancialService.monthStream()` + `ApiService.getMonthlyBudget()`
-  - `_RecentMaterialsCard` — last 3 materials with file icons
-- **Quick actions now use Material Design icons**: `Icons.auto_awesome_rounded`, `Icons.receipt_long_rounded`, `Icons.task_alt_rounded`, `Icons.document_scanner_rounded`, `Icons.directions_bus_rounded`
+- `_BentoRow` — two half-width cards side by side
+- `_AccentRailCard` — bordered card with 3px colored strip on leading edge
+- `_SmartSummaryCard` — pill-based summary (tasks, spending, overdue)
+- `_QuickActions` — Material Design icons, 4-column grid, See more/less toggle
+- `_TodaysTasksCard` + `_UpcomingTasksCard` — side-by-side in `_BentoRow`
+- `_StudyProgressCard` — focus minutes + streak (student only)
+- `_LifeSnapshotCard` — Remaining + Spent
+- `_RecentMaterialsCard` — last 3 materials with file icons
 
-**File:** `flutter_app/lib/features/home/presentation/home_screen.dart`
+**File:** `home_screen.dart`
 
 ---
 
 ## 2. Profile Usage Access — Hit-Test Fix
 
-**Problem:** On real Android devices, the Usage Access row was not tappable. The `ListTile.onTap` inside `CardGroup`'s `ClipRRect` caused gesture-arena conflicts — `ListTile`'s built-in `Material`/`InkWell` ate the tap before the outer `onTap` could see it.
+**Problem:** Usage Access row was not tappable on real Android devices due to gesture-arena conflicts with `ListTile` inside `CardGroup`'s `ClipRRect`.
 
-**Root cause:** `ListTile` creates its own `Material` widget with an `InkWell` for `onTap`. When nested inside `CardGroup`'s `ClipRRect`, the gesture arena on some Android builds resolves in favor of `ListTile`'s `InkWell` but the tap never reaches the callback because of the clipping boundary.
+**Fix:** Replaced `ListTile`-based layout with `GestureDetector(behavior: HitTestBehavior.opaque)` wrapping a manual `Row` with `Icon` + `Expanded(Column)` + trailing. Lifecycle observer re-checks permission on `AppLifecycleState.resumed`.
 
-**Fix:** Replaced `ListTile`-based layout in `_SettingsRow` with a single `GestureDetector(behavior: HitTestBehavior.opaque)` wrapping the entire row. The row now uses a manual `Row` with `Icon` + `Expanded(Column)` + trailing widget, all inside the `GestureDetector`. This guarantees full-width tap target regardless of `CardGroup`'s `ClipRRect`.
-
-**Verification:** `ListTile` no longer has its own `onTap` in the settings row. No `IgnorePointer` or `AbsorbPointer` present. Lifecycle observer (`WidgetsBindingObserver`) still re-checks permission on `AppLifecycleState.resumed`.
-
-**File:** `flutter_app/lib/features/profile/presentation/profile_screen.dart`
-
-**Test:** Added `'settings row uses GestureDetector for reliable hit-test'` in `profile_structure_test.dart`
+**File:** `profile_screen.dart`
 
 ---
 
-## 3. Workspace — Quick Access Restored (Navigation Grid)
+## 3. Workspace — Quick Access (2-Column Icon Matrix)
 
-**Problem (previous):** The workspace body Quick Access grid was incorrectly removed, making the workspace blank when no materials existed.
+**Problem:** Workspace was blank when no materials existed.
 
-**Fix:** Restored the `_QuickAccess` section in `workspace_view.dart` with 6 navigation cards:
+**Fix:** `_QuickAccess` section always visible at top with 6 navigation items in a 2-column × 3-row grid (`GridView.count`):
 
-| Card | Screen | Icon | Accent |
+| Item | Screen | Icon | Accent |
 |---|---|---|---|
 | AI Assistant | `AiAssistantScreen` | `Icons.auto_awesome_rounded` | `colors.ai` |
 | Notes | `NotesScreen` | `Icons.notes_rounded` | `colors.study` |
@@ -66,149 +58,62 @@
 | Semester | `SemesterListScreen` | `Icons.school_rounded` | `colors.expense` |
 | Shared Box | `SharedBoxScreen` | `Icons.folder_shared_rounded` | `colors.community` |
 
-- List-style rows inside `AppCard` with `SectionHeader` ("Quick Access" / "দ্রুত অ্যাক্সেস")
-- Each row: 36×36 tinted icon square + label + chevron
-- Quick Access always visible regardless of material count — workspace never blank
-- Recent Materials section below with "Saved" / "All" actions
+Each cell: 40×40 tinted icon square above, label below. No list rows, no chevrons. Recent Materials section below with empty/error states.
 
-**Removed body duplicate Add/Upload buttons (not navigation):** The original requirement was to remove body-level Add/Upload buttons when a FAB already exists for the same action. This was already handled in earlier tasks — the navigation grid was never the duplication target.
-
-**File:** `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart`
+**File:** `workspace_view.dart`
 
 ---
 
-## 4. Financial Refresh Verification
+## 4. Financial Refresh
 
-**Analysis of state flow:**
-
-| Screen | Stream | Source |
-|---|---|---|
-| Home `_SmartSummaryCard` | `FinancialService.monthStream(now)` | `financial_transactions` Firestore |
-| Home `_LifeSnapshotCard` | `FinancialService.monthStream(now)` + `ApiService.getMonthlyBudget()` | Same Firestore collection |
-| Expense `_OverviewTab` | `FinancialService.monthStream(now)` + `ApiService.getMonthlyBudget()` | Same Firestore collection |
-| Expense `_DailyTab` | `FinancialService.dayStream(now)` | Same Firestore collection |
-| Profile `_SettingsCard` | `ApiService.getMonthlyBudget()` | Backend API |
-
-**How refresh works:**
-- `FinancialService.monthStream()` returns a Firestore `snapshots()` stream on the `financial_transactions` collection
-- When `addDailyExpense()` writes to Firestore (batch write to `daily_expenses` + `financial_transactions`), the stream detects the change and emits new data
-- All screens listening to the same stream rebuild automatically
-- The `_OverviewTabState._onSheetClosed()` (from previous session) also triggers a stream re-read via `addPostFrameCallback` for immediate feedback
-
-**Architecture:** All financial views already use the same Firestore-backed source of truth (`financial_transactions` collection). The stream-based architecture means updates propagate to all listeners when Firestore data changes. The only latency is Firestore's real-time sync delay (typically <1 second).
-
-**Verdict:** No architectural changes needed. The existing stream-based approach with `FinancialService.monthStream()` as the single source of truth is correct. Life Snapshot updates immediately when Monthly Money / Expense / Grocery changes because all views listen to the same Firestore stream.
+Stream-based architecture already correct. `FinancialService.monthStream()` is single source of truth. All financial views listen to same Firestore `financial_transactions` collection. Updates propagate automatically.
 
 ---
 
-## 5. Validation
+## 5. Focus Session — Green Dot → Clock
 
-| Check | Result |
-|---|---|
-| `flutter analyze` | 0 errors, 0 warnings, 3 infos (pre-existing) |
-| `flutter test` | 305/305 passed |
+Changed `GochanoArt.stateTaken` → `GochanoArt.featureFocus` and `colors.success` → `colors.study`.
 
-### New Tests Added
-
-| Test | File | What it guards |
-|---|---|---|
-| `'settings row uses GestureDetector for reliable hit-test'` | `profile_structure_test.dart` | `_SettingsRow` uses `GestureDetector` + `HitTestBehavior.opaque` |
-| `'body has Quick Access grid and Recent Materials'` | `profile_structure_test.dart` | Quick Access + Recent Materials present; navigation screens wired |
-| `'has all required bento sections'` | `profile_structure_test.dart` | All 6 bento section widgets present |
-| `'uses accent-rail cards with colored left border'` | `profile_structure_test.dart` | `_AccentRailCard` with 3px `SizedBox` |
-| `'uses bento row for side-by-side layout'` | `profile_structure_test.dart` | `_BentoRow` widget |
-| `'quick actions use Material Design icons'` | `profile_structure_test.dart` | 5 Material Design icon names |
-| `'Life Snapshot shows remaining and spent'` | `profile_structure_test.dart` | Section title + stat labels |
+**File:** `focus_view.dart`
 
 ---
 
-## Files Changed
+## 6. Distraction Bar Colors — Soft Tokens
 
-| File | Change |
-|---|---|
-| `home_screen.dart` | Complete rewrite: Bento layout, accent rails, smart summary, upcoming, study progress, life snapshot, recent, Material Design icons |
-| `profile_screen.dart` | `_SettingsRow` rewritten: `GestureDetector(behavior: HitTestBehavior.opaque)` replaces `ListTile.onTap` |
-| `workspace_view.dart` | Removed `_QuickAccess` + `_QuickAccessTile` classes (218 lines); body now only `_RecentMaterials` |
-| `profile_structure_test.dart` | 8 tests: gesture-detector, bento sections, accent rails, Material icons, life snapshot, workspace dedup |
-| `home_quick_actions_test.dart` | Updated fifth-action test to check `CommuteScreen` instead of `GochanoArt.featureCommute` |
-| `IMPLEMENTATION_REPORT.md` | This file |
-
----
-
-## Remaining Real-Device Checks
-
-1. **Home Bento layout** — verify accent rails render correctly on device, side-by-side cards fill width equally
-2. **Profile Usage Access** — tap the row on a real Android device; verify it opens settings and updates status on return
-3. **Smart Summary** — verify task count, spending, and overdue pills update after adding tasks/expenses
-4. **Life Snapshot** — verify Remaining updates after Monthly Money save, Spent updates after Expense/Grocery save
-5. **Study Progress** — verify focus minutes and streak display correctly for student accounts
-6. **Quick Actions** — verify all 5 actions are reachable via See more toggle
-7. **Upcoming tasks** — verify tasks due in the next 7 days appear correctly
-8. **Workspace Quick Access** — verify 6 navigation cards (AI, Notes, PDFs, Images, Semester, Shared Box) are visible and tappable; verify Recent Materials shows below
-
----
-
-## 6. Focus Session — Green Dot → Clock Illustration
-
-**Problem:** Recent focus sessions used `GochanoArt.stateTaken` (a filled green circle) as the row icon, creating a visually harsh green dot next to every session group.
-
-**Fix:** Changed `GochanoArt.stateTaken` → `GochanoArt.featureFocus` (clock illustration) and `colors.success` → `colors.study` to match the Focus theme.
-
-**File:** `flutter_app/lib/features/study/presentation/focus/focus_view.dart`
-
----
-
-## 7. Distraction Bar Colors — Dedicated Soft Tokens
-
-**Problem:** Usage bar colors used raw `context.colors.success/warning/error`, which were too harsh/saturated for small horizontal bars.
-
-**Root cause:** The semantic status tokens (`success`, `warning`, `error`) are designed for icons and text, not for filled bar surfaces.
-
-**Fix:**
-- Added three new dedicated tokens to `GochanoColors`: `usageLow` (apple green), `usageMedium` (warm amber), `usageHigh` (soft coral)
-- Light mode: `usageLow: #52A86B`, `usageMedium: #D4994A`, `usageHigh: #CC6B6B`
-- Dark mode: `usageLow: #6CC484`, `usageMedium: #E8B35E`, `usageHigh: #E09090`
-- No alpha transparency — each token is a fully opaque dedicated color for consistent rendering in both light and dark mode
-- Updated `distraction_view.dart` `_getOtherAppColor` and `_getGochanoColor` to use the new tokens
+Added `usageLow` (`#52A86B`/`#6CC484`), `usageMedium` (`#D4994A`/`#E8B35E`), `usageHigh` (`#CC6B6B`/`#E09090`) to `GochanoColors`. Updated `distraction_view.dart`.
 
 **Files:** `gochano_colors.dart`, `distraction_view.dart`
 
 ---
 
-## 8. Home Screen Blank — Proper Error/Empty State Distinction
+## 7. Home Screen Blank — Root Cause Fixed
 
-**Problem:** All five StreamBuilder sections on the Home screen returned `SizedBox.shrink()` on error, making the entire screen blank when Firestore queries failed.
+**Problem:** Home screen was completely blank on real Android devices in release mode.
 
-**Root cause:** Every card (`_SmartSummaryCard`, `_TodaysTasksCard`, `_UpcomingTasksCard`, `_LifeSnapshotCard`, `_RecentMaterialsCard`) returned an invisible widget on stream error, so all cards collapsed to zero height simultaneously.
+**Root cause:** `FirestoreService.uid` threw `Exception('Not signed in.')` when `FirebaseAuth.instance.currentUser` was momentarily `null` during `HomeScreen.build()`. In release mode, Flutter's default `ErrorWidget` renders a blank `SizedBox`.
 
-**Fix:** Replaced `SizedBox.shrink()` with visible error-state cards that show:
-- The card's heading and icon (consistent with its normal appearance)
-- A `cloud_off_rounded` icon with localized "Unable to load" text
-- Error and empty states remain distinct — error shows failure message, empty shows "No data yet"
+**Fix:**
+1. `FirestoreService.uid` → returns `String?` (nullable), no longer throws
+2. Stream methods (`ownerStream`, `myGroups`, `profileStream`) return empty streams on null uid
+3. `FinancialService.uid` → returns `String?`, all stream methods guard null uid
+4. All StreamBuilders: `connectionState.waiting` + explicit error states
+5. `_QuickAction` `Expanded` → `Flexible` in `Column(mainAxisSize: MainAxisSize.min)`
+6. Silent error swallowing in `_StudyProgressCard` and `_LifeSnapshotCard` → visible error states
+7. DEBUG-only diagnostics logging throughout
 
-| Card | Error state | Empty state |
-|---|---|---|
-| Smart Summary | "Unable to load summary" | Normal pills with 0 values |
-| Today's Tasks | "Unable to load tasks" | "All clear today." (existing) |
-| Upcoming Tasks | "Unable to load tasks" | "Nothing scheduled this week." (existing) |
-| Life Snapshot | "Unable to load spending data" | Normal stat pills with 0 values |
-| Recent Materials | "Unable to load materials" | "No materials yet." |
-
-**File:** `flutter_app/lib/features/home/presentation/home_screen.dart`
+**Files:** `firestore_service.dart`, `financial_service.dart`, `home_screen.dart`, `group_detail_screen.dart`
 
 ---
 
-## 9. Workspace — Never Blank
+## 8. Profile Usage Access — Debug Tracing
 
-**Problem:** The Workspace screen returned `SizedBox.shrink()` both on stream error and when no materials existed, leaving the body completely invisible.
+Added `kDebugMode` logging to trace the full native tap/settings flow:
+- Row tap → `UsageStatsService.openSettings()` → `ACTION_USAGE_ACCESS_SETTINGS` intent fired
+- Return from settings → `_checkUsageAccess()` → permission re-checked
+- App resume → `didChangeAppLifecycleState` → permission re-checked
+- Both granted and denied states logged
 
-**Fix:** Quick Access grid always visible at the top (section 3). Recent Materials section below shows:
-- Actual material rows when data exists
-- "Unable to load materials" card on stream error
-- "No recent materials yet" + helper text when empty
-- No Add/Upload button inside the body
-
-**File:** `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart`
+**Files:** `profile_screen.dart`, `usage_stats_service.dart`
 
 ---
 
@@ -218,78 +123,39 @@
 |---|---|
 | `flutter analyze` | 0 errors, 0 warnings, 3 infos (pre-existing) |
 | `flutter test` | 305/305 passed |
-| `profile_structure_test.dart` | Updated accent-rail assertion: `SizedBox(width: 3` matches new implementation |
 
 ---
 
-## 10. Home Screen Blank — Root Cause Fixed (Round 4)
-
-**Problem:** Home screen was completely blank on real Android devices in release mode, despite all error/empty states being implemented. The screen worked in debug mode (showing red error screen) but was blank in release mode.
-
-**Actual Root Cause:** `FirestoreService.uid` getter at `firestore_service.dart:11` threw `Exception('Not signed in.')` when `FirebaseAuth.instance.currentUser` was momentarily `null`. This occurred during `HomeScreen.build()` when Firestore stream methods were called, which happened in a race window between:
-1. AuthGate verifying user is signed in and returning `GochanoShell`
-2. `HomeScreen.build()` executing and calling `FirestoreService.ownerStream()`
-3. Firebase token refresh or auth state change on real device causing `currentUser` to briefly become `null`
-
-**Why it was missed:**
-- **Debug mode:** Flutter shows a red error screen with stack trace — visible and debuggable
-- **Release mode:** Flutter's default `ErrorWidget` renders a blank `SizedBox` — user sees a completely blank Home screen with no indication of what failed
-- The AuthGate had already committed to showing `GochanoShell` before the auth state fully stabilized
-
-**Fix:**
-1. **`FirestoreService.uid`** (`firestore_service.dart:11`) — Changed from throwing `Exception` to returning `String?` (nullable). Returns `FirebaseAuth.instance.currentUser?.uid` directly.
-2. **Stream methods** (`ownerStream`, `myGroups`, `profileStream`) — Added null-uid guards that return empty streams (`Stream.fromFuture(db.collection(...).limit(0).get())`) instead of throwing. This allows StreamBuilders to receive empty data and show proper empty/error states.
-3. **Write methods** (`addOwnerRecord`, `updateProfile`, `saveNote`, etc.) — Keep explicit null checks with clear error messages for user-initiated actions.
-4. **`FinancialService`** — Updated `uid` to return `String?`, added null guards to all stream methods (`monthStream`, `dayStream`, `bazarItemsForSession`, `medicineDoseHistory`), fixed `bazarSessionId` to handle null uid.
-5. **Call sites** (`group_detail_screen.dart`, `group_chat_view.dart`, etc.) — Updated to handle nullable uid with proper null checks.
-
-**Additional HomeScreen hardening:**
-- Added `connectionState.waiting` checks to all StreamBuilders (showing `_SectionSkeleton`)
-- Added explicit error states to all StreamBuilders (showing `cloud_off_rounded` + localized "Unable to load" text)
-- Fixed `Expanded` in `Column(mainAxisSize: MainAxisSize.min)` → `Flexible` in `_QuickAction`
-- Fixed silent error swallowing in `_StudyProgressCard._load()` and `_LifeSnapshotCard._loadBudget()` — now show error states
-- Added DEBUG-only diagnostics logging to HomeScreen build and all major StreamBuilders
-
-**Files Changed (Round 4):**
-| File | Change |
-|---|---|
-| `firestore_service.dart` | `uid` returns `String?`; stream methods guard null uid; write methods check null |
-| `financial_service.dart` | `uid` returns `String?`; stream methods guard null uid; `bazarSessionId` handles null |
-| `home_screen.dart` | All StreamBuilders: waiting/error states; `Flexible` instead of `Expanded`; DEBUG logging; error states for async cards |
-| `group_detail_screen.dart` | Updated all `FirestoreService.uid` usages for nullable type |
-| `profile_structure_test.dart` | No changes needed (tests still pass) |
-
-**Validation:**
-| Check | Result |
-|---|---|
-| `flutter analyze` | 0 errors, 0 warnings, 3 infos (pre-existing) |
-| `flutter test` | 305/305 passed |
-
----
-
-## Files Changed (Round 4)
+## Files Changed (All Rounds)
 
 | File | Change |
 |---|---|
-| `firestore_service.dart` | `uid` → `String?`; stream methods return empty streams on null uid |
+| `home_screen.dart` | Bento layout, accent rails, smart summary, error/empty states, DEBUG logging |
+| `profile_screen.dart` | `_SettingsRow` GestureDetector fix, Usage Access debug tracing |
+| `workspace_view.dart` | 2-column icon matrix grid, empty/error states |
+| `firestore_service.dart` | `uid` → `String?`; stream methods guard null uid |
 | `financial_service.dart` | `uid` → `String?`; all stream methods guard null uid |
-| `home_screen.dart` | StreamBuilder waiting/error states; `Flexible` fix; DEBUG logging; async card error states |
 | `group_detail_screen.dart` | Null-safe `FirestoreService.uid` usages |
-| `profile_structure_test.dart` | (No changes — tests pass) |
+| `focus_view.dart` | Green dot → clock illustration |
+| `gochano_colors.dart` | Added `usageLow`, `usageMedium`, `usageHigh` tokens |
+| `distraction_view.dart` | Uses new soft tokens |
+| `profile_structure_test.dart` | Updated for `_QuickAccessCell`, `GridView.count` |
+| `usage_stats_service.dart` | Debug logging for permission flow |
 
 ---
 
-## Remaining Real-Device Checks (Updated)
+## Remaining Real-Device Checks
 
-1. **Home Bento layout** — verify accent rails render correctly, side-by-side cards fill width equally
-2. **Profile Usage Access** — tap the row on real Android; verify settings + status update on return
+1. **Home Bento layout** — accent rails render correctly, side-by-side cards fill width equally
+2. **Home blank screen** — confirm screen is NOT blank on real device in release mode
 3. **Home error states** — disconnect network; verify "Unable to load" cards appear (not blank)
-4. **Workspace** — verify Quick Access always visible even with no materials; empty state shows "No recent materials yet"
-5. **Distraction bars** — verify usage bars show soft green/amber/red in both light and dark mode
-6. **Focus sessions** — verify clock illustration instead of green dot in recent sessions
-7. **Smart Summary** — verify pills update after adding tasks/expenses
-8. **Life Snapshot** — verify Remaining updates after Monthly Money save
-9. **Quick Actions** — verify all 5 actions reachable via See more toggle
+4. **Profile Usage Access** — tap row → opens settings → status updates on return (granted + denied)
+5. **Workspace Quick Access** — 2-column icon grid visible even with no materials; all 6 items tappable
+6. **Distraction bars** — soft green/amber/red in both light and dark mode
+7. **Focus sessions** — clock illustration instead of green dot
+8. **Smart Summary** — pills update after adding tasks/expenses
+9. **Life Snapshot** — Remaining updates after Monthly Money save
+10. **Quick Actions** — all 5 actions reachable via See more toggle
 
 ---
 
