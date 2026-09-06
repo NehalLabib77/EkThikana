@@ -30,9 +30,9 @@ class WorkspaceView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: GochanoSpacing.scrollBody,
-      children: const [
-        _QuickAccess(),
-        SizedBox(height: GochanoSpacing.sm),
+      children: [
+        const _QuickAccess(),
+        const SizedBox(height: GochanoSpacing.sm),
         _RecentMaterials(),
       ],
     );
@@ -56,6 +56,22 @@ class _QuickAccessState extends State<_QuickAccess> {
   bool _expanded = false;
 
   @override
+  void initState() {
+    super.initState();
+    GochanoLanguage.current.addListener(_onLanguageChange);
+  }
+
+  @override
+  void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
+    super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
@@ -64,17 +80,17 @@ class _QuickAccessState extends State<_QuickAccess> {
         icon: Icons.auto_awesome_rounded,
         label: GochanoLanguage.text('AI Assistant', 'এআই সহকারী'),
         accent: colors.ai,
-        onTap: () => Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.notes_rounded,
         label: GochanoLanguage.text('Notes', 'নোট'),
         accent: colors.study,
-        onTap: () => Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const NotesScreen()),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const NotesScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.picture_as_pdf_rounded,
@@ -101,33 +117,31 @@ class _QuickAccessState extends State<_QuickAccess> {
         icon: Icons.school_rounded,
         label: GochanoLanguage.text('Semester', 'সেমিস্টার'),
         accent: colors.expense,
-        onTap: () => Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const SemesterListScreen()),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const SemesterListScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.folder_shared_rounded,
         label: GochanoLanguage.text('Shared Box', 'শেয়ার্ড বক্স'),
         accent: colors.community,
-        onTap: () => Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const SharedBoxScreen()),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const SharedBoxScreen())),
       ),
     ];
 
     final hasMore = items.length > _collapsedCount;
-    final visible =
-        (_expanded || !hasMore) ? items : items.take(_collapsedCount).toList();
+    final visible = (_expanded || !hasMore)
+        ? items
+        : items.take(_collapsedCount).toList();
 
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeader(
-            title: GochanoLanguage.text(
-              'Quick Access',
-              'দ্রুত অ্যাক্সেস',
-            ),
+            title: GochanoLanguage.text('Quick Access', 'দ্রুত অ্যাক্সেস'),
             padding: const EdgeInsets.only(
               top: GochanoSpacing.xs,
               bottom: GochanoSpacing.xs,
@@ -230,7 +244,7 @@ class _QuickAccessCell extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
-                  borderRadius: GochanoRadius.smAll,
+                  shape: BoxShape.circle,
                 ),
                 child: Icon(icon, size: 22, color: accent),
               ),
@@ -378,8 +392,7 @@ class _RecentMaterials extends StatelessWidget {
                         builder: (_) => MaterialReaderScreen(
                           materialId: doc.id,
                           title: _materialTitle(doc.data()),
-                          mimeType:
-                              doc.data()['mimeType']?.toString() ?? '',
+                          mimeType: doc.data()['mimeType']?.toString() ?? '',
                         ),
                       ),
                     ),

@@ -262,9 +262,8 @@ void main() {
     test('has all required bento sections', () {
       expect(source, contains('_SmartSummaryCard'));
       expect(source, contains('_TodaysTasksCard'));
-      expect(source, contains('_UpcomingTasksCard'));
       expect(source, contains('_StudyProgressCard'));
-      expect(source, contains('_LifeSnapshotCard'));
+      expect(source, contains('_MoneyCard'));
       expect(source, contains('_RecentMaterialsCard'));
     });
 
@@ -285,10 +284,10 @@ void main() {
       expect(source, contains('Icons.directions_bus_rounded'));
     });
 
-    test('Life Snapshot shows remaining and spent', () {
-      expect(source, contains('Life Snapshot'));
+    test('Money card shows spent and remaining labels', () {
+      expect(source, contains('Money'));
       expect(source, contains('Spent'));
-      expect(source, contains('Remaining'));
+      expect(source, contains('Rem'));
     });
   });
 }

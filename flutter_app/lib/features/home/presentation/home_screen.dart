@@ -5,10 +5,9 @@
 //
 // Structure (spec §27):
 //   Header → Your Day / Smart Summary → Quick Actions → Today → Upcoming →
-//   Study Progress → Life Snapshot: Remaining + Spent → Recent
+//   Study Progress → Money: Remaining + Spent → Recent
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_art.dart';
@@ -26,6 +25,11 @@ import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../life/presentation/expense/add_expense_sheet.dart';
 import '../../life/presentation/commute/commute_screen.dart';
+import '../../../core/localization/gochano_dates.dart';
+import '../../../services/notification_service.dart';
+import '../../../shared/states/gochano_states.dart';
+import '../../life/domain/medicine_schedule.dart';
+import '../../life/presentation/medicine/medicine_screen.dart';
 import '../../life/presentation/medicine/prescription_scan_screen.dart';
 import '../../study/presentation/ai/ai_assistant_screen.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
@@ -48,14 +52,6 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // DEBUG: Log HomeScreen build and auth state
-    if (kDebugMode) {
-      final uid = FirestoreService.uid;
-      debugPrint(
-        '[HomeScreen] build called, role=$_isStudent, uid=$uid, displayName=$displayName',
-      );
-    }
-
     return GochanoScaffold(
       padBody: false,
       appBar: _HomeAppBar(
@@ -71,25 +67,18 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: GochanoSpacing.sm),
           _QuickActions(isStudent: _isStudent),
           const SizedBox(height: GochanoSpacing.sm),
-          _BentoRow(
-            left: _TodaysTasksCard(
-              onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
-            ),
-            right: _UpcomingTasksCard(
-              onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
-            ),
+          _TodaysTasksCard(
+            onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
           ),
           if (_isStudent) ...[
             const SizedBox(height: GochanoSpacing.sm),
-            _BentoRow(
+            const _BentoRow(
               left: _StudyProgressCard(),
-              right: _LifeSnapshotCard(
-                onOpenExpense: () => onOpenDestination(_isStudent ? 2 : 1),
-              ),
+              right: _MedicineScheduleCard(),
             ),
           ] else ...[
             const SizedBox(height: GochanoSpacing.sm),
-            _LifeSnapshotCard(onOpenExpense: () => onOpenDestination(1)),
+            const _MedicineScheduleCard(),
           ],
           const SizedBox(height: GochanoSpacing.sm),
           _RecentMaterialsCard(onOpenStudy: () => onOpenDestination(0)),
@@ -125,30 +114,27 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
         builder: (context, snapshot) {
           final data = snapshot.data?.data();
           final photoURL = data?['photoURL'] as String?;
-          final displayName =
-              (data?['displayName'] as String?)?.trim() ?? '';
+          final displayName = (data?['displayName'] as String?)?.trim() ?? '';
 
           return Row(
             children: [
               CircleAvatar(
                 radius: 16,
                 backgroundColor: colors.brand,
-                backgroundImage:
-                    photoURL != null && photoURL.isNotEmpty
-                        ? NetworkImage(photoURL)
-                        : null,
-                child:
-                    photoURL == null || photoURL.isEmpty
-                        ? Text(
-                            displayName.isNotEmpty
-                                ? displayName[0].toUpperCase()
-                                : '?',
-                            style: type.pageTitle.copyWith(
-                              color: colors.onBrand,
-                              fontSize: 14,
-                            ),
-                          )
-                        : null,
+                backgroundImage: photoURL != null && photoURL.isNotEmpty
+                    ? NetworkImage(photoURL)
+                    : null,
+                child: photoURL == null || photoURL.isEmpty
+                    ? Text(
+                        displayName.isNotEmpty
+                            ? displayName[0].toUpperCase()
+                            : '?',
+                        style: type.pageTitle.copyWith(
+                          color: colors.onBrand,
+                          fontSize: 14,
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: GochanoSpacing.sm),
               Expanded(
@@ -178,14 +164,26 @@ class _BentoRow extends StatelessWidget {
   final Widget left;
   final Widget right;
 
+  static const double _minCardHeight = 120;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: left),
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: _minCardHeight),
+            child: left,
+          ),
+        ),
         const SizedBox(width: GochanoSpacing.sm),
-        Expanded(child: right),
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: _minCardHeight),
+            child: right,
+          ),
+        ),
       ],
     );
   }
@@ -256,11 +254,6 @@ class _SmartSummaryCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('tasks', limit: 100),
       builder: (context, taskSnap) {
-        if (kDebugMode) {
-          debugPrint(
-            '[HomeScreen._SmartSummaryCard] tasks stream: connectionState=${taskSnap.connectionState}, hasError=${taskSnap.hasError}, hasData=${taskSnap.hasData}, docCount=${taskSnap.data?.docs.length ?? 0}',
-          );
-        }
         if (taskSnap.connectionState == ConnectionState.waiting) {
           return const _SectionSkeleton();
         }
@@ -479,11 +472,6 @@ class _TodaysTasksCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('tasks', limit: 100),
       builder: (context, snapshot) {
-        if (kDebugMode) {
-          debugPrint(
-            '[HomeScreen._TodaysTasksCard] tasks stream: connectionState=${snapshot.connectionState}, hasError=${snapshot.hasError}, hasData=${snapshot.hasData}, docCount=${snapshot.data?.docs.length ?? 0}',
-          );
-        }
         if (snapshot.hasError) {
           return _AccentRailCard(
             accent: colors.brand,
@@ -616,137 +604,8 @@ class _TodaysTasksCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Upcoming tasks
+// Upcoming tasks (removed — Home now shows a single full-width Today card)
 // ---------------------------------------------------------------------------
-
-class _UpcomingTasksCard extends StatelessWidget {
-  const _UpcomingTasksCard({required this.onSeeAll});
-
-  final VoidCallback onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 100),
-      builder: (context, snapshot) {
-        if (kDebugMode) {
-          debugPrint(
-            '[HomeScreen._UpcomingTasksCard] tasks stream: connectionState=${snapshot.connectionState}, hasError=${snapshot.hasError}, hasData=${snapshot.hasData}, docCount=${snapshot.data?.docs.length ?? 0}',
-          );
-        }
-        if (snapshot.hasError) {
-          return _AccentRailCard(
-            accent: colors.commute,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.upcoming_rounded,
-                      size: 18,
-                      color: colors.commute,
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Text(
-                      GochanoLanguage.text('Upcoming', 'আসন্ন'),
-                      style: context.type.sectionHeading,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: GochanoSpacing.xs),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.cloud_off_rounded,
-                      size: 14,
-                      color: colors.textTertiary,
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text(
-                          'Unable to load tasks',
-                          'কাজ লোড হয়নি',
-                        ),
-                        style: context.type.bodySecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _SectionSkeleton();
-        }
-
-        final now = DateTime.now();
-        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        final endOfWeek = endOfToday.add(const Duration(days: 7));
-        final upcoming = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-
-        for (final doc in [...?snapshot.data?.docs]) {
-          final data = doc.data();
-          if (data['done'] == true) continue;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-          if (due == null) continue;
-          if (due.isAfter(endOfToday) && due.isBefore(endOfWeek)) {
-            upcoming.add(doc);
-          }
-        }
-        upcoming.sort(_byDueAtAsc);
-
-        return _AccentRailCard(
-          accent: colors.commute,
-          onTap: onSeeAll,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.upcoming_rounded, size: 18, color: colors.commute),
-                  const SizedBox(width: GochanoSpacing.xs),
-                  Text(
-                    GochanoLanguage.text('Upcoming', 'আসন্ন'),
-                    style: context.type.sectionHeading,
-                  ),
-                ],
-              ),
-              const SizedBox(height: GochanoSpacing.xs),
-              if (upcoming.isEmpty)
-                Text(
-                  GochanoLanguage.text(
-                    'Nothing scheduled this week.',
-                    'এই সপ্তাহে কিছু নেই।',
-                  ),
-                  style: context.type.bodySecondary,
-                )
-              else
-                for (final doc in upcoming.take(3))
-                  _TaskLine(doc: doc, isLast: doc == upcoming.take(3).last),
-              if (upcoming.length > 3) ...[
-                const SizedBox(height: GochanoSpacing.xxs),
-                Text(
-                  GochanoLanguage.text(
-                    '+${upcoming.length - 3} more next week',
-                    'আরও ${upcoming.length - 3} টি',
-                  ),
-                  style: context.type.caption,
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
 
 /// A single task row with a working checkbox.
 class _TaskLine extends StatelessWidget {
@@ -836,7 +695,12 @@ class _StudyProgressCardState extends State<_StudyProgressCard> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Unable to load study stats');
+        setState(
+          () => _error = GochanoLanguage.text(
+            'Unable to load study stats',
+            'পড়ার পরিসংখ্যান লোড হয়নি',
+          ),
+        );
       }
     }
   }
@@ -844,12 +708,6 @@ class _StudyProgressCardState extends State<_StudyProgressCard> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-
-    if (kDebugMode) {
-      debugPrint(
-        '[HomeScreen._StudyProgressCard] build: stats=$_stats, error=$_error',
-      );
-    }
 
     int read(String camel, String snake) {
       if (_stats == null) return 0;
@@ -975,20 +833,476 @@ class _StatPill extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Life Snapshot: Remaining + Spent
+// Medicine Schedule Bento Card
 // ---------------------------------------------------------------------------
 
-class _LifeSnapshotCard extends StatefulWidget {
-  const _LifeSnapshotCard({required this.onOpenExpense});
+class _MedicineScheduleCard extends StatefulWidget {
+  const _MedicineScheduleCard();
+
+  @override
+  State<_MedicineScheduleCard> createState() => _MedicineScheduleCardState();
+}
+
+class _MedicineScheduleCardState extends State<_MedicineScheduleCard> {
+  final Set<String> _processingDoses = <String>{};
+
+  Future<void> _onMarkTaken(ScheduledDose dose) async {
+    final doseKey = '${dose.medicineId}_${dose.time}';
+    if (_processingDoses.contains(doseKey)) return;
+    setState(() => _processingDoses.add(doseKey));
+
+    try {
+      final quantity =
+          (dose.medicine['quantityPerDose'] as num?)?.toDouble() ?? 1.0;
+      await FinancialService.recordMedicineDose(
+        medicineId: dose.medicineId,
+        medicineName: dose.medicineName,
+        scheduledTime: dose.time,
+        date: DateTime.now(),
+        status: DoseStatus.taken.id,
+        actualQuantityTaken: quantity,
+        unitPriceSnapshot: dose.unitPrice,
+        unit: dose.unit,
+      );
+    } catch (error) {
+      if (mounted) {
+        showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingDoses.remove(doseKey));
+      }
+    }
+  }
+
+  Future<void> _onChangeTime(BuildContext context, ScheduledDose dose) async {
+    final parts = dose.time.split(':');
+    final initialHour = int.tryParse(parts.first) ?? 0;
+    final initialMinute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: initialHour, minute: initialMinute),
+      builder: (pickerContext, child) {
+        final colors = pickerContext.colors;
+        return Theme(
+          data: Theme.of(pickerContext).copyWith(
+            colorScheme: Theme.of(
+              pickerContext,
+            ).colorScheme.copyWith(primary: colors.medicine),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+
+    if (picked == null || !context.mounted) return;
+
+    final newHhmm =
+        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    if (newHhmm == dose.time) return;
+
+    final doseKey = '${dose.medicineId}_${dose.time}';
+    if (_processingDoses.contains(doseKey)) return;
+    setState(() => _processingDoses.add(doseKey));
+
+    try {
+      // 1. Reschedule notification: cancel old reminder first to avoid duplicates
+      await NotificationService.cancelMedicineTimes(dose.medicineId, [
+        dose.time,
+      ]);
+
+      final quantity =
+          (dose.medicine['quantityPerDose'] as num?)?.toDouble() ?? 1.0;
+
+      // 2. Schedule new notification at the updated time
+      await NotificationService.scheduleDailyMedicine(
+        medicineId: dose.medicineId,
+        medicineName: dose.medicineName,
+        hhmm: newHhmm,
+        instruction: dose.instruction,
+        quantityPerDose: quantity,
+        unitPrice: dose.unitPrice,
+        unit: dose.unit,
+      );
+
+      // 3. Update medicine times in Firestore
+      final rawTimes = dose.medicine['times'];
+      final times = (rawTimes is List
+          ? rawTimes.map((e) => e.toString()).toList()
+          : <String>[]);
+      final index = times.indexOf(dose.time);
+      if (index != -1) {
+        times[index] = newHhmm;
+      } else {
+        times.add(newHhmm);
+      }
+      times.sort();
+
+      await FirestoreService.db
+          .collection('medicines')
+          .doc(dose.medicineId)
+          .update({
+            'times': times,
+            'schedule': times.join(', '),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      // 4. Clean up any stale un-taken dose record for the old time today
+      final oldDoseId = FinancialService.doseId(
+        dose.medicineId,
+        DateTime.now(),
+        dose.time,
+      );
+      await FirestoreService.db
+          .collection('medicine_doses')
+          .doc(oldDoseId)
+          .delete()
+          .catchError((_) {});
+
+      if (context.mounted) {
+        showGochanoMessage(
+          context,
+          GochanoLanguage.text(
+            'Time updated to ${formatTime12(newHhmm)}',
+            'সময় পরিবর্তন করা হয়েছে: ${formatTime12(newHhmm)}',
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingDoses.remove(doseKey));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('medicines', limit: 50),
+      builder: (context, medSnap) {
+        if (medSnap.hasError) {
+          return _AccentRailCard(
+            accent: colors.medicine,
+            onTap: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: GochanoSpacing.xs),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.cloud_off_rounded,
+                      size: 14,
+                      color: colors.textTertiary,
+                    ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          'Unable to load medicine',
+                          'ওষুধের তথ্য লোড হয়নি',
+                        ),
+                        style: context.type.bodySecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (medSnap.connectionState == ConnectionState.waiting) {
+          return _AccentRailCard(
+            accent: colors.medicine,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  GochanoLanguage.text('Loading…', 'লোড হচ্ছে…'),
+                  style: context.type.bodySecondary,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final medicines = [...?medSnap.data?.docs];
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirestoreService.ownerStream('medicine_doses', limit: 100),
+          builder: (context, doseSnap) {
+            final doses = [...?doseSnap.data?.docs];
+            final now = DateTime.now();
+            final schedule = MedicineSchedule.forDay(
+              medicines,
+              doses,
+              now: now,
+            );
+            final actionable = schedule.where((d) => d.needsAction).toList();
+            final overdue = actionable
+                .where((d) => d.scheduledAt(now).isBefore(now))
+                .toList();
+            final upcoming = actionable
+                .where((d) => !d.scheduledAt(now).isBefore(now))
+                .toList();
+            final prioritized = [...overdue, ...upcoming];
+            final displayItems = prioritized.take(2).toList();
+
+            return _AccentRailCard(
+              accent: colors.medicine,
+              onTap: () => Navigator.of(
+                context,
+              ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: GochanoSpacing.xs),
+                  if (schedule.isEmpty)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 14,
+                          color: colors.textTertiary,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'No medicine scheduled today',
+                              'আজ কোনো ওষুধের সময় নির্ধারিত নেই',
+                            ),
+                            style: context.type.bodySecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (displayItems.isEmpty)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: colors.success,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'All medicines taken for today',
+                              'আজকের সব ওষুধ নেওয়া হয়েছে',
+                            ),
+                            style: context.type.bodySecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    for (var i = 0; i < displayItems.length; i++) ...[
+                      if (i > 0) const SizedBox(height: GochanoSpacing.xxs),
+                      _MedicineDoseRow(
+                        dose: displayItems[i],
+                        isProcessing: _processingDoses.contains(
+                          '${displayItems[i].medicineId}_${displayItems[i].time}',
+                        ),
+                        onTaken: () => _onMarkTaken(displayItems[i]),
+                        onChangeTime: () =>
+                            _onChangeTime(context, displayItems[i]),
+                      ),
+                    ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      children: [
+        Icon(Icons.medication_rounded, size: 18, color: colors.medicine),
+        const SizedBox(width: GochanoSpacing.xs),
+        Expanded(
+          child: Text(
+            GochanoLanguage.text('Medicine', 'ওষুধ'),
+            style: context.type.sectionHeading,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MedicineDoseRow extends StatelessWidget {
+  const _MedicineDoseRow({
+    required this.dose,
+    required this.isProcessing,
+    required this.onTaken,
+    required this.onChangeTime,
+  });
+
+  final ScheduledDose dose;
+  final bool isProcessing;
+  final VoidCallback onTaken;
+  final VoidCallback onChangeTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final now = DateTime.now();
+    final isOverdue = dose.scheduledAt(now).isBefore(now);
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Checkbox(
+            value: false,
+            onChanged: isProcessing ? null : (_) => onTaken(),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        const SizedBox(width: GochanoSpacing.xxs),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                dose.medicineName,
+                style: context.type.body.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                formatTime12(dose.time),
+                style: context.type.caption.copyWith(
+                  color: isOverdue ? colors.warning : colors.textSecondary,
+                  fontWeight: isOverdue ? FontWeight.w600 : null,
+                  fontSize: 11,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          icon: Icon(
+            Icons.notifications_outlined,
+            size: 16,
+            color: colors.textSecondary,
+          ),
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          tooltip: GochanoLanguage.text('Change time', 'সময় পরিবর্তন'),
+          onPressed: isProcessing ? null : onChangeTime,
+        ),
+      ],
+    );
+  }
+}
+
+/// Money row for Money card — full-width, non-truncating currency display.
+/// Shows icon + label + amount with responsive layout.
+// ignore: unused_element
+class _MoneyRow extends StatelessWidget {
+  const _MoneyRow({
+    required this.label,
+    required this.amount,
+    required this.color,
+    this.showDash = false,
+  });
+
+  final String label;
+  final double? amount;
+  final Color color;
+  final bool showDash;
+
+  @override
+  Widget build(BuildContext context) {
+    final valueText = showDash ? '—' : formatTaka(amount ?? 0);
+    return Row(
+      children: [
+        Icon(
+          showDash
+              ? Icons.remove_circle_outline
+              : amount != null && amount! >= 0
+              ? Icons.arrow_upward_rounded
+              : Icons.arrow_downward_rounded,
+          size: 14,
+          color: color,
+        ),
+        const SizedBox(width: GochanoSpacing.xs),
+        Text(
+          label,
+          style: context.type.body.copyWith(
+            color: context.colors.textSecondary,
+          ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            valueText,
+            style: context.type.cardHeading.copyWith(
+              color: color,
+              fontFamily: '.SF Pro Text',
+              fontFamilyFallback: const ['Roboto', 'sans-serif'],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Money: Remaining + Spent
+// ---------------------------------------------------------------------------
+
+// ignore: unused_element
+class _MoneyCard extends StatefulWidget {
+  const _MoneyCard({required this.onOpenExpense});
 
   final VoidCallback onOpenExpense;
 
   @override
-  State<_LifeSnapshotCard> createState() => _LifeSnapshotCardState();
+  State<_MoneyCard> createState() => _MoneyCardState();
 }
 
-class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
+class _MoneyCardState extends State<_MoneyCard> {
   // Monthly money and remaining as returned by the backend for this month.
+  // Used by Money card on Home screen.
   double? _available;
   double? _backendRemaining;
   String? _budgetError;
@@ -1013,7 +1327,7 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
   Future<void> _loadBudget() async {
     try {
       // Use getRemaining() — the same endpoint as overview_tab — so that
-      // Home Life Snapshot and Expense Overview always agree on Remaining.
+      // Home Money card and Expense Overview always agree on Remaining.
       final body = await ApiService.getRemaining(DateTime.now());
       if (!mounted) return;
       setState(() {
@@ -1022,7 +1336,14 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
         _budgetError = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _budgetError = 'Unable to load budget');
+      if (mounted) {
+        setState(
+          () => _budgetError = GochanoLanguage.text(
+            'Unable to load budget',
+            'বাজেট লোড হয়নি',
+          ),
+        );
+      }
     }
   }
 
@@ -1060,10 +1381,7 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
                         ),
                         const SizedBox(width: GochanoSpacing.xs),
                         Text(
-                          GochanoLanguage.text(
-                            'Life Snapshot',
-                            'জীবন পরিসংখ্যান',
-                          ),
+                          GochanoLanguage.text('Money', 'টাকা'),
                           style: context.type.sectionHeading,
                         ),
                       ],
@@ -1128,10 +1446,7 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
                       const SizedBox(width: GochanoSpacing.xs),
                       Expanded(
                         child: Text(
-                          GochanoLanguage.text(
-                            'Life Snapshot',
-                            'জীবন পরিসংখ্যান',
-                          ),
+                          GochanoLanguage.text('Money', 'টাকা'),
                           style: context.type.sectionHeading,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1158,28 +1473,23 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
                       ],
                     )
                   else
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _StatPill(
-                            label: GochanoLanguage.text('Spent', 'খরচ'),
-                            value: formatTaka(summary.totalSpending),
-                            color: colors.expense,
-                          ),
+                        _MoneyRow(
+                          label: GochanoLanguage.text('Spent', 'খরচ'),
+                          amount: summary.totalSpending,
+                          color: colors.expense,
                         ),
-                        const SizedBox(width: GochanoSpacing.xs),
-                        Expanded(
-                          child: _StatPill(
-                            label: GochanoLanguage.text('Remaining', 'বাকি'),
-                            value: adjustedRemaining != null
-                                ? formatTaka(adjustedRemaining)
-                                : '—',
-                            color:
-                                adjustedRemaining != null &&
-                                    adjustedRemaining > 0
-                                ? colors.success
-                                : colors.error,
-                          ),
+                        const SizedBox(height: GochanoSpacing.xs),
+                        _MoneyRow(
+                          label: GochanoLanguage.text('Rem', 'অবশিষ্ট'),
+                          amount: adjustedRemaining,
+                          color:
+                              adjustedRemaining != null && adjustedRemaining > 0
+                              ? colors.success
+                              : colors.error,
+                          showDash: adjustedRemaining == null,
                         ),
                       ],
                     ),
@@ -1209,11 +1519,6 @@ class _RecentMaterialsCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('materials', limit: 5),
       builder: (context, snapshot) {
-        if (kDebugMode) {
-          debugPrint(
-            '[HomeScreen._RecentMaterialsCard] materials stream: connectionState=${snapshot.connectionState}, hasError=${snapshot.hasError}, hasData=${snapshot.hasData}, docCount=${snapshot.data?.docs.length ?? 0}',
-          );
-        }
         if (snapshot.hasError) {
           return _AccentRailCard(
             accent: colors.study,
@@ -1606,7 +1911,10 @@ int _byDueAtAsc(
 String _timeLabel(DateTime when) {
   final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
   final minute = when.minute.toString().padLeft(2, '0');
-  final suffix = when.hour < 12 ? 'am' : 'pm';
+  final suffix = GochanoLanguage.text(
+    when.hour < 12 ? 'am' : 'pm',
+    when.hour < 12 ? 'পূর্বাহ্ণ' : 'অপরাহ্ণ',
+  );
   return '$hour:$minute $suffix';
 }
 

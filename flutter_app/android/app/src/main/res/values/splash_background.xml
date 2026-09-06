@@ -4,13 +4,12 @@
 
   The OS reads these values once during process start before Flutter has
   a chance to draw anything, so they must be plain colour resources —
-  no drawable references, no gradients.  They are kept in sync with the
-  Flutter app's brand seed (EkColors.purple / EkColors.bgDark).
+  no drawable references, no gradients.
 
-  Light mode:  brand seed purple (#5B3DF5)
-  Dark mode:   deep brand-bg dark   (#0F172A = EkColors.bgDark)
+  Light mode:  clean light background (#F4F8F7)
+  Dark mode:   deep brand-bg dark   (#0F172A)
 -->
 <resources>
-    <color name="splash_background_light">#5B3DF5</color>
+    <color name="splash_background_light">#F4F8F7</color>
     <color name="splash_background_dark">#0F172A</color>
 </resources>

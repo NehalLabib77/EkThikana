@@ -22,26 +22,28 @@ class LanguageToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xs),
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: colors.surfaceVariant,
-          borderRadius: BorderRadius.circular(GochanoRadius.md),
-          border: Border.all(color: colors.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final locale in GochanoLocale.values)
-              _Segment(
-                locale: locale,
-                selected: GochanoLanguage.current.value == locale,
-              ),
-          ],
-        ),
-      ),
+    return ValueListenableBuilder<GochanoLocale>(
+      valueListenable: GochanoLanguage.current,
+      builder: (context, currentLocale, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xs),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: colors.surfaceVariant,
+              borderRadius: BorderRadius.circular(GochanoRadius.md),
+              border: Border.all(color: colors.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final locale in GochanoLocale.values)
+                  _Segment(locale: locale, selected: currentLocale == locale),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

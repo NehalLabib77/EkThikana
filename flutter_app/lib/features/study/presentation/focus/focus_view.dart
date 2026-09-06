@@ -51,14 +51,20 @@ class _FocusViewState extends State<FocusView> {
   @override
   void initState() {
     super.initState();
+    GochanoLanguage.current.addListener(_onLanguageChange);
     _load();
   }
 
   @override
   void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
     _ticker?.cancel();
     _label.dispose();
     super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
@@ -156,7 +162,10 @@ class _FocusViewState extends State<FocusView> {
     return ListView(
       padding: GochanoSpacing.scrollBody,
       children: [
-        if (active == null) _buildStart(context) else _buildActive(context, active),
+        if (active == null)
+          _buildStart(context)
+        else
+          _buildActive(context, active),
         if (_error.isNotEmpty) ...[
           const SizedBox(height: GochanoSpacing.md),
           ErrorState(compact: true, message: _error, onRetry: _load),
@@ -216,7 +225,10 @@ class _FocusViewState extends State<FocusView> {
           controller: _label,
           textCapitalization: TextCapitalization.sentences,
           decoration: InputDecoration(
-            labelText: GochanoLanguage.text('What are you studying?', 'কী পড়ছেন?'),
+            labelText: GochanoLanguage.text(
+              'What are you studying?',
+              'কী পড়ছেন?',
+            ),
             hintText: GochanoLanguage.text(
               'Operating Systems chapter 4',
               'অপারেটিং সিস্টেম অধ্যায় ৪',
@@ -329,11 +341,11 @@ class _FocusViewState extends State<FocusView> {
                   onPressed: _busy
                       ? null
                       : () => _run(
-                            () => StudyService.patch(
-                              session.id,
-                              paused ? 'resume' : 'pause',
-                            ),
+                          () => StudyService.patch(
+                            session.id,
+                            paused ? 'resume' : 'pause',
                           ),
+                        ),
                 ),
               ),
               const SizedBox(width: GochanoSpacing.xs),
@@ -342,9 +354,8 @@ class _FocusViewState extends State<FocusView> {
                   label: GochanoLanguage.text('Finish', 'শেষ'),
                   icon: Icons.check_rounded,
                   busy: _busy,
-                  onPressed: () => _run(
-                    () => StudyService.patch(session.id, 'complete'),
-                  ),
+                  onPressed: () =>
+                      _run(() => StudyService.patch(session.id, 'complete')),
                 ),
               ),
             ],
@@ -384,8 +395,18 @@ String _dayLabel(String dayKey) {
   final parsed = DateTime.tryParse(dayKey);
   if (parsed == null) return dayKey;
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${parsed.day} ${months[parsed.month - 1]}';
 }
@@ -411,9 +432,7 @@ List<SessionGroup> groupSessions(List<FocusSession> sessions) {
   final map = <String, SessionGroup>{};
   for (final s in sessions) {
     final normalized = s.label.trim();
-    final key = normalized.isEmpty
-        ? ''
-        : normalized.toLowerCase();
+    final key = normalized.isEmpty ? '' : normalized.toLowerCase();
     final displayLabel = normalized.isEmpty
         ? GochanoLanguage.text('Focus session', 'ফোকাস সেশন')
         : normalized;

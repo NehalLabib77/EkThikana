@@ -511,6 +511,47 @@ class _TurnCard extends StatelessWidget {
 
   final _Turn turn;
 
+  /// Strips common Markdown control characters while preserving code blocks.
+  static String _stripMarkdown(String text) {
+    var result = text;
+    // Remove fenced code blocks (```...```) — keep content
+    result = result.replaceAllMapped(
+      RegExp(r'```[\s\S]*?```', multiLine: true),
+      (m) => m.group(0)!.replaceFirst(RegExp(r'^```\w*\n?'), '').replaceFirst(RegExp(r'\n?```$'), ''),
+    );
+    // Remove inline code backticks
+    result = result.replaceAllMapped(
+      RegExp(r'`([^`]+)`'),
+      (m) => m.group(1)!,
+    );
+    // Remove heading markers (### Heading)
+    result = result.replaceAllMapped(
+      RegExp(r'^#{1,6}\s+', multiLine: true),
+      (m) => '',
+    );
+    // Remove bold/italic markers
+    result = result.replaceAll(RegExp(r'\*\*\*'), '');
+    result = result.replaceAll(RegExp(r'___'), '');
+    result = result.replaceAll(RegExp(r'\*\*'), '');
+    result = result.replaceAll(RegExp(r'__'), '');
+    result = result.replaceAll(RegExp(r'(?<!\w)\*(?!\*)'), '');
+    result = result.replaceAll(RegExp(r'(?<!\w)_(?!_)'), '');
+    // Remove blockquote markers
+    result = result.replaceAllMapped(
+      RegExp(r'^>\s+', multiLine: true),
+      (m) => '',
+    );
+    // Remove horizontal rules
+    result = result.replaceAll(RegExp(r'^-{3,}$', multiLine: true), '');
+    result = result.replaceAll(RegExp(r'^\*{3,}$', multiLine: true), '');
+    // Remove link syntax [text](url) → text
+    result = result.replaceAllMapped(
+      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
+      (m) => m.group(1)!,
+    );
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -570,7 +611,10 @@ class _TurnCard extends StatelessWidget {
                   ),
                   const SizedBox(height: GochanoSpacing.xs),
                 ],
-                SelectableText(turn.answer, style: context.type.body),
+                SelectableText(
+                  _stripMarkdown(turn.answer),
+                  style: context.type.body,
+                ),
                 const SizedBox(height: GochanoSpacing.xs),
                 Align(
                   alignment: Alignment.centerRight,

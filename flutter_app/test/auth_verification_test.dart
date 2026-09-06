@@ -76,9 +76,9 @@ void main() {
       );
     });
 
-    test('surfaces a resume message on the LoginScreen', () {
-      expect(gateSource, contains('resumeMessage'));
-      expect(gateSource, contains('LoginScreen('));
+    test('routes to LoginScreen without a resume card', () {
+      expect(gateSource, isNot(contains('resumeMessage')));
+      expect(gateSource, contains('LoginScreen()'));
     });
 
     test('does NOT depend on the legacy email-verification flow', () {

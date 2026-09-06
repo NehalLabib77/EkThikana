@@ -9,6 +9,7 @@ import '../../../core/localization/gochano_language.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../../widgets/language_toggle.dart';
 import '../../shell/presentation/gochano_shell.dart';
 
 /// One-time profile completion screen shown after telecom authentication
@@ -131,6 +132,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+                            child: LanguageToggle(),
+                          ),
+                        ),
                         const SizedBox(height: GochanoSpacing.xl),
                         Text(
                           GochanoLanguage.text(
@@ -210,6 +218,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               TextFormField(
                                 initialValue: widget.phone,
                                 readOnly: true,
+                                style: const TextStyle(
+                                  fontFamily: '.SF Pro Text',
+                                  fontFamilyFallback: ['Roboto', 'sans-serif'],
+                                  letterSpacing: 1.2,
+                                  fontSize: 16,
+                                ),
                                 decoration: InputDecoration(
                                   prefixIcon: Icon(
                                     Icons.phone_outlined,

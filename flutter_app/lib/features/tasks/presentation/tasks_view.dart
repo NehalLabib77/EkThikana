@@ -32,11 +32,27 @@ class TasksView extends StatefulWidget {
 class _TasksViewState extends State<TasksView> {
   TaskFilter _filter = TaskFilter.today;
 
+  @override
+  void initState() {
+    super.initState();
+    GochanoLanguage.current.addListener(_onLanguageChange);
+  }
+
+  @override
+  void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
+    super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
+  }
+
   String _label(TaskFilter filter) => switch (filter) {
-        TaskFilter.today => GochanoLanguage.text('Today', 'আজ'),
-        TaskFilter.upcoming => GochanoLanguage.text('Upcoming', 'আসন্ন'),
-        TaskFilter.completed => GochanoLanguage.text('Completed', 'সম্পন্ন'),
-      };
+    TaskFilter.today => GochanoLanguage.text('Today', 'আজ'),
+    TaskFilter.upcoming => GochanoLanguage.text('Upcoming', 'আসন্ন'),
+    TaskFilter.completed => GochanoLanguage.text('Completed', 'সম্পন্ন'),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +61,7 @@ class _TasksViewState extends State<TasksView> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showAddTaskSheet(context),
         icon: const Icon(Icons.task_alt_rounded),
-        label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ')),
+        label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ করুন')),
       ),
       body: Column(
         children: [
@@ -126,14 +142,17 @@ class _TasksViewState extends State<TasksView> {
             final data = doc.data();
             final due = (data['dueAt'] as Timestamp?)?.toDate();
             // Undated tasks (due == null) are included in "today".
-            if (due == null || !due.isAfter(
-              DateTime(
-                DateTime.now().year,
-                DateTime.now().month,
-                DateTime.now().day,
-                23, 59, 59,
-              ),
-            )) {
+            if (due == null ||
+                !due.isAfter(
+                  DateTime(
+                    DateTime.now().year,
+                    DateTime.now().month,
+                    DateTime.now().day,
+                    23,
+                    59,
+                    59,
+                  ),
+                )) {
               todayDocs.add(doc);
             }
           }
@@ -156,28 +175,32 @@ class _TasksViewState extends State<TasksView> {
           return EmptyState(
             illustration: GochanoArt.emptyTasks,
             title: switch (_filter) {
-              TaskFilter.today =>
-                GochanoLanguage.text('No tasks today', 'আজ কোনো কাজ নেই'),
-              TaskFilter.upcoming =>
-                GochanoLanguage.text('Nothing upcoming', 'আসন্ন কিছু নেই'),
+              TaskFilter.today => GochanoLanguage.text(
+                'No tasks today',
+                'আজ কোনো কাজ নেই',
+              ),
+              TaskFilter.upcoming => GochanoLanguage.text(
+                'Nothing upcoming',
+                'আসন্ন কিছু নেই',
+              ),
               TaskFilter.completed => GochanoLanguage.text(
-                  'Nothing completed yet',
-                  'এখনো কিছু সম্পন্ন হয়নি',
-                ),
+                'Nothing completed yet',
+                'এখনো কিছু সম্পন্ন হয়নি',
+              ),
             },
             message: switch (_filter) {
               TaskFilter.today => GochanoLanguage.text(
-                  'Your schedule is clear.',
-                  'আপনার দিন ফাঁকা।',
-                ),
+                'Your schedule is clear.',
+                'আপনার দিন ফাঁকা।',
+              ),
               TaskFilter.upcoming => GochanoLanguage.text(
-                  'Tasks with a future due date appear here.',
-                  'ভবিষ্যৎ সময়সীমার কাজ এখানে দেখা যাবে।',
-                ),
+                'Tasks with a future due date appear here.',
+                'ভবিষ্যৎ সময়সীমার কাজ এখানে দেখা যাবে।',
+              ),
               TaskFilter.completed => GochanoLanguage.text(
-                  'Tasks you finish appear here.',
-                  'আপনি যেসব কাজ শেষ করবেন সেগুলো এখানে দেখা যাবে।',
-                ),
+                'Tasks you finish appear here.',
+                'আপনি যেসব কাজ শেষ করবেন সেগুলো এখানে দেখা যাবে।',
+              ),
             },
             // Spec §25: the floating Add button is the only entry-point.
             // EmptyState used to render its own "Add task" button too,
@@ -255,8 +278,9 @@ class _TaskRow extends StatelessWidget {
                                 ? Icons.notifications_active_outlined
                                 : Icons.event_rounded,
                             size: 13,
-                            color:
-                                overdue ? colors.warning : colors.textTertiary,
+                            color: overdue
+                                ? colors.warning
+                                : colors.textTertiary,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -372,8 +396,18 @@ String _dueLabel(DateTime due) {
   }
 
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${due.day} ${months[due.month - 1]} · $clock';
 }

@@ -44,20 +44,53 @@ class GochanoShell extends StatefulWidget {
 class _GochanoShellState extends State<GochanoShell> {
   int _index = 0;
 
-  /// Cached destination list. Built once in `initState` so that the same
-  /// widget instances survive shell rebuilds. Without this, every `setState`
-  /// (e.g. tab switch) created new `ProfileScreen` / `HomeScreen` objects,
-  /// which Flutter treated as fresh mounts and re-ran `initState` — causing
-  /// duplicate API fetches on every tab change.
-  late final List<_Destination> _destinations = _buildDestinations();
-
-  /// Pre-built widget instances, created once and reused across rebuilds.
-  /// Flutter preserves State for the same widget instance, so these screens
-  /// only run `initState` once — preventing duplicate API fetches.
-  late final List<Widget> _pages = _destinations.map((d) => d.builder()).toList();
-
   bool get _isStudent => widget.role == 'student';
 
+  @override
+  void initState() {
+    super.initState();
+    GochanoLanguage.current.addListener(_onLanguageChange);
+  }
+
+  @override
+  void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
+    super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
+  }
+
+  List<Widget> _buildPages() {
+    if (_isStudent) {
+      return [
+        HomeScreen(
+          role: widget.role,
+          displayName: widget.displayName,
+          onOpenDestination: _select,
+        ),
+        StudyScreen(),
+        LifeScreen(),
+        CommunityScreen(),
+        ProfileScreen(role: widget.role),
+      ];
+    }
+
+    return [
+      HomeScreen(
+        role: widget.role,
+        displayName: widget.displayName,
+        onOpenDestination: _select,
+      ),
+      LifeScreen(),
+      TasksScreen(),
+      ProfileScreen(role: widget.role),
+    ];
+  }
+
+  /// Destinations are rebuilt on every [build] call so that navigation
+  /// labels pick up the current language.
   List<_Destination> _buildDestinations() {
     if (_isStudent) {
       return [
@@ -65,35 +98,26 @@ class _GochanoShellState extends State<GochanoShell> {
           label: GochanoLanguage.text('Home', 'হোম'),
           icon: Icons.home_outlined,
           selectedIcon: Icons.home_rounded,
-          builder: () => HomeScreen(
-            role: widget.role,
-            displayName: widget.displayName,
-            onOpenDestination: _select,
-          ),
         ),
         _Destination(
           label: GochanoLanguage.text('Study', 'পড়াশোনা'),
           icon: Icons.menu_book_outlined,
           selectedIcon: Icons.menu_book_rounded,
-          builder: () => const StudyScreen(),
         ),
         _Destination(
           label: GochanoLanguage.text('Life', 'জীবন'),
           icon: Icons.favorite_outline_rounded,
           selectedIcon: Icons.favorite_rounded,
-          builder: () => const LifeScreen(),
         ),
         _Destination(
           label: GochanoLanguage.text('Community', 'কমিউনিটি'),
           icon: Icons.groups_outlined,
           selectedIcon: Icons.groups_rounded,
-          builder: () => const CommunityScreen(),
         ),
         _Destination(
           label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
           icon: Icons.person_outline_rounded,
           selectedIcon: Icons.person_rounded,
-          builder: () => ProfileScreen(role: widget.role),
         ),
       ];
     }
@@ -103,54 +127,44 @@ class _GochanoShellState extends State<GochanoShell> {
         label: GochanoLanguage.text('Home', 'হোম'),
         icon: Icons.home_outlined,
         selectedIcon: Icons.home_rounded,
-        builder: () => HomeScreen(
-          role: widget.role,
-          displayName: widget.displayName,
-          onOpenDestination: _select,
-        ),
       ),
       _Destination(
         label: GochanoLanguage.text('Life', 'জীবন'),
         icon: Icons.favorite_outline_rounded,
         selectedIcon: Icons.favorite_rounded,
-        builder: () => const LifeScreen(),
       ),
       _Destination(
         label: GochanoLanguage.text('Tasks', 'কাজ'),
         icon: Icons.check_circle_outline_rounded,
         selectedIcon: Icons.check_circle_rounded,
-        builder: () => const TasksScreen(),
       ),
       _Destination(
         label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
         icon: Icons.person_outline_rounded,
         selectedIcon: Icons.person_rounded,
-        builder: () => ProfileScreen(role: widget.role),
       ),
     ];
   }
 
   void _select(int index) {
-    final count = _destinations.length;
+    final count = _isStudent ? 5 : 4;
     if (index < 0 || index >= count || index == _index) return;
     setState(() => _index = index);
   }
 
   @override
   Widget build(BuildContext context) {
-    final index = _index.clamp(0, _destinations.length - 1);
+    final destinations = _buildDestinations();
+    final index = _index.clamp(0, destinations.length - 1);
 
     return Scaffold(
       backgroundColor: context.colors.background,
-      body: IndexedStack(
-        index: index,
-        children: _pages,
-      ),
+      body: IndexedStack(index: index, children: _buildPages()),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: _select,
         destinations: [
-          for (final d in _destinations)
+          for (final d in destinations)
             NavigationDestination(
               icon: Icon(d.icon),
               selectedIcon: Icon(d.selectedIcon),
@@ -168,11 +182,9 @@ class _Destination {
     required this.label,
     required this.icon,
     required this.selectedIcon,
-    required this.builder,
   });
 
   final String label;
   final IconData icon;
   final IconData selectedIcon;
-  final Widget Function() builder;
 }

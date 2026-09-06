@@ -7,8 +7,8 @@
 //
 // Flow (spec §3):
 //   1. Student types a Bangladeshi mobile number.
-//   2. We validate against ^01(?:6|8)\d{8}$ — Robi (016) and Cirkle
-//      (018) only. Any other prefix fails immediately, no network.
+//   2. We validate against ^01(?:6|8)\d{8}$ — Robi (018) and Cirkle
+//      (016) only. Any other prefix fails immediately, no network.
 //   3. We call TelecomAuthService.checkSubscription(phone):
 //        - REGISTERED               -> home shell (no OTP)
 //        - INITIAL CHARGING PENDING -> home shell (no OTP)
@@ -35,17 +35,13 @@ import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../../widgets/language_toggle.dart';
 import '../../shell/presentation/gochano_shell.dart';
 import 'otp_verify_screen.dart';
 import 'profile_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.resumeMessage});
-
-  /// When AuthGate bounces a stale session back here, this message is
-  /// rendered above the form so the user understands why they were
-  /// sent back. NULL on the normal first-time entry path.
-  final String? resumeMessage;
+  const LoginScreen({super.key});
 
   /// Path to the brand-master artwork shown at the top of the form.
   /// Kept here (and not as a magic string inside `_LoginHero`) so the
@@ -220,8 +216,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     if (!TelecomAuthService.isSupportedPhone(raw)) {
       return GochanoLanguage.text(
-        'Only Robi (016) and Cirkle (018) numbers are supported',
-        'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+        'Only Robi (018) and Cirkle (016) numbers are supported',
+        'শুধুমাত্র Robi (০১৮) ও Cirkle (০১৬) নম্বর সমর্থিত',
       );
     }
     return null;
@@ -257,6 +253,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: GochanoSpacing.xs),
+                            child: LanguageToggle(),
+                          ),
+                        ),
                         const SizedBox(height: GochanoSpacing.lg),
                         if (_acknowledgementMessage != null) ...[
                           AppCard(
@@ -288,30 +291,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         // then falls naturally into the phone field.
                         _LoginHero(colors: colors, type: type),
                         const Spacer(),
-                        if (widget.resumeMessage != null) ...[
-                          AppCard(
-                            accent: colors.brand,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.refresh_rounded,
-                                  color: colors.brand,
-                                ),
-                                const SizedBox(width: GochanoSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    widget.resumeMessage!,
-                                    style: type.body.copyWith(
-                                      color: colors.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: GochanoSpacing.md),
-                        ],
                         AppCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -330,6 +309,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 controller: _phoneController,
                                 enabled: !_busy,
                                 keyboardType: TextInputType.phone,
+                                style: const TextStyle(
+                                  fontFamily: '.SF Pro Text',
+                                  fontFamilyFallback: ['Roboto', 'sans-serif'],
+                                  letterSpacing: 1.2,
+                                  fontSize: 16,
+                                ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(11),
@@ -364,9 +349,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           GochanoLanguage.text(
                             'Daily charge 2.78 BDT (incl. VAT, SD & SC). '
-                            'Robi (016) and Cirkle (018) only.',
+                            'Robi (018) and Cirkle (016) only.',
                             'প্রতিদিন ২.৭৮ টাকা (VAT, SD ও SC সহ)। '
-                            'শুধু Robi (০১৬) ও Cirkle (০১৮)।',
+                            'শুধু Robi (০১৮) ও Cirkle (০১৬)।',
                           ),
                           style: type.caption.copyWith(
                             color: colors.textSecondary,

@@ -53,7 +53,6 @@ class _AuthGateState extends State<AuthGate> {
   bool _loggedIn = false;
   bool _hasProfile = false;
   String _phone = '';
-  String? _resumeError;
 
   StreamSubscription<User?>? _firebaseAuthSub;
 
@@ -71,10 +70,7 @@ class _AuthGateState extends State<AuthGate> {
       setState(() {
         _loggedIn = user != null;
         if (user == null) {
-          _resumeError =
-              'Your Gochano session expired. Please sign in again.';
-          // Also wipe the local flag so the LoginScreen CTA can show
-          // the resume message rather than the first-time empty state.
+          // Wipe the local flag so the user is routed to LoginScreen.
           TelecomAuthService.clearSession();
         }
       });
@@ -135,11 +131,8 @@ class _AuthGateState extends State<AuthGate> {
       _checked = true;
       if (isLoggedIn && current != null) {
         _loggedIn = true;
-        _resumeError = null;
       } else if (staleFlag) {
         _loggedIn = false;
-        _resumeError =
-            'Your Gochano session expired. Please sign in again.';
       } else {
         _loggedIn = false;
       }
@@ -155,9 +148,9 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     if (_loggedIn && FirebaseAuth.instance.currentUser != null) {
-      final displayName = _phone.isEmpty
-          ? (FirebaseAuth.instance.currentUser?.phoneNumber ?? 'student')
-          : _phone;
+      final displayName = _phone.isNotEmpty
+          ? _phone
+          : (FirebaseAuth.instance.currentUser?.phoneNumber ?? '');
       if (!_hasProfile) {
         return ProfileSetupScreen(phone: displayName);
       }
@@ -166,6 +159,6 @@ class _AuthGateState extends State<AuthGate> {
         displayName: displayName,
       );
     }
-    return LoginScreen(resumeMessage: _resumeError);
+    return LoginScreen();
   }
 }

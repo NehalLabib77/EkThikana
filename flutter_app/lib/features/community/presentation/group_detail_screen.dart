@@ -27,6 +27,7 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../services/api_service.dart';
@@ -1100,7 +1101,7 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
                 widget.memberIds,
               ),
               icon: const Icon(Icons.add_rounded),
-              label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ')),
+              label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ করুন')),
             )
           : null,
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -1401,24 +1402,10 @@ String _formatDeadline(dynamic deadline) {
   final dt = deadline.toDate();
   final now = DateTime.now();
   final diff = dt.difference(now);
-  if (diff.isNegative) return 'Overdue';
-  if (diff.inDays == 0) return 'Today';
-  if (diff.inDays == 1) return 'Tomorrow';
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${dt.day} ${months[dt.month - 1]}';
+  if (diff.isNegative) return GochanoLanguage.text('Overdue', 'সময় পার');
+  if (diff.inDays == 0) return GochanoLanguage.text('Today', 'আজ');
+  if (diff.inDays == 1) return GochanoLanguage.text('Tomorrow', 'আগামীকাল');
+  return formatShortDate(dt);
 }
 
 Color _deadlineColor(BuildContext context, dynamic deadline, bool completed) {

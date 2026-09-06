@@ -100,9 +100,9 @@ void main() {
       expect(source, contains('settleAmount'));
     });
 
-    test('supports due date picker', () {
-      expect(source, contains('showDatePicker'));
-      expect(source, contains('_dueDate'));
+    test('form no longer includes due date picker', () {
+      expect(source, isNot(contains('showDatePicker')));
+      expect(source, isNot(contains('_dueDate')));
     });
 
     test('delete has confirmation dialog', () {

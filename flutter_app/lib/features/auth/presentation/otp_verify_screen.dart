@@ -35,6 +35,7 @@ import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../../widgets/language_toggle.dart';
 import '../../shell/presentation/gochano_shell.dart';
 import 'profile_setup_screen.dart';
 
@@ -356,6 +357,10 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
           'Verify your number',
           'নম্বর যাচাই করুন',
         ),
+        actions: const [
+          LanguageToggle(),
+          SizedBox(width: GochanoSpacing.xs),
+        ],
       ),
       body: SafeArea(
         child: Form(

@@ -31,15 +31,21 @@ class _DistractionViewState extends State<DistractionView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    GochanoLanguage.current.addListener(_onLanguageChange);
     _scheduleNextMidnight();
     _checkPermissionAndLoad();
   }
 
   @override
   void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
     WidgetsBinding.instance.removeObserver(this);
     _midnightTimer?.cancel();
     super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
   }
 
   @override

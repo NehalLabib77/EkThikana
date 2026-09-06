@@ -267,8 +267,8 @@ class TelecomAuthService {
     if (!isSupportedPhone(normalized)) {
       throw TelecomAuthException(
         GochanoLanguage.text(
-          'Only Robi (016) and Cirkle (018) numbers are supported',
-          'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+          'Only Robi (018) and Cirkle (016) numbers are supported',
+          'শুধুমাত্র Robi (০১৮) ও Cirkle (০১৬) নম্বর সমর্থিত',
         ),
       );
     }
@@ -433,8 +433,8 @@ class TelecomAuthService {
     if (!isSupportedPhone(normalized)) {
       throw TelecomAuthException(
         GochanoLanguage.text(
-          'Only Robi (016) and Cirkle (018) numbers are supported',
-          'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+          'Only Robi (018) and Cirkle (016) numbers are supported',
+          'শুধুমাত্র Robi (০১৮) ও Cirkle (০১৬) নম্বর সমর্থিত',
         ),
       );
     }
@@ -545,8 +545,8 @@ class TelecomAuthService {
     if (!isSupportedPhone(normalized)) {
       throw TelecomAuthException(
         GochanoLanguage.text(
-          'Only Robi (016) and Cirkle (018) numbers are supported',
-          'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+          'Only Robi (018) and Cirkle (016) numbers are supported',
+          'শুধুমাত্র Robi (০১৮) ও Cirkle (০১৬) নম্বর সমর্থিত',
         ),
       );
     }
@@ -701,8 +701,8 @@ class TelecomAuthService {
     if (!isSupportedPhone(cleanPhone)) {
       throw TelecomAuthException(
         GochanoLanguage.text(
-          'Only Robi (016) and Cirkle (018) numbers are supported',
-          'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+          'Only Robi (018) and Cirkle (016) numbers are supported',
+          'শুধুমাত্র Robi (০১৮) ও Cirkle (০১৬) নম্বর সমর্থিত',
         ),
       );
     }
@@ -819,8 +819,8 @@ class TelecomAuthService {
     if (!isSupportedPhone(cleanPhone)) {
       throw TelecomAuthException(
         GochanoLanguage.text(
-          'Only Robi (016) and Cirkle (018) numbers are supported',
-          'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+          'Only Robi (018) and Cirkle (016) numbers are supported',
+          'শুধুমাত্র Robi (০১৮) ও Cirkle (০১৬) নম্বর সমর্থিত',
         ),
       );
     }
@@ -935,8 +935,8 @@ class TelecomAuthService {
     if (!isSupportedPhone(cleanPhone)) {
       throw TelecomAuthException(
         GochanoLanguage.text(
-          'Only Robi (016) and Cirkle (018) numbers are supported',
-          'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+          'Only Robi (018) and Cirkle (016) numbers are supported',
+          'শুধুমাত্র Robi (০১৮) ও Cirkle (০১৬) নম্বর সমর্থিত',
         ),
       );
     }

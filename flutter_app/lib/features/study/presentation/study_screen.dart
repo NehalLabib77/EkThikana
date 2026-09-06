@@ -44,12 +44,18 @@ class _StudyScreenState extends State<StudyScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 4, vsync: this);
+    GochanoLanguage.current.addListener(_onLanguageChange);
   }
 
   @override
   void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -70,9 +76,9 @@ class _StudyScreenState extends State<StudyScreen>
           IconActionButton(
             icon: Icons.auto_awesome_outlined,
             label: GochanoLanguage.text('Ask AI', 'এআই কে জিজ্ঞাসা'),
-            onPressed: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
           ),
           const LanguageToggle(),
           const SizedBox(width: GochanoSpacing.xs),
@@ -91,12 +97,7 @@ class _StudyScreenState extends State<StudyScreen>
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [
-          WorkspaceView(),
-          PlanView(),
-          FocusView(),
-          DistractionView(),
-        ],
+        children: [WorkspaceView(), PlanView(), FocusView(), DistractionView()],
       ),
     );
   }

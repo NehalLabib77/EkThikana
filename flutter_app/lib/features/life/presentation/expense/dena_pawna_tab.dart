@@ -214,8 +214,8 @@ class _DenaPawnaRow extends StatelessWidget {
     final isLend = type == 'lend';
     final accent = isLend ? colors.success : colors.warning;
     final typeLabel = isLend
-        ? GochanoLanguage.text('I lent (Pawna)', 'আমি দিয়েছি (পাওনা)')
-        : GochanoLanguage.text('I owe (Dena)', 'আমি দিয়েছি (দেনা)');
+        ? GochanoLanguage.text('Give', 'দেব')
+        : GochanoLanguage.text('Receive', 'পাব');
 
     final statusLabel = switch (status) {
       'settled' => GochanoLanguage.text('Settled', 'মিটমাট'),
@@ -270,12 +270,30 @@ class _DenaPawnaRow extends StatelessWidget {
                       : colors.textSecondary,
             ),
           ),
+          if (status != 'settled')
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: GestureDetector(
+                onTap: () => _showSettleDialog(context, outstanding, isLend),
+                child: Text(
+                  isLend
+                      ? GochanoLanguage.text('Mark received', 'পাওয়া হয়েছে')
+                      : GochanoLanguage.text('Mark paid', 'পরিশোধ হয়েছে'),
+                  style: context.type.caption.copyWith(
+                    color: colors.brand,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
       menuItems: [
         if (status != 'settled') ...[
           GochanoMenuAction(
-            label: GochanoLanguage.text('Settle', 'মিটমাট'),
+            label: isLend
+                ? GochanoLanguage.text('Mark received', 'পাওয়া হয়েছে')
+                : GochanoLanguage.text('Mark paid', 'পরিশোধ হয়েছে'),
             icon: Icons.check_circle_outline_rounded,
             onSelected: () => _showSettleDialog(context, outstanding, isLend),
           ),
@@ -553,9 +571,7 @@ class _DenaPawnaForm extends StatefulWidget {
 class _DenaPawnaFormState extends State<_DenaPawnaForm> {
   late final TextEditingController _personName;
   late final TextEditingController _amount;
-  late final TextEditingController _note;
   late String _type;
-  late DateTime? _dueDate;
   bool _saving = false;
   String? _error;
 
@@ -572,16 +588,13 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
           ? ''
           : '${(data['amount'] as num?)?.toDouble() ?? ''}',
     );
-    _note = TextEditingController(text: data['note']?.toString() ?? '');
     _type = data['type']?.toString() ?? 'lend';
-    _dueDate = (data['dueDate'] as Timestamp?)?.toDate();
   }
 
   @override
   void dispose() {
     _personName.dispose();
     _amount.dispose();
-    _note.dispose();
     super.dispose();
   }
 
@@ -619,8 +632,8 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
             ? ((widget.existing?.data()?['date'] as Timestamp?)?.toDate() ??
                 DateTime.now())
             : DateTime.now(),
-        note: _note.text.trim(),
-        dueDate: _dueDate,
+        note: '',
+        dueDate: null,
       );
       widget.onChanged?.call();
       if (mounted) Navigator.of(context).pop(true);
@@ -687,88 +700,35 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: GochanoSpacing.sm),
-              // Type selector: lend or borrow.
+              // Type selector: give or receive.
               Row(
                 children: [
                   Expanded(
                     child: _TypeChip(
                       label: GochanoLanguage.text(
-                        'I lent (Pawna)',
-                        'আমি দিয়েছি (পাওনা)',
+                        'Give',
+                        'দেব',
                       ),
                       icon: Icons.arrow_upward_rounded,
-                      color: colors.success,
-                      selected: _type == 'lend',
-                      onTap: () => setState(() => _type = 'lend'),
+                      color: colors.warning,
+                      selected: _type == 'borrow',
+                      onTap: () => setState(() => _type = 'borrow'),
                     ),
                   ),
                   const SizedBox(width: GochanoSpacing.xs),
                   Expanded(
                     child: _TypeChip(
                       label: GochanoLanguage.text(
-                        'I owe (Dena)',
-                        'আমি দিয়েছি (দেনা)',
+                        'Receive',
+                        'পাব',
                       ),
                       icon: Icons.arrow_downward_rounded,
-                      color: colors.warning,
-                      selected: _type == 'borrow',
-                      onTap: () => setState(() => _type = 'borrow'),
+                      color: colors.success,
+                      selected: _type == 'lend',
+                      onTap: () => setState(() => _type = 'lend'),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-              // Due date picker
-              GestureDetector(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _dueDate ?? DateTime.now().add(
-                      const Duration(days: 7),
-                    ),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                  );
-                  if (picked != null) {
-                    setState(() => _dueDate = picked);
-                  }
-                },
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: GochanoLanguage.text(
-                      'Due date (optional)',
-                      'বকেয়ার তারিখ (ঐচ্ছিক)',
-                    ),
-                    suffixIcon: _dueDate != null
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            tooltip: GochanoLanguage.text('Clear due date', 'তারিখ মুছুন'),
-                            onPressed: () =>
-                                setState(() => _dueDate = null),
-                          )
-                        : const Icon(Icons.calendar_today_rounded, size: 18),
-                  ),
-                  child: Text(
-                    _dueDate != null
-                        ? _formatDate(_dueDate!)
-                        : GochanoLanguage.text('No due date', 'বকেয়ার তারিখ নেই'),
-                    style: _dueDate != null
-                        ? type.body
-                        : type.bodySecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-              TextField(
-                controller: _note,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text(
-                    'Note (optional)',
-                    'নোট (ঐচ্ছিক)',
-                  ),
-                ),
-                maxLines: 2,
               ),
               if (_error != null) ...[
                 const SizedBox(height: GochanoSpacing.xs),

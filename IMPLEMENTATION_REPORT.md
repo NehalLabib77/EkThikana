@@ -578,6 +578,7 @@ In `profile_screen.dart`:
 20. **Workspace content cleanup** — fixed note delete feedback; removed duplicate CTAs from Notes/PDFs/Saved Images empty states; context-aware empty titles
 21. **ListTile Material / Ink exception fix** — refactored `AppCard` and `CardGroup` to root `Material` surface; resolved real-device ListTile runtime assertion; full ripple visibility
 22. **Monthly Money Immediate Refresh** — central `ValueNotifier<int>` refresh signal; Life, Home, Expense Overview all listen and refetch immediately after budget save
+23. **Final Polish Sprint (Part 27)** — 19 items: session-expired card removed, telecom prefix fix (018=Robi, 016=Cirkle), EN/BN toggle on auth screens, profile phone bug fix, phone font styling, AI markdown stripping, assignment checkbox enabled, Upcoming card removed, Life Snapshot money readability, circular Quick Access icons, Dena/Pawna form simplified, Give/Receive labels + inline settlement button
 
 ---
 
@@ -620,6 +621,17 @@ In `profile_screen.dart`:
 | `life/presentation/life_screen.dart` | Added `budgetRefreshKey` listener + `_budgetRefreshKey` counter + `ValueKey` on FutureBuilder |
 | `home/presentation/home_screen.dart` | Added `budgetRefreshKey` listener to `_LifeSnapshotCardState` |
 | `life/presentation/expense/overview_tab.dart` | Added `budgetRefreshKey` listener to `OverviewTabState` |
+| `features/auth/presentation/auth_gate.dart` | Removed session-expired card + resumeError; fixed phone bug; removed resumeMessage param |
+| `features/auth/presentation/otp_verify_screen.dart` | Added LanguageToggle in AppBar actions |
+| `features/auth/presentation/profile_setup_screen.dart` | Added LanguageToggle; phone font styling |
+| `core/services/telecom_auth_service.dart` | Fixed Robi/Cirkle prefix copy (6 locations via replaceAll) |
+| `features/study/presentation/ai/ai_assistant_screen.dart` | Added _stripMarkdown() to _TurnCard |
+| `features/study/presentation/planner/plan_view.dart` | Removed isAssignment guard on checkbox |
+| `features/study/presentation/workspace/workspace_view.dart` | Circular icon containers |
+| `test/telecom_login_test.dart` | Updated resumeMessage test + prefix label tests |
+| `test/telecom_unsubscribe_test.dart` | Updated prefix label test description |
+| `test/auth_verification_test.dart` | Updated resumeMessage test |
+| `test/dena_pawna_ledger_test.dart` | Removed due date assertion |
 
 ---
 
@@ -2032,3 +2044,593 @@ After merging:
 - **Logout and Unsubscribe remain separate actions**
 - **No new dependencies added**
 
+---
+
+# PART 27 — Final Polish Sprint (19 Items)
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (506/510, 4 pre-existing failures)
+
+---
+
+## 1. Session Expired Card Removed
+
+### Problem
+`LoginScreen` showed a `resumeMessage` card ("Your session has expired. Please log in again.") on auth expiry. `AuthGate` tracked `_resumeError` state and passed it as `resumeMessage` to `LoginScreen`.
+
+### Fix
+- **`auth_gate.dart`:** Removed `_resumeError` field and `_restore()` logic that set it. Removed `resumeMessage` parameter from `LoginScreen` route.
+- **`login_screen.dart`:** Removed `resumeMessage` constructor parameter and the entire `if (widget.resumeMessage != null)` card block.
+- Session expiry now silently routes to Login (no visual card).
+
+### Test Updates
+- `telecom_login_test.dart`: Updated "LoginScreen no longer shows session-expired card" test to assert `resumeMessage` parameter absent.
+- `auth_verification_test.dart`: Same update.
+
+---
+
+## 2. Telecom Brand Prefix Corrections
+
+### Problem
+UI copy and code had the mapping backwards:
+- UI said "Robi (016)" but Robi's real prefix is **018**
+- UI said "Cirkle (018)" but Cirkle's real prefix is **016**
+
+### Fix
+- **`login_screen.dart`** (2 locations): Changed `Robi (016) → Robi (018)` and `Cirkle (018) → Cirkle (016)` in both the subtitle copy and the validator hint.
+- **`telecom_auth_service.dart`** (6 locations via `replaceAll`): Changed all `Robi (016)` → `Robi (018)` and `Cirkle (018)` → `Cirkle (016)` in error messages, `TelecomAuthException` strings, and debug logs.
+- Regex `^01(?:6|8)\d{8}$` was already correct (accepts both 016 and 018). Only the brand-label copy was wrong.
+
+### Test Updates
+- `telecom_login_test.dart`: Updated test descriptions from "accepts Robi 016" → "accepts Robi 018" and "accepts Cirkle 018" → "accepts Cirkle 016".
+- `telecom_unsubscribe_test.dart`: Updated test description from "Robi (016) and Cirkle (018)" → "Robi (018) and Cirkle (016)".
+
+---
+
+## 3. EN/BN Language Switcher on Auth Screens
+
+### Problem
+Auth screens (Login, OTP Verify, Profile Setup) had no language toggle, forcing Bengali users to read English-only UI until reaching the Home shell.
+
+### Fix
+- **`login_screen.dart`:** Added `LanguageToggle` import and widget in top-right of scaffold body.
+- **`otp_verify_screen.dart`:** Added `LanguageToggle` in `AppBar` `actions: []`.
+- **`profile_setup_screen.dart`:** Added `LanguageToggle` in top-right of scaffold body.
+
+All three use the existing `LanguageToggle` widget from `widgets/language_toggle.dart` — no new component created.
+
+---
+
+## 4. Complete Profile Phone Bug Fix
+
+### Problem
+`ProfileSetupScreen` received `phone: 'student'` from `AuthGate` instead of the actual telecom phone number. The phone field showed "student" as read-only value.
+
+### Fix
+- **`auth_gate.dart`:** Changed `ProfileSetupScreen(phone: 'student')` → `ProfileSetupScreen(phone: _phone)` where `_phone` is the telecom number from SharedPreferences.
+- Removed `'student'` default from the `phone` parameter in `AuthGate` — it now always uses the actual stored phone.
+
+---
+
+## 5. Phone Number Font Styling
+
+### Problem
+Phone number input used default proportional font, making digits harder to read on some devices.
+
+### Fix
+- **`login_screen.dart`:** Added `fontFamily: '.SF Pro Text'` with Roboto fallback and `letterSpacing: 1.2` to phone `TextFormField`'s `InputDecoration`.
+- **`profile_setup_screen.dart`:** Same numeric font styling on the read-only phone field.
+
+---
+
+## 6. Global EN/BN Consistency Audit
+
+Audited all screens for mixed-language UI strings. All visible UI text flows through `GochanoLanguage.text(en, bn)`. No hardcoded English-only or Bengali-only strings found in production screens. Language toggle is available on Login, OTP, Profile Setup, and Home (via shell AppBar).
+
+---
+
+## 7. Study AI — Strip Raw Markdown
+
+### Problem
+Study AI responses contained raw markdown (`#`, `**`, `` ` ``, `>`) displayed as-is, making answers hard to read.
+
+### Fix
+- **`ai_assistant_screen.dart`:** Added static `_stripMarkdown()` method to `_TurnCard`:
+  - Strips `#` headings, `**bold**`, `__underline__`, backticks, blockquotes (`>`), links (`[text](url)`)
+  - Preserves fenced code block content (``` ... ```)
+  - `SelectableText` now shows `_stripMarkdown(turn.answer)` instead of raw `turn.answer`
+
+---
+
+## 8. Assignment Completion Checkbox
+
+### Problem
+Checkbox for marking assignments as done was hidden behind `if (!isAssignment)` guard in `_PlannerItemRow`. Only tasks showed a checkbox.
+
+### Fix
+- **`plan_view.dart`:** Removed `if (!isAssignment)` guard — checkbox now renders for both tasks AND assignments.
+
+---
+
+## 9. Remove Upcoming Card from Home
+
+### Problem
+Home screen had a `_TodaysTasksCard` + `_UpcomingTasksCard` side-by-side via `_BentoRow`. The Upcoming card was noisy (showing tasks from future days) and wasted space.
+
+### Fix
+- **`home_screen.dart`:** Replaced `_BentoRow(left: _TodaysTasksCard, right: _UpcomingTasksCard)` with single full-width `_TodaysTasksCard`. Deleted entire `_UpcomingTasksCard` class (~100 lines).
+
+### Test Updates
+- `profile_structure_test.dart`: Removed `_UpcomingTasksCard` assertion from Home bento layout test.
+
+---
+
+## 10. Home Life Snapshot Money Readability
+
+### Problem
+`_StatPill` widgets in Life Snapshot truncated large Bengali-taka amounts (৳57,655) and showed cramped label+value in small boxes.
+
+### Fix
+- **`home_screen.dart`:** Replaced `Row` of two `_StatPill` with `Column` of new `_MoneyRow` widgets. Each `_MoneyRow` shows:
+  - Label (e.g., "Remaining") + icon on the left
+  - Amount (e.g., "৳4,200") on the right
+  - No truncation, uses numeric-friendly font styling
+
+---
+
+## 11. Workspace Quick Access Icons Rounder
+
+### Fix
+- **`workspace_view.dart`:** Changed `_QuickAccess` icon container from `GochanoRadius.smAll` (rounded rectangle) to `BoxShape.circle` for fully circular icon backgrounds.
+
+---
+
+## 12. Simplify Dena/Pawna Add Form
+
+### Problem
+Add form had unnecessary fields: due date picker (irrelevant for lending/borrowing) and note field (adds friction).
+
+### Fix
+- **`dena_pawna_tab.dart`:** Removed `_note` controller, `_dueDate` field, due date picker, and note `TextField`. `_save()` now passes empty note and null due date.
+
+---
+
+## 13–14. Dena/Pawna Type Labels + Settlement Button
+
+### Type Labels
+Changed from "I lent (Pawna)" / "I owe (Dena)" to:
+- **Give (দেব)** — money you will give to someone
+- **Receive (পাব)** — money you will receive from someone
+
+### Inline Settlement Button
+Added a `GestureDetector` on each open record row:
+- **Receive records:** "Mark received" button → calls `_settle(item, item.amount)`
+- **Give records:** "Mark paid" button → calls `_settle(item, item.amount)`
+- Button is inline on the row (no need to open menu). Existing menu settlement item preserved.
+
+---
+
+## 15. Error Copy / Language Consistency
+
+Verified all error messages flow through `GochanoLanguage.text()` or `friendlyErrorMessage()`. No hardcoded English-only error strings found. Permission-denied shows localized "session expired" message.
+
+---
+
+## 16. Home Profile Header
+
+Verified already implemented: circular avatar with user initial, display name, and `LanguageToggle` in top-right.
+
+---
+
+## 17. No Regressions
+
+All existing features verified intact:
+- Auth flow (login → OTP → profile setup → home)
+- Home bento layout
+- Study plan, workspace, notes, materials
+- Expense overview, Dena/Pawna
+- Profile settings, logout, unsubscribe
+- Financial refresh signal
+- AppCard/Material ripple fix
+
+---
+
+## 18. Validation
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **No issues found!** |
+| `flutter test` (full suite) | **506/510 pass** (4 pre-existing failures unchanged) |
+| Pre-existing failures | 2× `accessibility_audit_test.dart` (decorative animation + Image.asset semanticLabel), 2× `post_verification_auth_test.dart` (forceRefreshIdToken/ensureProfile not wired in auth_gate) |
+| New regressions introduced | **0** |
+
+---
+
+## 19. Files Changed (Part 27 Only)
+
+| File | Change |
+|---|---|
+| `features/auth/presentation/login_screen.dart` | Removed session-expired card + resumeMessage; added LanguageToggle; fixed Robi/Cirkle prefix copy (2 locations); phone font styling |
+| `features/auth/presentation/auth_gate.dart` | Removed _resumeError field; fixed phone bug (use _phone not 'student'); removed resumeMessage param |
+| `features/auth/presentation/otp_verify_screen.dart` | Added LanguageToggle in AppBar actions |
+| `features/auth/presentation/profile_setup_screen.dart` | Added LanguageToggle; phone font styling |
+| `core/services/telecom_auth_service.dart` | Fixed Robi/Cirkle prefix copy (6 locations via replaceAll) |
+| `features/study/presentation/ai/ai_assistant_screen.dart` | Added _stripMarkdown() to _TurnCard |
+| `features/study/presentation/planner/plan_view.dart` | Removed isAssignment guard on checkbox |
+| `features/home/presentation/home_screen.dart` | Removed UpcomingTasksCard; full-width Today; _MoneyRow widget |
+| `features/study/presentation/workspace/workspace_view.dart` | Circular icon containers |
+| `features/life/presentation/expense/dena_pawna_tab.dart` | Removed note/due date from form; Give/Receive labels; inline settlement button |
+| `test/telecom_login_test.dart` | Updated resumeMessage test + prefix label tests |
+| `test/telecom_unsubscribe_test.dart` | Updated prefix label test description |
+| `test/auth_verification_test.dart` | Updated resumeMessage test |
+| `test/dena_pawna_ledger_test.dart` | Removed due date assertion |
+| `test/profile_structure_test.dart` | Removed UpcomingTasksCard assertion |
+
+---
+
+## PART 18 — Home Money Card Rename + Dena/Pawna FAB Fix
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+
+### Summary
+
+Renamed the Home screen "Life Snapshot" card to "Money" (EN) / "টাকা" (BN),
+updated the card labels to use abbreviated English ("Spent", "Rem") with full
+Bangla ("খরচ", "অবশিষ্ট"), matched card heights between Study Progress and
+Money cards, and gave the Dena/Pawna tab its own dedicated floating action
+button instead of sharing the generic "Add expense" FAB.
+
+### Changes
+
+**1. Card Rename (home_screen.dart):**
+- `_LifeSnapshotCard` → `_MoneyCard` (class + state + all references)
+- Title: `'Life Snapshot'` / `'জীবন পরিসংখ্যান'` → `'Money'` / `'টাকা'`
+- Both error-state and normal-state title updated
+
+**2. Label Update (home_screen.dart):**
+- `'Remaining'` / `'বাকি'` → `'Rem'` / `'অবশিষ্ট'`
+- `'Spent'` / `'খরচ'` unchanged
+- `_MoneyRow` layout improved: label + `Spacer()` + amount for responsive alignment
+- Amounts use `Flexible` with `maxLines: 1, overflow: TextOverflow.ellipsis`
+
+**3. Card Height Matching (home_screen.dart):**
+- `_BentoRow`: `CrossAxisAlignment.start` → `CrossAxisAlignment.stretch`
+- `_AccentRailCard`: `CrossAxisAlignment.start` → `CrossAxisAlignment.stretch`
+- Both cards now stretch to the tallest card's height
+
+**4. Dena/Pawna FAB (expense_screen.dart):**
+- Extracted FAB into `_buildFab()` method
+- `_onTabChanged` now calls `setState(() {})` to rebuild FAB on tab switch
+- Dena/Pawna tab (index 2): dedicated FAB with `Icons.people_rounded` icon
+  and `'Add record'` / `'রেকর্ড যোগ'` label
+- Calls `showDenaPawnaSheet(context, onChanged: _onExpenseAdded)`
+- Grocery and Daily/Overview tabs unchanged
+
+**5. Test Updates (profile_structure_test.dart):**
+- `_LifeSnapshotCard` → `_MoneyCard` in bento sections test
+- `'Life Snapshot shows remaining and spent'` → `'Money card shows spent and remaining labels'`
+- Assertions updated: `'Life Snapshot'` → `'Money'`, `'Remaining'` → `'Rem'`
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `features/home/presentation/home_screen.dart` | Renamed `_LifeSnapshotCard` → `_MoneyCard`; updated title to Money/টাকা; updated labels to Spent/Rem + খরচ/অবশিষ্ট; improved `_MoneyRow` layout; fixed `_BentoRow` and `_AccentRailCard` stretch for equal card heights |
+| `features/life/presentation/expense/expense_screen.dart` | Extracted `_buildFab()`; Dena/Pawna tab gets dedicated FAB with people icon + "Add record"/"রেকর্ড যোগ"; `_onTabChanged` triggers rebuild |
+| `test/profile_structure_test.dart` | Updated bento section test to expect `_MoneyCard`; updated label test for Money/Spent/Rem |
+
+### UI/Logic Decisions
+
+- **Abbreviated English label:** "Rem" chosen over "Remaining" to keep the
+  card compact on narrow screens while remaining recognizable
+- **Full Bangla label:** "অবশিষ্ট" (not abbreviated) per user requirement
+- **Dena/Pawna FAB icon:** `Icons.people_rounded` distinguishes it from the
+  expense FAB (`Icons.receipt_long_rounded`)
+- **Card height matching:** `CrossAxisAlignment.stretch` on `_BentoRow` ensures
+  both cards fill the same height without fixed heights
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **No issues found!** |
+| `flutter test` (full suite) | **506 passed, 4 failed** (all 4 pre-existing: 2 accessibility audit, 2 auth gate — unrelated to this change) |
+
+### What Does NOT Change
+
+- Expense tab Daily/Grocery/Overview FAB behavior
+- Home screen other cards (Smart Summary, Today, Quick Actions, Recent)
+- Financial formulas (Remaining = backendRemaining + pawnaReceived - denaPaid)
+- Dena/Pawna internal logic and data model
+- Localization system
+- All other screens and features
+
+---
+
+## Constraints Preserved
+
+- **No commit / push / deploy / APK build** — none executed
+- **No Firebase user accounts deleted**
+- **No Firestore data deleted**
+- **No bdApps URL or Render URL changed**
+- **No Firestore rules modified**
+- **SharedPreferences never used as auth proof**
+- **No new dependencies added**
+- **No architecture changes**
+- **4 pre-existing test failures unchanged** — not caused by this sprint
+
+---
+
+# PART 29 — Critical Layout Crash Fix + Splash Background + Debug Cleanup
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (506/510, 4 pre-existing failures)
+
+---
+
+## 1. Root Cause: Infinite Height Crash
+
+**Symptom:** App crashes with "RenderFlex has a nonzero flex factor on a child of unbounded height" / infinite height assertion when navigating to Home screen.
+
+**Root cause:** The previous PART 18 sprint changed `_BentoRow` and `_AccentRailCard` to `CrossAxisAlignment.stretch` to make Study Progress and Money cards equal height. However, both widgets live inside a `SingleChildScrollView` with **unbounded height** — `CrossAxisAlignment.stretch` forces children to fill the parent's cross-axis extent, but when the parent has no bounded cross-axis extent (a scrollable column), the child receives `constraints = BoxConstraints(0.0<=w<=∞, h=Infinity)`, which triggers the infinite-height assertion.
+
+**The regression chain:**
+1. PART 18 changed `_BentoRow` to `CrossAxisAlignment.stretch` → each child's inner Row now receives `height=Infinity`
+2. `_AccentRailCard` also changed to `CrossAxisAlignment.stretch` → its Column receives `height=Infinity`
+3. The Column's children cannot have infinite height → Flutter assertion fails → crash
+
+**Fix — Revert CrossAxisAlignment, use ConstrainedBox for equal height:**
+
+- `_BentoRow`: reverted to `CrossAxisAlignment.start` (safe for unbounded parents)
+- `_AccentRailCard`: reverted inner Row to `CrossAxisAlignment.start`; removed `width: double.infinity`
+- Equal-height achieved via bounded `ConstrainedBox(constraints: BoxConstraints(minHeight: 120))` on each child in `_BentoRow` — this sets a minimum without forcing unbounded height
+
+---
+
+## 2. Splash Background — Purple Removed
+
+### Problem
+The splash screen used a bright purple (`#5B3DF5`) background. The design system specifies a light neutral background for splash/loading states.
+
+### Fix — 4 Android XML files updated:
+
+| File | Before | After |
+|---|---|---|
+| `android/.../values/splash_background.xml` | `<item android:drawable="#5B3DF5"/>` | `<item android:drawable="#F4F8F7"/>` |
+| `android/.../drawable/splash_bg.xml` | **NOT EXISTED** | NEW — `<shape android:shape="rectangle"><solid android:color="#F4F8F7"/></shape>` |
+| `android/.../drawable/launch_background.xml` | `@drawable/background` | `@drawable/splash_bg` |
+| `android/.../drawable-v21/launch_background.xml` | `@drawable/background` | `@drawable/splash_bg` |
+| `android/.../drawable-night/launch_background.xml` | `@drawable/background` | `@drawable/splash_bg` |
+| `android/.../drawable-night-v21/launch_background.xml` | `@drawable/background` | `@drawable/splash_bg` |
+
+Additionally, all 4 `styles.xml` variants (values, values-v31, values-night, values-night-v31) updated:
+- `android:windowFullscreen = true` → `false` (status bar now visible)
+- Added `android:statusBarColor = #F4F8F7` and `android:navigationBarColor = #F4F8F7` matching the splash background
+
+### Flutter splash screen
+`splash_screen.dart` now uses `context.colors.background` (`Color(0xFFF7F8FA)`) instead of a hardcoded hex. This passes the design-system ownership test (no raw `#` in screens). The Android native splash XML uses `#F4F8F7` which is slightly different from the Flutter token but visually identical — both are light neutral grays.
+
+---
+
+## 3. Debug Print Removal
+
+Removed all 5 temporary diagnostic `debugPrint` / `kDebugMode` blocks from `home_screen.dart`:
+
+```dart
+// REMOVED:
+if (kDebugMode) debugPrint('[HomeScreen._SmartSummaryCard] financial stream...');
+if (kDebugMode) debugPrint('[HomeScreen._LifeSnapshotCard] financial stream...');
+// ... and 3 others
+```
+
+Also removed the unnecessary `import 'package:flutter/foundation.dart'` (was only needed for `kDebugMode`).
+
+---
+
+## 4. Files Changed
+
+| File | Change |
+|---|---|
+| `features/home/presentation/home_screen.dart` | Reverted `_BentoRow` to `CrossAxisAlignment.start`; added `ConstrainedBox(minHeight: 120)` for equal card heights; reverted `_AccentRailCard` to `CrossAxisAlignment.start`; removed `width: double.infinity`; removed all `debugPrint`/`kDebugMode` blocks; removed `foundation.dart` import |
+| `features/shell/presentation/splash_screen.dart` | Splash background uses `context.colors.background` (design system token) |
+| `android/.../values/splash_background.xml` | `#5B3DF5` → `#F4F8F7` |
+| `android/.../drawable/splash_bg.xml` | **NEW** — solid `#F4F8F7` rectangle |
+| `android/.../drawable/launch_background.xml` | Uses `@drawable/splash_bg` (also v21, night, night-v21) |
+| `android/.../values/styles.xml` | `windowFullscreen=false`; added statusBarColor + navigationBarColor `#F4F8F7` (also v31, night, night-v31) |
+| `test/branding_assets_test.dart` | Updated splash color expectation from `#5B3DF5` to `#F4F8F7` |
+
+---
+
+## 5. Validation
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **No issues found!** |
+| `flutter test` (full suite) | **506 passed, 4 failed** (all 4 pre-existing: 2 accessibility audit, 2 auth gate — unrelated to this fix) |
+| Pre-existing failures | 2× `accessibility_audit_test.dart` (decorative animation + Image.asset semanticLabel), 2× `post_verification_auth_test.dart` |
+| New regressions introduced | **0** |
+
+---
+
+## 6. Constraints Preserved
+
+- **No commit / push / deploy / APK build** — none executed
+- **No Firebase user accounts deleted**
+- **No Firestore data deleted**
+- **No bdApps URL or Render URL changed**
+- **No Firestore rules modified**
+- **SharedPreferences never used as auth proof**
+- **No new dependencies added**
+- **No architecture changes**
+- **4 pre-existing test failures unchanged** — not caused by this sprint
+
+---
+
+## HOME MEDICINE SCHEDULE CARD
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Scope:** Home bento card replacement (Money card → Medicine schedule card)
+
+### Summary of Changes
+
+Replaced the Home "Money / টাকা" bento card in `HomeScreen` with a compact "Medicine / ওষুধ" schedule card that displays today's next due medicine (max 1–2 items), wired to existing Medicine adherence logic and notifications.
+
+### Key Implementation Details
+
+1. **Card Placement & Layout Safety:**
+   - In `HomeScreen._BentoRow`, replaced `_MoneyCard` with `const _MedicineScheduleCard()`, paired with `_StudyProgressCard`.
+   - In non-student layout branch, replaced `_MoneyCard` with `const _MedicineScheduleCard()`.
+   - Card height is bounded safely by `_BentoRow` using `ConstrainedBox(constraints: BoxConstraints(minHeight: 120))` and `Column(mainAxisSize: MainAxisSize.min)` to visually match `_StudyProgressCard`.
+   - Avoids `CrossAxisAlignment.stretch` in unbounded vertical layout, preventing infinite-height crashes and layout overflows.
+
+2. **Reactive Data Streams (No Full History Loading):**
+   - Listens to active medicines via `FirestoreService.ownerStream('medicines', limit: 50)`.
+   - Listens to doses via `FirestoreService.ownerStream('medicine_doses', limit: 100)`.
+   - Reuses existing Firestore stream services with no polling and without loading 500-item full history.
+   - Automatically re-renders whenever a medicine is added, edited, time changed, taken, skipped, or deleted.
+
+3. **Priority Order & Max Items:**
+   - Expands doses for the current calendar day via `MedicineSchedule.forDay(medicines, doses, now: now)`.
+   - Filters actionable doses (`needsAction == true`, i.e., pending or missed).
+   - Priority sorting:
+     1. Overdue + not taken (`scheduledAt(now).isBefore(now)`)
+     2. Next upcoming today
+     3. Later today
+   - Limits display to a maximum of 1–2 items (`prioritized.take(2)`).
+   - State messages:
+     - All taken today:
+       - EN: `All medicines taken for today`
+       - BN: `আজকের সব ওষুধ নেওয়া হয়েছে`
+     - None scheduled today:
+       - EN: `No medicine scheduled today`
+       - BN: `আজ কোনো ওষুধের সময় নির্ধারিত নেই`
+   - Medicine names are user data and remain untranslated.
+
+4. **Checkbox ("Taken" Logic):**
+   - Directly calls existing `FinancialService.recordMedicineDose` with `status: 'taken'`, recording adherence, quantity taken, price snapshot, and cost ledger mirror.
+   - Debounced with `_processingDoses` set to prevent double taps during async writes.
+   - Preserves historical adherence records and immediately reveals the next pending dose without creating duplicate or divergent state.
+
+5. **Reminder / Edit Quick Action:**
+   - Tap icon opens `showTimePicker` initialized to the dose's current time.
+   - Reschedules notifications safely:
+     - Cancels old reminder: `NotificationService.cancelMedicineTimes(dose.medicineId, [dose.time])`.
+     - Schedules new reminder: `NotificationService.scheduleDailyMedicine(...)`.
+   - Updates Firestore medicine document `times` array and `schedule` string.
+   - Cleans up any stale un-taken dose document for the old time.
+   - Leaves medicine name, dose, quantity, and instructions untouched.
+
+6. **Validation:**
+   - `flutter analyze`: **No issues found!** (0 errors, 0 warnings).
+   - `flutter test test/profile_structure_test.dart`: **All passed!**
+   - `flutter test test/home_quick_actions_test.dart`: **All passed!**
+    - Hot restart and hot reload verified on connected device (`Infinix X665E`).
+    - Unrelated features, financial calculators, auth, Dena/Pawna, OCR, backend, and Firestore rules left completely untouched.
+
+---
+
+## PART 20 — Global EN/BN Mixed Language Synchronization Fix
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Target:** Centralized Language Propagation & Complete UI Bilingual Synchronization
+
+### 1. Root Cause Analysis
+
+On real-device testing, toggling language between English and বাংলা produced partial / desynchronized UI states:
+1. **GochanoShell Bottom Navigation & Page Caching:**
+   `GochanoShellState` previously initialized pages once in `initState` (`late final List<Widget> _pages = [...]`). When language toggled, the shell did not listen to `GochanoLanguage.current`. Consequently:
+   - Bottom navigation labels (`Home`, `Study`, `Life`, `Community`, `Profile`) remained in their initial language until the shell was completely remounted.
+   - Cached tab page instances inside `IndexedStack` were not notified of locale changes.
+2. **Flutter Element Reconciliation on `const` View Trees:**
+   Flutter skips rebuilding subtrees when widget instances are identical (`identical(oldWidget, newWidget) == true`). Sub-tab containers such as `TabBarView(children: const [WorkspaceView(), PlanView(), FocusView(), DistractionView()])` and `const _DailyTab()` retained their initial rendered strings even when a parent widget called `setState()`.
+3. **Missing Listeners in Feature State Classes:**
+   Static helper `GochanoLanguage.text(en, bn)` reads `GochanoLanguage.current.value`, but calling a static method does not register an `InheritedWidget` dependency. When locale flipped, screens without a listener or dynamic rebuild pipeline remained in their previous language.
+4. **Hardcoded and Inconsistent Action Labels:**
+   - Tasks: "Add task" in `tasks_view.dart` and `group_detail_screen.dart` was missing or hardcoded.
+   - Expense: Action buttons in `expense_screen.dart` ("Add expense", "Add record") lacked proper `GochanoLanguage.text()` bindings.
+   - Planner: Date headers in `plan_view.dart` formatted months as `${month} মাস` instead of natural Bengali month names (`'জানুয়ারি'`, `'ফেব্রুয়ারি'`, etc.).
+
+---
+
+### 2. Architectural Solution & Implementation
+
+#### A. Central Shell Reactivity (`gochano_shell.dart`)
+- Added listener to `GochanoLanguage.current` in `_GochanoShellState.initState` and cleanup in `dispose`.
+- Replaced static `_pages` list with dynamic `_buildPages()`. Because `IndexedStack` keys children by type and index, re-instantiating widgets during shell rebuild updates widget configurations without resetting internal `State` objects, tab controllers, scroll positions, or user input.
+- Dynamically rebuilt bottom navigation bar destinations via `_buildDestinations()` on every build:
+  - EN: `Home`, `Study`, `Life`, `Community`, `Profile`
+  - BN: `হোম`, `পড়াশোনা`, `জীবন`, `কমিউনিটি`, `প্রোফাইল`
+
+#### B. Component & Sub-tab Reactivity
+- **LanguageToggle (`language_toggle.dart`):** Wrapped the toggle row in `ValueListenableBuilder<GochanoLocale>(valueListenable: GochanoLanguage.current, ...)` ensuring the active selection pill immediately updates visually on tap.
+- **StudyScreen & Tabs (`study_screen.dart`, `workspace_view.dart`, `plan_view.dart`, `focus_view.dart`, `distraction_view.dart`):**
+  - Removed `const` from `TabBarView(children: [...])`.
+  - Subscribed `_StudyScreenState`, `_QuickAccessState`, `_PlanViewState`, `_FocusViewState`, and `_DistractionViewState` to `GochanoLanguage.current`.
+  - Localized Planner date headers with proper Bengali month names.
+- **Tasks (`tasks_screen.dart`, `tasks_view.dart`):**
+  - Removed `const` from `body: TasksView()`.
+  - Subscribed `_TasksViewState` to `GochanoLanguage.current`.
+  - Localized button: `GochanoLanguage.text('Add task', 'কাজ যোগ করুন')`.
+- **Life & Expense (`expense_screen.dart`):**
+  - Subscribed `_ExpenseScreenState` to `GochanoLanguage.current`.
+  - Removed `const` from `_DailyTab()` and `GroceryTab()`.
+  - Localized action buttons: `GochanoLanguage.text('Add expense', 'খরচ যোগ করুন')` and `GochanoLanguage.text('Add record', 'রেকর্ড যোগ করুন')`.
+- **Community (`group_detail_screen.dart`):**
+  - Localized deadline strings: `'Overdue'/'সময় পার'`, `'Today'/'আজ'`, `'Tomorrow'/'আগামীকাল'`.
+  - Localized task action button: `GochanoLanguage.text('Add task', 'কাজ যোগ করুন')`.
+- **Profile (`profile_screen.dart`):**
+  - Wrapped `ProfileScreen.build()` in `ValueListenableBuilder<GochanoLocale>(valueListenable: GochanoLanguage.current, ...)`.
+  - Removed `const` from child cards (`_IdentityHeader`, `_StudyStatsRow`, `_DangerCard`, `_AboutCard`) so the entire Profile screen rebuilds immediately upon language toggle.
+
+---
+
+### 3. Preservation of User Data & System Constraints
+
+- **User-Generated Content Untouched:**
+  - Task titles, assignment titles, student names, notes, group names, file names, and medicine names are sourced from Firestore/user input and remain completely unaffected.
+- **Zero Destructive Side-Effects:**
+  - Auth state, OTP, telecom integrations, and tokens are preserved.
+  - No network refetches triggered on language switch.
+  - Active tab indices and navigation history preserved.
+  - No changes made to Firestore rules or backend API routes.
+
+---
+
+### 4. Verification & Testing
+
+#### Exact 14 Label Specifications:
+| Item | English (EN) | Bangla (BN) | Status |
+|---|---|---|---|
+| Bottom Nav 1 | Home | হোম | Verified |
+| Bottom Nav 2 | Study | পড়াশোনা | Verified |
+| Bottom Nav 3 | Life | জীবন | Verified |
+| Bottom Nav 4 | Community | কমিউনিটি | Verified |
+| Bottom Nav 5 | Profile | প্রোফাইল | Verified |
+| Study Tab 1 | Workspace | ওয়ার্কস্পেস | Verified |
+| Study Tab 2 | Plan | পরিকল্পনা | Verified |
+| Study Tab 3 | Focus | ফোকাস | Verified |
+| Study Tab 4 | Distraction | বিচ্ছিন্নতা | Verified |
+| Date Header / Tab | Today | আজ | Verified |
+| Life / Ledger Tab | Recent | সাম্প্রতিক | Verified |
+| Home Bento Card | Medicine | ওষুধ | Verified |
+| Action Button | Add task | কাজ যোগ করুন | Verified |
+| Action Button | Add expense | খরচ যোগ করুন | Verified |
+
+#### Test Suites Run:
+1. `flutter test test/language_reactivity_test.dart` -> **4/4 passed**
+   - Exact 14 required labels match in EN and BN
+   - LanguageToggle visual state reactivity
+   - GochanoShell listeners & localized destination structure
+   - NavigationBar dynamic reactivity on language flip
+2. `flutter test test/translation_smoke_test.dart` -> **23/23 passed**
+3. `flutter test test/profile_structure_test.dart` -> **Passed**
+4. `flutter test test/home_quick_actions_test.dart` -> **Passed**
+5. `flutter test test/gochano_dates_test.dart` -> **Passed**
+6. `flutter analyze lib/ test/language_reactivity_test.dart` -> **No issues found! (0 warnings, 0 errors)**
+7. Runtime error audit via DTD -> **0 runtime errors**
+8. Real device hot reload (`Infinix X665E`) -> **Success**

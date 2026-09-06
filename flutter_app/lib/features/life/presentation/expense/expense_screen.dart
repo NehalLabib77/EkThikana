@@ -49,16 +49,23 @@ class _ExpenseScreenState extends State<ExpenseScreen>
     super.initState();
     _tabs = TabController(length: 4, vsync: this);
     _tabs.addListener(_onTabChanged);
+    GochanoLanguage.current.addListener(_onLanguageChange);
   }
 
   void _onTabChanged() {
     if (_tabs.index == 3) {
       _overviewKey.currentState?.refresh();
     }
+    setState(() {});
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
     _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
     super.dispose();
@@ -89,30 +96,50 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       body: TabBarView(
         controller: _tabs,
         children: [
-          const _DailyTab(),
-          const GroceryTab(),
+          _DailyTab(),
+          GroceryTab(),
           DenaPawnaTab(onChanged: _onExpenseAdded),
           OverviewTab(key: _overviewKey),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _buildFab(),
+    );
+  }
+
+  Widget _buildFab() {
+    final isDenaPawna = _tabs.index == 2;
+    final isGrocery = _tabs.index == 1;
+
+    if (isDenaPawna) {
+      return FloatingActionButton.extended(
         onPressed: () async {
-          final isGrocery = _tabs.index == 1;
-          if (isGrocery) {
-            final sessionId = FinancialService.bazarSessionId(DateTime.now());
-            final saved = await showGroceryItemSheet(
-              context,
-              sessionId: sessionId,
-            );
-            if (saved) _onExpenseAdded();
-          } else {
-            final saved = await showAddExpenseSheet(context);
-            if (saved) _onExpenseAdded();
-          }
+          final saved = await showDenaPawnaSheet(
+            context,
+            onChanged: _onExpenseAdded,
+          );
+          if (saved) _onExpenseAdded();
         },
-        icon: const Icon(Icons.receipt_long_rounded),
-        label: Text(GochanoLanguage.text('Add expense', 'খরচ যোগ')),
-      ),
+        icon: const Icon(Icons.people_rounded),
+        label: Text(GochanoLanguage.text('Add record', 'রেকর্ড যোগ করুন')),
+      );
+    }
+
+    return FloatingActionButton.extended(
+      onPressed: () async {
+        if (isGrocery) {
+          final sessionId = FinancialService.bazarSessionId(DateTime.now());
+          final saved = await showGroceryItemSheet(
+            context,
+            sessionId: sessionId,
+          );
+          if (saved) _onExpenseAdded();
+        } else {
+          final saved = await showAddExpenseSheet(context);
+          if (saved) _onExpenseAdded();
+        }
+      },
+      icon: const Icon(Icons.receipt_long_rounded),
+      label: Text(GochanoLanguage.text('Add expense', 'খরচ যোগ করুন')),
     );
   }
 }
@@ -166,7 +193,8 @@ class _DailyTab extends StatelessWidget {
 
         final total = docs.fold<double>(
           0,
-          (running, d) => running + ((d.data()['amount'] as num?)?.toDouble() ?? 0),
+          (running, d) =>
+              running + ((d.data()['amount'] as num?)?.toDouble() ?? 0),
         );
 
         return ListView(
@@ -179,9 +207,7 @@ class _DailyTab extends StatelessWidget {
             ),
             const SizedBox(height: GochanoSpacing.md),
             CardGroup(
-              children: [
-                for (final doc in docs) _DailyExpenseRow(doc: doc),
-              ],
+              children: [for (final doc in docs) _DailyExpenseRow(doc: doc)],
             ),
           ],
         );
@@ -209,10 +235,7 @@ class _DailyExpenseRow extends StatelessWidget {
       title: title,
       subtitle: category.label,
       metadata: [if (date != null) _clock(date)],
-      trailing: Text(
-        formatTaka(amount),
-        style: context.type.cardHeading,
-      ),
+      trailing: Text(formatTaka(amount), style: context.type.cardHeading),
       onTap: () => showAddExpenseSheet(
         context,
         expenseId: doc.id,
@@ -241,7 +264,10 @@ class _DailyExpenseRow extends StatelessWidget {
           onSelected: () async {
             final confirmed = await showConfirmationSheet(
               context,
-              title: GochanoLanguage.text('Delete this expense?', 'খরচটি মুছবেন?'),
+              title: GochanoLanguage.text(
+                'Delete this expense?',
+                'খরচটি মুছবেন?',
+              ),
               message: GochanoLanguage.text(
                 'It will be removed from your monthly total as well.',
                 'এটি আপনার মাসিক মোট থেকেও বাদ যাবে।',
@@ -270,5 +296,9 @@ class _DailyExpenseRow extends StatelessWidget {
 String _clock(DateTime when) {
   final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
   final minute = when.minute.toString().padLeft(2, '0');
-  return '$hour:$minute ${when.hour < 12 ? 'am' : 'pm'}';
+  final suffix = GochanoLanguage.text(
+    when.hour < 12 ? 'am' : 'pm',
+    when.hour < 12 ? 'পূর্বাহ্ণ' : 'অপরাহ্ণ',
+  );
+  return '$hour:$minute $suffix';
 }

@@ -70,7 +70,7 @@ void main() {
     final content = colors.readAsStringSync();
     expect(content, contains('splash_background_light'));
     expect(content, contains('splash_background_dark'));
-    expect(content, contains('#5B3DF5'));
+    expect(content, contains('#F4F8F7'));
     expect(content, contains('#0F172A'));
   });
 

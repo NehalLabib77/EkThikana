@@ -14,7 +14,7 @@ void main() {
       expect(TelecomAuthService.normalize('+880 16 1234 5678'), '01612345678');
     });
 
-    test('validates supported carriers: Robi (016) and Cirkle (018)', () {
+    test('validates supported carriers: Robi (018) and Cirkle (016)', () {
       expect(TelecomAuthService.isSupportedPhone('01812345678'), isTrue);
       expect(TelecomAuthService.isSupportedPhone('01612345678'), isTrue);
       expect(TelecomAuthService.isSupportedPhone('01712345678'), isFalse); // GP

@@ -32,11 +32,11 @@ String _read(String path) =>
 
 void main() {
   group('TelecomAuthService prefix validation', () {
-    test('accepts Robi 016 numbers', () {
+    test('accepts Robi 018 numbers', () {
       expect(TelecomAuthService.isSupportedPhone('01612345678'), isTrue);
     });
 
-    test('accepts Cirkle 018 numbers', () {
+    test('accepts Cirkle 016 numbers', () {
       expect(TelecomAuthService.isSupportedPhone('01812345678'), isTrue);
     });
 
@@ -310,8 +310,8 @@ void main() {
       expect(screenSource, contains('result.rawStatus'));
     });
 
-    test('PART 16.1: LoginScreen accepts a resumeMessage for re-entry', () {
-      expect(screenSource, contains('resumeMessage'));
+    test('LoginScreen no longer shows session-expired card', () {
+      expect(screenSource, isNot(contains('resumeMessage')));
     });
 
     test('routes REGISTERED / INITIAL CHARGING PENDING to the shell', () {
@@ -406,9 +406,9 @@ void main() {
       expect(gateSource, contains('clearSession'));
     });
 
-    test('surfaces a resume message on the LoginScreen', () {
-      expect(gateSource, contains('resumeMessage'));
-      expect(gateSource, contains('LoginScreen('));
+    test('routes to LoginScreen without a resume card', () {
+      expect(gateSource, isNot(contains('resumeMessage')));
+      expect(gateSource, contains('LoginScreen()'));
     });
 
     test('does NOT depend on the legacy email-verification flow', () {

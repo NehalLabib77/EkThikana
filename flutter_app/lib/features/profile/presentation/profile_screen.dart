@@ -48,46 +48,54 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GochanoScaffold(
-      padBody: false,
-      appBar: GochanoAppBar(
-        title: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-        automaticallyImplyLeading: false,
-      ),
-      body: ListView(
-        padding: GochanoSpacing.scrollBody,
-        children: [
-          const _IdentityHeader(),
-          _RoleBadge(role: role),
-
-          if (role == 'student') ...[
-            SectionHeader(title: GochanoLanguage.text('Study', 'পড়াশোনা')),
-            const _StudyStatsRow(),
-          ],
-
-          const SizedBox(height: GochanoSpacing.sm),
-          _SettingsCard(isStudent: role == 'student'),
-
-          const SizedBox(height: GochanoSpacing.md),
-          const _DangerCard(),
-
-          const SizedBox(height: GochanoSpacing.md),
-          const _AboutCard(),
-
-          const SizedBox(height: GochanoSpacing.lg),
-          PrimaryButton(
-            label: GochanoLanguage.text('Logout', 'লগ আউট'),
-            icon: Icons.logout_rounded,
-            onPressed: () => _logout(context),
+    return ValueListenableBuilder<GochanoLocale>(
+      valueListenable: GochanoLanguage.current,
+      builder: (context, locale, child) {
+        return GochanoScaffold(
+          padBody: false,
+          appBar: GochanoAppBar(
+            title: GochanoLanguage.text('Profile', 'প্রোফাইল'),
+            automaticallyImplyLeading: false,
           ),
-          const SizedBox(height: GochanoSpacing.sm),
-          SecondaryButton(
-            label: GochanoLanguage.text('Unsubscribe', 'আনসাবস্ক্রাইব করুন'),
-            icon: Icons.phonelink_erase_rounded,
-            onPressed: () => _unsubscribe(context),
+          body: ListView(
+            padding: GochanoSpacing.scrollBody,
+            children: [
+              _IdentityHeader(),
+              _RoleBadge(role: role),
+
+              if (role == 'student') ...[
+                SectionHeader(title: GochanoLanguage.text('Study', 'পড়াশোনা')),
+                _StudyStatsRow(),
+              ],
+
+              const SizedBox(height: GochanoSpacing.sm),
+              _SettingsCard(isStudent: role == 'student'),
+
+              const SizedBox(height: GochanoSpacing.md),
+              _DangerCard(),
+
+              const SizedBox(height: GochanoSpacing.md),
+              _AboutCard(),
+
+              const SizedBox(height: GochanoSpacing.lg),
+              PrimaryButton(
+                label: GochanoLanguage.text('Logout', 'লগ আউট'),
+                icon: Icons.logout_rounded,
+                onPressed: () => _logout(context),
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+              SecondaryButton(
+                label: GochanoLanguage.text(
+                  'Unsubscribe',
+                  'আনসাবস্ক্রাইব করুন',
+                ),
+                icon: Icons.phonelink_erase_rounded,
+                onPressed: () => _unsubscribe(context),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1084,10 +1092,7 @@ Future<void> _pickAppearance(BuildContext context) async {
 Future<void> _logout(BuildContext context) async {
   final confirmed = await showConfirmationSheet(
     context,
-    title: GochanoLanguage.text(
-      'Logout?',
-      'লগ আউট করবেন?',
-    ),
+    title: GochanoLanguage.text('Logout?', 'লগ আউট করবেন?'),
     message: GochanoLanguage.text(
       'You will be signed out of this device. Your subscription remains active — you can sign in again with the same number.',
       'এই ডিভাইসে সাইন আউট হবে। আপনার সাবস্ক্রিপশন সক্রিয় থাকবে — একই নম্বর দিয়ে আবার সাইন ইন করতে পারবেন।',
@@ -1134,7 +1139,8 @@ Future<void> _unsubscribe(BuildContext context) async {
   );
   if (!confirmed || !context.mounted) return;
 
-  final phone = (await TelecomAuthService.readUserPhone()) ??
+  final phone =
+      (await TelecomAuthService.readUserPhone()) ??
       (await TelecomAuthService.readPhone()) ??
       FirebaseAuth.instance.currentUser?.phoneNumber ??
       '';
@@ -1173,7 +1179,9 @@ Future<void> _unsubscribe(BuildContext context) async {
               children: [
                 CircularProgressIndicator(
                   strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(dialogCtx.colors.brand),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    dialogCtx.colors.brand,
+                  ),
                 ),
                 const SizedBox(height: GochanoSpacing.md),
                 Text(
@@ -1205,7 +1213,8 @@ Future<void> _unsubscribe(BuildContext context) async {
       ),
     );
   } finally {
-    if (context.mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+    if (context.mounted &&
+        Navigator.of(context, rootNavigator: true).canPop()) {
       Navigator.of(context, rootNavigator: true).pop();
     }
   }
@@ -1213,11 +1222,7 @@ Future<void> _unsubscribe(BuildContext context) async {
   if (!context.mounted) return;
 
   if (!result.success) {
-    showGochanoMessage(
-      context,
-      result.message,
-      isError: true,
-    );
+    showGochanoMessage(context, result.message, isError: true);
     return;
   }
 

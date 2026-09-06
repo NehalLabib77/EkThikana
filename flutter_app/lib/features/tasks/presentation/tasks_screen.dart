@@ -23,9 +23,12 @@ class TasksScreen extends StatelessWidget {
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Tasks', 'কাজ'),
         automaticallyImplyLeading: false,
-        actions: const [LanguageToggle(), SizedBox(width: GochanoSpacing.xs)],
+        actions: const [
+          LanguageToggle(),
+          SizedBox(width: GochanoSpacing.xs),
+        ],
       ),
-      body: const TasksView(),
+      body: TasksView(),
     );
   }
 }

@@ -45,7 +45,18 @@ class _PlanViewState extends State<PlanView> {
   @override
   void initState() {
     super.initState();
+    GochanoLanguage.current.addListener(_onLanguageChange);
     _loadStats();
+  }
+
+  @override
+  void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
+    super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadStats() async {
@@ -140,10 +151,9 @@ class _DateStripState extends State<_DateStrip> {
     final totalDays = _totalDays;
     final todayIndex = totalDays - 15; // today is 15 days from start
     final targetOffset = (todayIndex - _visibleBeforeToday) * _cellWidth;
-    _scrollController.jumpTo(targetOffset.clamp(
-      0.0,
-      _scrollController.position.maxScrollExtent,
-    ));
+    _scrollController.jumpTo(
+      targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+    );
   }
 
   static const _totalDays = 31; // ~1 month of scrollable dates
@@ -154,13 +164,43 @@ class _DateStripState extends State<_DateStrip> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final startDate = today.subtract(const Duration(days: 15));
-    final days = List.generate(_totalDays, (i) => startDate.add(Duration(days: i)));
+    final days = List.generate(
+      _totalDays,
+      (i) => startDate.add(Duration(days: i)),
+    );
 
     final months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
-    final currentMonth = '${months[widget.selectedDay.month - 1]} ${widget.selectedDay.year}';
+    const banglaMonths = [
+      'জানুয়ারি',
+      'ফেব্রুয়ারি',
+      'মার্চ',
+      'এপ্রিল',
+      'মে',
+      'জুন',
+      'জুলাই',
+      'আগস্ট',
+      'সেপ্টেম্বর',
+      'অক্টোবর',
+      'নভেম্বর',
+      'ডিসেম্বর',
+    ];
+    final currentMonth =
+        '${months[widget.selectedDay.month - 1]} ${widget.selectedDay.year}';
+    final currentMonthBn =
+        '${banglaMonths[widget.selectedDay.month - 1]} ${widget.selectedDay.year}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +209,7 @@ class _DateStripState extends State<_DateStrip> {
           children: [
             Expanded(
               child: Text(
-                GochanoLanguage.text(currentMonth, '${widget.selectedDay.month} মাস ${widget.selectedDay.year}'),
+                GochanoLanguage.text(currentMonth, currentMonthBn),
                 style: context.type.sectionHeading,
               ),
             ),
@@ -191,8 +231,13 @@ class _DateStripState extends State<_DateStrip> {
             itemCount: days.length,
             itemBuilder: (context, i) {
               final day = days[i];
-              final isSelected = DateTime(day.year, day.month, day.day) ==
-                  DateTime(widget.selectedDay.year, widget.selectedDay.month, widget.selectedDay.day);
+              final isSelected =
+                  DateTime(day.year, day.month, day.day) ==
+                  DateTime(
+                    widget.selectedDay.year,
+                    widget.selectedDay.month,
+                    widget.selectedDay.day,
+                  );
               final isToday = day == today;
               final dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -205,8 +250,8 @@ class _DateStripState extends State<_DateStrip> {
                     color: isSelected
                         ? colors.brand
                         : isToday
-                            ? colors.brandSoft
-                            : colors.surface,
+                        ? colors.brandSoft
+                        : colors.surface,
                     borderRadius: GochanoRadius.mdAll,
                     border: isToday && !isSelected
                         ? Border.all(color: colors.brand, width: 1.5)
@@ -315,7 +360,8 @@ class _CombinedPlannerList extends StatelessWidget {
                         showAddTaskSheet(context, initialDate: selectedDay),
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: Text(
-                        GochanoLanguage.text('Add task', 'কাজ যোগ করুন')),
+                      GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
+                    ),
                   ),
                 ),
               ],
@@ -331,14 +377,15 @@ class _CombinedPlannerList extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.event_rounded, size: 14, color: context.colors.brand),
+                  Icon(
+                    Icons.event_rounded,
+                    size: 14,
+                    color: context.colors.brand,
+                  ),
                   const SizedBox(width: GochanoSpacing.xxs),
                   Expanded(
                     child: Text(
-                      GochanoLanguage.text(
-                        'Due this day',
-                        'এই দিনের কাজ',
-                      ),
+                      GochanoLanguage.text('Due this day', 'এই দিনের কাজ'),
                       style: context.type.label.copyWith(
                         fontSize: 13,
                         color: context.colors.brand,
@@ -384,7 +431,8 @@ class _CombinedPlannerList extends StatelessWidget {
                       ),
                       icon: const Icon(Icons.add_rounded, size: 16),
                       label: Text(
-                          GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')),
+                        GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট'),
+                      ),
                     ),
                   ),
                 ],
@@ -419,23 +467,16 @@ class _PlannerItemRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          if (!isAssignment)
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: Checkbox(
-                value: done,
-                onChanged: (value) => _setDone(context, doc, value ?? false),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              ),
-            )
-          else
-            Icon(
-              Icons.assignment_outlined,
-              size: 16,
-              color: context.colors.brand,
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: Checkbox(
+              value: done,
+              onChanged: (value) => _setDone(context, doc, value ?? false),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
             ),
+          ),
           const SizedBox(width: GochanoSpacing.xxs),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -452,7 +493,9 @@ class _PlannerItemRow extends StatelessWidget {
               style: context.type.caption.copyWith(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
-                color: isAssignment ? context.colors.brand : context.colors.study,
+                color: isAssignment
+                    ? context.colors.brand
+                    : context.colors.study,
               ),
             ),
           ),
@@ -482,7 +525,9 @@ class _PlannerItemRow extends StatelessWidget {
                         '${formatShortDate(due)} ${formatClock12(due)}',
                         style: context.type.caption.copyWith(
                           fontSize: 10,
-                          color: overdue ? context.colors.warning : context.colors.textTertiary,
+                          color: overdue
+                              ? context.colors.warning
+                              : context.colors.textTertiary,
                         ),
                       ),
                   ],
@@ -567,10 +612,7 @@ class _StudyGoalSection extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    GochanoLanguage.text(
-                      'Study Goal',
-                      'পড়াশোনার লক্ষ্য',
-                    ),
+                    GochanoLanguage.text('Study Goal', 'পড়াশোনার লক্ষ্য'),
                     style: context.type.label,
                   ),
                 ),
@@ -600,7 +642,10 @@ class _StudyGoalSection extends StatelessWidget {
                 onPressed: () => _showEditGoalSheet(context),
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: Text(
-                  GochanoLanguage.text('Set study goal', 'পড়াশোনার লক্ষ্য নির্ধারণ করুন'),
+                  GochanoLanguage.text(
+                    'Set study goal',
+                    'পড়াশোনার লক্ষ্য নির্ধারণ করুন',
+                  ),
                 ),
               ),
             ),
@@ -833,7 +878,10 @@ class _EditGoalSheetState extends State<_EditGoalSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                GochanoLanguage.text('Edit study goal', 'পড়াশোনার লক্ষ্য সম্পাদনা'),
+                GochanoLanguage.text(
+                  'Edit study goal',
+                  'পড়াশোনার লক্ষ্য সম্পাদনা',
+                ),
                 style: context.type.sectionHeading,
               ),
               const SizedBox(height: GochanoSpacing.md),
@@ -962,7 +1010,9 @@ class _CompactStepper extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         GestureDetector(
-          onTap: value > min ? () => onChanged((value - step).clamp(min, max)) : null,
+          onTap: value > min
+              ? () => onChanged((value - step).clamp(min, max))
+              : null,
           child: Container(
             width: 32,
             height: 32,
@@ -989,7 +1039,9 @@ class _CompactStepper extends StatelessWidget {
           ),
         ),
         GestureDetector(
-          onTap: value < max ? () => onChanged((value + step).clamp(min, max)) : null,
+          onTap: value < max
+              ? () => onChanged((value + step).clamp(min, max))
+              : null,
           child: Container(
             width: 32,
             height: 32,
