@@ -1431,3 +1431,175 @@ Do NOT delete Firebase user or Firestore/user data. Logout remains a separate Pr
 
 ---
 
+# PART 22 — Telecom Profile Bootstrap: One-Time "Complete Your Profile" Flow
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (506/510, 4 pre-existing failures)
+
+---
+
+## 1. Problem
+
+After successful Robi/Cirkle telecom authentication and Firebase custom-token sign-in, the app navigated directly to `GochanoShell` without checking whether the user had an existing `users/{uid}` Firestore document. New users (first login on a device) had no profile — no `displayName`, no `role`, no `phone` — causing downstream features (Notes, Materials, Tasks, Community) to break because they read `displayName` from the profile.
+
+## 2. Solution
+
+### New file: `profile_setup_screen.dart`
+
+A one-time profile completion screen shown after telecom auth when the Firebase UID has no existing profile document. Fields:
+
+| Field | Value | Editable |
+|---|---|---|
+| Full name | User enters | Required |
+| Phone | Auto-filled from verified telecom number | Read-only |
+| Role | `"student"` (auto) | Read-only |
+
+On Continue: writes `users/{uid}` with `SetOptions(merge: true)` using the canonical schema:
+```dart
+{
+  'displayName': name,
+  'phone': widget.phone,
+  'role': 'student',
+  'createdAt': serverTimestamp(),
+  'updatedAt': serverTimestamp(),
+}
+```
+
+Idempotent — never overwrites existing non-empty fields. Then navigates to `GochanoShell`.
+
+### Modified: `firestore_service.dart`
+
+Added `hasProfile()` method:
+- Reads `users/{uid}` document
+- Returns `true` when doc exists AND has a non-empty `displayName`
+- Returns `false` on any error (safe default → show setup screen)
+
+### Modified: `login_screen.dart`
+
+After `enterSession()` in the REGISTERED shortcut path, added profile check:
+```dart
+final hasProfile = await FirestoreService.hasProfile();
+```
+- `hasProfile == true` → `GochanoShell` (as before)
+- `hasProfile == false` → `ProfileSetupScreen(phone: phone)`
+
+### Modified: `otp_verify_screen.dart`
+
+Two navigation paths updated:
+1. **`_enterShellFromSubscription`** (subscription shortcut during OTP flow)
+2. **OTP verification success path** (normal OTP flow)
+
+Both now check `FirestoreService.hasProfile()` before navigating.
+
+### Modified: `auth_gate.dart`
+
+Cold start restore path updated:
+- Added `_hasProfile` state variable
+- `_restore()` calls `FirestoreService.hasProfile()` when user is logged in
+- `build()` routes to `ProfileSetupScreen` when `_hasProfile == false`
+
+## 3. Flow Diagram
+
+```
+Phone → carrier verification → Firebase signInWithCustomToken
+  → profile exists?
+     YES → GochanoShell/Home
+     NO  → ProfileSetupScreen → Save → GochanoShell/Home
+```
+
+Works for both:
+- **A.** Already REGISTERED users (first login on device)
+- **B.** Newly OTP-verified users
+
+On future logins: profile already exists → goes directly to Home. Name is NOT asked again.
+
+## 4. Constraints Preserved
+
+- **bdApps URL untouched** — `https://www.bdappsdigitalapps.com/NADB26122_Final/`
+- **Render backend untouched** — `/v1/auth/telecom/exchange` unchanged
+- **Firebase custom-token auth untouched** — `enterSession()` unchanged
+- **Firestore rules untouched** — `users/{uid}` create rule allows `role in ['student', 'general']`
+- **Logout untouched** — `AuthService.logout()` only calls `signOut()`
+- **Unsubscribe untouched** — POST to bdApps `unsubscribe.php` unchanged
+- **Existing user data untouched** — `SetOptions(merge: true)` never overwrites
+- **No second profile system** — writes to existing `users/{uid}` collection with canonical schema
+- **No Firestore rules modified**
+
+## 5. Verification
+
+- `flutter analyze` — 0 issues
+- `flutter test` — 506/510 pass (4 pre-existing failures unchanged)
+- No backend deploy needed — Flutter-only change
+
+---
+
+# PART 23 — Final Responsive Overflow Fix
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (506/510, 4 pre-existing failures)
+
+---
+
+## 1. Problem
+
+Real-device RenderFlex overflow exceptions on narrow screens (< ~350px) and with Bengali locale text (wider than English equivalents). Affected areas:
+
+- Home "Your Day" summary pills (3 pills in a Row)
+- OTP verify screen bottom action buttons (2 TextButton.icon in a Row)
+- Profile bottom sheets (language, appearance, photo picker)
+- Task list trailing time labels
+
+## 2. Fixes
+
+### `home_screen.dart` — `_SmartSummaryCard` (lines 339-366)
+
+**Before:** `Row` with 2-3 `_SummaryPill` children, no `Flexible`/`Expanded`.
+**After:** `Wrap` widget with `spacing` and `runSpacing`. Pills wrap to next line on narrow screens instead of overflowing.
+
+Also added `maxLines: 1, overflow: TextOverflow.ellipsis` to `_SummaryPill` text.
+
+### `home_screen.dart` — `_TaskLine` (lines 742-748)
+
+**Before:** Trailing `Text` for time label unconstrained.
+**After:** Wrapped in `Flexible` with `maxLines: 1, overflow: TextOverflow.ellipsis`.
+
+### `otp_verify_screen.dart` — Bottom actions (lines 516-543)
+
+**Before:** `Row(mainAxisAlignment: spaceBetween)` with two `TextButton.icon`, neither `Flexible`. Bengali text `'ভুল নম্বর? নম্বর পরিবর্তন করুন'` overflows on narrow screens.
+**After:** Each `TextButton.icon` wrapped in `Flexible`. Removed `spaceBetween` (default start alignment). Added `maxLines: 1, overflow: TextOverflow.ellipsis` to labels.
+
+### `profile_screen.dart` — `_changePhoto` bottom sheet (line 256)
+
+**Before:** No `isScrollControlled: true`.
+**After:** Added `isScrollControlled: true` for future-proofing.
+
+### `profile_screen.dart` — `_pickLanguage` bottom sheet (line 996)
+
+**Before:** No `isScrollControlled: true`. Growing locale list in non-scrollable sheet.
+**After:** Added `isScrollControlled: true`.
+
+### `profile_screen.dart` — `_pickAppearance` bottom sheet (line 1034)
+
+**Before:** No `isScrollControlled: true`. Subtitle on system option adds height.
+**After:** Added `isScrollControlled: true`.
+
+## 3. Verification
+
+- `flutter analyze` — 0 issues
+- `flutter test` — 506/510 pass (4 pre-existing failures unchanged)
+- No auth/profile logic changed
+- No bdApps URL, Render URL, logout, or unsubscribe changes
+
+## 4. Constraints Preserved
+
+- **No RIGHT OVERFLOWED** — all horizontal rows use Wrap/Flexible/Expanded
+- **No BOTTOM OVERFLOWED** — bottom sheets use isScrollControlled, forms use ListView/SingleChildScrollView
+- **No device-specific hardcoded pixel hacks** — all fixes use Flexible/Wrap/maxLines
+- **No auth/profile logic changed**
+- **No bdApps URL or Render URL changed**
+- **No Firestore rules modified**
+
+---
+

@@ -35,9 +35,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/telecom_auth_service.dart';
+import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../shell/presentation/gochano_shell.dart';
 import 'login_screen.dart';
+import 'profile_setup_screen.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -49,6 +51,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _checked = false;
   bool _loggedIn = false;
+  bool _hasProfile = false;
   String _phone = '';
   String? _resumeError;
 
@@ -104,9 +107,18 @@ class _AuthGateState extends State<AuthGate> {
       await TelecomAuthService.clearSession();
     }
 
+    // Check whether the user has an existing profile document.
+    // New telecom users (first login on this device) will not have one
+    // yet and must complete the profile setup screen.
+    bool hasProfile = false;
+    if (isLoggedIn && current != null) {
+      hasProfile = await FirestoreService.hasProfile();
+    }
+
     if (!mounted) return;
     setState(() {
       _phone = phone;
+      _hasProfile = hasProfile;
       _checked = true;
       if (isLoggedIn && current != null) {
         _loggedIn = true;
@@ -130,11 +142,15 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     if (_loggedIn && FirebaseAuth.instance.currentUser != null) {
+      final displayName = _phone.isEmpty
+          ? (FirebaseAuth.instance.currentUser?.phoneNumber ?? 'student')
+          : _phone;
+      if (!_hasProfile) {
+        return ProfileSetupScreen(phone: displayName);
+      }
       return GochanoShell(
         role: 'student',
-        displayName: _phone.isEmpty
-            ? (FirebaseAuth.instance.currentUser?.phoneNumber ?? 'student')
-            : _phone,
+        displayName: displayName,
       );
     }
     return LoginScreen(resumeMessage: _resumeError);

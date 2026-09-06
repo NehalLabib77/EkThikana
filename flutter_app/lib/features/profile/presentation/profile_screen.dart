@@ -255,6 +255,7 @@ Future<void> _changePhoto(BuildContext context) async {
   final picker = ImagePicker();
   final source = await showModalBottomSheet<ImageSource>(
     context: context,
+    isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -995,6 +996,7 @@ class _AboutCard extends StatelessWidget {
 Future<void> _pickLanguage(BuildContext context) async {
   final chosen = await showModalBottomSheet<GochanoLocale>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
     builder: (sheetContext) => SafeArea(
       child: Column(
@@ -1033,6 +1035,7 @@ Future<void> _pickAppearance(BuildContext context) async {
 
   final chosen = await showModalBottomSheet<ThemeMode>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
     builder: (sheetContext) => SafeArea(
       child: Column(

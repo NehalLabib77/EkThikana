@@ -336,7 +336,9 @@ class _SmartSummaryCard extends StatelessWidget {
                     style: context.type.sectionHeading,
                   ),
                   const SizedBox(height: GochanoSpacing.xs),
-                  Row(
+                  Wrap(
+                    spacing: GochanoSpacing.xs,
+                    runSpacing: GochanoSpacing.xs,
                     children: [
                       _SummaryPill(
                         icon: Icons.task_alt_rounded,
@@ -346,14 +348,12 @@ class _SmartSummaryCard extends StatelessWidget {
                         ),
                         color: todayCount > 0 ? colors.brand : colors.success,
                       ),
-                      const SizedBox(width: GochanoSpacing.xs),
                       _SummaryPill(
                         icon: Icons.receipt_long_rounded,
                         label: formatTaka(todaySpent),
                         color: colors.expense,
                       ),
-                      if (overdueCount > 0) ...[
-                        const SizedBox(width: GochanoSpacing.xs),
+                      if (overdueCount > 0)
                         _SummaryPill(
                           icon: Icons.warning_amber_rounded,
                           label: GochanoLanguage.text(
@@ -362,7 +362,6 @@ class _SmartSummaryCard extends StatelessWidget {
                           ),
                           color: colors.warning,
                         ),
-                      ],
                     ],
                   ),
                 ],
@@ -404,6 +403,8 @@ class _SummaryPill extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: context.type.caption.copyWith(
               color: color,
               fontWeight: FontWeight.w600,
@@ -740,10 +741,14 @@ class _TaskLine extends StatelessWidget {
             ),
           ),
           if (due != null)
-            Text(
-              _timeLabel(due),
-              style: context.type.caption.copyWith(
-                color: isOverdue ? context.colors.warning : null,
+            Flexible(
+              child: Text(
+                _timeLabel(due),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.type.caption.copyWith(
+                  color: isOverdue ? context.colors.warning : null,
+                ),
               ),
             ),
         ],

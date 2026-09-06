@@ -32,9 +32,11 @@ import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
+import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../shell/presentation/gochano_shell.dart';
+import 'profile_setup_screen.dart';
 
 class OtpVerifyScreen extends StatefulWidget {
   const OtpVerifyScreen({super.key, required this.phone});
@@ -186,12 +188,16 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
       return;
     }
     if (!mounted) return;
+    final hasProfile = await FirestoreService.hasProfile();
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => GochanoShell(
-          role: 'student',
-          displayName: widget.phone,
-        ),
+        builder: (_) => hasProfile
+            ? GochanoShell(
+                role: 'student',
+                displayName: widget.phone,
+              )
+            : ProfileSetupScreen(phone: widget.phone),
       ),
       (_) => false,
     );
@@ -278,12 +284,16 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
           return;
         }
         if (!mounted) return;
+        final hasProfile = await FirestoreService.hasProfile();
+        if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) => GochanoShell(
-              role: 'student',
-              displayName: widget.phone,
-            ),
+            builder: (_) => hasProfile
+                ? GochanoShell(
+                    role: 'student',
+                    displayName: widget.phone,
+                  )
+                : ProfileSetupScreen(phone: widget.phone),
           ),
           (_) => false,
         );
@@ -504,28 +514,35 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               ),
               const SizedBox(height: GochanoSpacing.md),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  TextButton.icon(
-                    onPressed:
-                        (_sending || _verifying || _signingIn)
-                            ? null
-                            : _requestOtp,
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(
-                      GochanoLanguage.text(
-                        'Resend code',
-                        'আবার কোড পাঠান',
+                  Flexible(
+                    child: TextButton.icon(
+                      onPressed:
+                          (_sending || _verifying || _signingIn)
+                              ? null
+                              : _requestOtp,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(
+                        GochanoLanguage.text(
+                          'Resend code',
+                          'আবার কোড পাঠান',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: Text(
-                      GochanoLanguage.text(
-                        'Wrong number? Change number',
-                        'ভুল নম্বর? নম্বর পরিবর্তন করুন',
+                  Flexible(
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: Text(
+                        GochanoLanguage.text(
+                          'Wrong number? Change number',
+                          'ভুল নম্বর? নম্বর পরিবর্তন করুন',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),

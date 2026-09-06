@@ -72,6 +72,25 @@ class FirestoreService {
     return snap.data() ?? {};
   }
 
+  /// Returns `true` when the current Firebase user has a `users/{uid}`
+  /// document with a non-empty `displayName`.  Used after telecom
+  /// authentication to decide whether to show the home shell or the
+  /// profile-setup screen.
+  static Future<bool> hasProfile() async {
+    final currentUid = uid;
+    if (currentUid == null) return false;
+    try {
+      final snap = await db.collection('users').doc(currentUid).get();
+      if (!snap.exists) return false;
+      final data = snap.data();
+      if (data == null) return false;
+      final name = data['displayName']?.toString().trim();
+      return name != null && name.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Stream<QuerySnapshot<Map<String, dynamic>>> ownerStream(
     String collection, {
     int limit = 100,

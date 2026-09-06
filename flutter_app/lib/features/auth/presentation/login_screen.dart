@@ -32,10 +32,12 @@ import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
+import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../shell/presentation/gochano_shell.dart';
 import 'otp_verify_screen.dart';
+import 'profile_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.resumeMessage});
@@ -172,12 +174,16 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
       if (!mounted) return;
+      final hasProfile = await FirestoreService.hasProfile();
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => GochanoShell(
-            role: 'student',
-            displayName: phone,
-          ),
+          builder: (_) => hasProfile
+              ? GochanoShell(
+                  role: 'student',
+                  displayName: phone,
+                )
+              : ProfileSetupScreen(phone: phone),
         ),
         (_) => false,
       );
