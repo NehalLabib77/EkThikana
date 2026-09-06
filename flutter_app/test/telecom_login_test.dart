@@ -104,18 +104,14 @@ void main() {
     // Calls into the private _parseSubscriptionResponse via the public
     // checkSubscription path is impossible without network mocking,
     // so we instead invoke it reflectively. The test surface is what
-    // the rest of the app sees: a paying or charging-pending user
-    // must NEVER be routed to the OTP screen.
+    // the rest of the app sees: ONLY a REGISTERED or INITIAL CHARGING
+    // PENDING user enters without OTP. All other statuses require OTP.
     TelecomSubscriptionResult r(String body) {
       return TelecomAuthService.parseSubscriptionResponseForTest(body);
     }
 
     test('uppercase REGISTERED grants access', () {
       expect(r('{"subscriptionStatus":"REGISTERED"}').shouldEnterApp, isTrue);
-    });
-    test('lower/mixed-case "Already Registered" grants access', () {
-      expect(r('{"subscriptionStatus":"Already Registered"}').shouldEnterApp,
-          isTrue);
     });
     test('underscored "INITIAL_CHARGING_PENDING" grants access', () {
       expect(r('{"subscriptionStatus":"INITIAL_CHARGING_PENDING"}').shouldEnterApp,
@@ -126,24 +122,27 @@ void main() {
           r('{"subscriptionStatus":"Initial-Charging-Pending"}').shouldEnterApp,
           isTrue);
     });
-    test('"ALREADY SUBSCRIBED" alias grants access', () {
+    test('"ALREADY REGISTERED" requires OTP (not in the allowed list)', () {
+      expect(r('{"subscriptionStatus":"Already Registered"}').shouldEnterApp,
+          isFalse);
+    });
+    test('"ALREADY SUBSCRIBED" requires OTP (not in the allowed list)', () {
       expect(r('{"subscriptionStatus":"ALREADY SUBSCRIBED"}').shouldEnterApp,
-          isTrue);
+          isFalse);
     });
-    test('"ACTIVE" alias grants access', () {
-      expect(r('{"subscriptionStatus":"ACTIVE"}').shouldEnterApp, isTrue);
+    test('"ACTIVE" requires OTP (not in the allowed list)', () {
+      expect(r('{"subscriptionStatus":"ACTIVE"}').shouldEnterApp, isFalse);
     });
-    test('E1351 statusCode alone grants access', () {
+    test('E1351 statusCode does NOT grant access (must check subscriptionStatus)', () {
       expect(
           r('{"subscriptionStatus":"NOT YET","statusCode":"E1351"}')
               .shouldEnterApp,
-          isTrue,
+          isFalse,
           reason:
-              'Carrier echoes E1351 + NOT_YET in some windows; the parser '
-              'must NOT trap the user in the OTP screen on that race.');
+              'E1351 statusCode alone must not bypass the subscriptionStatus check');
     });
-    test('S1000 statusCode alone grants access', () {
-      expect(r('{"statusCode":"S1000"}').shouldEnterApp, isTrue);
+    test('S1000 statusCode does NOT grant access (must check subscriptionStatus)', () {
+      expect(r('{"statusCode":"S1000"}').shouldEnterApp, isFalse);
     });
     test('"NOT SUBSCRIBED" still requires OTP', () {
       expect(

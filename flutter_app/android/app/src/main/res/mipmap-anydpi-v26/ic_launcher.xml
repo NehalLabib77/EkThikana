@@ -7,8 +7,10 @@
   device that supports the adaptive icon system.
 
   Layers:
-    * background: solid purple from @color/ic_launcher_background
-    * foreground: white 'G' from @drawable/ic_launcher_foreground
+    * background: light teal from @color/ic_launcher_background
+      (matched to gochano1.png's dominant background hue)
+    * foreground: raster gochano1.png from @drawable/ic_launcher_foreground
+      (density-specific PNGs in drawable-*/ic_launcher_foreground.png)
 
   The launcher masks each layer to its own shape (circle, square,
   squircle, teardrop, etc.) so the same artwork renders correctly

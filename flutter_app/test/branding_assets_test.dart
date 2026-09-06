@@ -8,7 +8,7 @@
 // What we check:
 //   * Adaptive launcher icon XML exists for Android 8+
 //   * Round adaptive launcher icon XML exists
-//   * Foreground vector drawable exists
+//   * Raster foreground PNG exists in drawable-* directories (from gochano1.png)
 //   * Adaptive-icon background colour resource exists
 //   * Splash-screen background colour resource exists (light + dark)
 //   * AndroidManifest references both ic_launcher and ic_launcher_round
@@ -18,8 +18,6 @@
 //   * Notification small icon (ic_stat_gochano.xml) is still present and
 //     monochrome (no colour data in any path)
 //   * Brand-master PNG in assets/branding/Gochano.png exists
-//   * Brand-master PNG is referenced from the icon foreground drawable
-//     comments (light coupling check)
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,13 +32,19 @@ void main() {
     final adaptive = File('${resDir.path}/mipmap-anydpi-v26/ic_launcher.xml');
     final adaptiveRound =
         File('${resDir.path}/mipmap-anydpi-v26/ic_launcher_round.xml');
-    final foreground = File('${resDir.path}/drawable/ic_launcher_foreground.xml');
+    // The foreground is now a raster PNG (from gochano1.png), not a vector.
+    // Check that at least one density-specific foreground PNG exists.
+    final foregroundMdpi =
+        File('${resDir.path}/drawable-mdpi/ic_launcher_foreground.png');
+    final foregroundXhdpi =
+        File('${resDir.path}/drawable-xhdpi/ic_launcher_foreground.png');
     expect(adaptive.existsSync(), isTrue,
         reason: 'Expected ${adaptive.path} to exist for Android 8+ adaptive icon.');
     expect(adaptiveRound.existsSync(), isTrue,
         reason: 'Expected ${adaptiveRound.path} to exist for round launchers.');
-    expect(foreground.existsSync(), isTrue,
-        reason: 'Expected ${foreground.path} to exist as foreground vector.');
+    expect(
+        foregroundMdpi.existsSync() || foregroundXhdpi.existsSync(), isTrue,
+        reason: 'Expected raster ic_launcher_foreground.png in drawable-* directories.');
 
     final adaptiveXml = adaptive.readAsStringSync();
     expect(adaptiveXml, contains('@color/ic_launcher_background'));
@@ -50,12 +54,12 @@ void main() {
         reason: 'Expected monochrome layer for Android 13 themed icons.');
   });
 
-  test('Adaptive icon background colour matches brand seed (#5B3DF5)', () {
+  test('Adaptive icon background colour matches gochano1.png hue (#B3F1ED)', () {
     final colors = File('${resDir.path}/values/ic_launcher_background.xml');
     expect(colors.existsSync(), isTrue);
     final content = colors.readAsStringSync();
-    expect(content, contains('#5B3DF5'),
-        reason: 'Background colour must equal EkColors.purple seed.');
+    expect(content, contains('#B3F1ED'),
+        reason: 'Background colour must match gochano1.png dominant background hue.');
     expect(content, contains('ic_launcher_background'),
         reason: 'Resource must be named ic_launcher_background.');
   });

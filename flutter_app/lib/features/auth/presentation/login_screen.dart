@@ -116,6 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // INITIAL CHARGING PENDING (user tapped Subscribe, first charge
       // still settling). Spec §3 takes them straight into the home
       // shell with no OTP step.
+      debugPrint('[LoginScreen] branch: REGISTERED_SHORTCUT → enter app');
       //
       // PART 16.1: we still have to mint a Firebase custom token via
       // the backend before the AuthGate will let us into GochanoShell.
@@ -184,6 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     // Not subscribed yet — drop into the OTP screen.
+    debugPrint('[LoginScreen] branch: SEND_OTP → navigate to OTP screen');
     if (mounted) setState(() => _busy = false);
     await Navigator.of(context).push(
       MaterialPageRoute(

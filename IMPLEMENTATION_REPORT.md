@@ -1,9 +1,9 @@
 # IMPLEMENTATION REPORT — Final UI Fixes
 
 **Branch:** `final-cleanup-release-v2`
-**Date:** 2026-09-05
+**Date:** 2026-09-06
 **API:** `https://ekthikana-api-x473.onrender.com`
-**Status:** Automated validation PASSED — real-device visual verification required
+**Status:** Automated validation PASSED — backend deployed to Render (`dfd268a`)
 
 ---
 
@@ -1080,6 +1080,354 @@ Unsubscribe (Profile):
 - **No new Firebase custom-token endpoint invented** — existing backend `/v1/auth/telecom/exchange` used
 - **SharedPreferences never used as authentication proof** — only for routing convenience; AuthGate requires Firebase user
 - **Real-device test required** — automated validation passed; real-device login/logout/unsubscribe test pending
+
+---
+
+# PART 18 — Final OTP Status Strictification + Android Launcher Icon Fix
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (506/510, 4 pre-existing failures)
+
+---
+
+## 1. Subscription / OTP Decision Strictification
+
+### Problem
+`_isAlreadySubscribedStatus()` accepted too many carrier aliases as "already subscribed" (SUBSCRIBED, ACTIVE, ALREADY SUBSCRIBED, ALREADY REGISTERED, E1351, E0000). Additionally, `_parseSubscriptionResponse()` had statusCode shortcuts (S1000, E1351) that bypassed the subscriptionStatus field entirely. This routed non-subscribed users straight into the app without OTP.
+
+### Fix
+- **Narrowed** `_isAlreadySubscribedStatus()` to ONLY accept:
+  - `REGISTERED` (exact match, trimmed+uppercased)
+  - `INITIAL CHARGING PENDING` (contains match, trimmed+uppercased)
+- **Removed** S1000 and E1351 statusCode shortcuts from `_parseSubscriptionResponse()`
+- **Removed** unused `_firstNestedString()` helper
+- **Added** debug logging throughout the subscription decision path:
+  - Phone number logged at checkSubscription entry
+  - Raw subscriptionStatus logged after normalization
+  - Branch decision logged (REGISTERED_SHORTCUT or SEND_OTP)
+  - OTP/tokens are NEVER logged
+
+### Files Changed
+- `lib/core/services/telecom_auth_service.dart` — `_isAlreadySubscribedStatus()`, `_parseSubscriptionResponse()`, `checkSubscription()`
+- `lib/features/auth/presentation/login_screen.dart` — added debug logging for branch decisions
+- `test/telecom_login_test.dart` — updated subscription-status parser tests to match strict behavior
+
+### Subscription Flow (Corrected)
+```
+REGISTERED / INITIAL CHARGING PENDING
+  → exchangeSubscriptionForFirebaseSession
+  → FirebaseAuth.currentUser → Home
+  → NO OTP required
+
+UNREGISTERED / NOT SUBSCRIBED / ACTIVE / ALREADY REGISTERED / any other
+  → send_otp.php → referenceNo → OTP screen → verify_otp.php
+  → exchangeOtpForFirebaseSession → FirebaseAuth.currentUser → Home
+```
+
+## 2. Android Launcher Icon Fix
+
+### Problem
+The Android launcher displayed an old purple "G" vector drawable (`ic_launcher_foreground.xml`) instead of the brand artwork `gochano1.png`. The adaptive icon XML referenced this hand-crafted vector.
+
+### Fix
+- **Generated** raster foreground PNGs from `gochano1.png` for all density buckets (drawable-mdpi through drawable-xxxhdpi)
+- **Deleted** the purple-G vector drawable (`drawable/ic_launcher_foreground.xml`)
+- **Updated** adaptive icon background color from `#5B3DF5` (purple) to `#B3F1ED` (light teal matching gochano1.png's dominant background)
+- **Updated** adaptive icon XML comments to reflect the raster-based setup
+- **Updated** branding test to check for raster PNGs instead of vector drawable
+
+### Files Changed
+- `android/app/src/main/res/drawable/ic_launcher_foreground.xml` — DELETED (purple G vector)
+- `android/app/src/main/res/drawable-mdpi/ic_launcher_foreground.png` — NEW (raster from gochano1.png)
+- `android/app/src/main/res/drawable-hdpi/ic_launcher_foreground.png` — NEW
+- `android/app/src/main/res/drawable-xhdpi/ic_launcher_foreground.png` — NEW
+- `android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png` — NEW
+- `android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground.png` — NEW
+- `android/app/src/main/res/values/ic_launcher_background.xml` — updated color to #B3F1ED
+- `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` — updated comments
+- `test/branding_assets_test.dart` — updated to check raster foreground, new background color
+
+### Notification Icon
+- `drawable/ic_stat_gochano.xml` — NOT CHANGED (monochrome notification icon preserved)
+
+## 3. Cache Clear + Rebuild
+
+After regenerating launcher resources:
+```
+flutter clean
+flutter pub get
+```
+
+Then uninstall old app from test device and rebuild:
+```
+flutter run --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com
+```
+
+The home-screen launcher icon MUST visually match `assets/branding/gochano1.png`.
+
+## 4. Verification
+
+- `flutter analyze` — 0 issues
+- `flutter test` — 506/510 pass (4 pre-existing failures unchanged)
+- Subscription decision logging visible in debug console
+
+---
+
+## 5. Constraints Preserved
+
+- **No commit / push / deploy** — none executed
+- **No notification monochrome icons changed** — ic_stat_gochano.xml preserved
+- **No unrelated features modified** — only subscription logic + launcher icon
+- **SharedPreferences never used as subscription proof** — only routing convenience
+- **Real-device test required** — automated validation passed; real-device icon + login test pending
+
+---
+
+# PART 19 — Critical Auth Fix: Backend Exchange Endpoint + Debug Logging
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (506/510, 4 pre-existing failures)
+
+---
+
+## 1. Root Cause
+
+A REGISTERED user (01873486882) was correctly detected by `check_subscription.php`, but then saw:
+
+> "Server is not responding. Please try again in a moment."
+
+**Root cause:** The Flutter client calls `POST /v1/auth/telecom/exchange` on the Render backend to mint a Firebase custom token. **This endpoint did not exist** — the Render backend returned HTTP 404, which `_safeJsonPost` translated to the "Server is not responding" error.
+
+The backend (`backend/app/`) had no telecom router, no `/v1/` route prefix, and no endpoint that mints Firebase custom tokens. The entire post-verification Firebase identity seam was implemented only on the Flutter client side.
+
+## 2. Fix: Backend Exchange Endpoint
+
+### New file: `backend/app/routers/telecom.py`
+
+Created a FastAPI router that handles both the OTP and subscription exchange paths:
+
+**Endpoint:** `POST /v1/auth/telecom/exchange`
+
+**Request body (JSON):**
+```json
+// OTP path:
+{"phone": "01812345678", "reference_no": "R12345"}
+
+// Subscription path (no OTP):
+{"phone": "01812345678", "already_subscribed": true, "subscription_status": "REGISTERED"}
+```
+
+**Response body:**
+```json
+{"firebase_custom_token": "...", "uid": "telecom:01812345678"}
+```
+
+**Logic:**
+1. Validates phone is non-empty
+2. Calls `_ensure_firebase()` to initialize Firebase Admin SDK
+3. Uses deterministic UID: `telecom:{phone}` (so repeat logins reuse the same Firebase user)
+4. Creates Firebase Auth user if missing (`firebase_auth.create_user(uid=uid)`)
+5. Mints custom token with `developer_claims={"email_verified": True}` so Firestore `verified()` rules pass
+6. Returns custom token + UID
+
+### Modified: `backend/app/main.py`
+
+- Added `telecom` to router imports
+- Registered router at `prefix="/v1/auth/telecom"` to match the Flutter client's expected URL
+
+## 3. Debug Logging (Flutter Client)
+
+Added debug logging to `telecom_auth_service.dart`:
+
+| Method | What is logged |
+|---|---|
+| `exchangeSubscriptionForFirebaseSession` | requested URL, phone |
+| `_safeJsonPost` | HTTP status code + first 200 chars of body on non-2xx |
+| `_parseExchangeResponse` | body length, uid, token length (NOT the token itself) |
+
+**Never logged:** OTP codes, Firebase custom tokens, auth tokens.
+
+Debug output on real device will now show:
+```
+[TelecomAuth] checkSubscription: phone="01873486882"
+[TelecomAuth] checkSubscription: subscriptionStatus="REGISTERED"
+[TelecomAuth] branch: REGISTERED → skip OTP, enter app
+[LoginScreen] branch: REGISTERED_SHORTCUT → enter app
+[TelecomAuth] exchangeSubscription: url=https://ekthikana-api-x473.onrender.com/v1/auth/telecom/exchange, phone=01873486882
+[TelecomAuth] exchangeSubscription: status=200
+[TelecomAuth] _parseExchangeResponse: body length=...
+[TelecomAuth] _parseExchangeResponse: uid=telecom:01873486882 token_len=...
+```
+
+## 4. Verification
+
+- `flutter analyze` — 0 issues
+- `flutter test` — 506/510 pass (4 pre-existing failures unchanged)
+- Backend endpoint confirmed 404 before deploy (will become 200 after deploy)
+- `firebase-admin>=6.5,<8` already in `backend/requirements.txt`
+
+## 5. Constraints Preserved
+
+- **No bdApps subscription logic changed** — check_subscription.php, send_otp.php, verify_otp.php untouched
+- **No OTP flow changed** — only the Firebase token minting endpoint was missing
+- **No Firestore rules modified**
+- **SharedPreferences never used as auth proof** — AuthGate still requires FirebaseAuth.currentUser
+- **Notification icons unchanged**
+
+---
+
+# PART 20 — Backend Security Hardening: Server-to-Server bdApps Verification
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Deployed to Render (`dfd268a`)
+
+---
+
+## 1. Security Vulnerability
+
+The PART 19 exchange endpoint trusted client-supplied `already_subscribed`, `subscription_status`, and `reference_no` fields. A malicious client could bypass bdApps verification by sending:
+
+```json
+{"phone": "01812345678", "already_subscribed": true, "subscription_status": "REGISTERED"}
+```
+
+...without ever having an active bdApps subscription. The backend would mint a Firebase token regardless.
+
+## 2. Fix: Server-to-Server bdApps Verification
+
+### `backend/app/routers/telecom.py` — rewritten
+
+**New security contract:**
+- Client-supplied `already_subscribed`, `subscription_status`, `reference_no` are **accepted for API compatibility but NEVER trusted or used**
+- Backend independently calls `POST https://www.bdappsdigitalapps.com/NADB26122_Final/check_subscription.php` with `{"user_mobile": normalizedPhone}`
+- Only mints Firebase token if bdApps confirms `subscriptionStatus == "REGISTERED"` or `subscriptionStatus == "INITIAL CHARGING PENDING"`
+- Returns **403** if status is not REGISTERED/PENDING
+- Returns **502** if bdApps is unreachable
+- Phone is normalized server-side (strips +880, spaces, dashes)
+
+**Key implementation:**
+- `_verify_subscription_with_bdapps(phone)` — async httpx call to bdApps, returns raw status string or None on error
+- `_normalise_status(raw)` — collapses whitespace/hyphens/underscores, trims, uppercases (matches Flutter client's `_normalizeSubscriptionStatus()`)
+- `ExchangeRequest` model accepts the legacy fields but the handler never reads them
+
+**Dependencies:** `httpx>=0.27` already in `backend/requirements.txt`
+
+## 3. Verification
+
+- `flutter analyze` — 0 issues
+- `flutter test` — 506/510 pass (4 pre-existing failures unchanged)
+- Python syntax verified
+
+## 4. Deploy
+
+Backend deployed to Render via git push:
+```
+dfd268a security: backend independently verifies bdApps subscription before minting Firebase token
+```
+
+After deploy, verify:
+```
+curl -X POST https://ekthikana-api-x473.onrender.com/v1/auth/telecom/exchange \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"01873486882","already_subscribed":true,"subscription_status":"REGISTERED"}'
+```
+
+Expected: `{"firebase_custom_token":"...","uid":"telecom:01873486882"}`
+
+The `already_subscribed` and `subscription_status` fields are accepted but ignored — the backend calls bdApps directly.
+
+## 5. Constraints Preserved
+
+- **bdApps check_subscription.php, send_otp.php, verify_otp.php untouched**
+- **No OTP flow changed**
+- **No Firestore rules modified**
+- **SharedPreferences never used as auth proof**
+- **Flutter client unchanged** — still sends `already_subscribed`/`subscription_status` for backward compat, but backend ignores them
+- **Deterministic Firebase UID:** `telecom:{phone}`
+
+---
+
+# PART 21 — Final Unsubscribe Behavior Audit + Verification
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Audited — implementation already correct, no code changes needed
+
+---
+
+## 1. Requirements
+
+When Profile → Unsubscribe succeeds:
+
+1. Call `POST https://www.bdappsdigitalapps.com/NADB26122_Final/unsubscribe.php` with form body `{'user_mobile': storedPhone}`
+2. Treat as success only when: `success == true` OR `statusCode == 'S1000'` OR `subscriptionStatus == 'UNREGISTERED'`
+3. Only after successful unsubscribe: clear session, clear stored phone/login state, `FirebaseAuth.signOut()`, clear in-memory auth/session, navigate to AuthGate/Login, clear entire authenticated nav stack
+4. Android Back must NOT return to Home after unsubscribe logout
+5. App restart must stay on Login
+
+If unsubscribe FAILS or times out:
+- Do NOT logout, clear session, or Firebase signOut
+- Keep user inside the app
+- Show the server error
+
+Do NOT delete Firebase user or Firestore/user data. Logout remains a separate Profile option.
+
+## 2. Implementation Audit
+
+### `telecom_auth_service.dart:431-449` — `unsubscribe(phone)`
+
+- Normalizes phone, validates 016/018 prefix
+- POSTs to `$baseUrl/unsubscribe.php` with form body `{'user_mobile': normalized}`
+- 15-second timeout via `_safeFormPost`
+- `_safeFormPost` throws `TelecomAuthException` on network error or non-2xx HTTP status
+
+### `telecom_auth_service.dart:451-531` — `_parseUnsubscribeResponse(body)`
+
+- Empty body → failure
+- JSON decode failure → failure (never false-positive logout)
+- Checks `successFlag == true || statusCode == 'S1000' || subscriptionStatus == 'UNREGISTERED'`
+- All three paths checked against top-level AND `data.*` nested fields
+
+### `profile_screen.dart:1117-1236` — `_unsubscribe(context)`
+
+- Confirmation dialog → phone retrieval → loading dialog (non-dismissible `PopScope canPop: false`)
+- `TelecomAuthService.unsubscribe(phone)` called in try/catch
+- **Line 1212:** `if (!result.success)` → `showGochanoMessage` (error), `return` — **NO logout, NO session clear**
+- **Line 1223:** `TelecomAuthService.clearSession()` — removes `isLoggedIn`, `userPhone`, legacy keys from SharedPreferences
+- **Line 1226:** `AuthService.logout()` — calls `FirebaseAuth.instance.signOut()` (does NOT delete user or Firestore data)
+- **Line 1232:** `pushAndRemoveUntil(MaterialPageRoute(AuthGate), (route) => false)` — clears ENTIRE nav stack
+
+### `auth_gate.dart:58-141` — AuthGate routing
+
+- After `signOut()`: `FirebaseAuth.currentUser` is null, `_loggedIn = false`
+- `build()` returns `LoginScreen(resumeMessage: ...)` — user sees login
+- `authStateChanges` listener also catches the sign-out event and clears the session flag
+
+### Back button behavior
+
+- After `pushAndRemoveUntil(AuthGate, (route) => false)`, the nav stack is: `[AuthGate]`
+- AuthGate renders LoginScreen as a widget (not a pushed route)
+- Android Back on LoginScreen → pops the only route → app exits
+- **Back does NOT return to Home** ✅
+- **App restart:** `AuthGate._restore()` reads SharedPreferences (cleared) → `_loggedIn = false` → LoginScreen ✅
+
+## 3. Verification
+
+- `flutter analyze` — 0 issues
+- `flutter test` — 506/510 pass (4 pre-existing failures unchanged)
+- Backend `unsubscribe.php` is a bdApps PHP endpoint — not part of the Render backend, no deploy needed
+
+## 4. Constraints Preserved
+
+- **No Firebase user deleted** — `AuthService.logout()` only calls `signOut()`
+- **No Firestore data deleted**
+- **Logout remains separate** — `_logout()` is a different function from `_unsubscribe()`
+- **Unsubscribe = cancel subscription + automatic logout** ✅
+- **Backend `unsubscribe.php` untouched** — bdApps carrier endpoint
+- **No Firestore rules modified**
 
 ---
 

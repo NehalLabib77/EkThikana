@@ -210,8 +210,7 @@ class TelecomAuthService {
   /// of as a real reference number — there is no OTP to verify
   /// against. Exposed as a constant so callers do not depend on a
   /// magic string.
-  static const String kAlreadySubscribedSentinel =
-      '__already_registered__';
+  static const String kAlreadySubscribedSentinel = '__already_registered__';
 
   // -------------------------------------------------------------------
   // Local session — convenience only, never proof of identity
@@ -274,13 +273,20 @@ class TelecomAuthService {
       );
     }
 
+    debugPrint('[TelecomAuth] checkSubscription: phone="$normalized"');
+
     final response = await _safeFormPost(
       Uri.parse('$baseUrl/check_subscription.php'),
       {'user_mobile': normalized},
       checkSubscriptionTimeout,
     );
 
-    return _parseSubscriptionResponse(response.body);
+    final result = _parseSubscriptionResponse(response.body);
+    debugPrint(
+      '[TelecomAuth] checkSubscription result: status=${result.status}, '
+      'shouldEnterApp=${result.shouldEnterApp}, rawStatus="${result.rawStatus}"',
+    );
+    return result;
   }
 
   /// Re-poll wrapper used after an E1351 "already registered" response
@@ -300,26 +306,20 @@ class TelecomAuthService {
   /// to `notSubscribed`, which routed an already-subscribed user into
   /// the OTP screen.
   static String _normalizeSubscriptionStatus(String raw) {
-    return raw
-        .replaceAll(RegExp(r'[\s\-_]+'), ' ')
-        .trim()
-        .toUpperCase();
+    return raw.replaceAll(RegExp(r'[\s\-_]+'), ' ').trim().toUpperCase();
   }
 
   /// True when [normalized] is a known "let the user in without OTP"
-  /// status. List is intentionally broad: anything the carrier could
-  /// plausibly use to mean "already paid" or "first charge settling"
-  /// has to grant app access per spec §3, otherwise the bug we keep
-  /// seeing is "user is a real Robi/Cirkle subscriber but the app
-  /// asked for an OTP anyway".
+  /// status. Only two statuses grant OTP-less access per spec:
+  ///   - REGISTERED (paying subscriber)
+  ///   - INITIAL CHARGING PENDING (subscribe tap accepted, charge settling)
+  ///
+  /// Do NOT treat HTTP 200, success=true, S1000, empty status,
+  /// unknown status, NOT SUBSCRIBED, or UNREGISTERED as already
+  /// subscribed. Anything that is not one of the two exact statuses
+  /// above must route through the OTP flow.
   static bool _isAlreadySubscribedStatus(String normalized) {
-    if (normalized == 'REGISTERED' ||
-        normalized == 'SUBSCRIBED' ||
-        normalized == 'ACTIVE' ||
-        normalized == 'ALREADY SUBSCRIBED' ||
-        normalized == 'ALREADY REGISTERED' ||
-        normalized == 'E1351' /* already-registered sentinel */ ||
-        normalized == 'E0000' /* some carriers report success as E0000 */) {
+    if (normalized == 'REGISTERED') {
       return true;
     }
     if (normalized.contains('INITIAL CHARGING PENDING')) {
@@ -336,8 +336,8 @@ class TelecomAuthService {
   /// having to mock the network. Not for production use.
   @visibleForTesting
   static TelecomSubscriptionResult parseSubscriptionResponseForTest(
-          String body) =>
-      _parseSubscriptionResponse(body);
+    String body,
+  ) => _parseSubscriptionResponse(body);
 
   /// Test-only trampoline for [_parseSendOtpResponse]. See the
   /// companion getter for rationale.
@@ -348,67 +348,42 @@ class TelecomAuthService {
   static TelecomSubscriptionResult _parseSubscriptionResponse(String body) {
     final raw = _readSubscriptionStatus(body);
 
-    // The body might be empty / non-JSON, but carriers also sometimes
-    // surface the status via a `statusCode` field (e.g. S1000) or in
-    // `message`/`statusDetail` text ("E1351 already registered").
-    // Check those fallbacks BEFORE declaring "not subscribed" — that
-    // is the precise path that previously trapped paying users in
-    // the OTP screen.
-    final statusCode = _firstNonEmptyString([
-      _firstNestedString(body, const ['statusCode']),
-      _firstNestedString(body, const ['StatusCode']),
-      _firstNestedString(body, const ['status_code']),
-    ]);
-    final normalizedStatusCode =
-        statusCode == null ? '' : _normalizeSubscriptionStatus(statusCode);
-    if (normalizedStatusCode == 'S1000' /* generic ok */ ||
-        normalizedStatusCode == 'E1351' /* already registered */) {
-      return TelecomSubscriptionResult.registered;
-    }
+    // Do NOT treat HTTP 200, success=true, S1000, empty status,
+    // unknown status, or any other signal as "already subscribed".
+    // Only the subscriptionStatus field value itself determines
+    // whether the user enters without OTP.
+    //
+    // Previously, statusCode S1000/E1351 shortcuts were checked here
+    // and returned `registered` — this bypassed the actual
+    // subscriptionStatus check and routed non-subscribed users
+    // straight into the app without OTP.
 
     if (raw == null || raw.isEmpty) {
+      debugPrint(
+        '[TelecomAuth] checkSubscription: empty/null subscriptionStatus → NOT_SUBSCRIBED (OTP required)',
+      );
       return TelecomSubscriptionResult.notSubscribed;
     }
     final normalized = _normalizeSubscriptionStatus(raw);
 
-    if (_isAlreadySubscribedStatus(normalized)) {
-      if (normalized == 'REGISTERED' ||
-          normalized == 'SUBSCRIBED' ||
-          normalized == 'ACTIVE' ||
-          normalized == 'ALREADY SUBSCRIBED' ||
-          normalized == 'ALREADY REGISTERED' ||
-          normalized == 'E1351' ||
-          normalized == 'E0000') {
-        return TelecomSubscriptionResult.registered;
-      }
-      if (normalized.contains('INITIAL CHARGING PENDING')) {
-        return TelecomSubscriptionResult.initialChargingPending;
-      }
-      // Any other "already subscribed" alias — register them at the
-      // paying tier so the Firestore happy-path (verified()) still
-      // works. PART 17 unsubscribe covers the rollback edge case.
+    debugPrint(
+      '[TelecomAuth] checkSubscription: subscriptionStatus="$normalized"',
+    );
+
+    if (normalized == 'REGISTERED') {
+      debugPrint('[TelecomAuth] branch: REGISTERED → skip OTP, enter app');
       return TelecomSubscriptionResult.registered;
     }
-    // Anything else — including NOT SUBSCRIBED — routes to OTP.
-    return TelecomSubscriptionResult.notSubscribed;
-  }
-
-  /// Reads a non-empty string field from a (possibly nested) JSON
-  /// body. Returns the first key in [pathSegments] that resolves to a
-  /// non-empty string; null when none do.
-  static String? _firstNestedString(String body, List<String> pathSegments) {
-    final trimmed = body.trim();
-    if (trimmed.isEmpty) return null;
-    try {
-      final decoded = json.decode(trimmed);
-      if (decoded is Map) {
-        final v = _nestedValue(decoded, pathSegments);
-        if (v is String && v.trim().isNotEmpty) return v.trim();
-      }
-    } catch (_) {
-      // Non-JSON body — fall through.
+    if (normalized.contains('INITIAL CHARGING PENDING')) {
+      debugPrint(
+        '[TelecomAuth] branch: INITIAL_CHARGING_PENDING → skip OTP, enter app',
+      );
+      return TelecomSubscriptionResult.initialChargingPending;
     }
-    return null;
+
+    // NOT SUBSCRIBED / UNREGISTERED / any other state → OTP required.
+    debugPrint('[TelecomAuth] branch: "$normalized" → OTP required');
+    return TelecomSubscriptionResult.notSubscribed;
   }
 
   /// Reads the `subscriptionStatus` field from a JSON body. Returns the
@@ -520,7 +495,8 @@ class TelecomAuthService {
         if (isSuccess) {
           return TelecomUnsubscribeResult(
             success: true,
-            message: message ??
+            message:
+                message ??
                 GochanoLanguage.text(
                   'Subscription cancelled successfully.',
                   'সাবস্ক্রিপশন সফলভাবে বন্ধ করা হয়েছে।',
@@ -531,7 +507,8 @@ class TelecomAuthService {
 
         return TelecomUnsubscribeResult(
           success: false,
-          message: message ??
+          message:
+              message ??
               GochanoLanguage.text(
                 'Unsubscribe failed. Please try again.',
                 'আনসাবস্ক্রাইব করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
@@ -658,8 +635,9 @@ class TelecomAuthService {
           decoded['subscriptionStatus'],
           _nestedValue(decoded, const ['data', 'subscriptionStatus']),
         ]);
-        final normalizedStatusCode =
-            statusCode == null ? '' : _normalizeSubscriptionStatus(statusCode);
+        final normalizedStatusCode = statusCode == null
+            ? ''
+            : _normalizeSubscriptionStatus(statusCode);
         final normalizedStatusField = subscriptionStatusField == null
             ? ''
             : _normalizeSubscriptionStatus(subscriptionStatusField);
@@ -672,13 +650,16 @@ class TelecomAuthService {
         // generic "could not send the verification code" error and
         // never reach the home shell, even though the carrier clearly
         // said they are subscribed.
-        final alreadyRegistered = normalizedStatusCode == 'E1351' ||
+        final alreadyRegistered =
+            normalizedStatusCode == 'E1351' ||
             (message != null &&
                 (message.toLowerCase().contains('already registered') ||
                     message.toLowerCase().contains('already subscribed'))) ||
             (statusDetail != null &&
                 (statusDetail.toLowerCase().contains('already registered') ||
-                    statusDetail.toLowerCase().contains('already subscribed'))) ||
+                    statusDetail.toLowerCase().contains(
+                      'already subscribed',
+                    ))) ||
             _isAlreadySubscribedStatus(normalizedStatusField);
 
         return _SendOtpResponse(
@@ -937,35 +918,37 @@ class TelecomAuthService {
   /// success returns a [TelecomFirebaseExchange] the caller signs in
   /// with just like the OTP branch.
   static Future<TelecomFirebaseExchange>
-      exchangeSubscriptionForFirebaseSession({
+  exchangeSubscriptionForFirebaseSession({
     required String phone,
     required String subscriptionStatus,
   }) async {
     final cleanPhone = normalize(phone);
     if (!isSupportedPhone(cleanPhone)) {
-      throw TelecomAuthException(GochanoLanguage.text(
-        'Only Robi (016) and Cirkle (018) numbers are supported',
-        'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
-      ));
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Only Robi (016) and Cirkle (018) numbers are supported',
+          'শুধুমাত্র Robi (০১৬) ও Cirkle (০১৮) নম্বর সমর্থিত',
+        ),
+      );
     }
     if (backendBaseUrl.isEmpty) {
-      throw TelecomAuthException(GochanoLanguage.text(
-        'Backend URL is not configured. Run with '
-        '--dart-define=API_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com',
-        'ব্যাকএন্ড URL কনফিগার করা হয়নি। --dart-define=API_BASE_URL দিয়ে চালান।',
-      ));
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Backend URL is not configured. Run with '
+              '--dart-define=API_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com',
+          'ব্যাকএন্ড URL কনফিগার করা হয়নি। --dart-define=API_BASE_URL দিয়ে চালান।',
+        ),
+      );
     }
 
     final uri = Uri.parse('$backendBaseUrl/v1/auth/telecom/exchange');
-    final response = await _safeJsonPost(
-      uri,
-      {
-        'phone': cleanPhone,
-        'already_subscribed': true,
-        'subscription_status': subscriptionStatus,
-      },
-      exchangeTimeout,
-    );
+    debugPrint('[TelecomAuth] exchangeSubscription: url=$uri, phone=$cleanPhone');
+    final response = await _safeJsonPost(uri, {
+      'phone': cleanPhone,
+      'already_subscribed': true,
+      'subscription_status': subscriptionStatus,
+    }, exchangeTimeout);
+    debugPrint('[TelecomAuth] exchangeSubscription: status=${response.statusCode}');
 
     return _parseExchangeResponse(response.body, phone: cleanPhone);
   }
@@ -974,6 +957,7 @@ class TelecomAuthService {
     String body, {
     required String phone,
   }) {
+    debugPrint('[TelecomAuth] _parseExchangeResponse: body length=${body.length}');
     Map<String, dynamic> decoded;
     try {
       final value = json.decode(body);
@@ -982,10 +966,12 @@ class TelecomAuthService {
       }
       decoded = value.cast<String, dynamic>();
     } catch (_) {
-      throw TelecomAuthException(GochanoLanguage.text(
-        'Could not link your number to Gochano. Please try again later.',
-        'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
-      ));
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Could not link your number to Gochano. Please try again later.',
+          'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+        ),
+      );
     }
 
     final customToken = _firstNonEmptyString([
@@ -993,16 +979,15 @@ class TelecomAuthService {
       decoded['custom_token'],
       decoded['customToken'],
     ]);
-    final uid = _firstNonEmptyString([
-      decoded['uid'],
-      decoded['userId'],
-    ]);
+    final uid = _firstNonEmptyString([decoded['uid'], decoded['userId']]);
 
     if (customToken == null) {
-      throw TelecomAuthException(GochanoLanguage.text(
-        'Gochano sign-in is not yet enabled for this number. Please try again later.',
-        'এই নম্বরের জন্য Gochano সাইন-ইন এখনো চালু হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
-      ));
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Gochano sign-in is not yet enabled for this number. Please try again later.',
+          'এই নম্বরের জন্য Gochano সাইন-ইন এখনো চালু হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+        ),
+      );
     }
 
     return TelecomFirebaseExchange(
@@ -1119,7 +1104,8 @@ class TelecomAuthService {
             body: json.encode(body),
           )
           .timeout(timeout);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[TelecomAuth] _safeJsonPost: network error on $uri: $e');
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Network error. Please check your connection and try again.',
@@ -1128,6 +1114,9 @@ class TelecomAuthService {
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      debugPrint(
+          '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri '
+          'body=${response.body.length > 200 ? "${response.body.substring(0, 200)}..." : response.body}');
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Server is not responding. Please try again in a moment.',
