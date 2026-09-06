@@ -100,6 +100,94 @@ void main() {
     });
   });
 
+  group('Subscription-status parser handles every reasonable alias', () {
+    // Calls into the private _parseSubscriptionResponse via the public
+    // checkSubscription path is impossible without network mocking,
+    // so we instead invoke it reflectively. The test surface is what
+    // the rest of the app sees: a paying or charging-pending user
+    // must NEVER be routed to the OTP screen.
+    TelecomSubscriptionResult r(String body) {
+      return TelecomAuthService.parseSubscriptionResponseForTest(body);
+    }
+
+    test('uppercase REGISTERED grants access', () {
+      expect(r('{"subscriptionStatus":"REGISTERED"}').shouldEnterApp, isTrue);
+    });
+    test('lower/mixed-case "Already Registered" grants access', () {
+      expect(r('{"subscriptionStatus":"Already Registered"}').shouldEnterApp,
+          isTrue);
+    });
+    test('underscored "INITIAL_CHARGING_PENDING" grants access', () {
+      expect(r('{"subscriptionStatus":"INITIAL_CHARGING_PENDING"}').shouldEnterApp,
+          isTrue);
+    });
+    test('hyphenated "Initial-Charging-Pending" grants access', () {
+      expect(
+          r('{"subscriptionStatus":"Initial-Charging-Pending"}').shouldEnterApp,
+          isTrue);
+    });
+    test('"ALREADY SUBSCRIBED" alias grants access', () {
+      expect(r('{"subscriptionStatus":"ALREADY SUBSCRIBED"}').shouldEnterApp,
+          isTrue);
+    });
+    test('"ACTIVE" alias grants access', () {
+      expect(r('{"subscriptionStatus":"ACTIVE"}').shouldEnterApp, isTrue);
+    });
+    test('E1351 statusCode alone grants access', () {
+      expect(
+          r('{"subscriptionStatus":"NOT YET","statusCode":"E1351"}')
+              .shouldEnterApp,
+          isTrue,
+          reason:
+              'Carrier echoes E1351 + NOT_YET in some windows; the parser '
+              'must NOT trap the user in the OTP screen on that race.');
+    });
+    test('S1000 statusCode alone grants access', () {
+      expect(r('{"statusCode":"S1000"}').shouldEnterApp, isTrue);
+    });
+    test('"NOT SUBSCRIBED" still requires OTP', () {
+      expect(
+          r('{"subscriptionStatus":"NOT SUBSCRIBED"}').shouldEnterApp, isFalse);
+    });
+    test('empty body still requires OTP (safe default)', () {
+      expect(r('').shouldEnterApp, isFalse);
+    });
+  });
+
+  group('SendOtp parser recognises any already-registered alias', () {
+    // The OTP screen's race-fallback relies on _parseSendOtpResponse
+    // flagging alreadyRegistered = true so we can re-poll
+    // /check_subscription.php. If the carrier ever switches from
+    // "E1351" to a different code/name we still must catch it.
+    dynamic r(String body) =>
+        TelecomAuthService.parseSendOtpResponseForTest(body);
+
+    test('E1351 statusCode -> alreadyRegistered', () {
+      expect(r('{"statusCode":"E1351"}').alreadyRegistered, isTrue);
+    });
+    test('"already subscribed" prose -> alreadyRegistered', () {
+      expect(
+          r('{"success":false,"message":"You are already subscribed."}')
+              .alreadyRegistered,
+          isTrue);
+    });
+    test('subscriptionStatus REGISTERED -> alreadyRegistered', () {
+      expect(
+          r('{"success":false,"subscriptionStatus":"REGISTERED"}')
+              .alreadyRegistered,
+          isTrue);
+    });
+    test('plain failure is not flagged alreadyRegistered', () {
+      expect(
+          r('{"success":false,"message":"Network error"}').alreadyRegistered,
+          isFalse);
+    });
+    test('plain success is not flagged alreadyRegistered', () {
+      expect(
+          r('{"success":true,"referenceNo":"R1"}').alreadyRegistered, isFalse);
+    });
+  });
+
   group('TelecomAuthService source contract (PART 16.1)', () {
     late String source;
 
@@ -228,7 +316,19 @@ void main() {
     });
 
     test('routes REGISTERED / INITIAL CHARGING PENDING to the shell', () {
-      expect(screenSource, contains('shouldEnterApp'));
+      // The new login_screen.dart uses the named getter
+      // `isAlreadySubscribed` instead of the raw `shouldEnterApp`
+      // flag; either token means the same no-OTP shortcut is wired
+      // up. Both must keep working.
+      final hasShouldEnterApp =
+          screenSource.contains('shouldEnterApp');
+      final hasIsAlreadySubscribed =
+          screenSource.contains('isAlreadySubscribed');
+      expect(hasShouldEnterApp || hasIsAlreadySubscribed, isTrue,
+          reason:
+              'login_screen must branch on either shouldEnterApp or '
+              'the named isAlreadySubscribed getter to route a known-'
+              'subscribed user straight to the shell.');
       expect(screenSource, contains('GochanoShell('));
       expect(screenSource, contains("role: 'student'"));
     });

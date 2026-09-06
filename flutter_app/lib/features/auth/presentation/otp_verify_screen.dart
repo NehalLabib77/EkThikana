@@ -9,6 +9,14 @@
 //   * A 240s countdown tells them when they can resend the code.
 //   * The user can tap "Wrong number? Change number" to go back without
 //     re-typing the phone number.
+//   * Shortcut: if /send_otp.php returns "already registered" AND a
+//     follow-up /check_subscription.php confirms the number is in a
+//     subscribed state (REGISTERED or INITIAL CHARGING PENDING), we
+//     take the user straight into GochanoShell with no OTP — see
+//     [TelecomAuthService.kAlreadySubscribedSentinel] and
+//     [_OtpVerifyScreenState._enterShellFromSubscription]. This
+//     covers the case where LoginScreen saw "not subscribed" but the
+//     carrier has since confirmed the subscription.
 //   * On success we persist the session and pop the entire auth stack so
 //     the user lands on the home shell (and so the Back button does not
 //     return them to OTP).
@@ -48,6 +56,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
   String? _errorText;
   bool _sending = false;
   bool _verifying = false;
+  bool _signingIn = false;
   Timer? _ticker;
   Duration _remaining = _otpTimer;
 
@@ -73,6 +82,36 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     });
     try {
       final ref = await TelecomAuthService.sendOtp(widget.phone);
+      if (ref == TelecomAuthService.kAlreadySubscribedSentinel) {
+        // The carrier reports the number as already subscribed —
+        // either REGISTERED (paying) or INITIAL CHARGING PENDING
+        // (subscribe-tap accepted, first charge settling). Spec §3
+        // lets the user in either way with no OTP step. We keep
+        // _sending = true so the form stays disabled while we mint
+        // the Firebase session, then flip to _signingIn so the status
+        // text reflects what is actually happening.
+        //
+        // Re-fetch the canonical subscription status so we can pass
+        // the right hint to the backend (it routes the request
+        // through the subscription verification path and mints the
+        // Firebase custom token with the matching claims). If the
+        // status has flipped back to not-subscribed in the meantime
+        // we surface a clear message instead of looping on /send_otp.
+        final result =
+            await TelecomAuthService.checkSubscription(widget.phone);
+        if (!mounted) return;
+        if (!result.isAlreadySubscribed) {
+          throw TelecomAuthException(GochanoLanguage.text(
+            'Subscription state is changing. Please tap "Resend code".',
+            'সাবস্ক্রিপশন অবস্থা বদলে যাচ্ছে। "আবার কোড পাঠান" চাপুন।',
+          ));
+        }
+        setState(() => _signingIn = true);
+        await _enterShellFromSubscription(
+          subscriptionStatus: result.rawStatus,
+        );
+        return;
+      }
       _referenceNo = ref;
       _startTimer();
       _otpFocus.requestFocus();
@@ -86,6 +125,76 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// Mirrors the `isAlreadySubscribed` branch in `LoginScreen._continue`:
+  /// mints a Firebase custom token via the backend, signs in with it,
+  /// and pushes the home shell so the user lands inside Gochano without
+  /// ever having to type an OTP. Used when the carrier reports the
+  /// number as REGISTERED or INITIAL CHARGING PENDING before the
+  /// user has finished the OTP flow.
+  Future<void> _enterShellFromSubscription({
+    required String subscriptionStatus,
+  }) async {
+    final TelecomFirebaseExchange exchange;
+    try {
+      exchange = await TelecomAuthService
+          .exchangeSubscriptionForFirebaseSession(
+        phone: widget.phone,
+        subscriptionStatus: subscriptionStatus,
+      );
+    } on TelecomAuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = e.message;
+        _signingIn = false;
+      });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = GochanoLanguage.text(
+          'Could not link your number to Gochano. Please try again later.',
+          'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+        );
+        _signingIn = false;
+      });
+      return;
+    }
+    if (!mounted) return;
+    try {
+      await TelecomAuthService.enterSession(
+        phone: widget.phone,
+        exchange: exchange,
+      );
+    } on TelecomAuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = e.message;
+        _signingIn = false;
+      });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = GochanoLanguage.text(
+          'Could not sign you in. Please try again.',
+          'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
+        );
+        _signingIn = false;
+      });
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => GochanoShell(
+          role: 'student',
+          displayName: widget.phone,
+        ),
+      ),
+      (_) => false,
+    );
   }
 
   void _startTimer() {
@@ -276,7 +385,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     TextFormField(
                       controller: _otpController,
                       focusNode: _otpFocus,
-                      enabled: !_verifying && !_sending,
+                      enabled: !_verifying && !_sending && !_signingIn,
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -300,7 +409,33 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                       onFieldSubmitted: (_) => _verify(),
                     ),
                     const SizedBox(height: GochanoSpacing.sm),
-                    if (_sending)
+                    if (_signingIn)
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          const SizedBox(width: GochanoSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              GochanoLanguage.text(
+                                'Your subscription is being confirmed. '
+                                'Signing you in…',
+                                'আপনার সাবস্ক্রিপশন নিশ্চিত হচ্ছে। '
+                                'সাইন ইন করা হচ্ছে…',
+                              ),
+                              style: type.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (_sending)
                       Row(
                         children: [
                           const SizedBox(
@@ -354,11 +489,17 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               ),
               const SizedBox(height: GochanoSpacing.lg),
               PrimaryButton(
-                label: _verifying
+                label: _signingIn
                     ? GochanoLanguage.text(
-                        'Verifying…', 'যাচাই হচ্ছে…')
-                    : GochanoLanguage.text('Verify', 'যাচাই করুন'),
-                onPressed: (_verifying || _sending) ? null : _verify,
+                        'Signing you in…', 'সাইন ইন করা হচ্ছে…')
+                    : _verifying
+                        ? GochanoLanguage.text(
+                            'Verifying…', 'যাচাই হচ্ছে…')
+                        : GochanoLanguage.text(
+                            'Verify', 'যাচাই করুন'),
+                onPressed: (_verifying || _sending || _signingIn)
+                    ? null
+                    : _verify,
                 icon: Icons.check_circle_outline_rounded,
               ),
               const SizedBox(height: GochanoSpacing.md),
@@ -367,7 +508,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                 children: [
                   TextButton.icon(
                     onPressed:
-                        _sending || _verifying ? null : _requestOtp,
+                        (_sending || _verifying || _signingIn)
+                            ? null
+                            : _requestOtp,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                     label: Text(
                       GochanoLanguage.text(

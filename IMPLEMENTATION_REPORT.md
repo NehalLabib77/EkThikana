@@ -963,3 +963,123 @@ A compile-error regression surfaced and was repaired in the same part:
 
 ---
 
+# PART 17 — Final Auth + Subscription Implementation (Gochano)
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+
+## 1. Goal
+
+Complete the production login/subscription flow for Gochano. User-facing authentication shows ONLY: Phone Number → OTP (when needed) → Home. Firebase remains under the hood to preserve the existing Firestore UID/rules/ownerId architecture. No Firebase email/password/register UI is shown.
+
+## 2. Verification — Already-Correct Architecture
+
+The following were verified as already correctly implemented by the existing codebase (PART 16 / 16.1):
+
+| Requirement | Status | Location |
+|---|---|---|
+| bdApps base URL `https://www.bdappsdigitalapps.com/NADB26122_Final/` | ✅ Correct | `telecom_auth_service.dart:193-194` |
+| Supported numbers: 016 (Robi) / 018 (Cirkle) only | ✅ Correct | `telecom_auth_service.dart:238` — `^01(?:6\|8)\d{8}$` |
+| Login flow: phone → check_subscription → REGISTERED shortcut OR OTP | ✅ Correct | `login_screen.dart:80-193` |
+| OTP verification with 240s countdown | ✅ Correct | `otp_verify_screen.dart:49,200-216` |
+| Firebase custom-token exchange under the hood | ✅ Correct | `telecom_auth_service.dart:829-905` (OTP path), `939-971` (subscription path) |
+| AuthGate requires BOTH local flag AND Firebase user | ✅ Correct | `auth_gate.dart:88-122,132` |
+| Session persistence via SharedPreferences | ✅ Correct | `telecom_auth_service.dart:1033-1070` |
+| Branding: gochano1.png, Gochano name, Robi/Cirkle | ✅ Correct | `login_screen.dart:52,428-443` |
+| No Airtel/SmartList/email/password UI | ✅ Correct | Structural tests confirm zero references |
+| Unsubscribe API via bdApps endpoint | ✅ Correct | `telecom_auth_service.dart:456-554` |
+
+## 3. Changes Made
+
+### 3.1 Profile — Separate Logout + Unsubscribe (CRITICAL)
+
+**Problem:** Profile had a single "Unsubscribe" button that performed both logout AND subscription cancellation. The spec requires TWO separate actions:
+- **Logout** — end current app session only, do NOT cancel telecom subscription
+- **Unsubscribe** — cancel Robi/Cirkle subscription, THEN clear session
+
+**Fix (`profile_screen.dart`):**
+- Added `_logout()` function: clears TelecomAuthService session + Firebase signOut → navigates to AuthGate. Does NOT call `unsubscribe.php`.
+- Renamed existing `_signOut()` to `_unsubscribe()` for clarity. Still calls `TelecomAuthService.unsubscribe(phone)` before clearing session.
+- Added `PrimaryButton` for "Logout" above the existing `SecondaryButton` for "Unsubscribe".
+- Both actions have confirmation dialogs with clear messaging about what each does.
+
+### 3.2 Legacy Screen Removal
+
+**Deleted:**
+- `lib/features/auth/presentation/register_screen.dart` — legacy Firebase email/password registration (never used in telecom flow)
+- `lib/features/auth/presentation/verify_email_screen.dart` — legacy email verification gate (never used in telecom flow)
+
+**Updated tests:**
+- `test/auth_verification_test.dart` — removed `VerifyEmailScreen auto-detection` group (4 tests) since the file no longer exists
+- `test/profile_structure_test.dart` — updated to check for both `_logout` and `_unsubscribe` functions
+- `test/profile_privacy_test.dart` — updated to check for `_unsubscribe(context)` on SecondaryButton and `_logout(context)` on PrimaryButton; added new test for logout button
+
+## 4. Files Changed
+
+| File | Change |
+|---|---|
+| `features/profile/presentation/profile_screen.dart` | Added `_logout()` function; renamed `_signOut()` → `_unsubscribe()`; added PrimaryButton for Logout |
+| `features/auth/presentation/register_screen.dart` | **DELETED** — legacy Firebase email registration |
+| `features/auth/presentation/verify_email_screen.dart` | **DELETED** — legacy email verification gate |
+| `test/auth_verification_test.dart` | Removed VerifyEmailScreen auto-detection group; updated comments |
+| `test/profile_structure_test.dart` | Updated to check for `_logout` + `_unsubscribe` |
+| `test/profile_privacy_test.dart` | Updated unsubscribe check; added logout button test |
+
+## 5. What Was NOT Changed (by design)
+
+- **TelecomAuthService** — already correct; no changes needed
+- **LoginScreen** — already correct; gochano1.png branding, Robi/Cirkle only, no Firebase UI
+- **OtpVerifyScreen** — already correct; 240s timer, Firebase exchange, proper navigation
+- **AuthGate** — already correct; dual gate (local flag + Firebase user)
+- **firestore.rules** — not modified; existing `verified()` / `email_verified` claim architecture preserved
+- **Firebase Auth architecture** — preserved; `signInWithCustomToken` flow intact
+- **main.dart / app.dart** — no changes needed
+
+## 6. Validation
+
+| Check | Result |
+|---|---|
+| `flutter analyze` (changed files) | ✅ No issues found |
+| `flutter test` (full suite) | **506/510 passed** (4 pre-existing failures) |
+| Pre-existing failures | 2 in `a11y/accessibility_audit_test.dart`, 2 in `post_verification_auth_test.dart` — NOT caused by this change |
+| New failures introduced | **0** |
+
+## 7. Auth Flow Summary
+
+```
+Cold Start:
+  AuthGate reads SharedPreferences (isLoggedIn) + checks FirebaseAuth.currentUser
+  → Both valid: GochanoShell
+  → Stale/missing: LoginScreen
+
+Login (REGISTERED user):
+  Phone → check_subscription.php → REGISTERED/INITIAL CHARGING PENDING
+  → exchangeSubscriptionForFirebaseSession → signInWithCustomToken → Home
+  (No OTP step)
+
+Login (new user):
+  Phone → check_subscription.php → NOT SUBSCRIBED
+  → send_otp.php → OtpVerifyScreen
+  → verify_otp.php → exchangeOtpForFirebaseSession → signInWithCustomToken → Home
+
+Logout (Profile):
+  Clears SharedPreferences + Firebase signOut → LoginScreen
+  (Telecom subscription remains active)
+
+Unsubscribe (Profile):
+  unsubscribe.php → Clears SharedPreferences + Firebase signOut → LoginScreen
+  (Telecom subscription cancelled)
+```
+
+## 8. Constraints Preserved
+
+- **No commit / push / deploy / release APK** — none executed
+- **No Firebase user accounts deleted** — FirebaseAuth.currentUser.delete() never called
+- **No user data deleted** — Notes, Tasks, Study, Expenses, Medicine, Grocery, Dena/Pawna, Commute, Community data preserved
+- **No Firestore rules modified** — existing `verified()` / `email_verified` architecture intact
+- **No new Firebase custom-token endpoint invented** — existing backend `/v1/auth/telecom/exchange` used
+- **SharedPreferences never used as authentication proof** — only for routing convenience; AuthGate requires Firebase user
+- **Real-device test required** — automated validation passed; real-device login/logout/unsubscribe test pending
+
+---
+

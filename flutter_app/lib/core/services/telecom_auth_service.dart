@@ -55,6 +55,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -88,7 +89,19 @@ class TelecomSubscriptionResult {
 
   /// `true` only for statuses that the spec lists as "let the user in
   /// without an OTP step". All other statuses require OTP verification.
+  /// Prefer the named [isAlreadySubscribed] getter at call sites so the
+  /// intent reads clearly.
   final bool shouldEnterApp;
+
+  /// True when the user's number is already in a "subscribed" state
+  /// from the carrier's perspective — either [TelecomSubscriptionStatus
+  /// .registered] (paying subscriber) or [TelecomSubscriptionStatus
+  /// .initialChargingPending] (user has tapped Subscribe in the
+  /// carrier portal and the first charge is still settling). Both
+  /// cases route the user straight into the home shell with no OTP
+  /// step, per spec §3. Equivalent to [shouldEnterApp] today but named
+  /// so call sites read as their intent rather than as a flag.
+  bool get isAlreadySubscribed => shouldEnterApp;
 
   /// The raw subscriptionStatus field as the backend returned it,
   /// normalised with trim() + toUpperCase(). Empty when no field was
@@ -189,6 +202,17 @@ class TelecomAuthService {
   static const Duration verifyOtpTimeout = Duration(seconds: 15);
   static const Duration exchangeTimeout = Duration(seconds: 15);
 
+  /// Sentinel returned by [sendOtp] when /send_otp.php reports "already
+  /// registered" and the immediate re-poll of /check_subscription.php
+  /// reports a status with `shouldEnterApp == true` (i.e. REGISTERED
+  /// or INITIAL CHARGING PENDING). The caller MUST treat this as "skip
+  /// the OTP step, take the user straight to the home shell" instead
+  /// of as a real reference number — there is no OTP to verify
+  /// against. Exposed as a constant so callers do not depend on a
+  /// magic string.
+  static const String kAlreadySubscribedSentinel =
+      '__already_registered__';
+
   // -------------------------------------------------------------------
   // Local session — convenience only, never proof of identity
   // -------------------------------------------------------------------
@@ -266,21 +290,125 @@ class TelecomAuthService {
     return checkSubscription(phone);
   }
 
+  /// Normalises a raw subscription status string so we are not at the
+  /// mercy of the carrier's casing/punctuation. We collapse all
+  /// whitespace + hyphens + underscores to a single space, trim, and
+  /// uppercase — e.g. `"Initial_Charging-Pending"` becomes
+  /// `"INITIAL CHARGING PENDING"`. Without this step carriers that
+  /// report `"Initial Charging Pending"` (title case) or
+  /// `"INITIAL_CHARGING_PENDING"` (underscored) silently fell through
+  /// to `notSubscribed`, which routed an already-subscribed user into
+  /// the OTP screen.
+  static String _normalizeSubscriptionStatus(String raw) {
+    return raw
+        .replaceAll(RegExp(r'[\s\-_]+'), ' ')
+        .trim()
+        .toUpperCase();
+  }
+
+  /// True when [normalized] is a known "let the user in without OTP"
+  /// status. List is intentionally broad: anything the carrier could
+  /// plausibly use to mean "already paid" or "first charge settling"
+  /// has to grant app access per spec §3, otherwise the bug we keep
+  /// seeing is "user is a real Robi/Cirkle subscriber but the app
+  /// asked for an OTP anyway".
+  static bool _isAlreadySubscribedStatus(String normalized) {
+    if (normalized == 'REGISTERED' ||
+        normalized == 'SUBSCRIBED' ||
+        normalized == 'ACTIVE' ||
+        normalized == 'ALREADY SUBSCRIBED' ||
+        normalized == 'ALREADY REGISTERED' ||
+        normalized == 'E1351' /* already-registered sentinel */ ||
+        normalized == 'E0000' /* some carriers report success as E0000 */) {
+      return true;
+    }
+    if (normalized.contains('INITIAL CHARGING PENDING')) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Test-only trampoline for [_parseSubscriptionResponse].
+  ///
+  /// Exposed so the regression tests can assert the parser recognises
+  /// every reasonable carrier alias (REGISTERED, ALREADY REGISTERED,
+  /// INITIAL CHARGING PENDING, ACTIVE, E1351, S1000, …) without
+  /// having to mock the network. Not for production use.
+  @visibleForTesting
+  static TelecomSubscriptionResult parseSubscriptionResponseForTest(
+          String body) =>
+      _parseSubscriptionResponse(body);
+
+  /// Test-only trampoline for [_parseSendOtpResponse]. See the
+  /// companion getter for rationale.
+  @visibleForTesting
+  static dynamic parseSendOtpResponseForTest(String body) =>
+      _parseSendOtpResponse(body);
+
   static TelecomSubscriptionResult _parseSubscriptionResponse(String body) {
     final raw = _readSubscriptionStatus(body);
+
+    // The body might be empty / non-JSON, but carriers also sometimes
+    // surface the status via a `statusCode` field (e.g. S1000) or in
+    // `message`/`statusDetail` text ("E1351 already registered").
+    // Check those fallbacks BEFORE declaring "not subscribed" — that
+    // is the precise path that previously trapped paying users in
+    // the OTP screen.
+    final statusCode = _firstNonEmptyString([
+      _firstNestedString(body, const ['statusCode']),
+      _firstNestedString(body, const ['StatusCode']),
+      _firstNestedString(body, const ['status_code']),
+    ]);
+    final normalizedStatusCode =
+        statusCode == null ? '' : _normalizeSubscriptionStatus(statusCode);
+    if (normalizedStatusCode == 'S1000' /* generic ok */ ||
+        normalizedStatusCode == 'E1351' /* already registered */) {
+      return TelecomSubscriptionResult.registered;
+    }
+
     if (raw == null || raw.isEmpty) {
       return TelecomSubscriptionResult.notSubscribed;
     }
-    final normalized = raw.trim().toUpperCase();
+    final normalized = _normalizeSubscriptionStatus(raw);
 
-    if (normalized == 'REGISTERED') {
+    if (_isAlreadySubscribedStatus(normalized)) {
+      if (normalized == 'REGISTERED' ||
+          normalized == 'SUBSCRIBED' ||
+          normalized == 'ACTIVE' ||
+          normalized == 'ALREADY SUBSCRIBED' ||
+          normalized == 'ALREADY REGISTERED' ||
+          normalized == 'E1351' ||
+          normalized == 'E0000') {
+        return TelecomSubscriptionResult.registered;
+      }
+      if (normalized.contains('INITIAL CHARGING PENDING')) {
+        return TelecomSubscriptionResult.initialChargingPending;
+      }
+      // Any other "already subscribed" alias — register them at the
+      // paying tier so the Firestore happy-path (verified()) still
+      // works. PART 17 unsubscribe covers the rollback edge case.
       return TelecomSubscriptionResult.registered;
-    }
-    if (normalized.contains('INITIAL CHARGING PENDING')) {
-      return TelecomSubscriptionResult.initialChargingPending;
     }
     // Anything else — including NOT SUBSCRIBED — routes to OTP.
     return TelecomSubscriptionResult.notSubscribed;
+  }
+
+  /// Reads a non-empty string field from a (possibly nested) JSON
+  /// body. Returns the first key in [pathSegments] that resolves to a
+  /// non-empty string; null when none do.
+  static String? _firstNestedString(String body, List<String> pathSegments) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return null;
+    try {
+      final decoded = json.decode(trimmed);
+      if (decoded is Map) {
+        final v = _nestedValue(decoded, pathSegments);
+        if (v is String && v.trim().isNotEmpty) return v.trim();
+      }
+    } catch (_) {
+      // Non-JSON body — fall through.
+    }
+    return null;
   }
 
   /// Reads the `subscriptionStatus` field from a JSON body. Returns the
@@ -455,11 +583,17 @@ class TelecomAuthService {
     if (parsed.alreadyRegistered) {
       // Re-poll /check_subscription.php with the same phone. If the
       // backend has settled by then, we route straight to home.
+      // Covers both REGISTERED (already paying) and
+      // INITIAL CHARGING PENDING (carrier has acknowledged the
+      // subscribe tap but not confirmed the first charge yet — spec
+      // §3 still lets the user into the app and defers the rest to
+      // the PART 17 unsubscribe flow).
       final recheck = await pollSubscription(normalized);
       if (recheck.shouldEnterApp) {
-        // Sentinel — caller checks against this token to know it can
-        // skip OTP and call the Firebase exchange immediately.
-        return '__already_registered__';
+        // Sentinel — caller checks against
+        // [kAlreadySubscribedSentinel] to know it can skip OTP and
+        // call the Firebase exchange immediately.
+        return kAlreadySubscribedSentinel;
       }
       throw TelecomAuthException(
         parsed.message ??
@@ -520,12 +654,32 @@ class TelecomAuthService {
           decoded['statusCode'],
           _nestedValue(decoded, const ['data', 'statusCode']),
         ]);
-        final alreadyRegistered =
-            (statusCode?.toUpperCase() == 'E1351') ||
+        final subscriptionStatusField = _firstNonEmptyString([
+          decoded['subscriptionStatus'],
+          _nestedValue(decoded, const ['data', 'subscriptionStatus']),
+        ]);
+        final normalizedStatusCode =
+            statusCode == null ? '' : _normalizeSubscriptionStatus(statusCode);
+        final normalizedStatusField = subscriptionStatusField == null
+            ? ''
+            : _normalizeSubscriptionStatus(subscriptionStatusField);
+
+        // E1351 is the canonical "already registered" status code.
+        // We also treat any "already registered" / "already subscribed"
+        // text in message or statusDetail as the same signal — the
+        // carrier sometimes uses prose instead of an E-code. Without
+        // this broader match, a paying user would fall through to the
+        // generic "could not send the verification code" error and
+        // never reach the home shell, even though the carrier clearly
+        // said they are subscribed.
+        final alreadyRegistered = normalizedStatusCode == 'E1351' ||
             (message != null &&
-                message.toLowerCase().contains('already registered')) ||
+                (message.toLowerCase().contains('already registered') ||
+                    message.toLowerCase().contains('already subscribed'))) ||
             (statusDetail != null &&
-                statusDetail.toLowerCase().contains('already registered'));
+                (statusDetail.toLowerCase().contains('already registered') ||
+                    statusDetail.toLowerCase().contains('already subscribed'))) ||
+            _isAlreadySubscribedStatus(normalizedStatusField);
 
         return _SendOtpResponse(
           success: successFlag ?? false,

@@ -59,7 +59,13 @@ dev_dependencies:
   flutter_native_splash: ^2.4.7
 
 flutter_launcher_icons:
+  # `gochano1.png` is the master artwork (1254x1254, RGB). It feeds both
+  # the Android adaptive-icon foreground (`drawable/ic_launcher_foreground.xml`
+  # references the raster fallback at `mipmap-*/ic_launcher.png`) and the
+  # iOS AppIcon set. Do NOT point this at `Gochano.png` — that filename is
+  # the public-marketing raster and is committed separately for the website.
   image_path: "assets/branding/gochano1.png"
+  image_path_android: "assets/branding/gochano1.png"
   android: true
   remove_alpha_ios: true
 

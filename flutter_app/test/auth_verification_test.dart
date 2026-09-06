@@ -1,15 +1,9 @@
-// Email verification + telecom auth wiring guards.
+// Auth wiring guards for the Robi / Cirkle telecom login.
 //
-// PART 16.1 update: the legacy email-verification flow is no longer
-// the production login path. The live AuthGate now drives a dual
+// PART 16.1+ update: the legacy email-verification flow (RegisterScreen,
+// VerifyEmailScreen) has been removed. The live AuthGate drives a dual
 // check (SharedPreferences flag + FirebaseAuth.currentUser), so the
-// AuthGate group below tests that behavior. The legacy
-// `VerifyEmailScreen` / `AuthService.login` / `AuthService
-// .resendVerification` / `LoginResult` / debug-seam groups below
-// still hold because `lib/services/auth_service.dart` and
-// `lib/features/auth/presentation/verify_email_screen.dart` are
-// preserved on disk for legacy callers even though the live login
-// path has switched to the Robi/Cirkle telecom flow.
+// AuthGate group below tests that behavior.
 //
 // The behavior under test here is structural rather than behavioral
 // (we do not boot a real Firebase SDK in unit tests). The intent is
@@ -24,9 +18,6 @@
 //     user, `AuthGate` must call `TelecomAuthService.clearSession()`
 //     and surface a `resumeMessage` to `LoginScreen` instead of
 //     letting the user into the shell half-authenticated.
-//   * `VerifyEmailScreen` must drive verification detection from at
-//     least one automatic source (lifecycle resume or polling), and
-//     must never push to a home shell itself.
 //   * `AuthService.login` must call `reload()` and re-read
 //     `auth.currentUser.emailVerified`, not trust `credential.user`.
 //   * `AuthService.resendVerification` must exist and enforce a
@@ -93,48 +84,6 @@ void main() {
     test('does NOT depend on the legacy email-verification flow', () {
       expect(gateSource.contains('emailVerified'), isFalse);
       expect(gateSource.contains('signInWithEmailAndPassword'), isFalse);
-    });
-  });
-
-  group('VerifyEmailScreen auto-detection', () {
-    late String screenSource;
-
-    setUpAll(() => screenSource =
-        _read('lib/features/auth/presentation/verify_email_screen.dart'));
-
-    test('observes AppLifecycleState.resumed', () {
-      expect(
-        screenSource,
-        contains('AppLifecycleState.resumed'),
-        reason:
-            'When the user comes back from the mail app, the screen must '
-            'kick a verification check immediately.',
-      );
-    });
-
-    test('runs a periodic Timer poll', () {
-      expect(
-        screenSource.contains('Timer.periodic'),
-        isTrue,
-        reason:
-            'A periodic poll is one of the three triggers that auto-detect '
-            'verification while the screen is mounted.',
-      );
-    });
-
-    test('cancels timers in dispose()', () {
-      expect(
-        screenSource,
-        contains('_pollTimer?.cancel()'),
-        reason: 'The poll timer must be cancelled when the screen unmounts.',
-      );
-      expect(screenSource, contains('dispose()'));
-    });
-
-    test('does NOT push to a home shell from the verify screen', () {
-      // Routing must be the AuthGate's job, not the verify screen's.
-      expect(screenSource.contains('GochanoShell'), isFalse);
-      expect(screenSource.contains('Navigator.push'), isFalse);
     });
   });
 

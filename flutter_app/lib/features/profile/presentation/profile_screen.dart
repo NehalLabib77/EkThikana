@@ -75,10 +75,16 @@ class ProfileScreen extends StatelessWidget {
           const _AboutCard(),
 
           const SizedBox(height: GochanoSpacing.lg),
+          PrimaryButton(
+            label: GochanoLanguage.text('Logout', 'লগ আউট'),
+            icon: Icons.logout_rounded,
+            onPressed: () => _logout(context),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
           SecondaryButton(
             label: GochanoLanguage.text('Unsubscribe', 'আনসাবস্ক্রাইব করুন'),
             icon: Icons.phonelink_erase_rounded,
-            onPressed: () => _signOut(context),
+            onPressed: () => _unsubscribe(context),
           ),
         ],
       ),
@@ -1068,7 +1074,47 @@ Future<void> _pickAppearance(BuildContext context) async {
 // Actions
 // ---------------------------------------------------------------------------
 
-Future<void> _signOut(BuildContext context) async {
+/// Logout ends the current app session only. It does NOT cancel the
+/// telecom subscription — an already-REGISTERED user can re-enter their
+/// number and the app will detect REGISTERED and log them back in
+/// without OTP where allowed.
+Future<void> _logout(BuildContext context) async {
+  final confirmed = await showConfirmationSheet(
+    context,
+    title: GochanoLanguage.text(
+      'Logout?',
+      'লগ আউট করবেন?',
+    ),
+    message: GochanoLanguage.text(
+      'You will be signed out of this device. Your subscription remains active — you can sign in again with the same number.',
+      'এই ডিভাইসে সাইন আউট হবে। আপনার সাবস্ক্রিপশন সক্রিয় থাকবে — একই নম্বর দিয়ে আবার সাইন ইন করতে পারবেন।',
+    ),
+    confirmLabel: GochanoLanguage.text('Logout', 'লগ আউট'),
+    cancelLabel: GochanoLanguage.text('Cancel', 'বাতিল'),
+    destructive: true,
+  );
+  if (!confirmed || !context.mounted) return;
+
+  // 1. Clear telecom/local session (does NOT call unsubscribe.php)
+  await TelecomAuthService.clearSession();
+
+  // 2. Firebase signOut — does NOT delete account or data
+  await AuthService.logout();
+
+  if (!context.mounted) return;
+
+  // 3. Clear navigation stack and return to AuthGate/Login
+  final rootNav = Navigator.of(context, rootNavigator: true);
+  await rootNav.pushAndRemoveUntil(
+    MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+    (route) => false,
+  );
+}
+
+/// Unsubscribe cancels the Robi / Cirkle telecom subscription, then
+/// clears the app session. This is a destructive action — after
+/// unsubscribing the user must re-subscribe to use the app again.
+Future<void> _unsubscribe(BuildContext context) async {
   final confirmed = await showConfirmationSheet(
     context,
     title: GochanoLanguage.text(
@@ -1172,7 +1218,7 @@ Future<void> _signOut(BuildContext context) async {
     return;
   }
 
-  // Authoritative session termination (only on success):
+  // Authoritative session termination (only on server success):
   // 1. Clear telecom session storage completely
   await TelecomAuthService.clearSession();
 

@@ -1,3 +1,7 @@
+# Write the new ic_launcher_foreground.xml using ASCII-only PowerShell so
+# no encoding quirk in the surrounding transport layer can mangle it.
+
+$content = @'
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Adaptive-icon foreground for Gochano.
@@ -46,3 +50,15 @@
         android:fillColor="#FF5B3DF5"
         android:pathData="M54,42 C46.27,42 40,48.27 40,56 C40,63.73 46.27,70 54,70 C58.50,70 62.50,68.20 65.30,65.20 L65.30,59 L54,59 L54,63.20 L61,63.20 C59.50,64.70 56.90,65.80 54,65.80 C48.50,65.80 44.20,61.50 44.20,56 C44.20,50.50 48.50,46.20 54,46.20 C56.90,46.20 59.50,47.30 61.50,49.20 L64,46.70 C61.40,43.90 57.80,42 54,42 Z" />
 </vector>
+'@
+
+# Use UTF-8 WITHOUT BOM, CRLF line endings, to match the existing project style.
+$root = (Resolve-Path '..').Path
+$path = Join-Path $root 'android/app/src/main/res/drawable/ic_launcher_foreground.xml'
+$content = $content -replace "`r?`n", "`r`n"
+[System.IO.File]::WriteAllText(
+    $path,
+    $content,
+    [System.Text.UTF8Encoding]::new($false)
+)
+Write-Host "wrote $path ($((Get-Item $path).Length) bytes, $(((Get-Content $path) | Measure-Object -Line).Lines) lines)"

@@ -68,8 +68,9 @@ void main() {
       );
     });
 
-    test('sign out is still separate and still confirmed', () {
-      expect(source, contains('_signOut'));
+    test('logout and unsubscribe are separate confirmed actions', () {
+      expect(source, contains('_logout'));
+      expect(source, contains('_unsubscribe'));
       expect(source, contains('showConfirmationSheet'));
     });
 
