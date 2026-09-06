@@ -8,6 +8,8 @@
 // Remaining by querying settlement totals from this collection.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -43,6 +45,26 @@ class DenaPawnaTab extends StatelessWidget {
           );
         }
         if (snapshot.hasError) {
+          // DIAGNOSTIC: log the exact error to distinguish Firestore
+          // permission-denied from missing-index or other errors.
+          if (kDebugMode) {
+            debugPrint(
+              '[DenaPawnaTab] stream error: '
+              'runtimeType=${snapshot.error.runtimeType}, '
+              'toString=${snapshot.error.toString()}',
+            );
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              user.getIdTokenResult(true).then((result) {
+                debugPrint(
+                  '[DenaPawnaTab] token claims: '
+                  'email_verified=${result.claims?["email_verified"]}, '
+                  'telecom_verified=${result.claims?["telecom_verified"]}, '
+                  'role=${result.claims?["role"]}',
+                );
+              });
+            }
+          }
           return ErrorState(message: friendlyErrorMessage(snapshot.error));
         }
 

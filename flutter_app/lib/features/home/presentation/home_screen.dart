@@ -46,24 +46,8 @@ class HomeScreen extends StatelessWidget {
 
   bool get _isStudent => role == 'student';
 
-  String _firstName() {
-    final trimmed = displayName.trim();
-    if (trimmed.isEmpty) return '';
-    return trimmed.split(RegExp(r'\s+')).first;
-  }
-
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return GochanoLanguage.text('Good morning', 'সুপ্রভাত');
-    if (hour < 17) return GochanoLanguage.text('Good afternoon', 'শুভ অপরাহ্ন');
-    return GochanoLanguage.text('Good evening', 'শুভ সন্ধ্যা');
-  }
-
   @override
   Widget build(BuildContext context) {
-    final name = _firstName();
-    final title = name.isEmpty ? _greeting() : '${_greeting()}, $name';
-
     // DEBUG: Log HomeScreen build and auth state
     if (kDebugMode) {
       final uid = FirestoreService.uid;
@@ -74,13 +58,7 @@ class HomeScreen extends StatelessWidget {
 
     return GochanoScaffold(
       padBody: false,
-      appBar: GochanoAppBar(
-        title: title,
-        subtitle: GochanoLanguage.text(
-          'Here is your day so far',
-          'আপনার আজকের দিন এক নজরে',
-        ),
-        automaticallyImplyLeading: false,
+      appBar: _HomeAppBar(
         actions: const [
           LanguageToggle(),
           SizedBox(width: GochanoSpacing.xs),
@@ -117,6 +95,75 @@ class HomeScreen extends StatelessWidget {
           _RecentMaterialsCard(onOpenStudy: () => onOpenDestination(0)),
         ],
       ),
+    );
+  }
+}
+
+/// Custom AppBar for Home screen showing [circular avatar] DisplayName.
+class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _HomeAppBar({this.actions});
+
+  final List<Widget>? actions;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    return AppBar(
+      backgroundColor: colors.background,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      automaticallyImplyLeading: false,
+      titleSpacing: GochanoSpacing.md,
+      title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: FirestoreService.profileStream(),
+        builder: (context, snapshot) {
+          final data = snapshot.data?.data();
+          final photoURL = data?['photoURL'] as String?;
+          final displayName =
+              (data?['displayName'] as String?)?.trim() ?? '';
+
+          return Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: colors.brand,
+                backgroundImage:
+                    photoURL != null && photoURL.isNotEmpty
+                        ? NetworkImage(photoURL)
+                        : null,
+                child:
+                    photoURL == null || photoURL.isEmpty
+                        ? Text(
+                            displayName.isNotEmpty
+                                ? displayName[0].toUpperCase()
+                                : '?',
+                            style: type.pageTitle.copyWith(
+                              color: colors.onBrand,
+                              fontSize: 14,
+                            ),
+                          )
+                        : null,
+              ),
+              const SizedBox(width: GochanoSpacing.sm),
+              Expanded(
+                child: Text(
+                  displayName.isNotEmpty ? displayName : displayName,
+                  style: type.pageTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      actions: actions,
     );
   }
 }

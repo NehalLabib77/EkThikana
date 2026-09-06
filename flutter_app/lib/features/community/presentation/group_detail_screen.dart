@@ -17,6 +17,8 @@
 //              task progress, admin controls, assignment, and reminders.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -613,6 +615,27 @@ class _ProjectsTab extends StatelessWidget {
             );
           }
           if (snapshot.hasError) {
+            // DIAGNOSTIC: log the exact error to distinguish Firestore
+            // permission-denied from backend 403 or missing-index errors.
+            if (kDebugMode) {
+              debugPrint(
+                '[ProjectsTab] stream error: '
+                'runtimeType=${snapshot.error.runtimeType}, '
+                'toString=${snapshot.error.toString()}',
+              );
+              // Dump Firebase Auth claims to verify token state.
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                user.getIdTokenResult(true).then((result) {
+                  debugPrint(
+                    '[ProjectsTab] token claims: '
+                    'email_verified=${result.claims?["email_verified"]}, '
+                    'telecom_verified=${result.claims?["telecom_verified"]}, '
+                    'role=${result.claims?["role"]}',
+                  );
+                });
+              }
+            }
             return ErrorState(message: friendlyErrorMessage(snapshot.error));
           }
 
