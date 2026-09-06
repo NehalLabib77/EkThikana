@@ -823,9 +823,13 @@ class _StudyProgressCardState extends State<_StudyProgressCard> {
             children: [
               Icon(Icons.school_rounded, size: 18, color: colors.study),
               const SizedBox(width: GochanoSpacing.xs),
-              Text(
-                GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
-                style: context.type.sectionHeading,
+              Expanded(
+                child: Text(
+                  GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
+                  style: context.type.sectionHeading,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -945,6 +949,17 @@ class _LifeSnapshotCardState extends State<_LifeSnapshotCard> {
   @override
   void initState() {
     super.initState();
+    _loadBudget();
+    FinancialService.budgetRefreshKey.addListener(_onBudgetChanged);
+  }
+
+  @override
+  void dispose() {
+    FinancialService.budgetRefreshKey.removeListener(_onBudgetChanged);
+    super.dispose();
+  }
+
+  void _onBudgetChanged() {
     _loadBudget();
   }
 

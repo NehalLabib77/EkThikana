@@ -8,7 +8,10 @@ service cloud.firestore {
     }
 
     function verified() {
-      return signedIn() && request.auth.token.email_verified == true;
+      return signedIn() && (
+        request.auth.token.email_verified == true
+        || request.auth.token.telecom_verified == true
+      );
     }
 
     function userDoc() {

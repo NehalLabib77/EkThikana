@@ -303,6 +303,14 @@ String friendlyErrorMessage(Object? error, {String? fallback}) {
   if (lower.contains('permission-denied') ||
       lower.contains('permission denied') ||
       lower.contains('403')) {
+    // Distinguish the Firestore-permission error ("not verified" or
+    // "not owner") from a generic 403 from the backend.
+    if (lower.contains('permission-denied') || lower.contains('permission denied')) {
+      return t(
+        'Your session may have expired. Please sign in again.',
+        'আপনার সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
+      );
+    }
     return t(
       'You do not have access to this item.',
       'এই আইটেমে আপনার অ্যাক্সেস নেই।',
@@ -314,6 +322,16 @@ String friendlyErrorMessage(Object? error, {String? fallback}) {
     return t(
       'This item is no longer available.',
       'এই আইটেমটি আর নেই।',
+    );
+  }
+
+  // Firestore index / precondition (e.g. composite index missing for a query).
+  if (lower.contains('failed-precondition') ||
+      lower.contains('failed precondition') ||
+      lower.contains('index') && lower.contains('composite')) {
+    return t(
+      'This feature is being set up. Please try again in a moment.',
+      'এই ফিচারটি এখনো প্রস্তুত হচ্ছে। একটু পর আবার চেষ্টা করুন।',
     );
   }
 

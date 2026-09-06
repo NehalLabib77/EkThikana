@@ -13,6 +13,7 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
+import '../../../../services/financial_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 
@@ -97,6 +98,7 @@ class _BudgetFormState extends State<_BudgetForm> {
 
     try {
       await ApiService.setMonthlyBudget(DateTime.now(), amount);
+      FinancialService.notifyBudgetChanged();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;

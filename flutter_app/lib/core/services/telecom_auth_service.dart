@@ -798,10 +798,12 @@ class TelecomAuthService {
   /// Calls the backend endpoint that mints a Firebase custom token for
   /// the verified phone. The backend is responsible for:
   ///   1. verifying the OTP server-to-server against the carrier, and
-  ///   2. calling `firebase_admin.auth.create_custom_token(uid,
-  ///      developer_claims={"email_verified": True})`.
+  ///   2. setting `email_verified=True` via update_user() and
+  ///      `telecom_verified=True` via set_custom_user_claims(), then
+  ///      minting a Firebase custom token with create_custom_token().
   /// Returns both the custom token and the Firebase UID. The caller
-  /// signs in with `FirebaseAuth.signInWithCustomToken(customToken)`.
+  /// signs in with `FirebaseAuth.signInWithCustomToken(customToken)`
+  /// followed by `getIdToken(true)` to pick up fresh claims.
   ///
   /// If the backend endpoint is not yet deployed, this throws a
   /// `TelecomAuthException` with a clear "Backend not deployed" message
@@ -894,7 +896,14 @@ class TelecomAuthService {
   ) async {
     final auth = FirebaseAuth.instance;
     try {
-      return await auth.signInWithCustomToken(exchange.customToken);
+      final cred = await auth.signInWithCustomToken(exchange.customToken);
+      // Force a token refresh so the ID token includes fresh custom claims
+      // (telecom_verified, email_verified) set server-side via
+      // set_custom_user_claims() / update_user().  Without this, the
+      // Firestore rules' verified() helper may not see the claims until
+      // the token naturally expires.
+      await cred.user?.getIdToken(true);
+      return cred;
     } on FirebaseAuthException catch (e) {
       throw TelecomAuthException(
         e.message ??

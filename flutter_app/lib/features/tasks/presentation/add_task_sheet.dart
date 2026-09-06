@@ -151,10 +151,15 @@ class _TaskFormState extends State<_TaskForm> {
     final title = _title.text.trim();
     if (title.isEmpty) {
       setState(() {
-        _error = GochanoLanguage.text(
-          'Give the task a name.',
-          'কাজটির একটি নাম দিন।',
-        );
+        _error = widget.type == 'assignment'
+            ? GochanoLanguage.text(
+                'Give the assignment a name.',
+                'অ্যাসাইনমেন্টের একটি নাম দিন।',
+              )
+            : GochanoLanguage.text(
+                'Give the task a name.',
+                'কাজটির একটি নাম দিন।',
+              );
       });
       return;
     }
@@ -240,7 +245,12 @@ class _TaskFormState extends State<_TaskForm> {
             children: [
               Text(
                 _isEdit
-                    ? GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
+                    ? widget.type == 'assignment'
+                        ? GochanoLanguage.text(
+                            'Edit assignment',
+                            'অ্যাসাইনমেন্ট সম্পাদনা',
+                          )
+                        : GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
                     : widget.type == 'assignment'
                         ? GochanoLanguage.text(
                             'New assignment',
@@ -336,7 +346,12 @@ class _TaskFormState extends State<_TaskForm> {
               ],
               const SizedBox(height: GochanoSpacing.md),
               PrimaryButton(
-                label: GochanoLanguage.text('Save task', 'কাজ সংরক্ষণ'),
+                label: widget.type == 'assignment'
+                    ? GochanoLanguage.text(
+                        'Save assignment',
+                        'অ্যাসাইনমেন্ট সংরক্ষণ করুন',
+                      )
+                    : GochanoLanguage.text('Save task', 'কাজ সংরক্ষণ'),
                 busy: _saving,
                 busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
                 onPressed: _save,

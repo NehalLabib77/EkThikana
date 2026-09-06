@@ -107,11 +107,28 @@ class _MonthSummary extends StatefulWidget {
 
 class _MonthSummaryState extends State<_MonthSummary> {
   late Future<Map<String, dynamic>> _budget;
+  int _budgetRefreshKey = 0;
 
   @override
   void initState() {
     super.initState();
     _budget = ApiService.getRemaining(DateTime.now());
+    FinancialService.budgetRefreshKey.addListener(_onBudgetChanged);
+  }
+
+  @override
+  void dispose() {
+    FinancialService.budgetRefreshKey.removeListener(_onBudgetChanged);
+    super.dispose();
+  }
+
+  void _onBudgetChanged() {
+    if (mounted) {
+      setState(() {
+        _budgetRefreshKey++;
+        _budget = ApiService.getRemaining(DateTime.now());
+      });
+    }
   }
 
   @override
@@ -136,6 +153,7 @@ class _MonthSummaryState extends State<_MonthSummary> {
             final spent = summary.totalSpending;
 
             return FutureBuilder<Map<String, dynamic>>(
+              key: ValueKey('budget-$_budgetRefreshKey'),
               future: _budget,
               builder: (context, budgetSnap) {
                 final available = (budgetSnap.data?['available'] as num?)

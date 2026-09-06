@@ -166,10 +166,23 @@ async def exchange(req: ExchangeRequest):
         firebase_auth.create_user(uid=uid)
         logger.info("Created Firebase Auth user uid=%s", uid)
 
-    custom_token = firebase_auth.create_custom_token(
-        uid,
-        developer_claims={"email_verified": True},
-    )
+    # Set email_verified via update_user so the standard Firebase Auth
+    # property is true — this flows into request.auth.token.email_verified
+    # in Firestore rules.  developer_claims with reserved names like
+    # "email_verified" are NOT reliably included in ID tokens.
+    try:
+        firebase_auth.update_user(uid, email_verified=True)
+    except Exception:
+        logger.exception("Failed to set email_verified for uid=%s", uid)
+
+    # Also set a custom claim as belt-and-suspenders.  Firestore rules
+    # accept either email_verified OR telecom_verified.
+    try:
+        firebase_auth.set_custom_user_claims(uid, {"telecom_verified": True})
+    except Exception:
+        logger.exception("Failed to set telecom_verified claim for uid=%s", uid)
+
+    custom_token = firebase_auth.create_custom_token(uid)
     if isinstance(custom_token, bytes):
         custom_token = custom_token.decode("utf-8")
 

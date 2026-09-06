@@ -781,6 +781,24 @@ class FinancialService {
     await db.collection('dena_pawna_items').doc(id).delete();
   }
 
+  // -------------------------------------------------------------------------
+  // Budget refresh signal
+  //
+  // A monotonic counter that increments every time the monthly budget
+  // (available amount) changes on the backend.  Any widget that shows
+  // remaining / budget should listen to [budgetRefreshKey] and re-fetch
+  // the relevant data.  This is the single source of truth — one method
+  // to call after a successful save, many listeners across the app.
+  // -------------------------------------------------------------------------
+
+  static final ValueNotifier<int> budgetRefreshKey = ValueNotifier<int>(0);
+
+  /// Call after a successful monthly-budget save so that all screens
+  /// showing remaining / budget re-fetch immediately.
+  static void notifyBudgetChanged() {
+    budgetRefreshKey.value++;
+  }
+
   /// Stream of Dena/Pawna settlement totals for a given month.
   ///
   /// Returns `{pawnaReceived: X, denaPaid: Y}` so the UI can compute:

@@ -37,6 +37,17 @@ class OverviewTabState extends State<OverviewTab> {
     super.initState();
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month);
+    FinancialService.budgetRefreshKey.addListener(_onBudgetChanged);
+  }
+
+  @override
+  void dispose() {
+    FinancialService.budgetRefreshKey.removeListener(_onBudgetChanged);
+    super.dispose();
+  }
+
+  void _onBudgetChanged() {
+    refresh();
   }
 
   /// Called by the parent ExpenseScreen when the user switches to this tab

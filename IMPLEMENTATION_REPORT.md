@@ -7,6 +7,133 @@
 
 ---
 
+## PART 17 — Monthly Money Immediate Refresh Fix
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+
+### Root Cause
+
+After changing/saving "Monthly Money" from Profile, the new value persisted
+to the backend but **Life screen, Home Life Snapshot, and Expense Overview**
+did NOT refresh immediately. The student had to restart the app or navigate
+away and back to see the updated Remaining value.
+
+**Three contributing factors:**
+
+1. **IndexedStack keeps widgets alive forever.** The bottom navigation
+   (`gochano_shell.dart`) uses `IndexedStack` with `late final List<Widget>
+   _pages` built once in `initState`. Tab widgets are created once and
+   never recreated, so `initState` (which fetches budget data) runs only
+   once per app session.
+
+2. **One-shot Future in `_MonthSummary` (Life screen).**
+   `life_screen.dart:109-114` — `_budget = ApiService.getRemaining(DateTime.now())`
+   is assigned in `initState` and stored as a local `Future` field. There
+   is no refresh method and no way to re-trigger it from outside.
+
+3. **One-shot `_loadBudget()` in `_LifeSnapshotCard` (Home screen).**
+   `home_screen.dart:950-953,955-969` — `_loadBudget()` is awaited in
+   `initState` only. It stores `_available`/`_backendRemaining` via
+   `setState`, but nothing ever calls `_loadBudget()` again.
+
+**The gap:** When Profile saves monthly money, `monthly_budget_sheet.dart`
+calls `ApiService.setMonthlyBudget()` then `Navigator.pop(true)`.
+`profile_screen.dart` calls its own `_loadBudget()` to update the label,
+but **no signal is sent** to Life, Home, or Expense Overview.
+
+The Firestore streams (`monthStream`, `denaPawnaSettlementTotalsStream`)
+auto-update when transactions change, but the **budget figure** is always
+a one-shot HTTP Future fetched only at widget creation time.
+
+### Solution: Central Financial Refresh Signal
+
+Added a `ValueNotifier<int>` to `FinancialService` — a monotonic counter
+that increments every time monthly budget data changes on the backend.
+Any widget that shows remaining/budget listens to this notifier and
+re-fetches. This follows the exact same pattern used by
+`ConnectivityService.online`, `GochanoLanguage.current`, and
+`GochanoAppearance.mode`.
+
+**Signal flow:**
+
+```
+Profile → Monthly Money → Save
+  → ApiService.setMonthlyBudget() succeeds
+  → FinancialService.notifyBudgetChanged()  [NEW]
+  → budgetRefreshKey.value++                [NEW]
+  → Life._MonthSummary refetches            [NEW listener]
+  → Home._LifeSnapshotCard refetches        [NEW listener]
+  → Expense.OverviewTab refetches           [NEW listener]
+  → Profile._SettingsCard updates label     [existing]
+```
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `services/financial_service.dart` | Added `budgetRefreshKey` (`ValueNotifier<int>`) and `notifyBudgetChanged()` method |
+| `features/life/presentation/expense/monthly_budget_sheet.dart` | Added `FinancialService.notifyBudgetChanged()` after successful save; added `financial_service.dart` import |
+| `features/life/presentation/life_screen.dart` | `_MonthSummaryState`: added `budgetRefreshKey` listener, `_budgetRefreshKey` counter, `ValueKey` on FutureBuilder, cleanup in `dispose` |
+| `features/home/presentation/home_screen.dart` | `_LifeSnapshotCardState`: added `budgetRefreshKey` listener that calls `_loadBudget()`, cleanup in `dispose` |
+| `features/life/presentation/expense/overview_tab.dart` | `OverviewTabState`: added `budgetRefreshKey` listener that calls `refresh()`, cleanup in `dispose` |
+
+### Refresh Mechanism Details
+
+**FinancialService (central signal):**
+```dart
+static final ValueNotifier<int> budgetRefreshKey = ValueNotifier<int>(0);
+static void notifyBudgetChanged() { budgetRefreshKey.value++; }
+```
+
+**Monthly Budget Sheet (trigger):**
+```dart
+await ApiService.setMonthlyBudget(DateTime.now(), amount);
+FinancialService.notifyBudgetChanged();  // ← NEW
+if (mounted) Navigator.of(context).pop(true);
+```
+
+**Life Screen (_MonthSummary):**
+- Listens to `FinancialService.budgetRefreshKey` in `initState`
+- On change: increments `_budgetRefreshKey`, re-creates `_budget` Future
+- FutureBuilder keyed with `ValueKey('budget-$_budgetRefreshKey')`
+
+**Home Screen (_LifeSnapshotCard):**
+- Listens to `FinancialService.budgetRefreshKey` in `initState`
+- On change: calls `_loadBudget()` (existing method with `setState`)
+
+**Expense Overview (OverviewTab):**
+- Listens to `FinancialService.budgetRefreshKey` in `initState`
+- On change: calls `refresh()` (existing method — increments `_budgetRefreshKey`)
+
+### Profile Save UX (verified, no changes needed)
+
+The monthly budget sheet already:
+1. Disables Save button while `_saving` is true
+2. Waits for `ApiService.setMonthlyBudget()` success before closing
+3. Shows error and keeps sheet open on failure
+4. Only emits `pop(true)` after confirmed backend success
+
+### What Does NOT Change
+
+- Financial formulas (Remaining = backendRemaining + pawnaReceived - denaPaid)
+- Dena/Pawna settlement calculations
+- Transaction history
+- Firebase auth / Telecom auth / bdApps
+- Firestore rules
+- Profile onboarding
+- Navigation structure
+- Unrelated UI
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **No issues found!** (ran in 7.7s) |
+| `flutter test` (full suite) | **506 passed, 4 failed** (all 4 are pre-existing: 2 accessibility audit, 2 auth gate tests — none related to this fix) |
+
+---
+
 ## PART 11 — Study Plan Unification + Date Strip + See-More Icons + App Icon
 
 ### Changes
@@ -427,7 +554,7 @@ In `profile_screen.dart`:
 
 ## Overall Architecture
 
-21 tasks completed across thirteen rounds:
+21 tasks completed across thirteen rounds, plus PART 17:
 
 1. **Home Bento layout** — accent rails, side-by-side cards, smart summary
 2. **Profile hit-test** — `_SettingsRow` with `GestureDetector(behavior: HitTestBehavior.opaque)`
@@ -450,6 +577,7 @@ In `profile_screen.dart`:
 19. **Study Plan unification** — merged tasks+assignments into single chronological list; date strip auto-scrolls to today; icon-only see-more; real Gochano branding icon
 20. **Workspace content cleanup** — fixed note delete feedback; removed duplicate CTAs from Notes/PDFs/Saved Images empty states; context-aware empty titles
 21. **ListTile Material / Ink exception fix** — refactored `AppCard` and `CardGroup` to root `Material` surface; resolved real-device ListTile runtime assertion; full ripple visibility
+22. **Monthly Money Immediate Refresh** — central `ValueNotifier<int>` refresh signal; Life, Home, Expense Overview all listen and refetch immediately after budget save
 
 ---
 
@@ -468,7 +596,7 @@ In `profile_screen.dart`:
 | `main.dart` | Updated `_kLogoAsset` to `gochano1.png` |
 | `login_screen.dart` | Updated brand mark to `gochano1.png` |
 | `firestore_service.dart` | `uid` → `String?`; stream methods guard null uid |
-| `financial_service.dart` | `uid` → `String?`; all stream methods guard null uid; Dena/Pawna methods |
+| `financial_service.dart` | `uid` → `String?`; all stream methods guard null uid; Dena/Pawna methods; **added `budgetRefreshKey` ValueNotifier + `notifyBudgetChanged()`** |
 | `focus_view.dart` | Green dot → clock illustration |
 | `gochano_colors.dart` | Added `usageLow`, `usageMedium`, `usageHigh` tokens |
 | `distraction_view.dart` | Uses new soft tokens |
@@ -488,6 +616,10 @@ In `profile_screen.dart`:
 | `notes_screen.dart` | Delete callback async/await with success message; empty state CTA removed |
 | `materials_screen.dart` | Empty state CTA removed; context-aware titles for PDFs/Images/search |
 | `workspace_content_test.dart` | 23 tests: delete feedback, empty states, FAB rule |
+| `life/presentation/expense/monthly_budget_sheet.dart` | Added `FinancialService.notifyBudgetChanged()` after successful save |
+| `life/presentation/life_screen.dart` | Added `budgetRefreshKey` listener + `_budgetRefreshKey` counter + `ValueKey` on FutureBuilder |
+| `home/presentation/home_screen.dart` | Added `budgetRefreshKey` listener to `_LifeSnapshotCardState` |
+| `life/presentation/expense/overview_tab.dart` | Added `budgetRefreshKey` listener to `OverviewTabState` |
 
 ---
 
@@ -1602,4 +1734,301 @@ Also added `maxLines: 1, overflow: TextOverflow.ellipsis` to `_SummaryPill` text
 - **No Firestore rules modified**
 
 ---
+
+# PART 24 — Home Study Progress Overflow Fix
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+
+---
+
+## 1. Root Cause
+
+In `home_screen.dart`, the `_StudyProgressCard` header `Row` contained an **unconstrained `Text`** widget next to the icon:
+
+```dart
+Row(
+  children: [
+    Icon(Icons.school_rounded, size: 18, color: colors.study),
+    const SizedBox(width: GochanoSpacing.xs),
+    Text(  // <-- NO Expanded, NO maxLines
+      GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
+      style: context.type.sectionHeading,
+    ),
+  ],
+)
+```
+
+On narrow Android screens (~320–360px), the Bengali string `পড়ার অগ্রগতি` (wider than English) plus the icon exceeded the card width, producing a **RIGHT OVERFLOWED BY ~31 PIXELS** RenderFlex exception.
+
+The inner `_StatPill` boxes (`Today` / `Streak`) were already correctly wrapped in `Expanded` and had `maxLines` + `ellipsis` — no overflow there.
+
+## 2. File Changed
+
+`lib/features/home/presentation/home_screen.dart` — `_StudyProgressCard` header (line ~822)
+
+## 3. Exact Responsive Change
+
+**Before:**
+```dart
+Text(
+  GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
+  style: context.type.sectionHeading,
+),
+```
+
+**After:**
+```dart
+Expanded(
+  child: Text(
+    GochanoLanguage.text('Study Progress', 'পড়ার অগ্রগতি'),
+    style: context.type.sectionHeading,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  ),
+),
+```
+
+Wrapped the `Text` in `Expanded` so it shrinks within the available card width. Added `maxLines: 1` + `TextOverflow.ellipsis` so long Bengali headings truncate gracefully instead of overflowing.
+
+## 4. What Was NOT Changed
+
+- Life Snapshot card
+- Today card
+- Upcoming card
+- Recent card
+- Inner stat boxes (`_StatPill`) — already had `Expanded` + `maxLines`
+- Auth / profile / financial logic
+- bdApps URL / Render URL
+- Firestore / navigation
+
+## 5. Validation
+
+- `flutter analyze` — **No issues found**
+- `flutter test` — **506/510 pass** (4 pre-existing failures unchanged, no regressions)
+
+---
+
+# PART 25 — Fix Add Task / Assignment Button Label
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+
+---
+
+## 1. Root Cause
+
+`add_task_sheet.dart` used hardcoded `"Save task"` / `"কাজ সংরক্ষণ"` for the primary button regardless of the `type` parameter. The title already branched on type for "New assignment" vs "New task", but:
+
+- **Button label** (line 339): always `'Save task'`
+- **Edit title** (line 243): always `'Edit task'`
+- **Validation error** (line 155): always `'Give the task a name.'`
+
+## 2. File Changed
+
+`lib/features/tasks/presentation/add_task_sheet.dart` — 3 locations
+
+## 3. Changes
+
+### Button label (line 338-339)
+
+**Before:** `GochanoLanguage.text('Save task', 'কাজ সংরক্ষণ')`
+
+**After:**
+```dart
+widget.type == 'assignment'
+    ? GochanoLanguage.text('Save assignment', 'অ্যাসাইনমেন্ট সংরক্ষণ করুন')
+    : GochanoLanguage.text('Save task', 'কাজ সংরক্ষণ')
+```
+
+### Edit mode title (line 242-243)
+
+**Before:** Always `'Edit task'` / `'কাজ সম্পাদনা'`
+
+**After:**
+```dart
+_isEdit
+    ? widget.type == 'assignment'
+        ? GochanoLanguage.text('Edit assignment', 'অ্যাসাইনমেন্ট সম্পাদনা')
+        : GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
+    : ...
+```
+
+### Validation error (line 154-158)
+
+**Before:** Always `'Give the task a name.'` / `'কাজটির একটি নাম দিন।'`
+
+**After:**
+```dart
+widget.type == 'assignment'
+    ? GochanoLanguage.text('Give the assignment a name.', 'অ্যাসাইনমেন্টের একটি নাম দিন।')
+    : GochanoLanguage.text('Give the task a name.', 'কাজটির একটি নাম দিন।')
+```
+
+## 4. Complete Label Matrix
+
+| Context | type == 'task' | type == 'assignment' |
+|---|---|---|
+| New title | New task / নতুন কাজ | New assignment / নতুন অ্যাসাইনমেন্ট |
+| Edit title | Edit task / কাজ সম্পাদনা | Edit assignment / অ্যাসাইনমেন্ট সম্পাদনা |
+| Save button | Save task / কাজ সংরক্ষণ | Save assignment / অ্যাসাইনমেন্ট সংরক্ষণ করুন |
+| Validation | Give the task a name. / কাজটির একটি নাম দিন। | Give the assignment a name. / অ্যাসাইনমেন্টের একটি নাম দিন। |
+
+## 5. What Was NOT Changed
+
+- Save logic (`_save()` method)
+- Firestore schema / document structure
+- Task/assignment type values (`'task'` / `'assignment'`)
+- Due date / reminder behavior
+- Sheet layout / redesign
+
+## 6. Validation
+
+- `flutter analyze` — **No issues found**
+- `flutter test` — **506/510 pass** (4 pre-existing failures unchanged, no regressions)
+
+---
+
+# PART 26 — Dena/Pawna Firestore Permission-Denied Fix (Telecom Token Claims)
+
+**Date:** 2026-09-06
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (506/510, 4 pre-existing failures)
+
+---
+
+## 1. Root Cause
+
+Telecom users saw "You do not have access to this item." when opening Expense → Dena/Pawna on a real device. All Firestore CRUD operations failed with `permission-denied`.
+
+**Root cause:** The backend's `create_custom_token(uid, developer_claims={"email_verified": True})` used `email_verified` as a `developer_claim`. However, `email_verified` is a **reserved Firebase Auth claim name**. Reserved claims set via `developer_claims` in `create_custom_token()` are NOT reliably included in the ID token that Firestore rules read via `request.auth.token.email_verified`. The `verified()` helper in Firestore rules always evaluated to `false` for telecom users → `permission-denied` on every read/write.
+
+## 2. Fix: Three-Layer Belt-and-Suspenders Approach
+
+### 2.1 Backend (`backend/app/routers/telecom.py`)
+
+Replaced `developer_claims={"email_verified": True}` with two proper mechanisms:
+
+```python
+# 1. Set email_verified via update_user() — the standard Firebase Auth
+#    property, which reliably appears in request.auth.token.email_verified.
+firebase_auth.update_user(uid, email_verified=True)
+
+# 2. Set telecom_verified via set_custom_user_claims() — a custom claim
+#    that reliably appears in request.auth.token.telecom_verified.
+firebase_auth.set_custom_user_claims(uid, {"telecom_verified": True})
+
+# 3. Mint a plain custom token (no developer_claims needed).
+custom_token = firebase_auth.create_custom_token(uid)
+```
+
+Both `update_user()` and `set_custom_user_claims()` are wrapped in try/except so a transient failure doesn't block the exchange.
+
+### 2.2 Firestore Rules (`firebase/firestore.rules`)
+
+Updated `verified()` to accept either claim:
+
+```javascript
+function verified() {
+  return signedIn() && (
+    request.auth.token.email_verified == true
+    || request.auth.token.telecom_verified == true
+  );
+}
+```
+
+### 2.3 Client Token Refresh (`telecom_auth_service.dart`)
+
+After `signInWithCustomToken()`, force a token refresh to pick up fresh custom claims:
+
+```dart
+final cred = await auth.signInWithCustomToken(exchange.customToken);
+await cred.user?.getIdToken(true);  // force refresh for fresh claims
+return cred;
+```
+
+### 2.4 Cold-Start Token Refresh (`auth_gate.dart`)
+
+On app cold start, force a token refresh before checking profile:
+
+```dart
+if (isLoggedIn && current != null) {
+  try {
+    await current.getIdToken(true);
+  } catch (_) {
+    // Non-fatal — worst case is a stale token that self-heals
+  }
+}
+```
+
+### 2.5 Backend API Auth (`backend/app/core/auth.py`)
+
+Updated `get_verified_identity` to also accept `telecom_verified`:
+
+```python
+if not decoded.get("email_verified", False) and not decoded.get("telecom_verified", False):
+    raise HTTPException(status_code=403, detail="Email verification is required")
+```
+
+### 2.6 Error Mapping (`gochano_states.dart`)
+
+Improved `friendlyErrorMessage` to:
+- Distinguish `permission-denied` (Firestore rules) from `403` (backend) — permission-denied now shows "Your session may have expired. Please sign in again." instead of "You do not have access to this item."
+- Added `failed-precondition` handling for missing Firestore composite indexes
+
+## 3. Files Changed
+
+| File | Change |
+|---|---|
+| `backend/app/routers/telecom.py` | Replaced `developer_claims` with `update_user(email_verified=True)` + `set_custom_user_claims(telecom_verified=True)` + plain `create_custom_token(uid)` |
+| `backend/app/core/auth.py` | `get_verified_identity` now accepts `telecom_verified` as alternative to `email_verified` |
+| `firebase/firestore.rules` | `verified()` accepts either `email_verified == true` OR `telecom_verified == true` |
+| `flutter_app/lib/core/services/telecom_auth_service.dart` | Force `getIdToken(true)` after `signInWithCustomToken` |
+| `flutter_app/lib/features/auth/presentation/auth_gate.dart` | Force `getIdToken(true)` on cold start |
+| `flutter_app/lib/shared/states/gochano_states.dart` | Permission error now shows "session expired" message; added `failed-precondition` handling |
+
+## 4. Claim Flow Diagram
+
+```
+Backend exchange endpoint:
+  1. firebase_auth.update_user(uid, email_verified=True)
+  2. firebase_auth.set_custom_user_claims(uid, {"telecom_verified": True})
+  3. custom_token = firebase_auth.create_custom_token(uid)
+  → returns custom_token to Flutter
+
+Flutter signInWithCustomToken:
+  4. cred = FirebaseAuth.signInWithCustomToken(customToken)
+  5. await cred.user.getIdToken(true)  ← force refresh
+  → ID token now has email_verified=true + telecom_verified=true
+
+Firestore rules:
+  6. verified() = signedIn() && (email_verified || telecom_verified)
+  → true ✓  → CRUD allowed ✓
+```
+
+## 5. Deployment Required
+
+After merging:
+
+1. **Firestore rules:** `firebase deploy --only firestore:rules`
+2. **Backend:** Git push to Render (auto-deploys)
+3. **Flutter:** Rebuild APK (`flutter build apk`)
+
+**Existing users** will need to sign out and sign back in (or the cold-start token refresh will pick up the new claims on next app restart).
+
+## 6. Validation
+
+- `flutter analyze` — **No issues found**
+- `flutter test` — **506/510 pass** (4 pre-existing failures unchanged, no regressions)
+- Composite index for `dena_pawna_items` (`ownerId` ASC, `date` DESC) already exists in `firestore.indexes.json`
+
+## 7. Constraints Preserved
+
+- **No Firebase user accounts deleted**
+- **No Firestore data deleted**
+- **No bdApps URL or carrier endpoints changed**
+- **SharedPreferences never used as auth proof**
+- **AuthGate still requires FirebaseAuth.currentUser**
+- **Logout and Unsubscribe remain separate actions**
+- **No new dependencies added**
 

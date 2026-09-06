@@ -107,6 +107,19 @@ class _AuthGateState extends State<AuthGate> {
       await TelecomAuthService.clearSession();
     }
 
+    // On cold start with a valid Firebase user, force a token refresh so
+    // the ID token carries fresh custom claims (telecom_verified,
+    // email_verified).  Without this the Firestore rules' verified()
+    // helper may see stale/missing claims and deny reads.
+    if (isLoggedIn && current != null) {
+      try {
+        await current.getIdToken(true);
+      } catch (_) {
+        // Non-fatal — the worst case is a stale token that self-heals
+        // on the next natural refresh.
+      }
+    }
+
     // Check whether the user has an existing profile document.
     // New telecom users (first login on this device) will not have one
     // yet and must complete the profile setup screen.

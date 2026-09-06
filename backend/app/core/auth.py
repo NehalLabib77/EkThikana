@@ -40,7 +40,7 @@ async def get_verified_identity(
             detail="Invalid or expired Firebase ID token",
         )
 
-    if not decoded.get("email_verified", False):
+    if not decoded.get("email_verified", False) and not decoded.get("telecom_verified", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email verification is required",
