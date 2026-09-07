@@ -2634,3 +2634,48 @@ On real-device testing, toggling language between English and বাংলা pr
 6. `flutter analyze lib/ test/language_reactivity_test.dart` -> **No issues found! (0 warnings, 0 errors)**
 7. Runtime error audit via DTD -> **0 runtime errors**
 8. Real device hot reload (`Infinix X665E`) -> **Success**
+
+## Repository Cleanup Report
+**Date:** September 7, 2026
+
+### Areas Inspected
+- Repository root
+- `flutter_app/` (including `build/`, `.dart_tool/`, and `tool/`)
+- `backend/` (including scripts and `tests/`)
+- `tool/` (root-level helper scripts)
+- Reference material directories (`_cbd_import/`, `ocr-snipping-tool-master/`, `tessdata-main/`)
+- Supabase directory (migrations)
+- Firebase directory
+
+### Files and Folders Removed (Safe Deletions)
+- **Generated/Cache:** `.puku/`, `.pytest_cache/`, `delivery/`, `flutter_app/build/`, `flutter_app/.dart_tool/`, `backend/.venv/`.
+- **Archive/Reference/Unrelated:** `_cbd_import/`, `ocr-snipping-tool-master/`, `tessdata-main/`, `Bangla-OCR-main.zip`, `bengali_word_ocr-main.zip`, `CommuteBD_Bangladesh_Master_v1.zip`, `flutter_app.zip`. These were explicitly ignored reference/backup items unused by the active codebase.
+- **Secrets/Accidental Backups:** `.txt` (B2 credentials pasted by the owner, completely unused dynamically).
+- **Temporary Scripts:** `tool/_*.ps1`, `tool/_*.py`, and `flutter_app/tool/append_login_*.ps1`, `fix_type_names.py`, `login_helpers_bn.txt`. These were one-off scratch scripts from the UI/UX restructure.
+- **Obsolete Documentation:** `Gochano UI-UX Rebuild Specification.pdf` and `GOCHANO_—_COMPLETE_CLEAN_MINIMALIST_UI_UX_REBUILD,_FRONTEND_RESTRUCTURE.md`.
+
+### Files Retained Despite Looking Suspicious
+- `supabase/`: Kept because it contains the Neon PostgreSQL/PostGIS database schemas (`CommuteBD`) which are crucial for database state verification and setup.
+- `tool/make_delivery.ps1` & `tool/bootstrap_flutter_windows.ps1`: Kept as they are operationally useful for creating staging deliveries and setting up environments.
+- `flutter_app/tool/regen_launcher_icon.py` & `flutter_app/tool/write_launcher_foreground.ps1`: Kept as they might be required for future branding changes.
+- `backend/tests/`: Kept because tests should not be deleted without full certainty of their obsolescence.
+- `fix_whitespace.py`: Kept untracked as explicitly requested.
+
+### Files Requiring Manual Review
+- None. All deleted files were thoroughly verified as either generated, untracked reference files, obsolete temporary scripts, or old specification PDFs. No active application source code, UI, or configuration was modified or removed.
+
+### README Changes
+- Replaced the previous lengthy tutorial-style README with a concise, project-specific overview detailing the project, technologies, folder structure, configuration files, run commands, production endpoint, and required environment variables (excluding secrets).
+
+### Validation Results
+- **Validation Commands:** `flutter pub get`, `flutter analyze`, `flutter test`, `python -m pytest tests/test_health.py`.
+- **Flutter Analyze Result:** No issues found! (ran in 95.0s)
+- **Flutter Test Result:** 506 tests passed. 4 failures (pre-existing failures related to a11y UI rules and missing-profile retry paths in AuthGate, verified to not be caused by this cleanup since no `lib/` files were modified).
+- **Backend Verification Result:** `test_health.py` passed successfully, verifying the basic integrity of the backend environment.
+- **Functional Source Modification:** None. No active source code, UI layout, widget, configuration file, or API contract was modified.
+
+### Git Status Summary
+- **Commit:** NOT PERFORMED
+- **Push:** NOT PERFORMED
+- **Deployment:** NOT PERFORMED
+
