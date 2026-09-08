@@ -58,6 +58,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Keep Going',
         labelBn: 'চালিয়ে যান',
         packId: 'study',
+        assetPath: 'assets/stickers/study/keep_going.png',
       ),
       StickerItem(
         id: 'sticker_focus_time',
@@ -65,6 +66,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Focus Time',
         labelBn: 'ফোকাস টাইম',
         packId: 'study',
+        assetPath: 'assets/stickers/study/focus_time.png',
       ),
       StickerItem(
         id: 'sticker_assignment_done',
@@ -72,6 +74,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Assignment Done',
         labelBn: 'অ্যাসাইনমেন্ট শেষ',
         packId: 'study',
+        assetPath: 'assets/stickers/study/assignment_done.png',
       ),
       StickerItem(
         id: 'sticker_lets_study',
@@ -79,6 +82,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: "Let's Study",
         labelBn: 'চলো পড়ি',
         packId: 'study',
+        assetPath: 'assets/stickers/study/lets_study.png',
       ),
     ],
   ),
@@ -93,6 +97,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Great Job',
         labelBn: 'দারুণ কাজ',
         packId: 'celebration',
+        assetPath: 'assets/stickers/celebration/great_job.png',
       ),
       StickerItem(
         id: 'sticker_nice',
@@ -100,6 +105,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Nice!',
         labelBn: 'ভালো!',
         packId: 'celebration',
+        assetPath: 'assets/stickers/celebration/nice_work.png',
       ),
       StickerItem(
         id: 'sticker_completed',
@@ -107,6 +113,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Completed',
         labelBn: 'সম্পন্ন',
         packId: 'celebration',
+        assetPath: 'assets/stickers/celebration/completed.png',
       ),
       StickerItem(
         id: 'sticker_proud_of_you',
@@ -114,6 +121,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Proud of You',
         labelBn: 'গর্বিত',
         packId: 'celebration',
+        assetPath: 'assets/stickers/celebration/proud_of_you.png',
       ),
     ],
   ),
@@ -128,6 +136,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Study Now',
         labelBn: 'এখনই পড়ুন',
         packId: 'reminder',
+        assetPath: 'assets/stickers/reminder/study_now.png',
       ),
       StickerItem(
         id: 'sticker_deadline_soon',
@@ -135,6 +144,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: 'Deadline Soon',
         labelBn: 'শীঘ্রই সময়শেষ',
         packId: 'reminder',
+        assetPath: 'assets/stickers/reminder/deadline_soon.png',
       ),
       StickerItem(
         id: 'sticker_dont_forget',
@@ -142,6 +152,7 @@ const List<StickerPack> stickerPacks = [
         labelEn: "Don't Forget",
         labelBn: 'ভুবো না',
         packId: 'reminder',
+        assetPath: 'assets/stickers/reminder/dont_forget.png',
       ),
     ],
   ),

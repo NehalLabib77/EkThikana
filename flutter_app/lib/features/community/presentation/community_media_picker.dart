@@ -352,7 +352,18 @@ class _AnimatedPackSection extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(reaction.fallbackEmoji, style: const TextStyle(fontSize: 40)),
+              reaction.assetPath != null
+                  ? Image.asset(
+                      reaction.assetPath!,
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Text(
+                        reaction.fallbackEmoji,
+                        style: const TextStyle(fontSize: 40),
+                      ),
+                    )
+                  : Text(reaction.fallbackEmoji, style: const TextStyle(fontSize: 40)),
               const SizedBox(height: GochanoSpacing.sm),
               Text(
                 GochanoLanguage.text(
@@ -426,13 +437,28 @@ class _AnimatedReactionTile extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Text(
-                reaction.fallbackEmoji,
-                style: TextStyle(
-                  fontSize: 28,
-                  color: unlocked ? null : Colors.grey,
-                ),
-              ),
+              reaction.assetPath != null
+                  ? Image.asset(
+                      reaction.assetPath!,
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.contain,
+                      color: unlocked ? null : Colors.grey,
+                      errorBuilder: (_, __, ___) => Text(
+                        reaction.fallbackEmoji,
+                        style: TextStyle(
+                          fontSize: 28,
+                          color: unlocked ? null : Colors.grey,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      reaction.fallbackEmoji,
+                      style: TextStyle(
+                        fontSize: 28,
+                        color: unlocked ? null : Colors.grey,
+                      ),
+                    ),
               if (!unlocked)
                 Positioned(
                   right: 4,
@@ -553,13 +579,28 @@ class _StickerTile extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    sticker.fallbackEmoji,
-                    style: TextStyle(
-                      fontSize: 36,
-                      color: locked ? Colors.grey : null,
-                    ),
-                  ),
+                  sticker.assetPath != null
+                      ? Image.asset(
+                          sticker.assetPath!,
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.contain,
+                          color: locked ? Colors.grey : null,
+                          errorBuilder: (_, __, ___) => Text(
+                            sticker.fallbackEmoji,
+                            style: TextStyle(
+                              fontSize: 36,
+                              color: locked ? Colors.grey : null,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          sticker.fallbackEmoji,
+                          style: TextStyle(
+                            fontSize: 36,
+                            color: locked ? Colors.grey : null,
+                          ),
+                        ),
                   const SizedBox(height: 2),
                   Text(
                     GochanoLanguage.text(sticker.labelEn, sticker.labelBn),

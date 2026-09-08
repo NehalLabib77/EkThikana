@@ -38,11 +38,6 @@ class AnimatedReactionPack {
 }
 
 /// All Gochano-exclusive animated reaction packs.
-///
-/// Asset artwork is not yet available — [AnimatedReaction.assetPath] is `null`
-/// and the renderer falls back to [AnimatedReaction.fallbackEmoji].
-/// When animated .webp/.gif assets are added to `assets/reactions/`,
-/// set the corresponding [assetPath] values.
 const List<AnimatedReactionPack> animatedReactionPacks = [
   AnimatedReactionPack(
     id: 'apack_1',
@@ -85,6 +80,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'ফোকাস ফায়ার',
         requiredLevel: 2,
         packId: 'apack_2',
+        assetPath: 'assets/reactions/focus_fire.png',
       ),
       AnimatedReaction(
         id: 'g_strong',
@@ -93,6 +89,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'শক্তিশালী',
         requiredLevel: 2,
         packId: 'apack_2',
+        assetPath: 'assets/reactions/power_up.png',
       ),
       AnimatedReaction(
         id: 'g_sparkles',
@@ -101,6 +98,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'স্পার্কল',
         requiredLevel: 2,
         packId: 'apack_2',
+        assetPath: 'assets/reactions/spark.png',
       ),
     ],
   ),
@@ -115,6 +113,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'পড়াশোনার মস্তিষ্ক',
         requiredLevel: 3,
         packId: 'apack_3',
+        assetPath: 'assets/reactions/study_brain.png',
       ),
       AnimatedReaction(
         id: 'g_goal_hit',
@@ -123,6 +122,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'লক্ষ্য হিট',
         requiredLevel: 3,
         packId: 'apack_3',
+        assetPath: 'assets/reactions/goal_hit.png',
       ),
       AnimatedReaction(
         id: 'g_books',
@@ -131,6 +131,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'বই',
         requiredLevel: 3,
         packId: 'apack_3',
+        assetPath: 'assets/reactions/golden_star.png',
       ),
     ],
   ),
@@ -145,6 +146,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'রকেট',
         requiredLevel: 4,
         packId: 'apack_4',
+        assetPath: 'assets/reactions/rocket_study.png',
       ),
       AnimatedReaction(
         id: 'g_champion',
@@ -153,6 +155,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'চ্যাম্পিয়ন',
         requiredLevel: 4,
         packId: 'apack_4',
+        assetPath: 'assets/reactions/great_work.png',
       ),
       AnimatedReaction(
         id: 'g_lightning',
@@ -161,6 +164,7 @@ const List<AnimatedReactionPack> animatedReactionPacks = [
         labelBn: 'বিদ্যুৎ',
         requiredLevel: 4,
         packId: 'apack_4',
+        assetPath: 'assets/reactions/achievement.png',
       ),
     ],
   ),

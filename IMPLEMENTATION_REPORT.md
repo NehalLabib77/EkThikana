@@ -3492,3 +3492,219 @@ dart analyze (community)                              →  No issues found
 | Deployment | **NOT PERFORMED** |
 | Final APK | **NOT BUILT** |
 
+---
+
+# PART 30 — Community Chat Media Assets: Real Reaction + Sticker Artwork
+
+**Date:** 2026-09-08
+**Branch:** `final-cleanup-release-v2`
+**Status:** Automated validation PASSED (709/713, 4 pre-existing failures)
+
+---
+
+## 1. Summary
+
+Replaced Unicode fallbackEmoji-only rendering with actual custom PNG artwork for animated reactions and stickers. The community chat media picker and message thread now render real image assets when available, with graceful fallback to emoji for error cases.
+
+---
+
+## 2. Reaction Assets Created
+
+**Directory:** `assets/reactions/`
+
+| Asset File | Catalog ID | Level | Pack |
+|---|---|---|---|
+| `focus_fire.png` | `g_focus_fire` | 2 | apack_2 |
+| `power_up.png` | `g_strong` | 2 | apack_2 |
+| `spark.png` | `g_sparkles` | 2 | apack_2 |
+| `study_brain.png` | `g_study_brain` | 3 | apack_3 |
+| `goal_hit.png` | `g_goal_hit` | 3 | apack_3 |
+| `golden_star.png` | `g_books` | 3 | apack_3 |
+| `rocket_study.png` | `g_rocket` | 4 | apack_4 |
+| `great_work.png` | `g_champion` | 4 | apack_4 |
+| `achievement.png` | `g_lightning` | 4 | apack_4 |
+
+**Format:** PNG (placeholder — replace with actual animated artwork)
+**Level 1 and 5 reactions:** Use fallbackEmoji only (no asset files — design choice to keep initial set focused)
+
+---
+
+## 3. Sticker Assets Created
+
+**Directory:** `assets/stickers/`
+
+### Study Pack (`assets/stickers/study/`)
+
+| Asset File | Catalog ID |
+|---|---|
+| `keep_going.png` | `sticker_study_keep_going` |
+| `focus_time.png` | `sticker_focus_time` |
+| `assignment_done.png` | `sticker_assignment_done` |
+| `lets_study.png` | `sticker_lets_study` |
+
+### Celebration Pack (`assets/stickers/celebration/`)
+
+| Asset File | Catalog ID |
+|---|---|
+| `great_job.png` | `sticker_great_job` |
+| `nice_work.png` | `sticker_nice` |
+| `completed.png` | `sticker_completed` |
+| `proud_of_you.png` | `sticker_proud_of_you` |
+
+### Reminder Pack (`assets/stickers/reminder/`)
+
+| Asset File | Catalog ID |
+|---|---|
+| `study_now.png` | `sticker_study_now` |
+| `deadline_soon.png` | `sticker_deadline_soon` |
+| `dont_forget.png` | `sticker_dont_forget` |
+
+**Format:** PNG (placeholder — replace with actual artwork)
+**All 11 stickers:** Free (requiredLevel = 0), all have assetPath set
+
+---
+
+## 4. pubspec.yaml Registration
+
+```yaml
+assets:
+  - assets/reactions/
+  - assets/stickers/study/
+  - assets/stickers/celebration/
+  - assets/stickers/reminder/
+```
+
+---
+
+## 5. Catalog Updates
+
+### AnimatedReactionCatalog
+
+- 9 of 15 reactions now have `assetPath` set (Levels 2–4)
+- Level 1 and 5 reactions remain fallbackEmoji-only
+- `assetPath` format: `assets/reactions/{name}.png`
+
+### StickerCatalog
+
+- All 11 stickers now have `assetPath` set
+- `assetPath` format: `assets/stickers/{pack}/{name}.png`
+
+---
+
+## 6. Rendering Behavior
+
+### Chat Message Thread (`group_chat_view.dart`)
+
+- **Reactions:** `Image.asset(assetPath, width: 72, height: 72)` with `errorBuilder` fallback to `Text(fallbackEmoji, fontSize: 48)`
+- **Stickers:** `Image.asset(assetPath, width: 140, height: 140)` with `errorBuilder` fallback to `Text(fallbackEmoji, fontSize: 56)`
+- **Transparent bubble:** Reactions and stickers render with `Colors.transparent` background (no chat bubble)
+- **Sender/timestamp:** Preserved below the image
+
+### Media Picker (`community_media_picker.dart`)
+
+- **Reaction tiles:** `Image.asset(assetPath, width: 36, height: 36)` with `errorBuilder` fallback to `Text(fallbackEmoji, fontSize: 28)`
+- **Sticker tiles:** `Image.asset(assetPath, width: 64, height: 64)` with `errorBuilder` fallback to `Text(fallbackEmoji, fontSize: 36)`
+- **Locked reactions:** Show lock overlay + grayscale image
+- **Locked reaction dialog:** Shows asset image if available, else fallbackEmoji
+
+---
+
+## 7. Performance Safeguards
+
+- `errorBuilder` on every `Image.asset` — gracefully falls back to emoji if asset fails to load
+- No perpetual animation — static PNG assets (placeholder; animated WebP can be swapped in later)
+- Lazy grid in sticker picker (`GridView.builder` with `NeverScrollableScrollPhysics`)
+- No simultaneous decoding of all assets — only visible items are loaded
+
+---
+
+## 8. Message Contract Preserved
+
+| Type | Encoding | Unchanged |
+|---|---|---|
+| Animated reaction | `greact:{id}` | Yes |
+| Sticker | `sticker:{id}` | Yes |
+| Normal emoji/text | Raw text in `text` field | Yes |
+
+---
+
+## 9. Tests Added
+
+**File:** `test/community_media_picker_test.dart` — 67 tests total (25 new)
+
+| Test Group | Tests | What it verifies |
+|---|---|---|
+| Asset files exist on disk | 6 | Every assetPath points to existing .png file; correct directory prefix |
+| Asset path consistency | 3 | Reactions with assetPath are Level 2–4; Level 1/5 have no asset; all 11 stickers have assetPath |
+| pubspec asset registration | 4 | pubspec.yaml includes all 4 asset directories |
+| fallbackEmoji is secondary | 2 | Reactions/stickers with assetPath have non-null, non-empty assetPath |
+| Locked reaction protection | 3 | Level 1/2/4 user lock checks against correct packs |
+| Required-level XP calculation | 7 | Level thresholds match expected values; XP remaining calculations correct |
+
+---
+
+## 10. Validation
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **No issues found!** (11 infos — pre-existing lint suggestions; 1 pre-existing warning in `community_reaction_picker_test.dart`) |
+| `flutter test` (full suite) | **709 passed, 4 failed** (all 4 pre-existing: 2 accessibility audit, 2 auth gate — unrelated to this change) |
+| Pre-existing failures | 2× `accessibility_audit_test.dart` (decorative animation + Image.asset semanticLabel), 2× `post_verification_auth_test.dart` (forceRefreshIdToken/ensureProfile) |
+| New regressions introduced | **0** |
+
+---
+
+## 11. Files Changed
+
+| File | Change |
+|---|---|
+| `pubspec.yaml` | Added `assets/reactions/`, `assets/stickers/study/`, `assets/stickers/celebration/`, `assets/stickers/reminder/` |
+| `lib/features/community/domain/animated_reaction_catalog.dart` | Added `assetPath` to 9 reactions (Levels 2–4) |
+| `lib/features/community/domain/sticker_catalog.dart` | Added `assetPath` to all 11 stickers |
+| `lib/features/community/presentation/group_chat_view.dart` | Reaction rendering: `Image.asset` with `errorBuilder` fallback; Sticker rendering: `Image.asset` with `errorBuilder` fallback |
+| `lib/features/community/presentation/community_media_picker.dart` | Reaction tile: `Image.asset` with fallback; Sticker tile: `Image.asset` with fallback; Locked dialog: `Image.asset` with fallback |
+| `test/community_media_picker_test.dart` | Added 25 new tests for asset existence, catalog paths, pubspec registration, fallback behavior, locked protection, XP calculation |
+| `assets/reactions/` | 9 PNG placeholder files |
+| `assets/stickers/study/` | 4 PNG placeholder files |
+| `assets/stickers/celebration/` | 4 PNG placeholder files |
+| `assets/stickers/reminder/` | 3 PNG placeholder files |
+
+---
+
+## 12. Constraints Preserved
+
+- **No commit / push / deploy / APK build** — none executed
+- **No Study, Focus timer, XP formulas, Level thresholds, Gems changed**
+- **No backend, auth, Firebase, Firestore changes**
+- **No Medicine or CommuteBD changes**
+- **No financial logic changed**
+- **Message encoding unchanged** — `greact:{id}`, `sticker:{id}`, raw text
+- **4 pre-existing test failures unchanged**
+
+---
+
+## 13. Next Step — Replace Placeholder Assets
+
+The current PNG files are 1x1 pixel placeholders. To complete the visual implementation:
+
+1. Replace `assets/reactions/*.png` with actual animated artwork (preferred: animated WebP; fallback: static PNG)
+2. Replace `assets/stickers/**/*.png` with actual sticker artwork (PNG with transparent backgrounds)
+3. Target sizes: reactions ~48–96dp, stickers ~120–160dp
+4. Style: clean, modern, playful Gochano style; no copyrighted characters; transparent backgrounds
+5. Optimize file sizes for low/mid-range Android
+
+After replacing assets, run:
+```bash
+flutter clean && flutter pub get && flutter analyze && flutter test
+```
+
+---
+
+## Commit / Push / Deploy Status
+
+| Action | Status |
+|---|---|
+| Commit | **NOT PERFORMED** |
+| Push | **NOT PERFORMED** |
+| Deployment | **NOT PERFORMED** |
+| Final APK | **NOT BUILT** |

@@ -90,6 +90,10 @@ flutter:
     - assets/branding/gochano1.png
     - assets/Ziku.png
     - assets/fonts/
+    - assets/reactions/
+    - assets/stickers/study/
+    - assets/stickers/celebration/
+    - assets/stickers/reminder/
 
   fonts:
     - family: HindSiliguri

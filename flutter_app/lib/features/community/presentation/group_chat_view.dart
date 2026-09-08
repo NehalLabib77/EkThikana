@@ -329,7 +329,7 @@ class _MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (isGreact)
-                  // Animated reaction: centered fallback emoji (asset when available)
+                  // Animated reaction: render asset if available, else fallback emoji
                   Center(
                     child: Semantics(
                       label: greact != null
@@ -338,14 +338,25 @@ class _MessageBubble extends StatelessWidget {
                               '${greact.labelBn} রিঅ্যাকশন',
                             )
                           : 'Reaction',
-                      child: Text(
-                        greact?.fallbackEmoji ?? '?',
-                        style: const TextStyle(fontSize: 48),
-                      ),
+                      child: greact?.assetPath != null
+                          ? Image.asset(
+                              greact!.assetPath!,
+                              width: 72,
+                              height: 72,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Text(
+                                greact.fallbackEmoji,
+                                style: const TextStyle(fontSize: 48),
+                              ),
+                            )
+                          : Text(
+                              greact?.fallbackEmoji ?? '?',
+                              style: const TextStyle(fontSize: 48),
+                            ),
                     ),
                   )
                 else if (isSticker)
-                  // Sticker: centered fallback emoji
+                  // Sticker: render asset if available, else fallback emoji
                   Center(
                     child: Semantics(
                       label: sticker != null
@@ -354,10 +365,21 @@ class _MessageBubble extends StatelessWidget {
                               '${sticker.labelBn} স্টিকার',
                             )
                           : 'Sticker',
-                      child: Text(
-                        sticker?.fallbackEmoji ?? '?',
-                        style: const TextStyle(fontSize: 56),
-                      ),
+                      child: sticker?.assetPath != null
+                          ? Image.asset(
+                              sticker!.assetPath!,
+                              width: 140,
+                              height: 140,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Text(
+                                sticker.fallbackEmoji,
+                                style: const TextStyle(fontSize: 56),
+                              ),
+                            )
+                          : Text(
+                              sticker?.fallbackEmoji ?? '?',
+                              style: const TextStyle(fontSize: 56),
+                            ),
                     ),
                   )
                 else ...[
