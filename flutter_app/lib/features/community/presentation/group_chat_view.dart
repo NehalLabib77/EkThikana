@@ -22,12 +22,13 @@ import '../../../core/design_system/gochano_illustration.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
-import '../../focus_rewards/domain/reaction_catalog.dart';
+import '../domain/animated_reaction_catalog.dart';
+import '../domain/sticker_catalog.dart';
 import '../../../services/api_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
-import 'reaction_picker_sheet.dart';
+import 'community_media_picker.dart';
 
 class GroupChatView extends StatefulWidget {
   const GroupChatView({
@@ -108,10 +109,21 @@ class _GroupChatViewState extends State<GroupChatView> {
     }
   }
 
-  Future<void> _sendReaction(GochanoReaction reaction) async {
+  Future<void> _sendMedia(MediaPickResult result) async {
     if (_sending) return;
 
-    final text = 'react:${reaction.id}:${reaction.emoji}';
+    String text;
+    switch (result) {
+      case EmojiPick(:final emoji):
+        // Insert emoji into the text field for normal sending.
+        _message.text += emoji;
+        return;
+      case ReactionPick(:final reaction):
+        // Validate level client-side before sending.
+        text = 'greact:${reaction.id}';
+      case StickerPick(:final sticker):
+        text = 'sticker:${sticker.id}';
+    }
 
     final optimistic = <String, dynamic>{
       'senderId': FirestoreService.uid,
@@ -213,7 +225,7 @@ class _GroupChatViewState extends State<GroupChatView> {
             controller: _message,
             sending: _sending,
             onSend: _send,
-            onReactionSelected: _sendReaction,
+            onMediaSelected: _sendMedia,
           ),
         ],
       ),
@@ -273,9 +285,13 @@ class _MessageBubble extends StatelessWidget {
     final attachmentMime = message['attachmentMime']?.toString() ?? '';
     final createdAt = DateTime.tryParse(message['createdAt']?.toString() ?? '');
 
-    // Detect reaction messages: format is "react:{id}:{emoji}"
-    final isReaction = text.startsWith('react:');
-    final reactionEmoji = isReaction ? text.split(':').last : '';
+    // Detect special message types.
+    final isGreact = text.startsWith('greact:');
+    final isSticker = text.startsWith('sticker:');
+    final greactId = isGreact ? text.substring(7) : '';
+    final stickerId = isSticker ? text.substring(8) : '';
+    final greact = isGreact ? lookupAnimatedReaction(greactId) : null;
+    final sticker = isSticker ? lookupSticker(stickerId) : null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
@@ -300,20 +316,48 @@ class _MessageBubble extends StatelessWidget {
               vertical: GochanoSpacing.xs,
             ),
             decoration: BoxDecoration(
-              color: isMine ? colors.brandSoft : colors.surface,
+              color: (isGreact || isSticker)
+                  ? Colors.transparent
+                  : (isMine ? colors.brandSoft : colors.surface),
               borderRadius: GochanoRadius.mdAll,
-              border: Border.all(color: colors.border),
+              border: (isGreact || isSticker)
+                  ? null
+                  : Border.all(color: colors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isReaction)
-                  // Reaction: large centered emoji, no text
+                if (isGreact)
+                  // Animated reaction: centered fallback emoji (asset when available)
                   Center(
-                    child: Text(
-                      reactionEmoji,
-                      style: const TextStyle(fontSize: 36),
+                    child: Semantics(
+                      label: greact != null
+                          ? GochanoLanguage.text(
+                              '${greact.labelEn} reaction',
+                              '${greact.labelBn} রিঅ্যাকশন',
+                            )
+                          : 'Reaction',
+                      child: Text(
+                        greact?.fallbackEmoji ?? '?',
+                        style: const TextStyle(fontSize: 48),
+                      ),
+                    ),
+                  )
+                else if (isSticker)
+                  // Sticker: centered fallback emoji
+                  Center(
+                    child: Semantics(
+                      label: sticker != null
+                          ? GochanoLanguage.text(
+                              '${sticker.labelEn} sticker',
+                              '${sticker.labelBn} স্টিকার',
+                            )
+                          : 'Sticker',
+                      child: Text(
+                        sticker?.fallbackEmoji ?? '?',
+                        style: const TextStyle(fontSize: 56),
+                      ),
                     ),
                   )
                 else ...[
@@ -363,13 +407,13 @@ class _Composer extends StatelessWidget {
     required this.controller,
     required this.sending,
     required this.onSend,
-    required this.onReactionSelected,
+    required this.onMediaSelected,
   });
 
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
-  final ValueChanged<GochanoReaction> onReactionSelected;
+  final ValueChanged<MediaPickResult> onMediaSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -383,19 +427,20 @@ class _Composer extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.all(GochanoSpacing.sm),
+          padding: const EdgeInsets.symmetric(
+            horizontal: GochanoSpacing.xs,
+            vertical: GochanoSpacing.xs,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Reaction picker button
+              // Media picker button (emoji / reactions / stickers)
               IconButton(
                 onPressed: sending
                     ? null
                     : () async {
-                        final reaction = await showReactionPicker(context);
-                        if (reaction != null) {
-                          onReactionSelected(reaction);
-                        }
+                        final result = await showMediaPicker(context);
+                        if (result != null) onMediaSelected(result);
                       },
                 icon: Icon(
                   Icons.emoji_emotions_outlined,
@@ -403,8 +448,8 @@ class _Composer extends StatelessWidget {
                   color: colors.textSecondary,
                 ),
                 tooltip: GochanoLanguage.text(
-                  'Reactions',
-                  'রিঅ্যাকশন',
+                  'Open emoji, reactions and stickers',
+                  'ইমোজি, রিঅ্যাকশন ও স্টিকার খুঁজুন',
                 ),
               ),
               Expanded(
@@ -426,8 +471,6 @@ class _Composer extends StatelessWidget {
               ),
               const SizedBox(width: GochanoSpacing.xs),
               FilledButton(
-                // Disabled while sending, which is what stops a double tap
-                // posting the same message twice (spec §77).
                 onPressed: sending ? null : onSend,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(

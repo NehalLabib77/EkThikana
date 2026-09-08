@@ -3377,3 +3377,118 @@ dart analyze (community + picker)                      →  No issues found
 | Deployment | **NOT PERFORMED** |
 | Final APK | **NOT BUILT** |
 
+---
+
+## PART 23 — Community Chat Media Picker (Emoji / Animated Reactions / Stickers)
+
+**Date:** 2026-09-08
+**Branch:** `final-cleanup-release-v2`
+
+### 1. Problem
+
+The PART 21 reaction picker used a single-purpose bottom sheet with `react:{id}:{emoji}` encoding. The user needed:
+- A **unified Emoji / Animated Reactions / Stickers** bottom sheet in the Community group chat
+- Animated Gochano reactions with level-based unlocking
+- Stickers (V1 free, no Gems)
+- Correct XP remaining calculation per locked reaction (`levelThresholds[requiredLevel - 2] - profile.totalXp`, not `xpRemainingToNextLevel()`)
+- The old `react:{id}:{emoji}` encoding superseded by `greact:{id}` / `sticker:{id}`
+
+### 2. Implementation
+
+#### 2a. Animated Reaction Catalog (`animated_reaction_catalog.dart`)
+
+15 reactions across 5 packs (levels 1–5), 3 per pack:
+
+| Level | Pack | IDs |
+|---|---|---|
+| 1 | Starter | `g_focus_fire` 🔥, `g_study_brain` 🧠, `g_golden_star` ⭐ |
+| 2 | Diligent | `g_trophy` 🏆, `g_muscle` 💪, `g_check_mark` ✅ |
+| 3 | Achiever | `g_crown` 👑, `g_rocket` 🚀, `g_crystal_ball` 🔮 |
+| 4 | Master | `g_champion` 🏅, `g_lightning` ⚡, `g_rainbow` 🌈 |
+| 5 | Legend | `g_phoenix` 🔥, `g_dragon` 🐉, `g_galaxy` 🌌 |
+
+- All IDs prefixed with `g_` (Gochano-exclusive)
+- `requiredLevel` 1–5 maps directly to pack level
+- `fallbackEmoji` used until animated `.webp` assets are available
+- `assetPath` fields ready for future asset registration
+
+#### 2b. Sticker Catalog (`sticker_catalog.dart`)
+
+11 stickers across 3 packs (Study / Celebration / Reminder):
+
+| Pack | IDs |
+|---|---|
+| Study | `sticker_study_keep_going` 📚, `sticker_focus_time` 🎯, `sticker_assignment_done` 📝, `sticker_lets_study` ✏️ |
+| Celebration | `sticker_great_job` 🎉, `sticker_nice` 👌, `sticker_completed` 🏁, `sticker_proud_of_you` 🤗 |
+| Reminder | `sticker_study_now` ⏰, `sticker_deadline_soon` ⏳, `sticker_dont_forget` 📌 |
+
+- All `requiredLevel: 0` (V1 free, no Gems)
+- All IDs prefixed with `sticker_`
+
+#### 2c. Unified Picker Widget (`community_media_picker.dart`)
+
+- `TabBarView` with 3 tabs: Emoji (system), Reactions, Stickers
+- **Emoji tab**: Grid of system emoji inserted directly into `TextEditingController`
+- **Reactions tab**: `GridView.builder` per pack; locked reactions show lock badge + dimmed; tap shows "Unlocks at Level X" with XP remaining
+- **Stickers tab**: `GridView.builder` per pack; all free in V1
+- `sealed class MediaPickResult` → `EmojiPick(emoji)` / `ReactionPick(reaction)` / `StickerPick(sticker)`
+- `showMediaPicker(context) → Future<MediaPickResult?>` top-level function
+
+#### 2d. Message Encoding
+
+| Type | Format | Example |
+|---|---|---|
+| Normal emoji | Plain text | `Hello! 🔥` |
+| Animated reaction | `greact:{id}` | `greact:g_focus_fire` |
+| Sticker | `sticker:{id}` | `sticker:sticker_great_job` |
+
+Client-side level validation before send; only registered catalog IDs accepted.
+
+#### 2e. Chat Bubble Rendering
+
+- `greact:` prefix → resolved via `lookupAnimatedReaction()`, rendered as large centered emoji (48px) with transparent bubble background
+- `sticker:` prefix → resolved via `lookupSticker()`, rendered as large centered emoji (56px) with transparent bubble background
+- Normal text → standard message bubble (existing behavior)
+- EN/BN semantic labels on all reactions and stickers
+
+#### 2f. XP Remaining Calculation (per reaction)
+
+```dart
+final requiredXp = levelThresholds[reaction.requiredLevel - 1];
+final remaining = (requiredXp - profile.totalXp).clamp(0, 99999);
+```
+
+NOT `xpRemainingToNextLevel()` — that gives remaining to next level, not the specific reaction threshold.
+
+### 3. Files Created / Modified
+
+| File | Action |
+|---|---|
+| `lib/features/community/domain/animated_reaction_catalog.dart` | **Created** — 15 reactions, 5 packs, lookup |
+| `lib/features/community/domain/sticker_catalog.dart` | **Created** — 11 stickers, 3 packs, lookup |
+| `lib/features/community/presentation/community_media_picker.dart` | **Created** — unified picker widget |
+| `lib/features/community/presentation/group_chat_view.dart` | **Modified** — `_sendMedia`, `_MessageBubble` rendering, emoji button, picker integration |
+| `test/community_media_picker_test.dart` | **Created** — 42 tests |
+
+### 4. Test Results
+
+```
+flutter test test/community_media_picker_test.dart  →  42/42 passed
+flutter test (full suite)                             →  684/684 passed, 4 pre-existing failures
+dart analyze (community)                              →  No issues found
+```
+
+### 5. Pre-existing Test Failures (not introduced by this change)
+
+- `accessibility_audit_test.dart` — 2 failures (decorative animation, Image.asset semanticLabel)
+- `post_verification_auth_test.dart` — 2 failures (AuthGate force-refresh wiring)
+
+### Commit / Push / Deploy Status
+
+| Action | Status |
+|---|---|
+| Commit | **NOT PERFORMED** |
+| Push | **NOT PERFORMED** |
+| Deployment | **NOT PERFORMED** |
+| Final APK | **NOT BUILT** |
+
