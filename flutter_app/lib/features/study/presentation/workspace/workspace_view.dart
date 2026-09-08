@@ -51,9 +51,18 @@ class _QuickAccess extends StatefulWidget {
 }
 
 class _QuickAccessState extends State<_QuickAccess> {
-  static const _collapsedCount = 3;
+  static const _crossAxisCount = 4;
+  static const _collapsedCount = 4;
+  static const _mainAxisExtent = 84.0;
+  static const _mainAxisSpacing = GochanoSpacing.xs;
+  static const _flingThreshold = 450.0;
+  static const _dragDampening = 0.4;
 
   bool _expanded = false;
+  double _dragOffset = 0;
+
+  double get _collapsedHeight => _mainAxisExtent;
+  double get _expandedHeight => _mainAxisExtent * 2 + _mainAxisSpacing;
 
   @override
   void initState() {
@@ -69,6 +78,40 @@ class _QuickAccessState extends State<_QuickAccess> {
 
   void _onLanguageChange() {
     if (mounted) setState(() {});
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    final dy = details.primaryDelta ?? 0;
+    setState(() {
+      _dragOffset = (_dragOffset + dy * _dragDampening).clamp(
+        0.0,
+        _expandedHeight - _collapsedHeight,
+      );
+    });
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final offset = _dragOffset;
+
+    bool shouldExpand;
+    if (velocity > _flingThreshold) {
+      shouldExpand = true;
+    } else if (velocity < -_flingThreshold) {
+      shouldExpand = false;
+    } else {
+      final midpoint = (_expandedHeight - _collapsedHeight) / 2;
+      shouldExpand = offset > midpoint;
+    }
+
+    setState(() {
+      _expanded = shouldExpand;
+      _dragOffset = 0;
+    });
   }
 
   @override
@@ -132,9 +175,13 @@ class _QuickAccessState extends State<_QuickAccess> {
     ];
 
     final hasMore = items.length > _collapsedCount;
-    final visible = (_expanded || !hasMore)
-        ? items
-        : items.take(_collapsedCount).toList();
+
+    final double clipHeight;
+    if (_dragOffset > 0) {
+      clipHeight = _collapsedHeight + _dragOffset;
+    } else {
+      clipHeight = _expanded ? _expandedHeight : _collapsedHeight;
+    }
 
     return AppCard(
       child: Column(
@@ -147,50 +194,94 @@ class _QuickAccessState extends State<_QuickAccess> {
               bottom: GochanoSpacing.xs,
             ),
           ),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: visible.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisExtent: 84,
-              crossAxisSpacing: GochanoSpacing.xs,
-              mainAxisSpacing: GochanoSpacing.xs,
-            ),
-            itemBuilder: (context, i) => _QuickAccessCell(
-              icon: visible[i].icon,
-              label: visible[i].label,
-              accent: visible[i].accent,
-              onTap: visible[i].onTap,
-            ),
-          ),
-          if (hasMore)
-            Center(
-              child: InkWell(
-                onTap: () => setState(() => _expanded = !_expanded),
-                borderRadius: GochanoRadius.mdAll,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: GochanoSpacing.md,
-                    vertical: GochanoSpacing.xs,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 380),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: clipHeight,
+              child: ClipRect(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: items.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: _crossAxisCount,
+                    mainAxisExtent: _mainAxisExtent,
+                    crossAxisSpacing: GochanoSpacing.xs,
+                    mainAxisSpacing: _mainAxisSpacing,
                   ),
-                  child: Tooltip(
-                    message: _expanded
-                        ? GochanoLanguage.text('See less', 'কম দেখুন')
-                        : GochanoLanguage.text('See more', 'আরো দেখুন'),
-                    child: Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: GochanoSizes.iconMd,
-                      color: context.colors.textSecondary,
-                    ),
+                  itemBuilder: (context, i) => _QuickAccessCell(
+                    icon: items[i].icon,
+                    label: items[i].label,
+                    accent: items[i].accent,
+                    onTap: items[i].onTap,
                   ),
                 ),
               ),
             ),
+          ),
+          if (hasMore)
+            _DragExpandHandle(
+              expanded: _expanded,
+              onToggle: _toggle,
+              onVerticalDragUpdate: _onVerticalDragUpdate,
+              onVerticalDragEnd: _onVerticalDragEnd,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// Centered draggable handle for expanding/collapsing Workspace Quick Access.
+/// Drag down → expand, drag up → collapse, tap → toggle.
+class _DragExpandHandle extends StatelessWidget {
+  const _DragExpandHandle({
+    required this.expanded,
+    required this.onToggle,
+    required this.onVerticalDragUpdate,
+    required this.onVerticalDragEnd,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+  final GestureDragUpdateCallback onVerticalDragUpdate;
+  final GestureDragEndCallback onVerticalDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: onToggle,
+      onVerticalDragUpdate: onVerticalDragUpdate,
+      onVerticalDragEnd: onVerticalDragEnd,
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: Container(
+          width: 36,
+          height: 24,
+          margin: const EdgeInsets.only(top: GochanoSpacing.xxs),
+          decoration: BoxDecoration(
+            color: colors.surfaceVariant,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Icon(
+            expanded
+                ? Icons.keyboard_arrow_up_rounded
+                : Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: colors.textTertiary,
+          ),
+        ),
       ),
     );
   }
@@ -240,13 +331,13 @@ class _QuickAccessCell extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 22, color: accent),
+                child: Icon(icon, size: 28, color: accent),
               ),
               const SizedBox(height: GochanoSpacing.xxs),
               Flexible(

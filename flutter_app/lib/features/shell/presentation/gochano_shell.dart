@@ -1,16 +1,10 @@
-// The Gochano application shell — five primary destinations (spec §26).
+// The Gochano application shell — four primary destinations.
 //
-//   Home | Study | Life | Community | Profile
+//   Home | Study | Community | Expense
 //
-// Role note
-// ---------
-// Gochano has two account roles. `student` gets all five destinations.
-// `general` gets four: Study, Study Groups, AI and Materials are all gated
-// behind `require_student` on the backend (see `app/core/auth.py`), so a
-// general account tapping Study or Community would meet a 403 on every
-// action. Showing a destination that can only fail is worse than not showing
-// it — spec §90 forbids hiding *broken* features, but this is a working
-// feature correctly scoped to an account type, which is different.
+// Life and Profile are removed from the bottom navigation bar. Their
+// features are now surfaced via Home shortcuts (Medicine, CommuteBD, Profile).
+// Screens and business logic are NOT deleted.
 //
 // State between destinations is preserved with an IndexedStack, so switching
 // tabs does not reset a half-typed expense or a scrolled material list
@@ -22,10 +16,8 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../community/presentation/community_screen.dart';
 import '../../home/presentation/home_screen.dart';
-import '../../life/presentation/life_screen.dart';
-import '../../profile/presentation/profile_screen.dart';
+import '../../life/presentation/expense/expense_screen.dart';
 import '../../study/presentation/study_screen.dart';
-import '../../tasks/presentation/tasks_screen.dart';
 
 class GochanoShell extends StatefulWidget {
   const GochanoShell({
@@ -71,9 +63,8 @@ class _GochanoShellState extends State<GochanoShell> {
           onOpenDestination: _select,
         ),
         StudyScreen(),
-        LifeScreen(),
         CommunityScreen(),
-        ProfileScreen(role: widget.role),
+        const ExpenseScreen(),
       ];
     }
 
@@ -83,9 +74,7 @@ class _GochanoShellState extends State<GochanoShell> {
         displayName: widget.displayName,
         onOpenDestination: _select,
       ),
-      LifeScreen(),
-      TasksScreen(),
-      ProfileScreen(role: widget.role),
+      const ExpenseScreen(),
     ];
   }
 
@@ -105,19 +94,14 @@ class _GochanoShellState extends State<GochanoShell> {
           selectedIcon: Icons.menu_book_rounded,
         ),
         _Destination(
-          label: GochanoLanguage.text('Life', 'জীবন'),
-          icon: Icons.favorite_outline_rounded,
-          selectedIcon: Icons.favorite_rounded,
-        ),
-        _Destination(
           label: GochanoLanguage.text('Community', 'কমিউনিটি'),
           icon: Icons.groups_outlined,
           selectedIcon: Icons.groups_rounded,
         ),
         _Destination(
-          label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-          icon: Icons.person_outline_rounded,
-          selectedIcon: Icons.person_rounded,
+          label: GochanoLanguage.text('Expense', 'খরচ'),
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long_rounded,
         ),
       ];
     }
@@ -129,25 +113,15 @@ class _GochanoShellState extends State<GochanoShell> {
         selectedIcon: Icons.home_rounded,
       ),
       _Destination(
-        label: GochanoLanguage.text('Life', 'জীবন'),
-        icon: Icons.favorite_outline_rounded,
-        selectedIcon: Icons.favorite_rounded,
-      ),
-      _Destination(
-        label: GochanoLanguage.text('Tasks', 'কাজ'),
-        icon: Icons.check_circle_outline_rounded,
-        selectedIcon: Icons.check_circle_rounded,
-      ),
-      _Destination(
-        label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-        icon: Icons.person_outline_rounded,
-        selectedIcon: Icons.person_rounded,
+        label: GochanoLanguage.text('Expense', 'খরচ'),
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long_rounded,
       ),
     ];
   }
 
   void _select(int index) {
-    final count = _isStudent ? 5 : 4;
+    final count = _buildDestinations().length;
     if (index < 0 || index >= count || index == _index) return;
     setState(() => _index = index);
   }

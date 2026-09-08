@@ -29,6 +29,9 @@ import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../core/settings/gochano_appearance.dart';
+import '../../../features/focus_rewards/data/reward_service.dart';
+import '../../../features/focus_rewards/domain/reward_model.dart';
+import '../../../features/focus_rewards/presentation/profile_reward_section.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
@@ -66,6 +69,8 @@ class ProfileScreen extends StatelessWidget {
               if (role == 'student') ...[
                 SectionHeader(title: GochanoLanguage.text('Study', 'পড়াশোনা')),
                 _StudyStatsRow(),
+                const SizedBox(height: GochanoSpacing.sm),
+                _ProfileRewardCard(),
               ],
 
               const SizedBox(height: GochanoSpacing.sm),
@@ -565,6 +570,43 @@ class _StudyStatsRowState extends State<_StudyStatsRow> {
         ),
       ],
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reward progress
+// ---------------------------------------------------------------------------
+
+class _ProfileRewardCard extends StatefulWidget {
+  const _ProfileRewardCard();
+
+  @override
+  State<_ProfileRewardCard> createState() => _ProfileRewardCardState();
+}
+
+class _ProfileRewardCardState extends State<_ProfileRewardCard> {
+  RewardProfile? _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final profile = await RewardService.readProfile();
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {
+      // Silently ignore — reward is a progressive enhancement.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = _profile;
+    if (profile == null) return const SizedBox.shrink();
+    return ProfileRewardSection(profile: profile);
   }
 }
 

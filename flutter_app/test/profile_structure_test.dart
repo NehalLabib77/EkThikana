@@ -126,22 +126,16 @@ void main() {
       () => source = _read('lib/features/home/presentation/home_screen.dart'),
     );
 
-    test('collapses to three with an expander', () {
-      expect(source, contains('_collapsedCount = 3'));
-      expect(source, contains('See more'));
-      expect(source, contains('See less'));
-      expect(source, contains('আরো দেখুন'));
-      expect(source, contains('কম দেখুন'));
+    test('shows exactly four actions in a 4-column grid', () {
+      expect(source, contains('crossAxisCount: 4'));
+      expect(source, isNot(contains('_collapsedCount')));
     });
 
-    test('every existing destination is still reachable', () {
-      // A redesign that quietly drops a shortcut is a regression, not a
-      // tidy-up.
+    test('every new destination is still reachable', () {
       for (final destination in const [
         'AiAssistantScreen',
         'showAddExpenseSheet',
-        'showAddTaskSheet',
-        'PrescriptionScanScreen',
+        'MedicineScreen',
         'CommuteScreen',
       ]) {
         expect(
@@ -177,7 +171,7 @@ void main() {
       expect(source, contains('_QuickAccess'));
       expect(source, contains('_QuickAccessCell'));
       expect(source, contains('SliverGridDelegateWithFixedCrossAxisCount'));
-      expect(source, contains('crossAxisCount: 3'));
+      expect(source, contains('_crossAxisCount'));
       expect(source, contains('AiAssistantScreen'));
       expect(source, contains('NotesScreen'));
       expect(source, contains('SemesterListScreen'));
@@ -186,32 +180,26 @@ void main() {
       expect(source, contains('_RecentMaterials()'));
     });
 
-    test('collapses to three with See more / See less toggle', () {
+    test('collapses to four with draggable expand/collapse toggle', () {
       final source = _read(
         'lib/features/study/presentation/workspace/workspace_view.dart',
       );
-      expect(source, contains('_collapsedCount = 3'));
-      expect(source, contains('See more'));
-      expect(source, contains('See less'));
-      expect(source, contains('আরো দেখুন'));
-      expect(source, contains('কম দেখুন'));
+      expect(source, contains('_collapsedCount = 4'));
+      expect(source, contains('_DragExpandHandle'));
+      expect(source, contains('onVerticalDragUpdate'));
+      expect(source, contains('onVerticalDragEnd'));
       expect(source, contains('_expanded = !_expanded'));
+      expect(source, contains('_dragOffset'));
+      expect(source, contains('_dragDampening'));
     });
 
-    test('uses 3-column grid with fixed mainAxisExtent', () {
+    test('uses 4-column grid with fixed mainAxisExtent', () {
       final source = _read(
         'lib/features/study/presentation/workspace/workspace_view.dart',
       );
       expect(source, contains('GridView.builder'));
-      expect(source, contains('crossAxisCount: 3'));
-      final match =
-          RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(source);
-      expect(match, isNotNull,
-          reason: 'Quick Access grid must declare a finite mainAxisExtent');
-      final value = int.parse(match!.group(1)!);
-      expect(value, greaterThanOrEqualTo(80));
-      expect(value, lessThanOrEqualTo(96),
-          reason: 'mainAxisExtent should be between 80-96px for overflow-safe tiles');
+      expect(source, contains('_crossAxisCount = 4'));
+      expect(source, contains('_mainAxisExtent = 84.0'));
     });
 
     test('every existing destination is still reachable', () {
@@ -279,8 +267,7 @@ void main() {
     test('quick actions use Material Design icons, not illustrations', () {
       expect(source, contains('Icons.auto_awesome_rounded'));
       expect(source, contains('Icons.receipt_long_rounded'));
-      expect(source, contains('Icons.task_alt_rounded'));
-      expect(source, contains('Icons.document_scanner_rounded'));
+      expect(source, contains('Icons.medication_rounded'));
       expect(source, contains('Icons.directions_bus_rounded'));
     });
 

@@ -30,7 +30,10 @@ import 'planner/plan_view.dart';
 import 'workspace/workspace_view.dart';
 
 class StudyScreen extends StatefulWidget {
-  const StudyScreen({super.key});
+  const StudyScreen({super.key, this.initialTab = 0});
+
+  /// Initial tab index. Tab 1 = Plan.
+  final int initialTab;
 
   @override
   State<StudyScreen> createState() => _StudyScreenState();
@@ -43,7 +46,11 @@ class _StudyScreenState extends State<StudyScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 3),
+    );
     GochanoLanguage.current.addListener(_onLanguageChange);
   }
 
@@ -85,13 +92,12 @@ class _StudyScreenState extends State<StudyScreen>
         ],
         bottom: TabBar(
           controller: _tabs,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 2),
           tabs: [
-            Tab(text: GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')),
-            Tab(text: GochanoLanguage.text('Plan', 'পরিকল্পনা')),
-            Tab(text: GochanoLanguage.text('Focus', 'ফোকাস')),
-            Tab(text: GochanoLanguage.text('Distraction', 'বিচ্ছিন্নতা')),
+            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')))),
+            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Plan', 'পরিকল্পনা')))),
+            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Focus', 'ফোকাস')))),
+            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Distraction', 'বিচ্ছিন্নতা')))),
           ],
         ),
       ),

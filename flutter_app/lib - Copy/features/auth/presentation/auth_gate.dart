@@ -1,0 +1,164 @@
+// Auth gate for the Robi / Cirkle telecom login.
+//
+// PART 16.1 — CRITICAL CORRECTION: the gate now requires BOTH a
+// successful telecom session flag AND a non-null
+// `FirebaseAuth.instance.currentUser`. PART 16 only checked the local
+// SharedPreferences flag, which let the user reach GochanoShell while
+// `FirebaseAuth.currentUser` was null. Every Firestore read/write
+// (`notes`, `tasks`, `expenses`, `medicines`, `dena_pawna`,
+// `materials`) would then fail with `permission-denied`, because
+// `firestore.rules` requires `request.auth.token.email_verified ==
+// true` and the FastAPI backend's `get_verified_identity` reads the
+// same claim via `verify_id_token`.
+//
+// Boot sequence:
+//
+//   * No local session flag       -> LoginScreen.
+//   * Flag is true, but currentUser is null (e.g. cold start where
+//     Firebase did not restore the user, or session was cleared
+//     outside the app) -> LoginScreen with a one-shot "Please sign
+//     in again" message. We never let the user into GochanoShell
+//     with a half-authenticated state.
+//   * Flag is true AND currentUser is non-null AND the ID token
+//     carries `email_verified == true` -> GochanoShell.
+//   * Flag is true AND currentUser is non-null but the ID token is
+//     missing `email_verified == true` (should never happen for a
+//     token minted by our backend, but we guard anyway) -> LoginScreen
+//     with the same message.
+//
+// PART 17 will replace the legacy `logout` plumbing with an
+// "Unsubscribe" + "Logout" pairing.
+
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/services/telecom_auth_service.dart';
+import '../../../services/firestore_service.dart';
+import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../shell/presentation/gochano_shell.dart';
+import 'login_screen.dart';
+import 'profile_setup_screen.dart';
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _checked = false;
+  bool _loggedIn = false;
+  bool _hasProfile = false;
+  String _phone = '';
+
+  StreamSubscription<User?>? _firebaseAuthSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to FirebaseAuth state changes so that a successful
+    // signInWithCustomToken() in otp_verify_screen routes us straight
+    // into GochanoShell without a manual rebuild, and so that an
+    // unexpected sign-out (token revoked, etc.) drops the user back to
+    // LoginScreen instead of leaving them in a half-authenticated
+    // shell.
+    _firebaseAuthSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted) return;
+      setState(() {
+        _loggedIn = user != null;
+        if (user == null) {
+          // Wipe the local flag so the user is routed to LoginScreen.
+          TelecomAuthService.clearSession();
+        }
+      });
+    });
+    _restore();
+  }
+
+  @override
+  void dispose() {
+    _firebaseAuthSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _restore() async {
+    final isLoggedIn = await TelecomAuthService.readIsLoggedIn();
+    final phone = isLoggedIn
+        ? (await TelecomAuthService.readUserPhone()) ?? ''
+        : '';
+    if (!mounted) return;
+
+    // _loggedIn is determined by the combination of the local flag
+    // AND FirebaseAuth.currentUser. Only set _loggedIn here if Firebase
+    // already has a currentUser (cold start path); the authState
+    // listener owns the rest.
+    final current = FirebaseAuth.instance.currentUser;
+    final staleFlag = isLoggedIn && current == null;
+    if (staleFlag) {
+      // Flag set but Firebase did not restore the user. Refuse entry;
+      // clear the stale flag so LoginScreen does not loop.
+      await TelecomAuthService.clearSession();
+    }
+
+    // On cold start with a valid Firebase user, force a token refresh so
+    // the ID token carries fresh custom claims (telecom_verified,
+    // email_verified).  Without this the Firestore rules' verified()
+    // helper may see stale/missing claims and deny reads.
+    if (isLoggedIn && current != null) {
+      try {
+        await current.getIdToken(true);
+      } catch (_) {
+        // Non-fatal — the worst case is a stale token that self-heals
+        // on the next natural refresh.
+      }
+    }
+
+    // Check whether the user has an existing profile document.
+    // New telecom users (first login on this device) will not have one
+    // yet and must complete the profile setup screen.
+    bool hasProfile = false;
+    if (isLoggedIn && current != null) {
+      hasProfile = await FirestoreService.hasProfile();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _phone = phone;
+      _hasProfile = hasProfile;
+      _checked = true;
+      if (isLoggedIn && current != null) {
+        _loggedIn = true;
+      } else if (staleFlag) {
+        _loggedIn = false;
+      } else {
+        _loggedIn = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_checked) {
+      return const GochanoScaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_loggedIn && FirebaseAuth.instance.currentUser != null) {
+      final displayName = _phone.isNotEmpty
+          ? _phone
+          : (FirebaseAuth.instance.currentUser?.phoneNumber ?? '');
+      if (!_hasProfile) {
+        return ProfileSetupScreen(phone: displayName);
+      }
+      return GochanoShell(
+        role: 'student',
+        displayName: displayName,
+      );
+    }
+    return LoginScreen();
+  }
+}

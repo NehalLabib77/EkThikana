@@ -30,10 +30,10 @@ import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../life/domain/medicine_schedule.dart';
 import '../../life/presentation/medicine/medicine_screen.dart';
-import '../../life/presentation/medicine/prescription_scan_screen.dart';
 import '../../study/presentation/ai/ai_assistant_screen.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
-import '../../tasks/presentation/add_task_sheet.dart';
+import '../../profile/presentation/profile_screen.dart';
+import '../../study/presentation/study_screen.dart';
 import '../../../widgets/language_toggle.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -55,6 +55,7 @@ class HomeScreen extends StatelessWidget {
     return GochanoScaffold(
       padBody: false,
       appBar: _HomeAppBar(
+        role: role,
         actions: const [
           LanguageToggle(),
           SizedBox(width: GochanoSpacing.xs),
@@ -68,7 +69,7 @@ class HomeScreen extends StatelessWidget {
           _QuickActions(isStudent: _isStudent),
           const SizedBox(height: GochanoSpacing.sm),
           _TodaysTasksCard(
-            onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
+            onSeeAll: () => onOpenDestination(1),
           ),
           if (_isStudent) ...[
             const SizedBox(height: GochanoSpacing.sm),
@@ -81,7 +82,7 @@ class HomeScreen extends StatelessWidget {
             const _MedicineScheduleCard(),
           ],
           const SizedBox(height: GochanoSpacing.sm),
-          _RecentMaterialsCard(onOpenStudy: () => onOpenDestination(0)),
+          _RecentMaterialsCard(onOpenStudy: () => onOpenDestination(1)),
         ],
       ),
     );
@@ -89,9 +90,11 @@ class HomeScreen extends StatelessWidget {
 }
 
 /// Custom AppBar for Home screen showing [circular avatar] DisplayName.
+/// Avatar is tappable → opens Profile screen.
 class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _HomeAppBar({this.actions});
+  const _HomeAppBar({required this.role, this.actions});
 
+  final String role;
   final List<Widget>? actions;
 
   @override
@@ -116,36 +119,49 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           final photoURL = data?['photoURL'] as String?;
           final displayName = (data?['displayName'] as String?)?.trim() ?? '';
 
-          return Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: colors.brand,
-                backgroundImage: photoURL != null && photoURL.isNotEmpty
-                    ? NetworkImage(photoURL)
-                    : null,
-                child: photoURL == null || photoURL.isEmpty
-                    ? Text(
-                        displayName.isNotEmpty
-                            ? displayName[0].toUpperCase()
-                            : '?',
-                        style: type.pageTitle.copyWith(
-                          color: colors.onBrand,
-                          fontSize: 14,
-                        ),
-                      )
-                    : null,
+          return GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              GochanoRoute.to(
+                builder: (_) => ProfileScreen(role: role),
               ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: Text(
-                  displayName.isNotEmpty ? displayName : displayName,
-                  style: type.pageTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            ),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: colors.brand,
+                  backgroundImage: photoURL != null && photoURL.isNotEmpty
+                      ? NetworkImage(photoURL)
+                      : null,
+                  child: photoURL == null || photoURL.isEmpty
+                      ? Text(
+                          displayName.isNotEmpty
+                              ? displayName[0].toUpperCase()
+                              : '?',
+                          style: type.pageTitle.copyWith(
+                            color: colors.onBrand,
+                            fontSize: 14,
+                          ),
+                        )
+                      : null,
                 ),
-              ),
-            ],
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Text(
+                    displayName.isNotEmpty ? displayName : displayName,
+                    style: type.pageTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: colors.textTertiary,
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -376,9 +392,7 @@ class _SmartSummaryCard extends StatelessWidget {
                     style: context.type.sectionHeading,
                   ),
                   const SizedBox(height: GochanoSpacing.xs),
-                  Wrap(
-                    spacing: GochanoSpacing.xs,
-                    runSpacing: GochanoSpacing.xs,
+                  Row(
                     children: [
                       _SummaryPill(
                         icon: Icons.task_alt_rounded,
@@ -388,12 +402,14 @@ class _SmartSummaryCard extends StatelessWidget {
                         ),
                         color: todayCount > 0 ? colors.brand : colors.success,
                       ),
+                      const SizedBox(width: GochanoSpacing.xs),
                       _SummaryPill(
                         icon: Icons.receipt_long_rounded,
                         label: formatTaka(todaySpent),
                         color: colors.expense,
                       ),
-                      if (overdueCount > 0)
+                      if (overdueCount > 0) ...[
+                        const SizedBox(width: GochanoSpacing.xs),
                         _SummaryPill(
                           icon: Icons.warning_amber_rounded,
                           label: GochanoLanguage.text(
@@ -402,6 +418,7 @@ class _SmartSummaryCard extends StatelessWidget {
                           ),
                           color: colors.warning,
                         ),
+                      ],
                     ],
                   ),
                 ],
@@ -427,30 +444,36 @@ class _SummaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: GochanoSpacing.xs,
-        vertical: GochanoSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: GochanoRadius.smAll,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.type.caption.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: GochanoSpacing.xs,
+          vertical: GochanoSpacing.xxs,
+        ),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: GochanoRadius.smAll,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: context.type.caption.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -608,6 +631,8 @@ class _TodaysTasksCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// A single task row with a working checkbox.
+/// Tapping the task body navigates to Study → Plan.
+/// Tapping the checkbox toggles completion only (no navigation).
 class _TaskLine extends StatelessWidget {
   const _TaskLine({required this.doc, required this.isLast});
 
@@ -639,11 +664,24 @@ class _TaskLine extends StatelessWidget {
           ),
           const SizedBox(width: GochanoSpacing.xxs),
           Expanded(
-            child: Text(
-              title,
-              style: context.type.body,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  GochanoRoute.to(
+                    builder: (_) => StudyScreen(initialTab: 1),
+                  ),
+                );
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  title,
+                  style: context.type.body,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
           ),
           if (due != null)
@@ -1676,7 +1714,7 @@ class _RecentRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Quick actions
+// Quick actions — exactly 4, with draggable expand/collapse handle
 // ---------------------------------------------------------------------------
 
 class _QuickActions extends StatefulWidget {
@@ -1689,9 +1727,37 @@ class _QuickActions extends StatefulWidget {
 }
 
 class _QuickActionsState extends State<_QuickActions> {
-  static const _collapsedCount = 3;
+  static const _dragThreshold = 50.0;
+  static const _flingThreshold = 450.0;
 
-  bool _expanded = false;
+  bool _expanded = true;
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    // Provide immediate visual feedback during drag by toggling state
+    // when the user drags past a threshold.
+    // Drag DOWN → expand, drag UP → collapse.
+    final dy = details.primaryDelta ?? 0;
+    if (dy > _dragThreshold && !_expanded) {
+      setState(() => _expanded = true);
+    } else if (dy < -_dragThreshold && _expanded) {
+      setState(() => _expanded = false);
+    }
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    // Fast fling → snap to target direction.
+    // Downward fling → expand, upward fling → collapse.
+    if (velocity > _flingThreshold) {
+      setState(() => _expanded = true);
+    } else if (velocity < -_flingThreshold) {
+      setState(() => _expanded = false);
+    }
+  }
 
   List<_QuickAction> _actions(BuildContext context) {
     final colors = context.colors;
@@ -1706,30 +1772,24 @@ class _QuickActionsState extends State<_QuickActions> {
           ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
         ),
       _QuickAction(
-        label: GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
+        label: GochanoLanguage.text('Add Expense', 'খরচ যোগ করুন'),
         icon: Icons.receipt_long_rounded,
         accent: colors.expense,
         onTap: () => showAddExpenseSheet(context),
       ),
       _QuickAction(
-        label: GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
-        icon: Icons.task_alt_rounded,
-        accent: colors.brand,
-        onTap: () => showAddTaskSheet(context),
-      ),
-      _QuickAction(
-        label: GochanoLanguage.text(
-          'Scan prescription',
-          'প্রেসক্রিপশন স্ক্যান',
-        ),
-        icon: Icons.document_scanner_rounded,
+        label: GochanoLanguage.text('Medicine', 'ওষুধ'),
+        icon: Icons.medication_rounded,
         accent: colors.medicine,
         onTap: () => Navigator.of(
           context,
-        ).push(GochanoRoute.to(builder: (_) => const PrescriptionScanScreen())),
+        ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
       ),
       _QuickAction(
-        label: GochanoLanguage.text('Find a route', 'রুট খুঁজুন'),
+        label: GochanoLanguage.text(
+          'CommuteBD',
+          'কমিউটবিডি',
+        ),
         icon: Icons.directions_bus_rounded,
         accent: colors.commute,
         onTap: () => Navigator.of(
@@ -1742,16 +1802,9 @@ class _QuickActionsState extends State<_QuickActions> {
   @override
   Widget build(BuildContext context) {
     final actions = _actions(context);
-    final hasMore = actions.length > _collapsedCount;
-    final visible = (_expanded || !hasMore)
-        ? actions
-        : actions.take(_collapsedCount).toList();
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final columns = screenWidth >= 380 ? 4 : 3;
-
+    final colors = context.colors;
     return _AccentRailCard(
-      accent: context.colors.brand,
+      accent: colors.brand,
       padding: const EdgeInsets.symmetric(
         horizontal: GochanoSpacing.xs,
         vertical: GochanoSpacing.sm,
@@ -1759,45 +1812,86 @@ class _QuickActionsState extends State<_QuickActions> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: visible.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisExtent: 88,
-              crossAxisSpacing: GochanoSpacing.xxs,
-              mainAxisSpacing: GochanoSpacing.xs,
-            ),
-            itemBuilder: (context, i) => visible[i],
-          ),
-          if (hasMore)
-            Center(
-              child: InkWell(
-                onTap: () => setState(() => _expanded = !_expanded),
-                borderRadius: GochanoRadius.mdAll,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: GochanoSpacing.md,
-                    vertical: GochanoSpacing.xs,
-                  ),
-                  child: Tooltip(
-                    message: _expanded
-                        ? GochanoLanguage.text('See less', 'কম দেখুন')
-                        : GochanoLanguage.text('See more', 'আরো দেখুন'),
-                    child: Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: GochanoSizes.iconMd,
-                      color: context.colors.textSecondary,
-                    ),
-                  ),
-                ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 360),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: GridView.builder(
+              key: ValueKey(_expanded),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: _expanded
+                  ? const EdgeInsets.symmetric(vertical: GochanoSpacing.xs)
+                  : EdgeInsets.zero,
+              itemCount: actions.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisExtent: 88,
+                crossAxisSpacing: GochanoSpacing.xxs,
+                mainAxisSpacing: GochanoSpacing.xs,
               ),
+              itemBuilder: (context, i) => actions[i],
             ),
+          ),
+          _DragExpandHandle(
+            expanded: _expanded,
+            onToggle: _toggle,
+            onVerticalDragUpdate: _onVerticalDragUpdate,
+            onVerticalDragEnd: _onVerticalDragEnd,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Centered draggable handle for expanding/collapsing Quick Actions.
+/// Drag up → expand, drag down → collapse, tap → toggle.
+class _DragExpandHandle extends StatelessWidget {
+  const _DragExpandHandle({
+    required this.expanded,
+    required this.onToggle,
+    required this.onVerticalDragUpdate,
+    required this.onVerticalDragEnd,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+  final GestureDragUpdateCallback onVerticalDragUpdate;
+  final GestureDragEndCallback onVerticalDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: onToggle,
+      onVerticalDragUpdate: onVerticalDragUpdate,
+      onVerticalDragEnd: onVerticalDragEnd,
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: Container(
+          width: 36,
+          height: 24,
+          margin: const EdgeInsets.only(top: GochanoSpacing.xxs),
+          decoration: BoxDecoration(
+            color: colors.surfaceVariant,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Icon(
+            expanded
+                ? Icons.keyboard_arrow_up_rounded
+                : Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: colors.textTertiary,
+          ),
+        ),
       ),
     );
   }
@@ -1833,13 +1927,13 @@ class _QuickAction extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 22, color: accent),
+                child: Icon(icon, size: 28, color: accent),
               ),
               const SizedBox(height: GochanoSpacing.xxs),
               Flexible(

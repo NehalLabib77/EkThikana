@@ -20,6 +20,10 @@ import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../features/focus_rewards/data/reward_service.dart';
+import '../../../../features/focus_rewards/domain/reward_model.dart';
+import '../../../../features/focus_rewards/presentation/focus_reward_progress.dart';
+import '../../../../features/focus_rewards/presentation/session_completion_dialog.dart';
 import '../../../../services/study_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
@@ -32,15 +36,15 @@ class FocusView extends StatefulWidget {
   State<FocusView> createState() => _FocusViewState();
 }
 
-class _FocusViewState extends State<FocusView> {
+class _FocusViewState extends State<FocusView>
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final _label = TextEditingController();
 
   FocusSession? _active;
   List<FocusSession> _history = const [];
 
   Timer? _ticker;
-  DateTime? _runningSince;
-  int _baseSeconds = 0;
+  DateTime? _sessionEndAt;
   int _displaySeconds = 0;
 
   int _plannedMinutes = 25;
@@ -48,19 +52,38 @@ class _FocusViewState extends State<FocusView> {
   bool _busy = false;
   String _error = '';
 
+  RewardProfile _rewardProfile = RewardProfile.empty();
+  StreamSubscription<RewardProfile>? _rewardSub;
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     GochanoLanguage.current.addListener(_onLanguageChange);
     _load();
+    _rewardSub = RewardService.profileStream().listen((profile) {
+      if (mounted) setState(() => _rewardProfile = profile);
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     GochanoLanguage.current.removeListener(_onLanguageChange);
+    _rewardSub?.cancel();
     _ticker?.cancel();
     _label.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _sessionEndAt != null) {
+      _recalcFromEndAt();
+    }
   }
 
   void _onLanguageChange() {
@@ -80,11 +103,6 @@ class _FocusViewState extends State<FocusView> {
       final activeSession = running ?? paused;
       setState(() {
         _loading = false;
-        // Include completed, cancelled, AND paused sessions in history for
-        // grouped display. Only "running" sessions are excluded from history
-        // — they have live ticking time that should not be double-counted.
-        // Paused sessions appear in BOTH _active (for resume/finish controls)
-        // AND _history (for grouped time display).
         _history = sessions.where((s) => s.status != 'running').toList();
         _active = activeSession;
       });
@@ -99,26 +117,63 @@ class _FocusViewState extends State<FocusView> {
   }
 
   /// Syncs local ticking state to a session returned by the backend.
+  ///
+  /// If a timer is already running for the same session, this preserves
+  /// the existing `_sessionEndAt` and does NOT reset the countdown.
   void _adoptSession(FocusSession session) {
+    final sameSession = _active?.id == session.id && _sessionEndAt != null;
+
     _ticker?.cancel();
-    _baseSeconds = session.elapsedSeconds;
-    _displaySeconds = _baseSeconds;
 
     if (session.status == 'running') {
-      _runningSince = DateTime.now();
-      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (!mounted) return;
-        final since = _runningSince;
-        if (since == null) return;
-        setState(() {
-          _displaySeconds =
-              _baseSeconds + DateTime.now().difference(since).inSeconds;
-        });
-      });
+      if (sameSession) {
+        // Timer already running for this session — keep the existing endAt.
+        // Recalculate display seconds from the authoritative endAt.
+        _recalcFromEndAt();
+      } else {
+        // New session or returning from background: derive endAt from
+        // remaining time.  This prevents drift if the widget was idle.
+        final remaining = (session.plannedMinutes * 60) - session.elapsedSeconds;
+        _sessionEndAt = DateTime.now().add(Duration(seconds: remaining > 0 ? remaining : 0));
+        _recalcFromEndAt();
+      }
+      _startTicker();
     } else {
-      _runningSince = null;
+      // Paused or other non-running state: show accumulated time, no ticker.
+      _sessionEndAt = null;
+      _displaySeconds = session.elapsedSeconds;
     }
     setState(() => _active = session);
+  }
+
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      _recalcFromEndAt();
+    });
+  }
+
+  /// Recalculate `_displaySeconds` from `_sessionEndAt`. This is the single
+  /// source of truth for an active running session.
+  void _recalcFromEndAt() {
+    final endAt = _sessionEndAt;
+    if (endAt == null) return;
+    final remaining = endAt.difference(DateTime.now()).inSeconds;
+    setState(() {
+      _displaySeconds = remaining > 0 ? remaining : 0;
+    });
+    // Auto-complete when timer hits zero.
+    if (remaining <= 0 && _active != null && _active!.status == 'running') {
+      _ticker?.cancel();
+      _finishSession();
+    }
+  }
+
+  Future<void> _finishSession() async {
+    final session = _active;
+    if (session == null) return;
+    await _run(() => StudyService.patch(session.id, 'complete'));
   }
 
   Future<void> _run(Future<FocusSession> Function() action) async {
@@ -134,9 +189,17 @@ class _FocusViewState extends State<FocusView> {
         _adoptSession(session);
       } else {
         _ticker?.cancel();
-        _runningSince = null;
+        _sessionEndAt = null;
+        final wasCompleted = session.status == 'completed';
+        final completedSession = _active;
         setState(() => _active = null);
         await _load();
+        // Grant reward exactly once per session. The backend's idempotency
+        // check (sourceSessionId) prevents double-granting, and we only
+        // call this when transitioning from active -> completed.
+        if (wasCompleted && completedSession != null && mounted) {
+          await _grantReward(completedSession);
+        }
       }
     } catch (error) {
       if (!mounted) return;
@@ -147,8 +210,34 @@ class _FocusViewState extends State<FocusView> {
     }
   }
 
+  Future<void> _grantReward(FocusSession session) async {
+    try {
+      final result = await RewardService.grantFocusReward(
+        focusSessionId: session.id,
+        plannedMinutes: session.plannedMinutes,
+        sessionLabel: session.label,
+      );
+      if (!mounted) return;
+      if (context.mounted) {
+        await showRewardCompletionSheet(
+          context,
+          result: result,
+          plannedMinutes: session.plannedMinutes,
+        );
+      }
+    } catch (error) {
+      // Reward failure should not crash the app. Show a subtle error.
+      if (mounted) {
+        setState(() {
+          _error = friendlyErrorMessage(error);
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_loading) {
       return StaticLoadingState(
         message: GochanoLanguage.text(
@@ -162,9 +251,11 @@ class _FocusViewState extends State<FocusView> {
     return ListView(
       padding: GochanoSpacing.scrollBody,
       children: [
-        if (active == null)
-          _buildStart(context)
-        else
+        if (active == null) ...[
+          FocusRewardProgress(profile: _rewardProfile),
+          const SizedBox(height: GochanoSpacing.sm),
+          _buildStart(context),
+        ] else
           _buildActive(context, active),
         if (_error.isNotEmpty) ...[
           const SizedBox(height: GochanoSpacing.md),

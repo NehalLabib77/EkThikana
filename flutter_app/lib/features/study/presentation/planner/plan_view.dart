@@ -354,15 +354,33 @@ class _CombinedPlannerList extends StatelessWidget {
                   style: context.type.sectionHeading,
                 ),
                 const SizedBox(height: GochanoSpacing.sm),
-                Center(
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        showAddTaskSheet(context, initialDate: selectedDay),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: Text(
-                      GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          showAddTaskSheet(context, initialDate: selectedDay),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: Text(
+                        GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: GochanoSpacing.sm),
+                    OutlinedButton.icon(
+                      onPressed: () => showAddTaskSheet(
+                        context,
+                        type: 'assignment',
+                        initialDate: selectedDay,
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: Text(
+                        GochanoLanguage.text(
+                          'Add assignment',
+                          'অ্যাসাইনমেন্ট যোগ করুন',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -396,6 +414,8 @@ class _CombinedPlannerList extends StatelessWidget {
                     label: '${docs.length}',
                     tone: GochanoBadgeTone.brand,
                   ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  _HistoryButton(),
                 ],
               ),
               const SizedBox(height: GochanoSpacing.xs),
@@ -767,6 +787,307 @@ class _StudyGoalSection extends StatelessWidget {
         onSaved: onGoalSaved,
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Completed History button + sheet
+// ---------------------------------------------------------------------------
+
+class _HistoryButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: IconButton(
+        icon: Icon(
+          Icons.history_rounded,
+          size: 20,
+          color: colors.textSecondary,
+        ),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        tooltip: GochanoLanguage.text(
+          'Completed history',
+          'সম্পন্ন ইতিহাস',
+        ),
+        onPressed: () => _showCompletedHistory(context),
+      ),
+    );
+  }
+}
+
+void _showCompletedHistory(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => const _CompletedHistorySheet(),
+  );
+}
+
+class _CompletedHistorySheet extends StatelessWidget {
+  const _CompletedHistorySheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: GochanoRadius.sheet,
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: GochanoSpacing.sm),
+                decoration: BoxDecoration(
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: GochanoSpacing.md,
+                  vertical: GochanoSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.history_rounded,
+                      size: 20,
+                      color: colors.brand,
+                    ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          'Completed',
+                          'সম্পন্ন',
+                        ),
+                        style: context.type.sectionHeading,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: colors.textSecondary,
+                      ),
+                      tooltip: GochanoLanguage.text('Close', 'বন্ধ'),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: _CompletedHistoryList(scrollController: scrollController),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CompletedHistoryList extends StatelessWidget {
+  const _CompletedHistoryList({required this.scrollController});
+
+  final ScrollController scrollController;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('tasks', limit: 500),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: Text(
+              GochanoLanguage.text('Loading…', 'লোড হচ্ছে…'),
+              style: context.type.bodySecondary,
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              GochanoLanguage.text(
+                'Unable to load history',
+                'ইতিহাস লোড হয়নি',
+              ),
+              style: context.type.bodySecondary,
+            ),
+          );
+        }
+
+        final completedDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        for (final doc in [...?snapshot.data?.docs]) {
+          final data = doc.data();
+          if (data['done'] == true) {
+            completedDocs.add(doc);
+          }
+        }
+
+        completedDocs.sort((a, b) {
+          final aUpdated = a.data()['updatedAt'] as Timestamp?;
+          final bUpdated = b.data()['updatedAt'] as Timestamp?;
+          if (aUpdated == null && bUpdated == null) return 0;
+          if (aUpdated == null) return 1;
+          if (bUpdated == null) return -1;
+          return bUpdated.compareTo(aUpdated);
+        });
+
+        if (completedDocs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GochanoIllustration(
+                  GochanoArt.emptyTasks,
+                  size: GochanoSizes.illustrationEmpty,
+                  accent: colors.textTertiary,
+                ),
+                const SizedBox(height: GochanoSpacing.sm),
+                Text(
+                  GochanoLanguage.text(
+                    'No completed items yet.',
+                    'এখনো কিছু সম্পন্ন হয়নি।',
+                  ),
+                  style: context.type.sectionHeading,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.symmetric(
+            horizontal: GochanoSpacing.md,
+            vertical: GochanoSpacing.xs,
+          ),
+          itemCount: completedDocs.length,
+          itemBuilder: (context, index) {
+            final doc = completedDocs[index];
+            final data = doc.data();
+            final title = data['title']?.toString() ?? '';
+            final due = (data['dueAt'] as Timestamp?)?.toDate();
+            final completedAt = (data['updatedAt'] as Timestamp?)?.toDate();
+            final isAssignment = data['type']?.toString() == 'assignment';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: colors.success,
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isAssignment
+                          ? colors.brand.withValues(alpha: 0.10)
+                          : colors.study.withValues(alpha: 0.10),
+                      borderRadius: GochanoRadius.smAll,
+                    ),
+                    child: Text(
+                      isAssignment
+                          ? GochanoLanguage.text('Asm', 'অ্যাস')
+                          : GochanoLanguage.text('Task', 'কাজ'),
+                      style: context.type.caption.copyWith(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: isAssignment ? colors.brand : colors.study,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: context.type.body.copyWith(
+                            fontSize: 13,
+                            color: colors.textSecondary,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (due != null)
+                          Text(
+                            GochanoLanguage.text(
+                              'Due: ${formatShortDate(due)}',
+                              'বাকি: ${formatShortDate(due)}',
+                            ),
+                            style: context.type.caption.copyWith(
+                              fontSize: 10,
+                              color: colors.textTertiary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (completedAt != null)
+                    Text(
+                      _formatCompletedDate(completedAt),
+                      style: context.type.caption.copyWith(
+                        fontSize: 10,
+                        color: colors.textTertiary,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+String _formatCompletedDate(DateTime date) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final dateOnly = DateTime(date.year, date.month, date.day);
+  final diff = today.difference(dateOnly).inDays;
+
+  if (diff == 0) {
+    return GochanoLanguage.text('Today', 'আজ');
+  } else if (diff == 1) {
+    return GochanoLanguage.text('Yesterday', 'গতকাল');
+  } else if (diff < 7) {
+    return GochanoLanguage.text(
+      // ignore: unnecessary_brace_in_string_interps
+      '${diff}d ago',
+      // ignore: unnecessary_brace_in_string_interps
+      '${diff}দি আগে',
+    );
+  } else {
+    return formatShortDate(date);
   }
 }
 

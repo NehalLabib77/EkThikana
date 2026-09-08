@@ -109,14 +109,13 @@ void main() {
           shellSource,
           contains("GochanoLanguage.text('Study', 'পড়াশোনা')"),
         );
-        expect(shellSource, contains("GochanoLanguage.text('Life', 'জীবন')"));
         expect(
           shellSource,
           contains("GochanoLanguage.text('Community', 'কমিউনিটি')"),
         );
         expect(
           shellSource,
-          contains("GochanoLanguage.text('Profile', 'প্রোফাইল')"),
+          contains("GochanoLanguage.text('Expense', 'খরচ')"),
         );
       },
     );
@@ -140,16 +139,12 @@ void main() {
                     label: GochanoLanguage.text('Study', 'পড়াশোনা'),
                   ),
                   NavigationDestination(
-                    icon: const Icon(Icons.favorite),
-                    label: GochanoLanguage.text('Life', 'জীবন'),
-                  ),
-                  NavigationDestination(
                     icon: const Icon(Icons.groups),
                     label: GochanoLanguage.text('Community', 'কমিউনিটি'),
                   ),
                   NavigationDestination(
-                    icon: const Icon(Icons.person),
-                    label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
+                    icon: const Icon(Icons.receipt_long),
+                    label: GochanoLanguage.text('Expense', 'খরচ'),
                   ),
                 ],
               );
@@ -164,9 +159,8 @@ void main() {
         // Verify English bottom nav labels
         expect(find.text('Home'), findsOneWidget);
         expect(find.text('Study'), findsOneWidget);
-        expect(find.text('Life'), findsOneWidget);
         expect(find.text('Community'), findsOneWidget);
-        expect(find.text('Profile'), findsOneWidget);
+        expect(find.text('Expense'), findsOneWidget);
 
         // Switch language to Bangla
         GochanoLanguage.current.value = GochanoLocale.bangla;
@@ -175,9 +169,8 @@ void main() {
         // Verify Bangla bottom nav labels immediately update
         expect(find.text('হোম'), findsOneWidget);
         expect(find.text('পড়াশোনা'), findsOneWidget);
-        expect(find.text('জীবন'), findsOneWidget);
         expect(find.text('কমিউনিটি'), findsOneWidget);
-        expect(find.text('প্রোফাইল'), findsOneWidget);
+        expect(find.text('খরচ'), findsOneWidget);
 
         // Switch back to English
         GochanoLanguage.current.value = GochanoLocale.english;
@@ -186,9 +179,8 @@ void main() {
         // Verify labels flip back to English
         expect(find.text('Home'), findsOneWidget);
         expect(find.text('Study'), findsOneWidget);
-        expect(find.text('Life'), findsOneWidget);
         expect(find.text('Community'), findsOneWidget);
-        expect(find.text('Profile'), findsOneWidget);
+        expect(find.text('Expense'), findsOneWidget);
       },
     );
   });

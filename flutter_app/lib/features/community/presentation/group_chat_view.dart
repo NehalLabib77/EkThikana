@@ -22,10 +22,12 @@ import '../../../core/design_system/gochano_illustration.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../focus_rewards/domain/reaction_catalog.dart';
 import '../../../services/api_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
+import 'reaction_picker_sheet.dart';
 
 class GroupChatView extends StatefulWidget {
   const GroupChatView({
@@ -106,6 +108,39 @@ class _GroupChatViewState extends State<GroupChatView> {
     }
   }
 
+  Future<void> _sendReaction(GochanoReaction reaction) async {
+    if (_sending) return;
+
+    final text = 'react:${reaction.id}:${reaction.emoji}';
+
+    final optimistic = <String, dynamic>{
+      'senderId': FirestoreService.uid,
+      'senderName': '',
+      'text': text,
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    setState(() {
+      _sending = true;
+      _messages = [..._messages, optimistic];
+    });
+    _scrollToEnd();
+
+    try {
+      await ApiService.postGroupMessage(groupId: widget.groupId, text: text);
+      if (!mounted) return;
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _messages = _messages.where((m) => m != optimistic).toList();
+      });
+      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
+      return;
+    }
+    if (mounted) setState(() => _sending = false);
+  }
+
   Future<void> _send() async {
     final text = _message.text.trim();
     if (text.isEmpty || _sending) return;
@@ -178,6 +213,7 @@ class _GroupChatViewState extends State<GroupChatView> {
             controller: _message,
             sending: _sending,
             onSend: _send,
+            onReactionSelected: _sendReaction,
           ),
         ],
       ),
@@ -237,6 +273,10 @@ class _MessageBubble extends StatelessWidget {
     final attachmentMime = message['attachmentMime']?.toString() ?? '';
     final createdAt = DateTime.tryParse(message['createdAt']?.toString() ?? '');
 
+    // Detect reaction messages: format is "react:{id}:{emoji}"
+    final isReaction = text.startsWith('react:');
+    final reactionEmoji = isReaction ? text.split(':').last : '';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
       child: Column(
@@ -268,33 +308,43 @@ class _MessageBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (attachmentName.isNotEmpty) ...[
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GochanoIllustration(
-                        GochanoArt.fileIdFor(
-                          fileName: attachmentName,
-                          mimeType: attachmentMime,
+                if (isReaction)
+                  // Reaction: large centered emoji, no text
+                  Center(
+                    child: Text(
+                      reactionEmoji,
+                      style: const TextStyle(fontSize: 36),
+                    ),
+                  )
+                else ...[
+                  if (attachmentName.isNotEmpty) ...[
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GochanoIllustration(
+                          GochanoArt.fileIdFor(
+                            fileName: attachmentName,
+                            mimeType: attachmentMime,
+                          ),
+                          size: 20,
+                          accent: colors.community,
                         ),
-                        size: 20,
-                        accent: colors.community,
-                      ),
-                      const SizedBox(width: GochanoSpacing.xxs),
-                      Flexible(
-                        child: Text(
-                          attachmentName,
-                          style: context.type.bodySecondary,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: GochanoSpacing.xxs),
+                        Flexible(
+                          child: Text(
+                            attachmentName,
+                            style: context.type.bodySecondary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  if (text.isNotEmpty) const SizedBox(height: GochanoSpacing.xxs),
+                      ],
+                    ),
+                    if (text.isNotEmpty)
+                      const SizedBox(height: GochanoSpacing.xxs),
+                  ],
+                  if (text.isNotEmpty) Text(text, style: context.type.body),
                 ],
-                if (text.isNotEmpty)
-                  Text(text, style: context.type.body),
                 if (createdAt != null) ...[
                   const SizedBox(height: 2),
                   Text(_clock(createdAt.toLocal()), style: context.type.caption),
@@ -313,11 +363,13 @@ class _Composer extends StatelessWidget {
     required this.controller,
     required this.sending,
     required this.onSend,
+    required this.onReactionSelected,
   });
 
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
+  final ValueChanged<GochanoReaction> onReactionSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -335,6 +387,26 @@ class _Composer extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              // Reaction picker button
+              IconButton(
+                onPressed: sending
+                    ? null
+                    : () async {
+                        final reaction = await showReactionPicker(context);
+                        if (reaction != null) {
+                          onReactionSelected(reaction);
+                        }
+                      },
+                icon: Icon(
+                  Icons.emoji_emotions_outlined,
+                  size: GochanoSizes.iconMd,
+                  color: colors.textSecondary,
+                ),
+                tooltip: GochanoLanguage.text(
+                  'Reactions',
+                  'রিঅ্যাকশন',
+                ),
+              ),
               Expanded(
                 child: TextField(
                   controller: controller,
