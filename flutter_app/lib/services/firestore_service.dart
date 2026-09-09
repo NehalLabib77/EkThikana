@@ -1,6 +1,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// Tri-state result for [FirestoreService.checkProfileState].
+///
+/// Distinguishes "profile exists" from "profile missing" from
+/// "profile lookup error" — critical for the post-OTP auth
+/// completion path (PART 30) where a network error must NOT be
+/// misinterpreted as "no profile → ProfileSetupScreen".
+enum ProfileCheckResult {
+  /// Profile document exists with a non-empty `displayName`.
+  /// Route to Home.
+  exists,
+
+  /// No `users/{uid}` document, or `displayName` is empty/null.
+  /// Route to ProfileSetupScreen.
+  missing,
+
+  /// Firestore read failed (network, permission, timeout).
+  /// Treat as a recoverable post-auth failure — do NOT route
+  /// to ProfileSetupScreen.
+  error,
+}
+
 class FirestoreService {
   FirestoreService._();
 
@@ -76,6 +97,11 @@ class FirestoreService {
   /// document with a non-empty `displayName`.  Used after telecom
   /// authentication to decide whether to show the home shell or the
   /// profile-setup screen.
+  ///
+  /// NOTE: This method conflates "profile genuinely missing" with
+  /// "network/permission error" — both return `false`. For the
+  /// post-OTP auth completion path (PART 30), use [checkProfileState]
+  /// instead, which distinguishes the three cases.
   static Future<bool> hasProfile() async {
     final currentUid = uid;
     if (currentUid == null) return false;
@@ -88,6 +114,34 @@ class FirestoreService {
       return name != null && name.isNotEmpty;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Tri-state profile check for the post-OTP auth completion path.
+  ///
+  /// Unlike [hasProfile], this method distinguishes:
+  /// - [ProfileCheckResult.exists] — profile document has a non-empty
+  ///   `displayName`. Route to Home.
+  /// - [ProfileCheckResult.missing] — no `users/{uid}` document, or
+  ///   `displayName` is empty/null. Route to ProfileSetupScreen.
+  /// - [ProfileCheckResult.error] — Firestore read failed (network,
+  ///   permission, timeout). Treat as a recoverable post-auth failure;
+  ///   do NOT route to ProfileSetupScreen.
+  static Future<ProfileCheckResult> checkProfileState() async {
+    final currentUid = uid;
+    if (currentUid == null) return ProfileCheckResult.error;
+    try {
+      final snap = await db.collection('users').doc(currentUid).get();
+      if (!snap.exists) return ProfileCheckResult.missing;
+      final data = snap.data();
+      if (data == null) return ProfileCheckResult.missing;
+      final name = data['displayName']?.toString().trim();
+      if (name != null && name.isNotEmpty) {
+        return ProfileCheckResult.exists;
+      }
+      return ProfileCheckResult.missing;
+    } catch (_) {
+      return ProfileCheckResult.error;
     }
   }
 

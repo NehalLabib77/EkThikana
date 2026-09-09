@@ -6,11 +6,13 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../shell/presentation/gochano_shell.dart';
+import 'login_screen.dart';
 
 /// One-time profile completion screen shown after telecom authentication
 /// when the current Firebase UID has no existing `users/{uid}` document
@@ -22,6 +24,13 @@ import '../../shell/presentation/gochano_shell.dart';
 ///
 /// The screen is idempotent — if a profile already exists, it should
 /// never be shown (the caller is responsible for that check).
+///
+/// CRITICAL: The phone field must NEVER be blank. If the [phone] parameter
+/// is empty, the screen attempts to recover the phone from:
+///   1. TelecomAuthService stored phone
+///   2. Current Firebase user's phone number claim
+/// If no phone can be recovered, the screen shows an error and returns
+/// to login instead of displaying an empty field.
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key, required this.phone});
 
@@ -37,6 +46,89 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _nameController = TextEditingController();
   bool _saving = false;
   String? _errorText;
+  String _resolvedPhone = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Synchronously resolve phone when available from the auth flow.
+    // This prevents the "Recovering..." flash when the phone was already
+    // passed in by the caller (login_screen or otp_verify_screen).
+    if (widget.phone.isNotEmpty) {
+      _resolvedPhone = widget.phone;
+    } else {
+      _resolvePhone();
+    }
+  }
+
+  /// Ensure the phone field is never blank. Uses a priority chain:
+  ///   1. Explicit phone passed from the auth flow (resolved synchronously)
+  ///   2. TelecomAuthService stored phone
+  ///   3. Firebase user's phone number claim
+  ///   4. Firebase UID if it matches telecom:<11-digit-phone> pattern
+  /// If all fail, shows an error and returns to login.
+  Future<void> _resolvePhone() async {
+    // Priority 1: Explicit phone from auth flow (already set synchronously
+    // in initState when available — this path only runs when widget.phone
+    // was empty).
+    if (widget.phone.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _resolvedPhone = widget.phone;
+        });
+      }
+      return;
+    }
+
+    // Priority 2: TelecomAuthService stored phone
+    final storedPhone = await TelecomAuthService.readUserPhone();
+    if (storedPhone != null && storedPhone.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _resolvedPhone = storedPhone;
+        });
+      }
+      return;
+    }
+
+    // Priority 3: Firebase user's phone number claim
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final firebasePhone = firebaseUser?.phoneNumber ?? '';
+    if (firebasePhone.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _resolvedPhone = TelecomAuthService.normalize(firebasePhone);
+        });
+      }
+      return;
+    }
+
+    // Priority 4: Firebase UID fallback — only when UID matches
+    // telecom:<11-digit-phone>. FirebaseAuth.currentUser has already
+    // authenticated the identity, so this is safe.
+    final uid = firebaseUser?.uid ?? '';
+    if (uid.startsWith('telecom:')) {
+      final extractedPhone = uid.substring('telecom:'.length);
+      if (TelecomAuthService.isSupportedPhone(extractedPhone)) {
+        if (mounted) {
+          setState(() {
+            _resolvedPhone = extractedPhone;
+          });
+        }
+        return;
+      }
+    }
+
+    // All recovery attempts failed — show error and return to login
+    if (mounted) {
+      setState(() {
+        _errorText = GochanoLanguage.text(
+          'Unable to recover your phone number. Please sign in again.',
+          'আপনার ফোন নম্বর পুনরুদ্ধার করা যায়নি। আবার সাইন ইন করুন।',
+        );
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -46,6 +138,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Ensure phone is resolved before saving
+    if (_resolvedPhone.isEmpty) {
+      setState(() => _errorText = GochanoLanguage.text(
+            'Session expired. Please sign in again.',
+            'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
+          ));
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -70,7 +171,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
         {
           'displayName': name,
-          'phone': widget.phone,
+          'phone': _resolvedPhone,
           'role': 'student',
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -216,7 +317,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               ),
                               const SizedBox(height: GochanoSpacing.sm),
                               TextFormField(
-                                initialValue: widget.phone,
+                                initialValue: _resolvedPhone.isNotEmpty
+                                    ? _resolvedPhone
+                                    : GochanoLanguage.text(
+                                        'Recovering…',
+                                        'পুনরুদ্ধার হচ্ছে…',
+                                      ),
                                 readOnly: true,
                                 style: const TextStyle(
                                   fontFamily: '.SF Pro Text',
@@ -227,7 +333,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 decoration: InputDecoration(
                                   prefixIcon: Icon(
                                     Icons.phone_outlined,
-                                    color: colors.textSecondary,
+                                    color: _resolvedPhone.isNotEmpty
+                                        ? colors.textSecondary
+                                        : colors.error,
                                     size: GochanoSizes.iconSm,
                                   ),
                                 ),
@@ -291,6 +399,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             ),
                           ),
                           const SizedBox(height: GochanoSpacing.md),
+                          // Show "Return to login" when phone recovery fails
+                          if (_resolvedPhone.isEmpty)
+                            SecondaryButton(
+                              label: GochanoLanguage.text(
+                                'Return to login',
+                                'লগইনে ফিরুন',
+                              ),
+                              icon: Icons.arrow_back_rounded,
+                              onPressed: () {
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(
+                                    builder: (_) => LoginScreen(),
+                                  ),
+                                  (_) => false,
+                                );
+                              },
+                            ),
                         ],
                         PrimaryButton(
                           label: GochanoLanguage.text(

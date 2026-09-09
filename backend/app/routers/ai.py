@@ -1,6 +1,7 @@
 import base64
+import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 from app.core.auth import CurrentUser, require_student
@@ -171,3 +172,118 @@ def _material_bytes(material: dict) -> bytes:
     if data is None:
         raise HTTPException(status_code=502, detail="Could not read this file")
     return data
+
+
+# ---------------------------------------------------------------------------
+# Attachment question: accept a direct file upload, extract text, and answer.
+# ---------------------------------------------------------------------------
+
+_ALLOWED_ATTACHMENT_EXT = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".docx", ".txt"}
+_MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _extract_attachment_text(raw: bytes, file_name: str) -> str:
+    """Extract readable text from an uploaded attachment.
+
+    Supports PDF (digital text + OCR fallback), images (OCR),
+    DOCX (paragraph/table extraction), and TXT (raw decode).
+    """
+    lower_name = file_name.lower()
+
+    if lower_name.endswith(".pdf"):
+        text = extract_pdf_text(raw)
+        if len(text.strip()) < 40:
+            try:
+                text = ocr_extract_text(raw, "application/pdf")
+            except Exception:
+                text = text or ""
+        return text
+
+    if any(lower_name.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp")):
+        mime_map = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+        }
+        ext = next(e for e in mime_map if lower_name.endswith(e))
+        return ocr_extract_text(raw, mime_map[ext])
+
+    if lower_name.endswith(".docx"):
+        try:
+            from docx import Document
+            doc = Document(io.BytesIO(raw))
+            parts = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    parts.append(para.text)
+            for table in doc.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if cells:
+                        parts.append(" | ".join(cells))
+            return "\n".join(parts)
+        except Exception:
+            return ""
+
+    if lower_name.endswith(".txt"):
+        try:
+            return raw.decode("utf-8", errors="replace")
+        except Exception:
+            return raw.decode("latin-1", errors="replace")
+
+    return ""
+
+
+@router.post("/attachment-question")
+async def attachment_question(
+    file: UploadFile = File(...),
+    question: str = Form(..., min_length=1, max_length=2000),
+    user: CurrentUser = Depends(require_student),
+):
+    """Accept a direct file upload, extract text, and answer a question.
+
+    Supports PDF, images (PNG/JPEG/WEBP), DOCX, and TXT.
+    """
+    file_name = file.filename or "upload.bin"
+    lower_name = file_name.lower()
+
+    if not any(lower_name.endswith(ext) for ext in _ALLOWED_ATTACHMENT_EXT):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Use PDF, JPG, PNG, WEBP, DOCX, or TXT.",
+        )
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(raw) > _MAX_ATTACHMENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large ({len(raw)} bytes). Max {_MAX_ATTACHMENT_BYTES}.",
+        )
+
+    text = _extract_attachment_text(raw, file_name)
+
+    if not text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="No extractable text found in this file.",
+        )
+
+    # Truncate very long texts to stay within model context limits
+    max_chars = 15000
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n\n[Text truncated at 15000 characters]"
+
+    prompt = (
+        "Answer the user's study question using only the supplied file content. "
+        "If the answer is not supported by the text, say that clearly. "
+        "Do not generate practice questions or MCQs.\n\n"
+        f"QUESTION:\n{question}\n\n"
+        f"FILE CONTENT:\n{text}"
+    )
+    answer = await generate(user.uid, prompt)
+
+    extracted_preview = text[:500] + ("..." if len(text) > 500 else "")
+    return {"answer": answer, "extractedText": extracted_preview}

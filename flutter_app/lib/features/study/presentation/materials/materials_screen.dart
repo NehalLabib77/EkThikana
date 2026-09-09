@@ -88,6 +88,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'materials-fab',
         onPressed: () => Navigator.of(context).push(
           GochanoRoute.to(
             builder: (_) =>

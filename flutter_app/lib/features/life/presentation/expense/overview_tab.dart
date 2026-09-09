@@ -144,10 +144,15 @@ class OverviewTabState extends State<OverviewTab> {
                 final backendRemaining =
                     (budgetSnap.data?['remaining'] as num?)?.toDouble();
                 final hasBudget = available != null && available > 0;
+
+                // IMPORTANT: denaPaid is NOW in financial_transactions (added
+                // when settlement occurs), so backendRemaining already accounts
+                // for it. We only add pawnaReceived (income, not in ledger).
+                // Previous code subtracted denaPaid here, which double-counted
+                // it since the backend already deducted it from remaining.
                 final adjustedRemaining =
                     (backendRemaining ?? (available ?? 0)) +
-                        pawnaReceived -
-                        denaPaid;
+                        pawnaReceived;
 
                 // Category breakdown
                 final groceryTotal = sourceTotals['bazar'] ?? 0;

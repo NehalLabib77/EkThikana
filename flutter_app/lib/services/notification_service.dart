@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -28,13 +29,25 @@ class MedicineNotificationAction {
   final String unit;
 }
 
+/// Global reminder types that users can enable/disable independently.
+enum ReminderType {
+  medicine('medicine', 'Medicine Reminders'),
+  task('task', 'Task Reminders'),
+  study('study', 'Study Reminders'),
+  budget('budget', 'Budget Reminders');
+
+  const ReminderType(this.id, this.label);
+  final String id;
+  final String label;
+}
+
 class NotificationService {
   NotificationService._();
 
   // ---------------------------------------------------------------------------
   // Channel architecture
   // ---------------------------------------------------------------------------
-  // Two notification channels are declared on the OS so users can control each
+  // Three notification channels are declared on the OS so users can control each
   // independently in Settings → Apps → Gochano → Notifications.
   //
   // Channel IDs are intentionally kept under the legacy `ekthikana_*` prefix
@@ -44,8 +57,9 @@ class NotificationService {
   //
   //   reminders   → tasks, due dates, "today" nudges
   //   medicine    → daily medicine reminders (with Taken / Skip actions)
+  //   gochano     → global reminders (custom WAV, vibration pattern)
   //
-  // Both channels are categorised as `reminder` so Android routes them
+  // All channels are categorised as `reminder` so Android routes them
   // through the correct priority lane (DND-aware, shown above notification
   // shade content) and so accessibility services announce "Reminder" instead
   // of "Notification".
@@ -58,10 +72,29 @@ class NotificationService {
   static const String kChannelMedicineDesc =
       'User-confirmed medicine reminder times';
 
+  static const String kChannelGlobalId = 'gochano_reminders_v1';
+  static const String kChannelGlobalName = 'Gochano Global Reminders';
+  static const String kChannelGlobalDesc =
+      'Custom reminders with vibration patterns';
+
   static final plugin = FlutterLocalNotificationsPlugin();
   static final ValueNotifier<MedicineNotificationAction?> medicineAction =
       ValueNotifier<MedicineNotificationAction?>(null);
   static bool _ready = false;
+
+  /// User's per-type reminder preferences (default: all enabled).
+  static final Map<ReminderType, bool> _reminderPrefs = {
+    for (final type in ReminderType.values) type: true,
+  };
+
+  /// Global vibration toggle (default: enabled).
+  static bool _vibrationEnabled = true;
+
+  /// Global sound toggle (default: enabled).
+  static bool _soundEnabled = true;
+
+  /// SharedPreferences key prefix for persistent preferences.
+  static const String _prefPrefix = 'gochano_notification_';
 
   @pragma('vm:entry-point')
   static void _backgroundResponse(NotificationResponse response) {
@@ -78,7 +111,16 @@ class NotificationService {
     required String channelName,
     required String channelDescription,
     List<AndroidNotificationAction>? actions,
+    bool enableVibration = true,
+    bool playSound = true,
+    String? soundFile,
+    Int64List? vibrationPattern,
   }) {
+    // Respect the global vibration toggle
+    final effectiveVibration = _vibrationEnabled && enableVibration;
+    // Respect the global sound toggle
+    final effectivePlaySound = _soundEnabled && playSound;
+
     return AndroidNotificationDetails(
       channelId,
       channelName,
@@ -87,9 +129,11 @@ class NotificationService {
       priority: Priority.high,
       category: AndroidNotificationCategory.reminder,
       icon: '@drawable/ic_stat_gochano',
-      enableVibration: true,
-      playSound: true,
+      enableVibration: effectiveVibration,
+      playSound: effectivePlaySound,
       actions: actions,
+      sound: (effectivePlaySound && soundFile != null) ? RawResourceAndroidNotificationSound(soundFile) : null,
+      vibrationPattern: effectiveVibration ? vibrationPattern : null,
     );
   }
 
@@ -127,8 +171,90 @@ class NotificationService {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Global reminder user controls
+  // ---------------------------------------------------------------------------
+
+  /// Check if a specific reminder type is enabled.
+  static bool isReminderEnabled(ReminderType type) {
+    return _reminderPrefs[type] ?? true;
+  }
+
+  /// Get all reminder preferences.
+  static Map<ReminderType, bool> get reminderPreferences =>
+      Map.unmodifiable(_reminderPrefs);
+
+  /// Check if vibration is enabled.
+  static bool get isVibrationEnabled => _vibrationEnabled;
+
+  /// Toggle a specific reminder type on/off and persist.
+  static Future<void> toggleReminder(ReminderType type, {required bool enabled}) async {
+    _reminderPrefs[type] = enabled;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('${_prefPrefix}type_${type.id}', enabled);
+    } catch (_) {
+      // Silently fail if SharedPreferences isn't available
+    }
+  }
+
+  /// Toggle vibration on/off and persist.
+  static Future<void> toggleVibration({required bool enabled}) async {
+    _vibrationEnabled = enabled;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('${_prefPrefix}vibration', enabled);
+    } catch (_) {
+      // Silently fail if SharedPreferences isn't available
+    }
+  }
+
+  /// Check if sound is enabled.
+  static bool get isSoundEnabled => _soundEnabled;
+
+  /// Toggle sound on/off and persist.
+  static Future<void> toggleSound({required bool enabled}) async {
+    _soundEnabled = enabled;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('${_prefPrefix}sound', enabled);
+    } catch (_) {
+      // Silently fail if SharedPreferences isn't available
+    }
+  }
+
+  /// Load persisted preferences from SharedPreferences.
+  static Future<void> _loadPersistedPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final type in ReminderType.values) {
+        final stored = prefs.getBool('${_prefPrefix}type_${type.id}');
+        if (stored != null) {
+          _reminderPrefs[type] = stored;
+        }
+      }
+      final vibStored = prefs.getBool('${_prefPrefix}vibration');
+      if (vibStored != null) {
+        _vibrationEnabled = vibStored;
+      }
+      final soundStored = prefs.getBool('${_prefPrefix}sound');
+      if (soundStored != null) {
+        _soundEnabled = soundStored;
+      }
+    } catch (_) {
+      // Silently fail if SharedPreferences isn't available
+    }
+  }
+
+  /// Custom vibration pattern for global reminders (short pulses).
+  static final Int64List _globalVibrationPattern = Int64List.fromList([
+    0, 200, 100, 200, 100, 400, // pulse-pulse-long
+  ]);
+
   static Future<void> init() async {
     if (_ready) return;
+
+    await _loadPersistedPreferences();
 
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation(AppConfig.bangladeshTimeZone));
@@ -189,6 +315,10 @@ class NotificationService {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Task reminders
+  // ---------------------------------------------------------------------------
+
   static int _taskNotificationId(String taskId) =>
       taskId.hashCode & 0x7fffffff;
 
@@ -206,6 +336,7 @@ class NotificationService {
   }) async {
     await init();
     if (!when.isAfter(DateTime.now())) return;
+    if (!isReminderEnabled(ReminderType.task)) return;
 
     await plugin.zonedSchedule(
       id: _taskNotificationId(taskId),
@@ -239,6 +370,8 @@ class NotificationService {
     await init();
     await plugin.cancel(id: _taskNotificationId(taskId));
     if (when == null || !when.isAfter(DateTime.now())) return;
+    if (!isReminderEnabled(ReminderType.task)) return;
+
     await plugin.zonedSchedule(
       id: _taskNotificationId(taskId),
       title: 'Gochano reminder',
@@ -255,6 +388,10 @@ class NotificationService {
       payload: taskId,
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Medicine reminders
+  // ---------------------------------------------------------------------------
 
   static int _medicineNotificationId(String medicineId, String hhmm) =>
       '$medicineId|$hhmm'.hashCode & 0x7fffffff;
@@ -275,6 +412,8 @@ class NotificationService {
     String unit = 'tablet',
   }) async {
     await init();
+    if (!isReminderEnabled(ReminderType.medicine)) return;
+
     final parts = hhmm.split(':');
     if (parts.length != 2) return;
     final hour = int.tryParse(parts[0]);
@@ -352,6 +491,72 @@ class NotificationService {
   }
 
   // ---------------------------------------------------------------------------
+  // Global reminders (custom WAV, vibration pattern)
+  // ---------------------------------------------------------------------------
+
+  static int _globalReminderId(String reminderId) =>
+      'global|$reminderId'.hashCode & 0x7fffffff;
+
+  /// Schedule a global reminder with custom sound and vibration.
+  ///
+  /// [soundFile] is the name of a WAV file in the assets (without extension).
+  /// If null, uses the default notification sound.
+  ///
+  /// [vibrationPattern] overrides the default pattern. If null, uses
+  /// [_globalVibrationPattern].
+  static Future<void> scheduleGlobalReminder({
+    required String reminderId,
+    required String title,
+    required String body,
+    required DateTime when,
+    String? soundFile,
+    Int64List? vibrationPattern,
+    bool repeatDaily = false,
+  }) async {
+    await init();
+    if (!when.isAfter(DateTime.now())) return;
+
+    final effectiveVibration = vibrationPattern ?? _globalVibrationPattern;
+
+    // Cancel any existing schedule before rescheduling to avoid duplicates.
+    await plugin.cancel(id: _globalReminderId(reminderId));
+
+    await plugin.zonedSchedule(
+      id: _globalReminderId(reminderId),
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelGlobalId,
+          channelName: kChannelGlobalName,
+          channelDescription: kChannelGlobalDesc,
+          enableVibration: true,
+          playSound: true,
+          soundFile: soundFile,
+          vibrationPattern: effectiveVibration,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: repeatDaily ? DateTimeComponents.time : null,
+      payload: jsonEncode({'kind': 'global', 'reminderId': reminderId}),
+    );
+  }
+
+  /// Cancel a global reminder.
+  static Future<void> cancelGlobalReminder(String reminderId) async {
+    await init();
+    await plugin.cancel(id: _globalReminderId(reminderId));
+  }
+
+  /// Cancel all global reminders.
+  static Future<void> cancelAllGlobalReminders() async {
+    await init();
+    // We can't cancel by prefix, so we track IDs in production.
+    // For now, this is a placeholder for the feature.
+  }
+
+  // ---------------------------------------------------------------------------
   // Community project task reminders (per-user, deterministic IDs)
   // ---------------------------------------------------------------------------
 
@@ -376,6 +581,7 @@ class NotificationService {
   }) async {
     await init();
     if (!when.isAfter(DateTime.now())) return;
+    if (!isReminderEnabled(ReminderType.task)) return;
 
     await plugin.zonedSchedule(
       id: _communityTaskReminderId(groupId, projectId, taskId, userId),
@@ -407,6 +613,8 @@ class NotificationService {
       id: _communityTaskReminderId(groupId, projectId, taskId, userId),
     );
     if (when == null || !when.isAfter(DateTime.now())) return;
+    if (!isReminderEnabled(ReminderType.task)) return;
+
     await plugin.zonedSchedule(
       id: _communityTaskReminderId(groupId, projectId, taskId, userId),
       title: 'Gochano reminder',

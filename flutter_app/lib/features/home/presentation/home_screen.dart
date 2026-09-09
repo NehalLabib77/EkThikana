@@ -131,20 +131,12 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: colors.brand,
-                  backgroundImage: photoURL != null && photoURL.isNotEmpty
-                      ? NetworkImage(photoURL)
-                      : null,
-                  child: photoURL == null || photoURL.isEmpty
-                      ? Text(
-                          displayName.isNotEmpty
-                              ? displayName[0].toUpperCase()
-                              : '?',
-                          style: type.pageTitle.copyWith(
-                            color: colors.onBrand,
-                            fontSize: 14,
-                          ),
-                        )
-                      : null,
+                  child: _ProfileAvatarSmall(
+                    photoURL: photoURL,
+                    displayName: displayName,
+                    colors: colors,
+                    type: type,
+                  ),
                 ),
                 const SizedBox(width: GochanoSpacing.sm),
                 Expanded(
@@ -1398,7 +1390,6 @@ class _MoneyCardState extends State<_MoneyCard> {
         final settlements =
             settlementSnap.data ?? const {'pawnaReceived': 0, 'denaPaid': 0};
         final pawnaReceived = settlements['pawnaReceived'] ?? 0;
-        final denaPaid = settlements['denaPaid'] ?? 0;
 
         return StreamBuilder<List<FinancialTransactionModel>>(
           stream: FinancialService.monthStream(now),
@@ -1455,16 +1446,13 @@ class _MoneyCardState extends State<_MoneyCard> {
             final items = snapshot.data ?? const <FinancialTransactionModel>[];
             final summary = FinancialSummary.fromTransactions(items);
 
-            // Authoritative remaining formula — identical to overview_tab:
-            //   Remaining = backendRemaining + pawnaReceived - denaPaid
-            // backendRemaining already equals (monthlyMoney - confirmedExpenses)
-            // on the backend. If budget is not set, fall back to showing
-            // spent only.
+            // IMPORTANT: denaPaid is already in financial_transactions, so
+            // backendRemaining already accounts for it. We only add
+            // pawnaReceived (income, not in ledger). Subtracting denaPaid
+            // here would double-count it.
             final hasBudget = _available != null && _available! > 0;
             final adjustedRemaining = hasBudget
-                ? ((_backendRemaining ?? _available!) +
-                      pawnaReceived -
-                      denaPaid)
+                ? ((_backendRemaining ?? _available!) + pawnaReceived)
                 : null;
 
             return _AccentRailCard(
@@ -2026,4 +2014,49 @@ String formatTaka(double amount) {
     buffer.write(whole[i]);
   }
   return '৳${buffer.toString()}${parts.length > 1 ? '.${parts[1]}' : ''}';
+}
+
+/// Small profile avatar that gracefully handles expired signed URLs.
+///
+/// When the network image fails to load (e.g. 401 from an expired B2
+/// signed URL), falls back to showing the user's initial instead of
+/// a broken image or empty circle.
+class _ProfileAvatarSmall extends StatelessWidget {
+  const _ProfileAvatarSmall({
+    required this.photoURL,
+    required this.displayName,
+    required this.colors,
+    required this.type,
+  });
+
+  final String? photoURL;
+  final String displayName;
+  final GochanoColors colors;
+  final GochanoTypography type;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = photoURL != null && photoURL!.isNotEmpty;
+    final initial = displayName.isNotEmpty
+        ? displayName[0].toUpperCase()
+        : '?';
+    final initialText = Text(
+      initial,
+      style: type.pageTitle.copyWith(
+        color: colors.onBrand,
+        fontSize: 14,
+      ),
+    );
+
+    if (!hasPhoto) return initialText;
+
+    return Image.network(
+      photoURL!,
+      fit: BoxFit.cover,
+      width: 32,
+      height: 32,
+      semanticLabel: GochanoLanguage.text('Profile photo', 'প্রোফাইল ছবি'),
+      errorBuilder: (_, _, _) => initialText,
+    );
+  }
 }

@@ -24,6 +24,7 @@
 // Firebase custom-token exchange goes to the FastAPI backend whose
 // URL is provided by --dart-define=API_BASE_URL.
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -115,30 +116,22 @@ class _LoginScreenState extends State<LoginScreen> {
       // still settling). Spec §3 takes them straight into the home
       // shell with no OTP step.
       debugPrint('[LoginScreen] branch: REGISTERED_SHORTCUT → enter app');
-      //
-      // PART 16.1: we still have to mint a Firebase custom token via
-      // the backend before the AuthGate will let us into GochanoShell.
-      // The backend verifies the subscription server-side and mints
-      // the token — it must NOT trust the client to claim it.
-      if (mounted) {
-        setState(() {
-          _acknowledgementMessage = GochanoLanguage.text(
-            'We see you\'re already subscribed — taking you in.',
-            'আপনার সাবস্ক্রিপশন ইতোমধ্যে চালু আছে — সরাসরি ভেতরে নিয়ে যাচ্ছি।',
-          );
-          _busyMessage = GochanoLanguage.text(
-            'Taking you in…',
-            'ভেতরে নিয়ে যাচ্ছি…',
-          );
-        });
-      }
+
+      // PART 30: Clear the recentlyVerified marker on successful
+      // REGISTERED login since we're now signing in.
+      await TelecomAuthService.clearRecentlyVerified();
+
       final TelecomFirebaseExchange exchange;
       try {
+        debugPrint('[AuthFlow] subscriptionStatus=REGISTERED');
+        debugPrint('[AuthFlow] exchange started');
         exchange =
             await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
           phone: phone,
           subscriptionStatus: result.rawStatus,
         );
+        debugPrint('[AuthFlow] exchange status=200');
+        debugPrint('[AuthFlow] customTokenPresent=${exchange.customToken.isNotEmpty}');
       } on TelecomAuthException catch (e) {
         _showError(e.message);
         if (mounted) setState(() => _busy = false);
@@ -153,10 +146,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       if (!mounted) return;
       try {
+        debugPrint('[AuthFlow] firebase signIn started');
         await TelecomAuthService.enterSession(
           phone: phone,
           exchange: exchange,
         );
+        debugPrint('[AuthFlow] firebase user=${FirebaseAuth.instance.currentUser?.uid ?? 'null'}');
       } on TelecomAuthException catch (e) {
         _showError(e.message);
         if (mounted) setState(() => _busy = false);
@@ -170,25 +165,120 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
       if (!mounted) return;
-      final hasProfile = await FirestoreService.hasProfile();
+
+      // SAFETY: Verify Firebase user actually exists before profile lookup.
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        debugPrint('[AuthFlow] FAIL: currentUser is null after enterSession');
+        _showError(GochanoLanguage.text(
+          'Sign-in incomplete. Please try again.',
+          'সাইন-ইন সম্পন্ন হয়নি। আবার চেষ্টা করুন।',
+        ));
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+      debugPrint('[AuthFlow] token refresh started');
+      try {
+        await currentUser.getIdToken(true);
+        debugPrint('[AuthFlow] token refresh success=true');
+      } catch (_) {
+        debugPrint('[AuthFlow] token refresh success=false');
+      }
+      debugPrint('[AuthFlow] profile check started');
+      final profileState = await FirestoreService.checkProfileState();
+      debugPrint('[AuthFlow] destination=${profileState.name}');
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => hasProfile
-              ? GochanoShell(
-                  role: 'student',
-                  displayName: phone,
-                )
-              : ProfileSetupScreen(phone: phone),
+
+      if (profileState == ProfileCheckResult.error) {
+        _showError(GochanoLanguage.text(
+          'Could not load your profile. Please try again.',
+          'আপনার প্রোফাইল লোড করা যায়নি। আবার চেষ্টা করুন।',
+        ));
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+
+      // Destination is resolved — show "Taking you in" for ~1.2s
+      // ONLY after all auth + profile work is complete.
+      if (mounted) {
+        setState(() {
+          _acknowledgementMessage = GochanoLanguage.text(
+            'We see you\'re already subscribed — taking you in.',
+            'আপনার সাবস্ক্রিপশন ইতোমধ্যে চালু আছে — সরাসরি ভেতরে নিয়ে যাচ্ছি।',
+          );
+          _busyMessage = GochanoLanguage.text(
+            'Taking you in…',
+            'আপনাকে প্রবেশ করানো হচ্ছে…',
+          );
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            GochanoLanguage.text(
+              'Taking you in…',
+              'আপনাকে প্রবেশ করানো হচ্ছে…',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 1200),
         ),
-        (_) => false,
       );
+      await Future.delayed(const Duration(milliseconds: 1200));
+
+      if (!mounted) return;
+
+      switch (profileState) {
+        case ProfileCheckResult.exists:
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => GochanoShell(
+                role: 'student',
+                displayName: phone,
+              ),
+            ),
+            (_) => false,
+          );
+        case ProfileCheckResult.missing:
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => ProfileSetupScreen(phone: phone),
+            ),
+            (_) => false,
+          );
+        case ProfileCheckResult.error:
+          // Already handled above — unreachable.
+          break;
+      }
       return;
+    }
+
+    // PART 30: Propagation guard — if the same phone was recently
+    // OTP-verified and subscription is still NOT SUBSCRIBED, the
+    // carrier may be propagating. Show a message instead of resending OTP.
+    if (!result.isAlreadySubscribed) {
+      final recentPhone = await TelecomAuthService.readRecentlyVerifiedPhone();
+      final normalizedInput = TelecomAuthService.normalize(phone);
+      if (recentPhone != null && recentPhone == normalizedInput) {
+        // Same phone was recently verified — carrier propagation delay
+        debugPrint('[LoginScreen] branch: PROPAGATION_GUARD → subscription activating');
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _acknowledgementMessage = GochanoLanguage.text(
+              'Subscription is activating. Please try again in a moment.',
+              'সাবস্ক্রিপশন সক্রিয় হচ্ছে। একটু পরে আবার চেষ্টা করুন।',
+            );
+          });
+        }
+        return;
+      }
     }
 
     // Not subscribed yet — drop into the OTP screen.
     debugPrint('[LoginScreen] branch: SEND_OTP → navigate to OTP screen');
-    if (mounted) setState(() => _busy = false);
+    if (!mounted) return;
+    setState(() => _busy = false);
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => OtpVerifyScreen(phone: phone),
@@ -410,6 +500,10 @@ class _LoginHero extends StatelessWidget {
             width: 72,
             height: 72,
             fit: BoxFit.contain,
+            semanticLabel: GochanoLanguage.text(
+              'Gochano logo',
+              'গোচানো লোগো',
+            ),
             errorBuilder: (_, _, _) => Icon(
               Icons.apps_rounded,
               size: 48,
@@ -426,8 +520,8 @@ class _LoginHero extends StatelessWidget {
         const SizedBox(height: GochanoSpacing.xs),
         Text(
           GochanoLanguage.text(
-            'One place for everything',
-            'এক জায়গায় সব কিছু',
+            'Your student life, organized.',
+            'আপনার ছাত্রজীবন, সুশৃঙ্খল।',
           ),
           style: type.bodySecondary.copyWith(color: colors.textSecondary),
           textAlign: TextAlign.center,

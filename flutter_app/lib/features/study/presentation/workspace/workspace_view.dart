@@ -157,6 +157,16 @@ class _QuickAccessState extends State<_QuickAccess> {
         ),
       ),
       _QuickAccessItem(
+        icon: Icons.description_rounded,
+        label: GochanoLanguage.text('Docs', 'ডকস'),
+        accent: colors.brand,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => const MaterialsScreen(mimeFilter: 'doc/'),
+          ),
+        ),
+      ),
+      _QuickAccessItem(
         icon: Icons.school_rounded,
         label: GochanoLanguage.text('Semester', 'সেমিস্টার'),
         accent: colors.expense,

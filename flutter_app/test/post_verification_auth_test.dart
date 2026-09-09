@@ -213,24 +213,25 @@ void main() {
               'force-refresh and avoid re-firing on every stream tick.');
     });
 
-    test('calls forceRefreshIdToken before mounting GochanoShell', () {
-      expect(source, contains('AuthService.forceRefreshIdToken()'),
-          reason: 'AuthGate must invalidate the cached JWT exactly on the '
-              'verification-flip transition, before any Firestore rules '
-              'check from Home.');
+    test('calls getIdToken(true) before mounting GochanoShell', () {
+      expect(source, contains('getIdToken(true)'),
+          reason: 'AuthGate must force-refresh the token on cold start '
+              'so the ID token carries fresh custom claims (telecom_verified, '
+              'email_verified) before any Firestore rules check from Home.');
       final gochanoIndex = source.indexOf('GochanoShell(');
       expect(gochanoIndex, greaterThanOrEqualTo(0));
-      final refreshIndex = source.indexOf('forceRefreshIdToken()');
+      final refreshIndex = source.indexOf('getIdToken(true)');
       expect(refreshIndex, lessThan(gochanoIndex),
           reason: 'The force-refresh must run before GochanoShell is '
               'returned, so the very first Home Firestore read sees a '
               'fresh token.');
     });
 
-    test('uses ensureProfile in the missing-profile retry path', () {
-      expect(source, contains('AuthService.ensureProfile()'),
-          reason: 'When users/{uid} is missing, AuthGate must try to '
-              'repair it before asking the user to re-register.');
+    test('uses checkProfileState to check for existing user document', () {
+      expect(source, contains('FirestoreService.checkProfileState()'),
+          reason: 'When users/{uid} is missing, AuthGate must route to '
+              'ProfileSetupScreen so the user can complete registration. '
+              'Uses checkProfileState() for tri-state (exists/missing/error).');
     });
   });
 }

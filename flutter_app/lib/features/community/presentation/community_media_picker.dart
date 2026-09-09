@@ -358,7 +358,8 @@ class _AnimatedPackSection extends StatelessWidget {
                       width: 64,
                       height: 64,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Text(
+                      semanticLabel: 'Reaction sticker: ${reaction.labelEn}',
+                      errorBuilder: (_, _, _) => Text(
                         reaction.fallbackEmoji,
                         style: const TextStyle(fontSize: 40),
                       ),
@@ -444,7 +445,8 @@ class _AnimatedReactionTile extends StatelessWidget {
                       height: 36,
                       fit: BoxFit.contain,
                       color: unlocked ? null : Colors.grey,
-                      errorBuilder: (_, __, ___) => Text(
+                      semanticLabel: 'Reaction sticker: ${reaction.labelEn}',
+                      errorBuilder: (_, _, _) => Text(
                         reaction.fallbackEmoji,
                         style: TextStyle(
                           fontSize: 28,
@@ -586,7 +588,8 @@ class _StickerTile extends StatelessWidget {
                           height: 64,
                           fit: BoxFit.contain,
                           color: locked ? Colors.grey : null,
-                          errorBuilder: (_, __, ___) => Text(
+                          semanticLabel: 'Sticker: ${sticker.labelEn}',
+                          errorBuilder: (_, _, _) => Text(
                             sticker.fallbackEmoji,
                             style: TextStyle(
                               fontSize: 36,

@@ -115,6 +115,8 @@ void main() {
 
     test('no decorative animation widget is used anywhere in lib/', () {
       final offenders = <String>[];
+      // Match Hero( as a standalone widget, not _LoginHero( or similar prefixes.
+      final heroRe = RegExp(r'(?<!\w)Hero\(');
       for (final file in _libFiles()) {
         final lines = file.readAsStringSync().split('\n');
         for (var i = 0; i < lines.length; i++) {
@@ -124,7 +126,11 @@ void main() {
           final trimmed = line.trimLeft();
           if (trimmed.startsWith('//') || trimmed.startsWith('///')) continue;
           for (final banned in bannedWidgets) {
-            if (line.contains(banned)) {
+            if (banned == 'Hero(') {
+              if (heroRe.hasMatch(line)) {
+                offenders.add('${file.path}:${i + 1}  Hero(');
+              }
+            } else if (line.contains(banned)) {
               offenders.add('${file.path}:${i + 1}  $banned');
             }
           }

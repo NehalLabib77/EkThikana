@@ -857,6 +857,45 @@ class ApiService {
     });
   }
 
+  // ----- AI attachment upload ---------------------------------------------
+
+  /// Upload a file attachment for AI processing.
+  ///
+  /// The backend:
+  ///   1. Validates MIME type and file size
+  ///   2. Extracts text from the file (PDF/DOCX/TXT) or performs OCR (images)
+  ///   3. Includes the extracted content in the AI prompt
+  ///   4. Returns the AI's answer
+  ///
+  /// Returns a map with:
+  ///   - `answer`: The AI's response
+  ///   - `extractedText`: The text extracted from the file (if applicable)
+  static Future<Map<String, dynamic>> uploadAiAttachment({
+    required String file,
+    required String fileName,
+    required String mimeType,
+    required String question,
+  }) async {
+    return _guard(() async {
+      final uri = _uri('/api/ai/attachment-question');
+      final multipartFile = await http.MultipartFile.fromPath(
+        'file',
+        file,
+        filename: fileName,
+        contentType: MediaType.parse(mimeType),
+      );
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll(await _headers())
+        ..files.add(multipartFile)
+        ..fields['question'] = question;
+      final streamed = await _client.send(request).timeout(
+        const Duration(seconds: 120),
+      );
+      final response = await http.Response.fromStream(streamed);
+      return _decode(response);
+    });
+  }
+
   // ----- Profile photo ---------------------------------------------------
 
   /// Determine MIME type from a file path extension.

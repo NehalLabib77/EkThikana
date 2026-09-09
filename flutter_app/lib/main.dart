@@ -15,6 +15,7 @@ import 'services/notification_service.dart';
 const String _kLogoAsset = 'assets/branding/gochano1.png';
 
 Future<void> main() async {
+  debugPrint('[Boot] main:start');
   WidgetsFlutterBinding.ensureInitialized();
   pdfrxFlutterInitialize();
 
@@ -33,9 +34,11 @@ Future<void> main() async {
   }
 
   try {
+    debugPrint('[Boot] firebase:start');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    debugPrint('[Boot] firebase:done');
 
     // Restore the saved language and appearance *before* the first frame, so
     // the app does not paint in English/system and then visibly flip to the
@@ -46,6 +49,7 @@ Future<void> main() async {
       GochanoAppearance.restore(),
     ]);
 
+    debugPrint('[Boot] runApp');
     runApp(const GochanoApp());
     // Defer non-critical platform setup so the first frame paints sooner.
     // Notifications aren't required for the app to be usable, and the
@@ -62,6 +66,7 @@ Future<void> main() async {
       });
     });
   } catch (e) {
+    debugPrint('[Boot] firebase:error=${e.runtimeType}');
     runApp(_SetupRequiredApp(error: e));
   }
 }

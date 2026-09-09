@@ -24,8 +24,8 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import 'ai/ai_assistant_screen.dart';
-import 'distraction/distraction_view.dart';
-import 'focus/focus_view.dart';
+import 'focus/focus_hub_view.dart';
+import 'insights/insights_view.dart';
 import 'planner/plan_view.dart';
 import 'workspace/workspace_view.dart';
 
@@ -92,18 +92,19 @@ class _StudyScreenState extends State<StudyScreen>
         ],
         bottom: TabBar(
           controller: _tabs,
+          isScrollable: false,
           labelPadding: const EdgeInsets.symmetric(horizontal: 2),
           tabs: [
             Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')))),
             Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Plan', 'পরিকল্পনা')))),
             Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Focus', 'ফোকাস')))),
-            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Distraction', 'বিচ্ছিন্নতা')))),
+            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Insights', 'বিশ্লেষণ')))),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
-        children: [WorkspaceView(), PlanView(), FocusView(), DistractionView()],
+        children: [WorkspaceView(), PlanView(), const FocusHubView(), InsightsView()],
       ),
     );
   }

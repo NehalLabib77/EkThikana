@@ -47,6 +47,7 @@ class CommunityScreen extends StatelessWidget {
         actions: const [LanguageToggle(), SizedBox(width: GochanoSpacing.xs)],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'community-fab',
         onPressed: () => showGroupActionsSheet(context),
         icon: const Icon(Icons.group_add_rounded),
         label: Text(GochanoLanguage.text('New group', 'নতুন গ্রুপ')),

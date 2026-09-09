@@ -32,6 +32,7 @@ class GochanoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[Boot] app:build');
     return GochanoAppearanceScope(
       builder: (context, themeMode) => GochanoLanguageScope(
         builder: (context, locale) => MaterialApp(
@@ -114,8 +115,10 @@ class _BootRouterState extends State<_BootRouter> {
 
   @override
   Widget build(BuildContext context) {
-    return _ready
-        ? const AuthGate()
-        : GochanoSplashScreen(onReady: _handleReady);
+    if (_ready) {
+      debugPrint('[Boot] authGate:mount');
+      return const AuthGate();
+    }
+    return GochanoSplashScreen(onReady: _handleReady);
   }
 }

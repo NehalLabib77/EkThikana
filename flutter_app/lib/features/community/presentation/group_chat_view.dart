@@ -344,7 +344,8 @@ class _MessageBubble extends StatelessWidget {
                               width: 72,
                               height: 72,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Text(
+                              semanticLabel: 'Reaction: ${greact.labelEn}',
+                              errorBuilder: (_, _, _) => Text(
                                 greact.fallbackEmoji,
                                 style: const TextStyle(fontSize: 48),
                               ),
@@ -371,7 +372,8 @@ class _MessageBubble extends StatelessWidget {
                               width: 140,
                               height: 140,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Text(
+                              semanticLabel: 'Sticker: ${sticker.labelEn}',
+                              errorBuilder: (_, _, _) => Text(
                                 sticker.fallbackEmoji,
                                 style: const TextStyle(fontSize: 56),
                               ),

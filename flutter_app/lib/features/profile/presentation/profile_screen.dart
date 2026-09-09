@@ -33,7 +33,6 @@ import '../../../features/focus_rewards/data/reward_service.dart';
 import '../../../features/focus_rewards/domain/reward_model.dart';
 import '../../../features/focus_rewards/presentation/profile_reward_section.dart';
 import '../../../services/api_service.dart';
-import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../services/usage_stats_service.dart';
@@ -54,11 +53,19 @@ class ProfileScreen extends StatelessWidget {
     return ValueListenableBuilder<GochanoLocale>(
       valueListenable: GochanoLanguage.current,
       builder: (context, locale, child) {
+        final canPop = Navigator.canPop(context);
         return GochanoScaffold(
           padBody: false,
           appBar: GochanoAppBar(
             title: GochanoLanguage.text('Profile', 'প্রোফাইল'),
             automaticallyImplyLeading: false,
+            leading: canPop
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: GochanoLanguage.text('Back', 'পেছনে'),
+                  )
+                : null,
           ),
           body: ListView(
             padding: GochanoSpacing.scrollBody,
@@ -888,6 +895,72 @@ class _SettingsCardState extends State<_SettingsCard>
                       : null,
                 ),
                 _SettingsRow(
+                  icon: NotificationService.isReminderEnabled(ReminderType.medicine)
+                      ? Icons.medication_outlined
+                      : Icons.medication_outlined,
+                  title: GochanoLanguage.text(
+                    'Medicine reminders',
+                    'ওষুধের রিমাইন্ডার',
+                  ),
+                  value: NotificationService.isReminderEnabled(ReminderType.medicine)
+                      ? GochanoLanguage.text('On', 'চালু')
+                      : GochanoLanguage.text('Off', 'বন্ধ'),
+                  onTap: () async {
+                    final current = NotificationService.isReminderEnabled(ReminderType.medicine);
+                    await NotificationService.toggleReminder(ReminderType.medicine, enabled: !current);
+                    if (context.mounted) setState(() {});
+                  },
+                ),
+                _SettingsRow(
+                  icon: NotificationService.isReminderEnabled(ReminderType.task)
+                      ? Icons.task_alt
+                      : Icons.task_outlined,
+                  title: GochanoLanguage.text(
+                    'Task reminders',
+                    'কাজের রিমাইন্ডার',
+                  ),
+                  value: NotificationService.isReminderEnabled(ReminderType.task)
+                      ? GochanoLanguage.text('On', 'চালু')
+                      : GochanoLanguage.text('Off', 'বন্ধ'),
+                  onTap: () async {
+                    final current = NotificationService.isReminderEnabled(ReminderType.task);
+                    await NotificationService.toggleReminder(ReminderType.task, enabled: !current);
+                    if (context.mounted) setState(() {});
+                  },
+                ),
+                _SettingsRow(
+                  icon: Icons.vibration,
+                  title: GochanoLanguage.text(
+                    'Reminder vibration',
+                    'রিমাইন্ডার কম্পন',
+                  ),
+                  value: NotificationService.isVibrationEnabled
+                      ? GochanoLanguage.text('On', 'চালু')
+                      : GochanoLanguage.text('Off', 'বন্ধ'),
+                  onTap: () async {
+                    await NotificationService.toggleVibration(
+                      enabled: !NotificationService.isVibrationEnabled,
+                    );
+                    if (context.mounted) setState(() {});
+                  },
+                ),
+                _SettingsRow(
+                  icon: Icons.volume_up_outlined,
+                  title: GochanoLanguage.text(
+                    'Reminder sound',
+                    'রিমাইন্ডার শব্দ',
+                  ),
+                  value: NotificationService.isSoundEnabled
+                      ? GochanoLanguage.text('On', 'চালু')
+                      : GochanoLanguage.text('Off', 'বন্ধ'),
+                  onTap: () async {
+                    await NotificationService.toggleSound(
+                      enabled: !NotificationService.isSoundEnabled,
+                    );
+                    if (context.mounted) setState(() {});
+                  },
+                ),
+                _SettingsRow(
                   icon: Icons.screen_lock_portrait_rounded,
                   title: GochanoLanguage.text(
                     'Usage Access',
@@ -1009,7 +1082,7 @@ class _DangerCardState extends State<_DangerCard> {
       await ApiService.deleteAccount();
       // AuthGate listens to Firebase auth state and immediately replaces the
       // profile shell with Login after this successful deletion.
-      await AuthService.logout();
+      await TelecomAuthService.clearSession();
     } catch (error) {
       if (!mounted) return;
       setState(() => _deleting = false);
@@ -1145,11 +1218,8 @@ Future<void> _logout(BuildContext context) async {
   );
   if (!confirmed || !context.mounted) return;
 
-  // 1. Clear telecom/local session (does NOT call unsubscribe.php)
+  // 1. Clear telecom/local session + Firebase signOut (single call).
   await TelecomAuthService.clearSession();
-
-  // 2. Firebase signOut — does NOT delete account or data
-  await AuthService.logout();
 
   if (!context.mounted) return;
 
@@ -1269,11 +1339,8 @@ Future<void> _unsubscribe(BuildContext context) async {
   }
 
   // Authoritative session termination (only on server success):
-  // 1. Clear telecom session storage completely
+  // 1. Clear telecom session storage + Firebase signOut (single call).
   await TelecomAuthService.clearSession();
-
-  // 2. Sign out Firebase session without deleting account/data
-  await AuthService.logout();
 
   if (!context.mounted) return;
 

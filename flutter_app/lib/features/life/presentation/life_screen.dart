@@ -142,7 +142,6 @@ class _MonthSummaryState extends State<_MonthSummary> {
         final settlements =
             settlementSnap.data ?? const {'pawnaReceived': 0, 'denaPaid': 0};
         final pawnaReceived = settlements['pawnaReceived'] ?? 0;
-        final denaPaid = settlements['denaPaid'] ?? 0;
 
         return StreamBuilder<List<FinancialTransactionModel>>(
           stream: FinancialService.monthStream(now),
@@ -162,9 +161,11 @@ class _MonthSummaryState extends State<_MonthSummary> {
                     ?.toDouble();
                 final hasBudget = available != null && available > 0;
                 final avail = hasBudget ? available : 0.0;
+                // IMPORTANT: denaPaid is already in financial_transactions,
+                // so backend remaining already accounts for it.
                 final baseRem = hasBudget ? (remaining ?? avail) : null;
                 final rem = baseRem != null
-                    ? (baseRem + pawnaReceived - denaPaid)
+                    ? (baseRem + pawnaReceived)
                     : null;
                 final overspent = rem != null && rem < 0;
 

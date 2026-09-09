@@ -69,6 +69,31 @@ class TelecomAuthException implements Exception {
   String toString() => 'TelecomAuthException: $message';
 }
 
+/// Transient state persisted after carrier OTP verification succeeds.
+///
+/// This prevents the "OTP already consumed" problem: once the carrier has
+/// accepted the OTP, we NEVER re-verify it. If the subsequent Firebase
+/// exchange fails, we retry from subscription check + exchange, not from
+/// OTP verification.
+class OtpVerifiedState {
+  /// The phone number that was verified.
+  final String phone;
+
+  /// When the OTP was verified (for traceability, not for security).
+  final DateTime verifiedAt;
+
+  const OtpVerifiedState({
+    required this.phone,
+    required this.verifiedAt,
+  });
+
+  /// How long this state remains valid for automatic recovery.
+  /// After this window, the user must re-enter their phone number.
+  static const Duration maxAge = Duration(minutes: 10);
+
+  bool get isExpired => DateTime.now().difference(verifiedAt) > maxAge;
+}
+
 enum TelecomSubscriptionStatus {
   registered,
   initialChargingPending,
@@ -226,6 +251,17 @@ class TelecomAuthService {
   // forcing a re-login.
   static const String prefIsLoggedIn = 'isLoggedIn';
   static const String prefUserPhone = 'userPhone';
+
+  /// Transient state keys for OTP recovery.
+  static const String _prefOtpVerifiedPhone = 'otp_verified_phone';
+  static const String _prefOtpVerifiedAt = 'otp_verified_at';
+
+  /// Routing/propagation metadata keys (NOT auth proof).
+  /// Set after a successful OTP verification to prevent re-sending OTP
+  /// during carrier propagation delay. Must NEVER be accepted as
+  /// authentication or subscription proof.
+  static const String prefRecentlyVerifiedPhone = 'recently_verified_phone';
+  static const String prefRecentlyVerifiedAt = 'recently_verified_at';
 
   /// Legacy keys from PART 16. Read on restore for backward
   /// compatibility; cleared on logout to leave one authoritative
@@ -896,15 +932,19 @@ class TelecomAuthService {
   ) async {
     final auth = FirebaseAuth.instance;
     try {
+      debugPrint('[TelecomAuth] signInWithCustomToken: starting');
       final cred = await auth.signInWithCustomToken(exchange.customToken);
+      debugPrint('[TelecomAuth] signInWithCustomToken: uid=${cred.user?.uid ?? 'null'}');
       // Force a token refresh so the ID token includes fresh custom claims
       // (telecom_verified, email_verified) set server-side via
       // set_custom_user_claims() / update_user().  Without this, the
       // Firestore rules' verified() helper may not see the claims until
       // the token naturally expires.
       await cred.user?.getIdToken(true);
+      debugPrint('[TelecomAuth] signInWithCustomToken: token refresh done');
       return cred;
     } on FirebaseAuthException catch (e) {
+      debugPrint('[TelecomAuth] signInWithCustomToken FAIL: ${e.message}');
       throw TelecomAuthException(
         e.message ??
             GochanoLanguage.text(
@@ -1017,6 +1057,18 @@ class TelecomAuthService {
     required TelecomFirebaseExchange exchange,
   }) async {
     await signInToFirebaseWithCustomToken(exchange);
+    // SAFETY: Verify Firebase user actually exists before persisting session.
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      debugPrint('[TelecomAuth] enterSession FAIL: currentUser null after signIn');
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Could not sign you in. Please try again.',
+          'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
+        ),
+      );
+    }
+    debugPrint('[TelecomAuth] enterSession: currentUser=${currentUser.uid}');
     await persistSession(phone: phone);
   }
 
@@ -1036,13 +1088,34 @@ class TelecomAuthService {
     await prefs.remove(_legacyPrefUserId);
   }
 
-  static Future<void> clearSession() async {
+  /// Clears ONLY local SharedPreferences session state.
+  ///
+  /// Used by AuthGate's authStateChanges listener when the Firebase user
+  /// becomes null. Must NOT call FirebaseAuth.signOut() to avoid the
+  /// recursive loop: signOut → authStateChanges(null) → clearSession → signOut → …
+  static Future<void> clearLocalSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(prefIsLoggedIn);
     await prefs.remove(prefUserPhone);
     await prefs.remove(_legacyPrefIsLoggedIn);
     await prefs.remove(_legacyPrefUserPhone);
     await prefs.remove(_legacyPrefUserId);
+    await clearOtpVerified();
+    await clearRecentlyVerified();
+  }
+
+  /// Full session clear: Firebase signOut once + local session clear.
+  ///
+  /// Used by explicit logout/unsubscribe paths. The Firebase signOut
+  /// fires authStateChanges(null), which AuthGate handles via
+  /// clearLocalSession() — NOT this method — so there is no loop.
+  static Future<void> clearSession() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {
+      // Non-fatal: signOut() is best-effort.
+    }
+    await clearLocalSession();
   }
 
   /// Reads the local "am I logged in" flag. Returns true when EITHER
@@ -1065,6 +1138,159 @@ class TelecomAuthService {
 
   /// Convenience alias for [readUserPhone].
   static Future<String?> readPhone() => readUserPhone();
+
+  // -------------------------------------------------------------------
+  // OTP recovery state — prevents re-verifying a consumed OTP
+  // -------------------------------------------------------------------
+
+  /// Persist the fact that the carrier has accepted this phone's OTP.
+  /// This is NOT the OTP itself — it is a signal that Stage 1 succeeded
+  /// and any subsequent failure must retry from subscription check +
+  /// Firebase exchange, NOT from OTP verification.
+  static Future<void> persistOtpVerified({required String phone}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefOtpVerifiedPhone, normalize(phone));
+    await prefs.setString(
+      _prefOtpVerifiedAt,
+      DateTime.now().toIso8601String(),
+    );
+  }
+
+  /// Read the transient OTP-verified state. Returns null if no state
+  /// exists or if it has expired (older than [OtpVerifiedState.maxAge]).
+  static Future<OtpVerifiedState?> readOtpVerifiedState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final phone = prefs.getString(_prefOtpVerifiedPhone);
+    final atStr = prefs.getString(_prefOtpVerifiedAt);
+    if (phone == null || phone.isEmpty || atStr == null) return null;
+    final at = DateTime.tryParse(atStr);
+    if (at == null) return null;
+    final state = OtpVerifiedState(phone: phone, verifiedAt: at);
+    if (state.isExpired) {
+      await clearOtpVerified();
+      return null;
+    }
+    return state;
+  }
+
+  /// Clear the OTP-verified state. Called after successful session entry
+  /// or after the state expires.
+  static Future<void> clearOtpVerified() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefOtpVerifiedPhone);
+    await prefs.remove(_prefOtpVerifiedAt);
+  }
+
+  // -------------------------------------------------------------------
+  // Recently-verified marker — routing/propagation metadata ONLY.
+  //
+  // After a successful OTP verification, we store the phone and
+  // timestamp so the login screen can detect carrier propagation
+  // delay and avoid re-sending OTP. This is NOT authentication proof
+  // and must NEVER be used to grant access to the app.
+  // -------------------------------------------------------------------
+
+  /// Maximum age of the recently-verified marker before it expires.
+  static const Duration recentlyVerifiedMaxAge = Duration(minutes: 5);
+
+  /// Store the recently-verified marker after OTP success.
+  /// This is routing metadata only — never authentication proof.
+  static Future<void> setRecentlyVerified({required String phone}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(prefRecentlyVerifiedPhone, normalize(phone));
+    await prefs.setString(
+      prefRecentlyVerifiedAt,
+      DateTime.now().toIso8601String(),
+    );
+  }
+
+  /// Read the recently-verified marker. Returns the normalized phone
+  /// if the marker exists and has not expired. Returns null otherwise.
+  static Future<String?> readRecentlyVerifiedPhone() async {
+    final prefs = await SharedPreferences.getInstance();
+    final phone = prefs.getString(prefRecentlyVerifiedPhone);
+    final atStr = prefs.getString(prefRecentlyVerifiedAt);
+    if (phone == null || phone.isEmpty || atStr == null) return null;
+    final at = DateTime.tryParse(atStr);
+    if (at == null) return null;
+    if (DateTime.now().difference(at) > recentlyVerifiedMaxAge) {
+      await clearRecentlyVerified();
+      return null;
+    }
+    return phone;
+  }
+
+  /// Clear the recently-verified marker. Called on successful REGISTERED
+  /// login or on expiry.
+  static Future<void> clearRecentlyVerified() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(prefRecentlyVerifiedPhone);
+    await prefs.remove(prefRecentlyVerifiedAt);
+  }
+
+  /// Attempt to complete sign-in from a previously verified OTP state.
+  ///
+  /// This is the recovery path: the OTP was accepted by the carrier, but
+  /// the Firebase exchange failed. Instead of re-verifying the OTP (which
+  /// would fail with "OTP already consumed"), we:
+  ///   1. Check subscription status
+  ///   2. Exchange for Firebase session
+  ///   3. Enter the app
+  ///
+  /// Returns true if recovery succeeded, false if the user needs to
+  /// start over (no state, expired, or all retries failed).
+  static Future<bool> attemptPostOtpRecovery({
+    required String phone,
+    required void Function(String message)? onStatus,
+  }) async {
+    final state = await readOtpVerifiedState();
+    if (state == null || state.phone != normalize(phone)) {
+      return false;
+    }
+
+    onStatus?.call(GochanoLanguage.text(
+      'Verification succeeded. Finishing sign-in…',
+      'যাচাই সফল হয়েছে। সাইন-ইন সম্পন্ন হচ্ছে…',
+    ));
+
+    try {
+      // Step 1: Check current subscription status
+      final subscription = await checkSubscription(phone);
+      if (!subscription.shouldEnterApp) {
+        // Subscription not yet active — this can happen if the carrier
+        // is still processing. We clear the state and return false so
+        // the UI can show an appropriate message.
+        await clearOtpVerified();
+        return false;
+      }
+
+      onStatus?.call(GochanoLanguage.text(
+        'Subscription confirmed. Signing you in…',
+        'সাবস্ক্রিপশন নিশ্চিত। সাইন ইন করা হচ্ছে…',
+      ));
+
+      // Step 2: Exchange for Firebase session
+      final exchange = await exchangeSubscriptionForFirebaseSession(
+        phone: phone,
+        subscriptionStatus: subscription.rawStatus,
+      );
+
+      // Step 3: Enter session
+      await enterSession(phone: phone, exchange: exchange);
+
+      // Step 4: Clear recovery state
+      await clearOtpVerified();
+
+      return true;
+    } on TelecomAuthException catch (e) {
+      debugPrint('[TelecomAuth] post-otp recovery failed: ${e.message}');
+      // Do NOT clear the state here — allow retry
+      return false;
+    } catch (e) {
+      debugPrint('[TelecomAuth] post-otp recovery unexpected error: $e');
+      return false;
+    }
+  }
 
   // -------------------------------------------------------------------
   // HTTP helpers

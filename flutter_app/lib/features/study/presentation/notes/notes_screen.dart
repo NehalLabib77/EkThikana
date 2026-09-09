@@ -12,11 +12,13 @@ import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import 'note_editor_screen.dart';
+import 'note_reader_screen.dart';
 
 class NotesScreen extends StatelessWidget {
   const NotesScreen({super.key});
@@ -29,6 +31,7 @@ class NotesScreen extends StatelessWidget {
         title: GochanoLanguage.text('Notes', 'নোট'),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'notes-fab',
         onPressed: () => Navigator.of(context).push(
           GochanoRoute.to(builder: (_) => const NoteEditorScreen()),
         ),
@@ -42,14 +45,47 @@ class NotesScreen extends StatelessWidget {
 
 /// The note list, reusable inside the Study workspace as well as on its own
 /// screen.
-class NotesList extends StatelessWidget {
+class NotesList extends StatefulWidget {
   const NotesList({super.key, this.limit});
 
   /// Caps how many notes are shown, for the workspace preview.
   final int? limit;
 
   @override
+  State<NotesList> createState() => _NotesListState();
+}
+
+class _NotesListState extends State<NotesList> {
+  @override
   Widget build(BuildContext context) {
+    // When offline, try to show cached notes
+    if (!ConnectivityService.instance.online.value) {
+      return FutureBuilder<dynamic>(
+        future: ConnectivityService.instance.getCachedData(
+          OfflineFeature.notes,
+          'all',
+        ),
+        builder: (context, snapshot) {
+          final cached = snapshot.data;
+          if (cached != null && cached is List && cached.isNotEmpty) {
+            return _buildNoteList(cached.cast<Map<String, dynamic>>());
+          }
+          return EmptyState(
+            compact: widget.limit != null,
+            illustration: GochanoArt.fileNote,
+            title: GochanoLanguage.text(
+              'Offline',
+              'অফলাইন',
+            ),
+            message: GochanoLanguage.text(
+              'No cached notes available. Connect to the internet to load notes.',
+              'কোনো ক্যাশ করা নোট নেই। নোট লোড করতে ইন্টারনেট সংযোগ করুন।',
+            ),
+          );
+        },
+      );
+    }
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('notes', limit: 200),
       builder: (context, snapshot) {
@@ -70,9 +106,22 @@ class NotesList extends StatelessWidget {
             return 0;
           });
 
+        // Cache notes for offline use
+        if (docs.isNotEmpty) {
+          final cacheData = docs.map((d) => {
+            'id': d.id,
+            ...d.data(),
+          }).toList();
+          ConnectivityService.instance.cacheData(
+            OfflineFeature.notes,
+            'all',
+            cacheData,
+          );
+        }
+
         if (docs.isEmpty) {
           return EmptyState(
-            compact: limit != null,
+            compact: widget.limit != null,
             illustration: GochanoArt.fileNote,
             title: GochanoLanguage.text('No notes yet', 'এখনো কোনো নোট নেই'),
             message: GochanoLanguage.text(
@@ -82,9 +131,9 @@ class NotesList extends StatelessWidget {
           );
         }
 
-        final shown = limit == null ? docs : docs.take(limit!).toList();
+        final shown = widget.limit == null ? docs : docs.take(widget.limit!).toList();
 
-        if (limit != null) {
+        if (widget.limit != null) {
           return CardGroup(
             children: [for (final doc in shown) _NoteRow(doc: doc)],
           );
@@ -102,6 +151,29 @@ class NotesList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildNoteList(List<Map<String, dynamic>> notes) {
+    if (widget.limit != null) {
+      return CardGroup(
+        children: [
+          for (final note in notes.take(widget.limit!))
+            _CachedNoteRow(note: note),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: GochanoSpacing.scrollBody,
+      itemCount: notes.length,
+      itemBuilder: (context, i) => Padding(
+        padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+        child: AppCard(
+          padding: EdgeInsets.zero,
+          child: _CachedNoteRow(note: notes[i]),
+        ),
+      ),
     );
   }
 }
@@ -127,6 +199,15 @@ class _NoteRow extends StatelessWidget {
           ),
         );
 
+    void openReadOnly() => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => NoteReaderScreen(
+              noteId: doc.id,
+              initialData: data,
+            ),
+          ),
+        );
+
     return GochanoListRow(
       illustration: GochanoArt.fileNote,
       accent: context.colors.study,
@@ -144,8 +225,13 @@ class _NoteRow extends StatelessWidget {
               icon: Icons.groups_rounded,
             )
           : null,
-      onTap: open,
+      onTap: openReadOnly,
       menuItems: [
+        GochanoMenuAction(
+          label: GochanoLanguage.text('View', 'দেখুন'),
+          icon: Icons.visibility_outlined,
+          onSelected: openReadOnly,
+        ),
         GochanoMenuAction(
           label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
           icon: Icons.edit_outlined,
@@ -178,4 +264,40 @@ String _updatedAt(Object? value) {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
   return '${when.day} ${months[when.month - 1]} ${when.year}';
+}
+
+/// Note row for cached (offline) notes. Read-only, taps open the reader.
+class _CachedNoteRow extends StatelessWidget {
+  const _CachedNoteRow({required this.note});
+
+  final Map<String, dynamic> note;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = note['title']?.toString() ?? '';
+    final content = note['content']?.toString() ?? '';
+    final noteId = note['id']?.toString() ?? '';
+
+    return GochanoListRow(
+      illustration: GochanoArt.fileNote,
+      accent: context.colors.study,
+      title: title.isEmpty
+          ? GochanoLanguage.text('Untitled note', 'শিরোনামহীন নোট')
+          : title,
+      subtitle: content.replaceAll('\n', ' ').trim(),
+      badge: GochanoBadge(
+        label: GochanoLanguage.text('Cached', 'ক্যাশড'),
+        tone: GochanoBadgeTone.neutral,
+        icon: Icons.offline_bolt_outlined,
+      ),
+      onTap: () => Navigator.of(context).push(
+        GochanoRoute.to(
+          builder: (_) => NoteReaderScreen(
+            noteId: noteId,
+            initialData: note,
+          ),
+        ),
+      ),
+    );
+  }
 }

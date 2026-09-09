@@ -20,7 +20,20 @@
 // Nothing here animates. Processing is a static labelled progress bar with a
 // sentence saying what is happening — no typing dots, no glowing orb
 // (spec §35).
+//
+// ATTACHMENT SUPPORT:
+// Users can now attach files (PDF, images, DOCX, TXT) to their questions.
+// Attachments are uploaded to the backend, which extracts text and includes
+// it in the AI prompt. Supported formats:
+//   - PDF: text extraction via backend
+//   - Images (JPG, JPEG, PNG, WEBP): OCR via backend
+//   - DOCX: paragraph/table extraction via backend
+//   - TXT: direct text inclusion
+// Legacy .doc files are NOT supported (binary format unreliable for extraction).
 
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -31,6 +44,7 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -42,11 +56,43 @@ class _Turn {
     required this.question,
     required this.answer,
     required this.usedMaterial,
+    this.usedAttachment,
   });
 
   final String question;
   final String answer;
   final String? usedMaterial;
+  final String? usedAttachment;
+}
+
+/// Represents an attached file pending upload.
+class _Attachment {
+  _Attachment({
+    required this.file,
+    required this.name,
+    required this.size,
+    required this.mimeType,
+  });
+
+  final File file;
+  final String name;
+  final int size;
+  final String? mimeType;
+
+  /// Whether this attachment is currently being uploaded/processed.
+  bool isUploading = false;
+
+  /// Upload progress (0.0 to 1.0).
+  double progress = 0.0;
+
+  /// Error message if upload failed.
+  String? error;
+
+  /// Whether upload completed successfully.
+  bool isComplete = false;
+
+  /// The extracted text from the backend (if applicable).
+  String? extractedText;
 }
 
 class AiAssistantScreen extends StatefulWidget {
@@ -79,6 +125,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final _scroll = ScrollController();
 
   final List<_Turn> _turns = [];
+  final List<_Attachment> _attachments = [];
   bool _busy = false;
   String _error = '';
 
@@ -98,6 +145,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         fileName: _fileName ?? _materialTitle,
       );
 
+  /// Supported file extensions.
+  static const Set<String> _supportedExtensions = {
+    'pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'txt',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -116,6 +168,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   /// The processing message, chosen to describe what is actually happening.
   String get _busyMessage {
+    if (_attachments.isNotEmpty && _attachments.any((a) => a.isUploading)) {
+      return GochanoLanguage.text('Processing attachment…', 'সংযুক্তি প্রক্রিয়াকরণ হচ্ছে…');
+    }
     if (!_hasContext) {
       return GochanoLanguage.text('Preparing answer…', 'উত্তর তৈরি হচ্ছে…');
     }
@@ -123,6 +178,109 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       'Reading your material…',
       'আপনার উপকরণ পড়া হচ্ছে…',
     );
+  }
+
+  /// Pick files for attachment.
+  Future<void> _pickAttachment() async {
+    // Check connectivity
+    if (!ConnectivityService.instance.online.value) {
+      if (mounted) {
+        setState(() {
+          _error = GochanoLanguage.text(
+            'This feature needs an internet connection.',
+            'এই বৈশিষ্ট্যের জন্য ইন্টারনেট সংযোগ প্রয়োজন।',
+          );
+        });
+      }
+      return;
+    }
+
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _supportedExtensions.toList(),
+      );
+
+      if (result.isEmpty) return;
+
+      final file = result.first;
+      if (file.path == null) return;
+
+      // Validate file extension
+      final ext = file.name.split('.').last.toLowerCase();
+      if (!_supportedExtensions.contains(ext)) {
+        if (mounted) {
+          setState(() {
+            _error = GochanoLanguage.text(
+              'Unsupported file type. Please use PDF, JPG, PNG, WEBP, DOCX, or TXT.',
+              'অসমর্থিত ফাইল ধরন। PDF, JPG, PNG, WEBP, DOCX, বা TXT ব্যবহার করুন।',
+            );
+          });
+        }
+        return;
+      }
+
+      // Check for duplicate
+      if (_attachments.any((a) => a.name == file.name)) {
+        if (mounted) {
+          setState(() {
+            _error = GochanoLanguage.text(
+              'This file is already attached.',
+              'এই ফাইলটি ইতিমধ্যে সংযুক্ত আছে।',
+            );
+          });
+        }
+        return;
+      }
+
+      // Determine MIME type
+      String? mimeType;
+      if (ext == 'pdf') {
+        mimeType = 'application/pdf';
+      } else if (ext == 'jpg' || ext == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (ext == 'png') {
+        mimeType = 'image/png';
+      } else if (ext == 'webp') {
+        mimeType = 'image/webp';
+      } else if (ext == 'docx') {
+        mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      } else if (ext == 'txt') {
+        mimeType = 'text/plain';
+      }
+
+      final attachment = _Attachment(
+        file: File(file.path!),
+        name: file.name,
+        size: 0, // Size not available in file_picker v12
+        mimeType: mimeType,
+      );
+
+      if (mounted) {
+        setState(() {
+          _attachments.add(attachment);
+          _error = '';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = GochanoLanguage.text(
+            'Could not pick file. Please try again.',
+            'ফাইল নির্বাচন করা যায়নি। আবার চেষ্টা করুন।',
+          );
+        });
+      }
+    }
+  }
+
+  /// Remove an attachment.
+  void _removeAttachment(int index) {
+    if (mounted) {
+      setState(() {
+        _attachments.removeAt(index);
+      });
+    }
   }
 
   Future<void> _ask(String rawQuestion) async {
@@ -138,18 +296,20 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final String answer;
       final materialId = _materialId;
 
-      if (materialId == null) {
-        // General academic question. `explain` is the instruction that maps
-        // to "answer this for a university student" on the backend.
+      if (materialId == null && _attachments.isEmpty) {
+        // General academic question
         answer = await ApiService.aiNote('explain', question);
+      } else if (_attachments.isNotEmpty) {
+        // Has attachments — upload and get answer
+        answer = await _askWithAttachment(question);
       } else if (_route == AiContextRoute.imageQuestion) {
         answer = await ApiService.askImage(
-          materialId: materialId,
+          materialId: materialId!,
           question: question,
         );
       } else {
         answer = await ApiService.askPdf(
-          materialId: materialId,
+          materialId: materialId!,
           question: question,
           page: widget.contextPage,
         );
@@ -159,6 +319,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       setState(() {
         _busy = false;
         _question.clear();
+        _attachments.clear();
         _turns.add(
           _Turn(
             question: question,
@@ -170,6 +331,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   )
                 : answer,
             usedMaterial: _materialTitle,
+            usedAttachment: _attachments.isNotEmpty ? _attachments.first.name : null,
           ),
         );
       });
@@ -180,6 +342,39 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         _busy = false;
         _error = _aiErrorMessage(error);
       });
+    }
+  }
+
+  /// Upload attachment and get AI answer.
+  Future<String> _askWithAttachment(String question) async {
+    if (_attachments.isEmpty) {
+      throw Exception('No attachment to process');
+    }
+
+    final attachment = _attachments.first;
+    attachment.isUploading = true;
+    if (mounted) setState(() {});
+
+    try {
+      // Upload file to backend
+      final result = await ApiService.uploadAiAttachment(
+        file: attachment.file.path,
+        fileName: attachment.name,
+        mimeType: attachment.mimeType ?? 'application/octet-stream',
+        question: question,
+      );
+
+      attachment.isUploading = false;
+      attachment.isComplete = true;
+      attachment.extractedText = result['extractedText'];
+      if (mounted) setState(() {});
+
+      return result['answer'] ?? '';
+    } catch (e) {
+      attachment.isUploading = false;
+      attachment.error = e.toString();
+      if (mounted) setState(() {});
+      rethrow;
     }
   }
 
@@ -214,6 +409,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         'নির্বাচিত উপকরণটি আর নেই।',
       );
     }
+    if (raw.contains('unsupported') || raw.contains('not supported')) {
+      return GochanoLanguage.text(
+        'This file type is not supported. Please use PDF, JPG, PNG, WEBP, DOCX, or TXT.',
+        'এই ফাইল ধরন সমর্থিত নয়। PDF, JPG, PNG, WEBP, DOCX, বা TXT ব্যবহার করুন।',
+      );
+    }
+    if (raw.contains('.doc') && !raw.contains('.docx')) {
+      return GochanoLanguage.text(
+        'Legacy .doc files are not supported yet. Please use .docx.',
+        'পুরাতন .doc ফাইল এখনো সমর্থিত নয়। .docx ব্যবহার করুন।',
+      );
+    }
     if (raw.contains('ai service configuration') ||
         raw.contains('model configuration') ||
         raw.contains('provider temporarily unavailable') ||
@@ -229,8 +436,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
-      // Jump, not animate: this is a state change, not a decoration
-      // (spec §11).
       _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
   }
@@ -251,6 +456,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         controller: _question,
         busy: _busy,
         onSubmit: _ask,
+        onAttach: _pickAttachment,
+        attachments: _attachments,
+        onRemoveAttachment: _removeAttachment,
       ),
       body: Column(
         children: [
@@ -659,54 +867,216 @@ class _Composer extends StatelessWidget {
     required this.controller,
     required this.busy,
     required this.onSubmit,
+    required this.onAttach,
+    required this.attachments,
+    required this.onRemoveAttachment,
   });
 
   final TextEditingController controller;
   final bool busy;
   final ValueChanged<String> onSubmit;
+  final VoidCallback onAttach;
+  final List<_Attachment> attachments;
+  final void Function(int index) onRemoveAttachment;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            enabled: !busy,
-            minLines: 1,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.send,
-            decoration: InputDecoration(
-              hintText: GochanoLanguage.text(
-                'Ask a question…',
-                'একটি প্রশ্ন করুন…',
+    final colors = context.colors;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        GochanoSpacing.md,
+        GochanoSpacing.xs,
+        GochanoSpacing.md,
+        GochanoSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(
+          top: BorderSide(color: colors.border, width: 0.5),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Attachment chips
+            if (attachments.isNotEmpty)
+              SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: attachments.length,
+                  separatorBuilder: (ctx, idx) => const SizedBox(width: GochanoSpacing.xs),
+                  itemBuilder: (context, index) {
+                    final att = attachments[index];
+                    return _AttachmentChip(
+                      attachment: att,
+                      onRemove: () => onRemoveAttachment(index),
+                    );
+                  },
+                ),
               ),
-              isDense: true,
+            if (attachments.isNotEmpty)
+              const SizedBox(height: GochanoSpacing.xs),
+            // Composer row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Attachment button
+                IconButton(
+                  onPressed: busy ? null : onAttach,
+                  icon: Icon(
+                    Icons.attach_file_rounded,
+                    color: busy ? colors.disabled : colors.textSecondary,
+                    size: 22,
+                  ),
+                  tooltip: GochanoLanguage.text(
+                    'Attach file',
+                    'ফাইল সংযুক্ত করুন',
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    enabled: !busy,
+                    minLines: 1,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.send,
+                    decoration: InputDecoration(
+                      hintText: GochanoLanguage.text(
+                        'Ask something…',
+                        'কিছু জিজ্ঞাসা করুন…',
+                      ),
+                      isDense: true,
+                    ),
+                    onSubmitted: onSubmit,
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.xs),
+                FilledButton(
+                  onPressed: busy ? null : () => onSubmit(controller.text),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(
+                      GochanoSizes.buttonHeight,
+                      GochanoSizes.buttonHeight,
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Icon(
+                    busy ? Icons.hourglass_empty_rounded : Icons.send_rounded,
+                    size: GochanoSizes.iconMd,
+                    semanticLabel: GochanoLanguage.text('Send', 'পাঠান'),
+                  ),
+                ),
+              ],
             ),
-            onSubmitted: onSubmit,
-          ),
+          ],
         ),
-        const SizedBox(width: GochanoSpacing.xs),
-        // Disabled while a request is in flight, which is what prevents a
-        // double submit burning two AI quota units (spec §12, §77).
-        FilledButton(
-          onPressed: busy ? null : () => onSubmit(controller.text),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(
-              GochanoSizes.buttonHeight,
-              GochanoSizes.buttonHeight,
+      ),
+    );
+  }
+}
+
+/// Compact chip showing an attached file with remove button.
+class _AttachmentChip extends StatelessWidget {
+  const _AttachmentChip({
+    required this.attachment,
+    required this.onRemove,
+  });
+
+  final _Attachment attachment;
+  final VoidCallback onRemove;
+
+  IconData _fileIcon() {
+    final name = attachment.name.toLowerCase();
+    if (name.endsWith('.pdf')) return Icons.picture_as_pdf_rounded;
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg') ||
+        name.endsWith('.png') || name.endsWith('.webp')) {
+      return Icons.image_rounded;
+    }
+    if (name.endsWith('.docx')) return Icons.description_rounded;
+    if (name.endsWith('.txt')) return Icons.text_snippet_rounded;
+    return Icons.insert_drive_file_rounded;
+  }
+
+  Color _fileColor(BuildContext context) {
+    final name = attachment.name.toLowerCase();
+    if (name.endsWith('.pdf')) return context.colors.error;
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg') ||
+        name.endsWith('.png') || name.endsWith('.webp')) {
+      return context.colors.study;
+    }
+    if (name.endsWith('.docx')) return context.colors.brand;
+    return context.colors.textSecondary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.sm,
+        vertical: GochanoSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surfaceVariant,
+        borderRadius: GochanoRadius.smAll,
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _fileIcon(),
+            size: 16,
+            color: _fileColor(context),
+          ),
+          const SizedBox(width: GochanoSpacing.xxs),
+          Flexible(
+            child: Text(
+              attachment.name,
+              style: context.type.caption.copyWith(
+                color: colors.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            padding: EdgeInsets.zero,
           ),
-          child: Icon(
-            busy ? Icons.hourglass_empty_rounded : Icons.send_rounded,
-            size: GochanoSizes.iconMd,
-            semanticLabel: GochanoLanguage.text('Send', 'পাঠান'),
+          if (attachment.isUploading) ...[
+            const SizedBox(width: GochanoSpacing.xs),
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
+              ),
+            ),
+          ] else if (attachment.error != null) ...[
+            const SizedBox(width: GochanoSpacing.xs),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 14,
+              color: colors.error,
+            ),
+          ],
+          const SizedBox(width: GochanoSpacing.xxs),
+          GestureDetector(
+            onTap: onRemove,
+            child: Icon(
+              Icons.close_rounded,
+              size: 14,
+              color: colors.textTertiary,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

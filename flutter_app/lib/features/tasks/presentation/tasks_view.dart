@@ -59,6 +59,7 @@ class _TasksViewState extends State<TasksView> {
     return Scaffold(
       backgroundColor: context.colors.background,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'tasks-fab',
         onPressed: () => showAddTaskSheet(context),
         icon: const Icon(Icons.task_alt_rounded),
         label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ করুন')),

@@ -166,6 +166,7 @@ class FinancialService {
       'createdAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
+    notifyBudgetChanged();
     return sourceRef.id;
   }
 
@@ -217,6 +218,7 @@ class FinancialService {
       SetOptions(merge: true),
     );
     await batch.commit();
+    notifyBudgetChanged();
   }
 
   static Future<void> deleteDailyExpense(String id) async {
@@ -226,6 +228,7 @@ class FinancialService {
       db.collection('financial_transactions').doc(transactionId('daily', id)),
     );
     await batch.commit();
+    notifyBudgetChanged();
   }
 
   static String bazarSessionId(DateTime date) {
@@ -328,6 +331,7 @@ class FinancialService {
     // performance cost violated spec §83 and the log contents violated §82.
     try {
       await batch.commit();
+      notifyBudgetChanged();
     } on FirebaseException catch (fe) {
       // Keep the diagnosis in the log without the identity: the rule that
       // rejected the write is the useful part.
@@ -365,6 +369,7 @@ class FinancialService {
       db.collection('financial_transactions').doc(transactionId('bazar', id)),
     );
     await batch.commit();
+    notifyBudgetChanged();
   }
 
   static String doseId(String medicineId, DateTime date, String hhmm) {
@@ -447,6 +452,7 @@ class FinancialService {
     }
 
     await batch.commit();
+    notifyBudgetChanged();
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> medicineDoseHistory(
@@ -620,6 +626,7 @@ class FinancialService {
     });
 
     await batch.commit();
+    notifyBudgetChanged();
     return tripRef.id;
   }
 
@@ -630,6 +637,7 @@ class FinancialService {
       db.collection('financial_transactions').doc(transactionId('commute', id)),
     );
     await batch.commit();
+    notifyBudgetChanged();
   }
 
   static FinancialSummary summary(
@@ -716,6 +724,18 @@ class FinancialService {
   ///
   /// Settlement history is stored inline in the dena_pawna_items document.
   /// Each settlement gets a deterministic ID for idempotency.
+  ///
+  /// CRITICAL ACCOUNTING RULE:
+  /// - Dena (borrow) settlement = money I PAY → must increase Total Spent
+  ///   AND decrease Remaining (exactly once each)
+  /// - Pawna (lend) settlement = money I RECEIVE → increases Remaining
+  ///   but does NOT increase Total Spent (it's income, not expense)
+  ///
+  /// To satisfy both rules:
+  /// - For Dena settlements, we write to financial_transactions (source:
+  ///   'dena_payment') so Total Spent includes it
+  /// - For Pawna settlements, we do NOT write to financial_transactions
+  ///   (it's already handled by the UI's adjusted remaining calculation)
   static Future<void> settleDenaPawna(
     String id, {
     required double settleAmount,
@@ -735,6 +755,8 @@ class FinancialService {
     }
 
     final amount = (data['amount'] as num?)?.toDouble() ?? 0;
+    final type = data['type']?.toString() ?? 'lend';
+    final personName = data['personName']?.toString() ?? '';
     final currentOutstanding =
         (data['outstandingAmount'] as num?)?.toDouble() ?? amount;
 
@@ -746,8 +768,10 @@ class FinancialService {
     final isFullySettled = newOutstanding <= 0.001;
     final newStatus =
         isFullySettled ? 'settled' : 'partially_settled';
-    final settlementId =
-        'settlement_${id}_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Deterministic settlement ID for idempotency
+    final settlementId = '${id}_${dateKey(DateTime.now())}_'
+        '${DateTime.now().millisecondsSinceEpoch}';
 
     final settlementRecord = {
       'id': settlementId,
@@ -759,7 +783,10 @@ class FinancialService {
     final existingSettlements =
         (data['settlements'] as List<dynamic>?) ?? [];
 
-    await db.collection('dena_pawna_items').doc(id).update({
+    final batch = db.batch();
+
+    // Update the dena_pawna_items document with new settlement
+    batch.update(db.collection('dena_pawna_items').doc(id), {
       'outstandingAmount': isFullySettled ? 0.0 : newOutstanding,
       'status': newStatus,
       'settled': isFullySettled,
@@ -767,6 +794,39 @@ class FinancialService {
       if (isFullySettled) 'settledAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // CRITICAL: Only Dena (borrow) settlements increase Total Spent.
+    // type == 'borrow' means "I owe money" → paying it = cash outflow = expense
+    // type == 'lend' means "someone owes me" → receiving = cash inflow = NOT expense
+    if (type == 'borrow') {
+      // Write to financial_transactions so Total Spent includes this payment.
+      // Uses a deterministic ID based on settlement to prevent duplicates.
+      final financialRef = db
+          .collection('financial_transactions')
+          .doc(transactionId('dena_payment', settlementId));
+
+      batch.set(
+        financialRef,
+        {
+          ..._financialData(
+            type: 'expense',
+            source: 'dena_payment',
+            sourceRecordId: settlementId,
+            category: 'Dena Paid',
+            title: 'Paid $personName',
+            amount: settleAmount,
+            date: DateTime.now(),
+          ),
+          'denaPawnaId': id,
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+      );
+    }
+
+    await batch.commit();
+
+    // Trigger budget refresh so Overview updates immediately
+    notifyBudgetChanged();
   }
 
   static Future<void> deleteDenaPawna(String id) async {

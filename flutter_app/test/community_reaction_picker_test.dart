@@ -3,7 +3,6 @@
 // Covers: reaction message encoding, reaction message detection,
 // picker opens, picker shows locked reactions, and picker selects.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gochano/core/localization/gochano_language.dart';
@@ -23,15 +22,6 @@ bool isReactionMessage(String text) => text.startsWith('react:');
 
 /// Extracts the emoji from a reaction message.
 String reactionEmoji(String text) => text.split(':').last;
-
-/// Wraps [child] in the same minimal MaterialApp tree used by the picker.
-Widget _wrap(Widget child) => MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => child,
-        ),
-      ),
-    );
 
 // ---------------------------------------------------------------------------
 // Tests

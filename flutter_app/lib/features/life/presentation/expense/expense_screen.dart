@@ -12,6 +12,10 @@
 // Historical data is NOT deleted when the History tab is removed — it remains
 // accessible through the Overview tab's Recent section and all financial
 // calculations (monthStream, dayStream, etc.) continue to include it.
+//
+// TAB SWITCHING FIX: Uses AutomaticKeepAliveClientMixin for tab bodies
+// to prevent state loss during tab switches. Each tab preserves its own
+// scroll position and data when switching between tabs.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -53,10 +57,14 @@ class _ExpenseScreenState extends State<ExpenseScreen>
   }
 
   void _onTabChanged() {
+    // Refresh overview when switching to it to ensure latest data
     if (_tabs.index == 3) {
       _overviewKey.currentState?.refresh();
     }
-    setState(() {});
+    // Use addPostFrameCallback to avoid setState during animation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _onLanguageChange() {
@@ -96,10 +104,10 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       body: TabBarView(
         controller: _tabs,
         children: [
-          _DailyTab(),
-          GroceryTab(),
-          DenaPawnaTab(onChanged: _onExpenseAdded),
-          OverviewTab(key: _overviewKey),
+          _KeepAliveTab(child: _DailyTab()),
+          _KeepAliveTab(child: GroceryTab()),
+          _KeepAliveTab(child: DenaPawnaTab(onChanged: _onExpenseAdded)),
+          _KeepAliveTab(child: OverviewTab(key: _overviewKey)),
         ],
       ),
       floatingActionButton: _buildFab(),
@@ -112,6 +120,7 @@ class _ExpenseScreenState extends State<ExpenseScreen>
 
     if (isDenaPawna) {
       return FloatingActionButton.extended(
+        heroTag: 'expense-fab',
         onPressed: () async {
           final saved = await showDenaPawnaSheet(
             context,
@@ -125,6 +134,7 @@ class _ExpenseScreenState extends State<ExpenseScreen>
     }
 
     return FloatingActionButton.extended(
+      heroTag: 'expense-fab',
       onPressed: () async {
         if (isGrocery) {
           final sessionId = FinancialService.bazarSessionId(DateTime.now());
@@ -141,6 +151,27 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       icon: const Icon(Icons.receipt_long_rounded),
       label: Text(GochanoLanguage.text('Add expense', 'খরচ যোগ করুন')),
     );
+  }
+}
+
+/// Wrapper that preserves child state during tab switches.
+class _KeepAliveTab extends StatefulWidget {
+  const _KeepAliveTab({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveTab> createState() => _KeepAliveTabState();
+}
+
+class _KeepAliveTabState extends State<_KeepAliveTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 

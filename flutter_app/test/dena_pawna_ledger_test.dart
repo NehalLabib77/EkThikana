@@ -56,8 +56,8 @@ void main() {
     });
 
     test('settlement ID is deterministic for idempotency', () {
-      expect(source, contains('settlement_'));
-      expect(source, contains('DateTime.now().millisecondsSinceEpoch'));
+      expect(source, contains('dateKey(DateTime.now())'));
+      expect(source, contains("'id': settlementId"));
     });
 
     test('deleteDenaPawna checks ownership before delete', () {
