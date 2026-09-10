@@ -12,7 +12,9 @@
 //   3. We call TelecomAuthService.checkSubscription(phone):
 //        - REGISTERED               -> home shell (no OTP)
 //        - INITIAL CHARGING PENDING -> home shell (no OTP)
-//        - anything else            -> OtpVerifyScreen
+//        - TEMPORARY BLOCKED        -> blocked message (no OTP)
+//        - UNKNOWN / malformed      -> recoverable error (no OTP)
+//        - NOT SUBSCRIBED           -> OTP flow
 //   4. The home path goes through
 //      exchangeSubscriptionForFirebaseSession + enterSession so
 //      FirebaseAuth.currentUser is real and verified() in
@@ -253,6 +255,47 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // TEMPORARY BLOCKED — carrier reports subscription suspended.
+    // Do NOT send OTP. Do NOT authenticate. Show recovery message.
+    if (result.status == TelecomSubscriptionStatus.temporaryBlocked) {
+      debugPrint('[LoginScreen] branch: TEMPORARY_BLOCKED → blocked message');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _acknowledgementMessage = GochanoLanguage.text(
+            'Your subscription is temporarily blocked. Please try again later or check your carrier subscription.',
+            'আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা অপারেটরের সাবস্ক্রিপশন অবস্থা যাচাই করুন।',
+          );
+        });
+      }
+      return;
+    }
+
+    // Unknown / malformed carrier response — fail closed.
+    // Do NOT send OTP. Do NOT authenticate. Show recoverable error.
+    if (result.status == TelecomSubscriptionStatus.unknown) {
+      debugPrint('[LoginScreen] branch: UNKNOWN → recoverable error');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _acknowledgementMessage = GochanoLanguage.text(
+            'We could not confirm your subscription status. Please try again later or check your carrier subscription.',
+            'আপনার সাবস্ক্রিপশন অবস্থা নিশ্চিত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা অপারেটরের সাবস্ক্রিপশন অবস্থা যাচাই করুন।',
+          );
+        });
+      }
+      return;
+    }
+
+    // Only NOT SUBSCRIBED may proceed to OTP. All other statuses
+    // (registered, pending, blocked, unknown, alreadyRegistered)
+    // are handled above or fail closed here.
+    if (!result.maySendOtp) {
+      debugPrint('[LoginScreen] branch: ${result.status} → no OTP');
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+
     // PART 30: Propagation guard — if the same phone was recently
     // OTP-verified and subscription is still NOT SUBSCRIBED, the
     // carrier may be propagating. Show a message instead of resending OTP.
@@ -275,15 +318,220 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
 
-    // Not subscribed yet — drop into the OTP screen.
-    debugPrint('[LoginScreen] branch: SEND_OTP → navigate to OTP screen');
+    // Not subscribed yet — request OTP FIRST, then push OTP screen
+    // only if a valid referenceNo is obtained. This prevents showing
+    // the OTP UI when the carrier refuses to issue an OTP.
+    debugPrint('[LoginScreen] branch: SEND_OTP → request OTP first');
     if (!mounted) return;
-    setState(() => _busy = false);
+    setState(() {
+      _busy = true;
+      _busyMessage = GochanoLanguage.text(
+        'Sending verification code…',
+        'ভেরিফিকেশন কোড পাঠানো হচ্ছে…',
+      );
+    });
+
+    String? referenceNo;
+    try {
+      referenceNo = await TelecomAuthService.sendOtp(phone);
+    } on TelecomAuthException catch (e) {
+      _showError(e.message);
+      if (mounted) setState(() => _busy = false);
+      return;
+    } catch (_) {
+      _showError(GochanoLanguage.text(
+        'Could not send the verification code. Please try again.',
+        'ভেরিফিকেশন কোড পাঠানো যায়নি। আবার চেষ্টা করুন।',
+      ));
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    if (!mounted) return;
+
+    // sendOtp returns kAlreadySubscribedSentinel when the carrier reports
+    // "already registered" AND re-check confirms REGISTERED/ICP.
+    // Perform authenticated entry directly — do NOT open OTP screen.
+    if (referenceNo == TelecomAuthService.kAlreadySubscribedSentinel) {
+      debugPrint('[LoginScreen] sendOtp returned already-subscribed sentinel');
+      await TelecomAuthService.setRecentlyVerified(phone: phone);
+
+      // Re-check subscription and perform authenticated entry
+      final TelecomSubscriptionResult recheck;
+      try {
+        recheck = await TelecomAuthService.checkSubscription(phone);
+      } on TelecomAuthException catch (e) {
+        _showError(e.message);
+        if (mounted) setState(() => _busy = false);
+        return;
+      } catch (_) {
+        _showError(GochanoLanguage.text(
+          'Network error. Please check your connection and try again.',
+          'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
+        ));
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+      if (!mounted) return;
+
+      if (recheck.isAlreadySubscribed) {
+        // Carrier has settled — perform normal authenticated entry
+        debugPrint('[LoginScreen] re-check: REGISTERED → authenticated entry');
+        await _performAuthenticatedEntry(phone, recheck);
+        return;
+      }
+
+      // Re-check still NOT SUBSCRIBED — carrier propagation inconsistency
+      debugPrint('[LoginScreen] re-check: NOT SUBSCRIBED → activation message');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _acknowledgementMessage = GochanoLanguage.text(
+            'Your subscription is activating. Please try again shortly.',
+            'আপনার সাবস্ক্রিপশন সক্রিয় হচ্ছে। একটু পরে আবার চেষ্টা করুন।',
+          );
+        });
+      }
+      return;
+    }
+
+    // Valid referenceNo obtained — safe to push OTP screen
+    if (mounted) setState(() => _busy = false);
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => OtpVerifyScreen(phone: phone),
+        builder: (_) => OtpVerifyScreen(
+          phone: phone,
+          referenceNo: referenceNo!,
+        ),
       ),
     );
+  }
+
+  /// Perform the normal authenticated entry flow for a subscribed user.
+  /// Used by both the REGISTERED shortcut and the already-registered recovery.
+  Future<void> _performAuthenticatedEntry(
+    String phone,
+    TelecomSubscriptionResult subscription,
+  ) async {
+    await TelecomAuthService.clearRecentlyVerified();
+
+    final TelecomFirebaseExchange exchange;
+    try {
+      exchange =
+          await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
+        phone: phone,
+        subscriptionStatus: subscription.rawStatus,
+      );
+    } on TelecomAuthException catch (e) {
+      _showError(e.message);
+      if (mounted) setState(() => _busy = false);
+      return;
+    } catch (_) {
+      _showError(GochanoLanguage.text(
+        'Could not link your number to Gochano. Please try again later.',
+        'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+      ));
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    if (!mounted) return;
+
+    try {
+      await TelecomAuthService.enterSession(
+        phone: phone,
+        exchange: exchange,
+      );
+    } on TelecomAuthException catch (e) {
+      _showError(e.message);
+      if (mounted) setState(() => _busy = false);
+      return;
+    } catch (_) {
+      _showError(GochanoLanguage.text(
+        'Could not sign you in. Please try again.',
+        'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
+      ));
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    if (!mounted) return;
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      _showError(GochanoLanguage.text(
+        'Sign-in incomplete. Please try again.',
+        'সাইন-ইন সম্পন্ন হয়নি। আবার চেষ্টা করুন।',
+      ));
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+
+    try {
+      await currentUser.getIdToken(true);
+    } catch (_) {
+      // Best-effort token refresh
+    }
+
+    final profileState = await FirestoreService.checkProfileState();
+    if (!mounted) return;
+
+    if (profileState == ProfileCheckResult.error) {
+      _showError(GochanoLanguage.text(
+        'Could not load your profile. Please try again.',
+        'আপনার প্রোফাইল লোড করা যায়নি। আবার চেষ্টা করুন।',
+      ));
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _acknowledgementMessage = GochanoLanguage.text(
+          'We see you\'re already subscribed — taking you in.',
+          'আপনার সাবস্ক্রিপশন ইতোমধ্যে চালু আছে — সরাসরি ভেতরে নিয়ে যাচ্ছি।',
+        );
+        _busyMessage = GochanoLanguage.text(
+          'Taking you in…',
+          'আপনাকে প্রবেশ করানো হচ্ছে…',
+        );
+      });
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          GochanoLanguage.text(
+            'Taking you in…',
+            'আপনাকে প্রবেশ করানো হচ্ছে…',
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1200),
+      ),
+    );
+    await Future.delayed(const Duration(milliseconds: 1200));
+
+    if (!mounted) return;
+
+    switch (profileState) {
+      case ProfileCheckResult.exists:
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => GochanoShell(
+              role: 'student',
+              displayName: phone,
+            ),
+          ),
+          (_) => false,
+        );
+      case ProfileCheckResult.missing:
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => ProfileSetupScreen(phone: phone),
+          ),
+          (_) => false,
+        );
+      case ProfileCheckResult.error:
+        break;
+    }
   }
 
   void _showError(String message) {

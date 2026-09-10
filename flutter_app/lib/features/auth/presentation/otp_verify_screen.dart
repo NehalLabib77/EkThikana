@@ -1,25 +1,19 @@
 // OTP verification for the Robi / Cirkle telecom login.
 //
 // Behavior contract (spec §6 + PART 30 — corrected):
-//   * The user came here from `LoginScreen` because their subscription
-//     was not yet REGISTERED. They must enter the code that was sent to
-//     the phone they just typed.
+//   * The user came here from `LoginScreen` AFTER sendOtp successfully
+//     returned a valid referenceNo. The OTP screen is ONLY pushed when
+//     a real OTP has been issued — never before.
 //   * The page is full-screen with a back arrow in the app bar so the
 //     user can go back to the phone screen with one tap.
 //   * A 240s countdown tells them when they can resend the code.
 //   * The user can tap "Wrong number? Change number" to go back without
 //     re-typing the phone number.
-//   * Shortcut: if /send_otp.php returns "already registered" AND a
-//     follow-up /check_subscription.php confirms the number is in a
-//     subscribed state (REGISTERED or INITIAL CHARGING PENDING), we
-//     set the recentlyVerified marker and return to LoginScreen so the
-//     normal subscription flow handles entry — see
-//     [TelecomAuthService.kAlreadySubscribedSentinel].
 //   * On success (PART 30 — corrected): the OTP is permanently consumed.
 //     We immediately attempt the normal authenticated entry flow:
 //       1. check_subscription → REGISTERED/INITIAL CHARGING PENDING
 //       2. exchangeSubscriptionForFirebaseSession
-//       3. signInToFirebaseWithCustomToken + getIdToken(true)
+//       3. signInWithCustomToken + getIdToken(true)
 //       4. profile check → Home/ProfileSetup
 //     If ALL post-OTP steps succeed, enter the app directly.
 //     If ANY post-OTP step fails (network, Firebase, backend, profile):
@@ -30,6 +24,11 @@
 //         EN: "Number verified. Please sign in again."
 //         BN: "নম্বর যাচাই হয়েছে। আবার সাইন ইন করুন।"
 //   * On failure we keep them on this screen with an inline error.
+//
+// NOTE: "user already registered" recovery is handled by LoginScreen
+// BEFORE this screen is ever pushed. LoginScreen calls sendOtp() and
+// if the carrier returns "already registered", LoginScreen performs
+// the authenticated entry directly. This screen never sees that case.
 
 import 'dart:async';
 
@@ -51,9 +50,18 @@ import 'login_screen.dart';
 import 'profile_setup_screen.dart';
 
 class OtpVerifyScreen extends StatefulWidget {
-  const OtpVerifyScreen({super.key, required this.phone});
+  const OtpVerifyScreen({
+    super.key,
+    required this.phone,
+    required this.referenceNo,
+  });
 
   final String phone;
+
+  /// The referenceNo obtained from a successful sendOtp call.
+  /// The OTP screen is ONLY pushed after sendOtp succeeds, so this
+  /// is always non-null and valid.
+  final String referenceNo;
 
   @override
   State<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
@@ -68,7 +76,6 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
 
   String? _referenceNo;
   String? _errorText;
-  bool _sending = false;
   bool _verifying = false;
   Timer? _ticker;
   Duration _remaining = _otpTimer;
@@ -76,7 +83,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
   @override
   void initState() {
     super.initState();
-    _requestOtp();
+    _referenceNo = widget.referenceNo;
+    _startTimer();
+    _otpFocus.requestFocus();
   }
 
   @override
@@ -85,58 +94,6 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     _otpController.dispose();
     _otpFocus.dispose();
     super.dispose();
-  }
-
-  Future<void> _requestOtp() async {
-    if (_sending) return;
-    setState(() {
-      _sending = true;
-      _errorText = null;
-    });
-    try {
-      final ref = await TelecomAuthService.sendOtp(widget.phone);
-        if (ref == TelecomAuthService.kAlreadySubscribedSentinel) {
-        // PART 30: The carrier reports the number as already subscribed.
-        // Instead of entering the shell directly, set the recentlyVerified
-        // marker and navigate back to LoginScreen so the normal
-        // subscription check flow handles it.
-        if (!mounted) return;
-        await TelecomAuthService.setRecentlyVerified(phone: widget.phone);
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              GochanoLanguage.text(
-                'Number verified. Sign in with your number.',
-                'নম্বর যাচাই হয়েছে। আপনার নম্বর দিয়ে সাইন ইন করুন।',
-              ),
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-
-        if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (_) => false,
-        );
-        return;
-      }
-      _referenceNo = ref;
-      _startTimer();
-      _otpFocus.requestFocus();
-    } on TelecomAuthException catch (e) {
-      _errorText = e.message;
-    } catch (_) {
-      _errorText = GochanoLanguage.text(
-        'Could not send the verification code. Please try again.',
-        'ভেরিফিকেশন কোড পাঠানো যায়নি। আবার চেষ্টা করুন।',
-      );
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
   }
 
   void _startTimer() {
@@ -393,7 +350,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     final colors = context.colors;
     final type = context.type;
 
-    final canResend = _remaining <= Duration.zero && !_sending;
+    final canResend = _remaining <= Duration.zero;
 
     return GochanoScaffold(
       appBar: GochanoAppBar(
@@ -444,7 +401,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     TextFormField(
                       controller: _otpController,
                       focusNode: _otpFocus,
-                      enabled: !_verifying && !_sending,
+                      enabled: !_verifying,
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -468,55 +425,32 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                       onFieldSubmitted: (_) => _verify(),
                     ),
                     const SizedBox(height: GochanoSpacing.sm),
-                    if (_sending)
-                      Row(
-                        children: [
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          ),
-                          const SizedBox(width: GochanoSpacing.xs),
-                          Text(
-                            GochanoLanguage.text(
-                              'Sending code…',
-                              'কোড পাঠানো হচ্ছে…',
-                            ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 16,
+                          color: colors.textSecondary,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            canResend
+                                ? GochanoLanguage.text(
+                                    'You can resend the code now.',
+                                    'আপনি এখন নতুন কোড চাইতে পারেন।',
+                                  )
+                                : GochanoLanguage.text(
+                                    'Resend code in ${_remainingLabel()}',
+                                    '${_remainingLabel()} পর আবার কোড নিন',
+                                  ),
                             style: type.caption.copyWith(
                               color: colors.textSecondary,
                             ),
                           ),
-                        ],
-                      )
-                    else
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.timer_outlined,
-                            size: 16,
-                            color: colors.textSecondary,
-                          ),
-                          const SizedBox(width: GochanoSpacing.xs),
-                          Expanded(
-                            child: Text(
-                              canResend
-                                  ? GochanoLanguage.text(
-                                      'You can resend the code now.',
-                                      'আপনি এখন নতুন কোড চাইতে পারেন।',
-                                    )
-                                  : GochanoLanguage.text(
-                                      'Resend code in ${_remainingLabel()}',
-                                      '${_remainingLabel()} পর আবার কোড নিন',
-                                    ),
-                              style: type.caption.copyWith(
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -527,9 +461,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                         'Verifying…', 'যাচাই হচ্ছে…')
                     : GochanoLanguage.text(
                         'Verify', 'যাচাই করুন'),
-                onPressed: (_verifying || _sending)
-                    ? null
-                    : _verify,
+                onPressed: _verifying ? null : _verify,
                 icon: Icons.check_circle_outline_rounded,
               ),
               const SizedBox(height: GochanoSpacing.md),
@@ -537,24 +469,13 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                 children: [
                   Flexible(
                     child: TextButton.icon(
-                      onPressed:
-                          (_sending || _verifying)
-                              ? null
-                              : _requestOtp,
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: Text(
-                        GochanoLanguage.text(
-                          'Resend code',
-                          'আবার কোড পাঠান',
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Flexible(
-                    child: TextButton.icon(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _verifying
+                          ? null
+                          : () {
+                              // Pop back to LoginScreen — user can retry
+                              // the full flow (checkSubscription + sendOtp)
+                              Navigator.of(context).pop();
+                            },
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: Text(
                         GochanoLanguage.text(

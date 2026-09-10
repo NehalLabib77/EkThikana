@@ -9040,3 +9040,288 @@ PHASE 8 STATUS: BLOCKED — DEVICE RE-TEST REQUIRED
 **Automated validation:** flutter analyze 0 issues, 879/879 Flutter tests, 486/486 backend tests.
 **Device testing:** PENDING — DEVICE UNAVAILABLE. Fresh debug build + physical device test required.
 **Deployment:** NOT performed. Awaiting user authorization.
+
+---
+
+# AUTH ROOT-CAUSE TRACE — Diagnostic Phase
+
+## 1. Problem Statement
+
+**Observed behavior (real device, Robi 018 registered subscriber):**
+
+```
+Login → checkSubscription → classified NOT SUBSCRIBED
+→ sendOtp → carrier says "user already registered"
+→ subscription re-check → still classified NOT SUBSCRIBED
+→ LoginScreen activation message
+```
+
+**Expected behavior:**
+
+```
+Login → checkSubscription → REGISTERED
+→ NO sendOtp → NO OTP screen
+→ /v1/auth/telecom/exchange → Firebase → Home
+```
+
+**Root cause hypothesis:** The Flutter `_readSubscriptionStatus()` parser checks 6 field paths in the bdApps JSON response. None of them match the actual response shape returned by `check_subscription.php` for a registered 018 number. The raw response body was never logged — zero visibility into what bdApps actually returns.
+
+## 2. Request Contract (Verified from Source)
+
+| Contract | Value | Source |
+|----------|-------|--------|
+| HTTP method | POST | `_safeFormPost` → `http.post()` |
+| Endpoint | `https://www.bdappsdigitalapps.com/NADB26122_Final/check_subscription.php` | `baseUrl + '/check_subscription.php'` |
+| Content type | form-encoded | `http.post(uri, body: {'user_mobile': phone})` |
+| Parameter name | `user_mobile` | `{'user_mobile': normalized}` |
+| Timeout | 10 seconds | `checkSubscriptionTimeout` |
+| Phone normalization | `018xxxxxxxx` (11-digit, no +880) | `normalize()` strips +880/880 prefix |
+
+**Backend uses identical contract:**
+```python
+# backend/app/routers/telecom.py:82-84
+resp = await client.post(
+    CHECK_SUBSCRIPTION_URL,       # same bdApps endpoint
+    data={"user_mobile": phone},  # same param name
+)
+```
+
+## 3. Response Parser (Current, 6 Field Paths)
+
+`_readSubscriptionStatus()` tries these paths in order:
+
+| # | Path | Status |
+|---|------|--------|
+| 1 | `decoded['subscriptionStatus']` | Canonical |
+| 2 | `dataMap['subscriptionStatus']` | Nested canonical |
+| 3 | `decoded['status']` | Top-level shorthand |
+| 4 | `dataMap['status']` | Nested shorthand |
+| 5 | `decoded['subscription_status']` | Snake-case |
+| 6 | `dataMap['subscription_status']` | Nested snake-case |
+
+**If none match → returns null → classified NOT_SUBSCRIBED.**
+
+## 4. Diagnostic Logging Added
+
+**File:** `flutter_app/lib/core/services/telecom_auth_service.dart`
+
+### `checkSubscription()` — diagnostic block
+
+```
+[TelecomAuth] checkSubscription ──────────────────────────────────
+[TelecomAuth]   request:  POST https://...check_subscription.php
+[TelecomAuth]   param:    user_mobile="018***78"
+[TelecomAuth]   timeout:  10s
+[TelecomAuth] ─────────────────────────────────────────────────────
+[TelecomAuth] checkSubscription ── raw response ─────────────────
+[TelecomAuth]   HTTP 200
+[TelecomAuth]   body_len=XXX
+[TelecomAuth]   body="{...}"
+[TelecomAuth] ─────────────────────────────────────────────────────
+[TelecomAuth] checkSubscription ── result ───────────────────────
+[TelecomAuth]   status=...
+[TelecomAuth]   shouldEnterApp=...
+[TelecomAuth]   rawStatus="..."
+```
+
+### `_readSubscriptionStatus()` — diagnostic block
+
+```
+[TelecomAuth] _readSubscriptionStatus ── JSON shape ──────────────
+[TelecomAuth]   runtimeType=...
+[TelecomAuth]   top-level keys=[...]
+[TelecomAuth]   data keys=[...]
+[TelecomAuth] _readSubscriptionStatus ── candidates ──────────────
+[TelecomAuth]   decoded.subscriptionStatus = "..." (String)
+[TelecomAuth]   data.subscriptionStatus = null
+[TelecomAuth]   decoded.status = null
+[TelecomAuth]   data.status = null
+[TelecomAuth]   decoded.subscription_status = null
+[TelecomAuth]   data.subscription_status = null
+[TelecomAuth] _readSubscriptionStatus: MATCHED ... → "..."
+[TelecomAuth] _readSubscriptionStatus: NO MATCH found in body
+```
+
+### Security
+
+- Phone masked in request log: `018***78`
+- No OTP, Firebase tokens, Authorization headers, or secrets logged
+- Carrier response body logged (safe — contains only phone status, no secrets)
+- All logging guarded by `kReleaseMode` — no-op in release builds
+
+## 5. Validation
+
+| Check | Result |
+|-------|--------|
+| flutter analyze | **0 issues** |
+| flutter test | **879/879 passed** |
+| Parser changes | **NONE** — no aliases added, no logic changed |
+| Backend changes | **NONE** — not modified |
+| Firebase rules | **NONE** — not modified |
+| Firestore indexes | **NONE** — not modified |
+
+## 6. Device Re-Test Protocol
+
+**Fresh debug build required:**
+```
+flutter run --debug
+```
+
+**Test procedure:**
+1. Enter registered 018 number
+2. Tap Continue
+3. Copy the COMPLETE `[TelecomAuth] checkSubscription...` log block
+4. Paste to developer
+
+**Expected diagnostic output will reveal:**
+- Exact bdApps response body
+- All JSON keys in the response
+- Which field paths matched (or didn't match)
+- Why the parser fell through to NOT_SUBSCRIBED
+
+## 7. Next Steps (Blocked on Device)
+
+| Step | Status |
+|------|--------|
+| Capture raw bdApps response | **BLOCKED — DEVICE UNAVAILABLE** |
+| Identify actual response field name | PENDING (after capture) |
+| Fix `_readSubscriptionStatus()` parser | PENDING (after identification) |
+| Add test fixtures with exact response shape | PENDING (after fix) |
+| Device re-test: 018 registered → HOME | PENDING |
+| Remove/reduce diagnostic logging | COMPLETED |
+
+```
+AUTH ROOT-CAUSE TRACE STATUS: ROOT CAUSE FIXED — AWAITING DEVICE RE-TEST
+```
+
+---
+
+# AUTH ROOT-CAUSE FIX — TEMPORARY BLOCKED Classification
+
+## 1. Captured Real bdApps Response (Robi 018 registered subscriber)
+
+```json
+{
+  "subscriptionStatus": "TEMPORARY BLOCKED",
+  "isSubscribed": false,
+  "statusCode": "S1000",
+  "statusDetail": "Request was successfully processed.",
+  "version": "1.0"
+}
+```
+
+## 2. Root Cause
+
+The parser was reading the correct field (`subscriptionStatus`), but the semantic
+classification was wrong:
+
+- `TEMPORARY BLOCKED` → fell through to `notSubscribed`
+- `notSubscribed` → triggered OTP flow
+- `send_otp` → carrier said "user already registered"
+- re-check → still `TEMPORARY BLOCKED` → still `notSubscribed`
+- Infinite loop / activation message
+
+**S1000 only means the request was processed. It does NOT override `subscriptionStatus`.**
+
+## 3. Request Contract (Verified)
+
+| Contract | Value |
+|----------|-------|
+| Method | POST |
+| Endpoint | `https://www.bdappsdigitalapps.com/NADB26122_Final/check_subscription.php` |
+| Content-Type | form-encoded |
+| Parameter | `user_mobile` |
+| Timeout | 10s |
+
+## 4. Code Changes
+
+### `telecom_auth_service.dart`
+
+- Added `temporaryBlocked` to `TelecomSubscriptionStatus` enum
+- Added `maySendOtp` getter: `true` only for `NOT SUBSCRIBED`
+- Added `unknown` static result for fail-closed states
+- `_parseSubscriptionResponse()` now maps:
+  - `REGISTERED` → registered (enter app)
+  - `INITIAL CHARGING PENDING` → initialChargingPending (enter app)
+  - `TEMPORARY BLOCKED` → temporaryBlocked (no OTP, no auth)
+  - `NOT SUBSCRIBED` → notSubscribed (OTP allowed)
+  - empty/null/malformed/unknown → unknown (fail closed, no OTP)
+- `rawStatus` now preserved for all parsed statuses (not just static constants)
+- `sendOtp` recheck now handles `temporaryBlocked` distinctly
+- Diagnostic logging: `kDebugMode` only, verbose raw body/candidate logs removed
+
+### `login_screen.dart`
+
+- Added `temporaryBlocked` branch (before propagation guard) with bilingual message
+- Added `unknown` branch (before propagation guard) with recoverable error message
+- Added `maySendOtp` guard: only `NOT SUBSCRIBED` proceeds to OTP
+- Updated flow comment to document all branches
+
+## 5. Subscription Status Mapping
+
+| Status | `status` | `shouldEnterApp` | `maySendOtp` |
+|--------|----------|------------------|--------------|
+| REGISTERED | registered | true | false |
+| INITIAL CHARGING PENDING | initialChargingPending | true | false |
+| NOT SUBSCRIBED | notSubscribed | false | **true** |
+| TEMPORARY BLOCKED | temporaryBlocked | false | false |
+| unknown/malformed | unknown | false | false |
+
+## 6. Tests Added
+
+| Test | What it verifies |
+|------|------------------|
+| A | TEMPORARY BLOCKED → `temporaryBlocked` state |
+| B | TEMPORARY BLOCKED → `shouldEnterApp` false |
+| C | TEMPORARY BLOCKED → `maySendOtp` false |
+| D | S1000 does NOT cause Home entry |
+| E | NOT SUBSCRIBED → `maySendOtp` true |
+| F | REGISTERED → Home auth flow |
+| G | INITIAL CHARGING PENDING → Home auth flow |
+| H | `rawStatus` preserves "TEMPORARY BLOCKED" |
+| I | Unknown state → no Home, no OTP |
+| LoginScreen | TEMPORARY BLOCKED branch before SEND_OTP |
+| LoginScreen | Unknown branch before SEND_OTP |
+| LoginScreen | `maySendOtp` guard before SEND_OTP |
+| Source contract | `temporaryBlocked`, `unknown`, `maySendOtp` exist |
+
+## 7. Validation
+
+| Check | Result |
+|-------|--------|
+| flutter analyze | **0 issues** |
+| flutter test | **900/900 passed** (21 new) |
+| Backend | **UNCHANGED** — no Render redeploy |
+| Firebase rules | **UNCHANGED** |
+| Firestore indexes | **UNCHANGED** |
+
+## 8. Expected Device Behavior (018 registered)
+
+```
+Continue
+→ check_subscription
+→ TEMPORARY BLOCKED
+→ stay on LoginScreen
+→ "Your subscription is temporarily blocked. Please try again later or check your carrier subscription."
+→ NO OTP screen
+→ NO authentication attempt
+```
+
+## 9. Device Re-Test Required
+
+```
+DEVICE RE-TEST: PENDING — DEVICE UNAVAILABLE
+```
+
+## 10. Commit/Push/Deploy Status
+
+| Action | Status |
+|--------|--------|
+| Commit | NOT DONE — awaiting user authorization |
+| Push to remote | NOT DONE — awaiting user authorization |
+| Backend deployment | NOT REQUIRED — no backend changes |
+| APK distribution | NOT DONE — awaiting user authorization |
+
+```
+AUTH ROOT-CAUSE FIX STATUS: COMPLETE — AWAITING DEVICE RE-TEST
+```

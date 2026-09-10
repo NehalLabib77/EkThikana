@@ -99,6 +99,7 @@ enum TelecomSubscriptionStatus {
   initialChargingPending,
   notSubscribed,
   alreadyRegistered,
+  temporaryBlocked,
   unknown,
 }
 
@@ -128,7 +129,12 @@ class TelecomSubscriptionResult {
   /// so call sites read as their intent rather than as a flag.
   bool get isAlreadySubscribed => shouldEnterApp;
 
-  /// The raw subscriptionStatus field as the backend returned it,
+  /// True only when the carrier explicitly reported `NOT SUBSCRIBED`.
+  /// Blocked, unknown, malformed, and network-failure states must never
+  /// be treated as permission to request an OTP.
+  bool get maySendOtp => status == TelecomSubscriptionStatus.notSubscribed;
+
+  /// The raw subscriptionStatus field as the carrier returned it,
   /// normalised with trim() + toUpperCase(). Empty when no field was
   /// present.
   final String rawStatus;
@@ -154,7 +160,7 @@ class TelecomSubscriptionResult {
   static const notSubscribed = TelecomSubscriptionResult(
     status: TelecomSubscriptionStatus.notSubscribed,
     shouldEnterApp: false,
-    rawStatus: '',
+    rawStatus: 'NOT SUBSCRIBED',
   );
 
   /// The /send_otp.php endpoint reported "E1351 already registered"
@@ -165,6 +171,22 @@ class TelecomSubscriptionResult {
     status: TelecomSubscriptionStatus.alreadyRegistered,
     shouldEnterApp: false,
     rawStatus: 'ALREADY REGISTERED',
+  );
+
+  /// Unknown or malformed carrier response — fail closed.
+  static const unknown = TelecomSubscriptionResult(
+    status: TelecomSubscriptionStatus.unknown,
+    shouldEnterApp: false,
+    rawStatus: '',
+  );
+
+  /// Carrier reports the subscription as TEMPORARY BLOCKED.
+  /// User is a known subscriber but service is suspended.
+  /// Do NOT send OTP. Do NOT authenticate. Show recovery message.
+  static const temporaryBlocked = TelecomSubscriptionResult(
+    status: TelecomSubscriptionStatus.temporaryBlocked,
+    shouldEnterApp: false,
+    rawStatus: 'TEMPORARY BLOCKED',
   );
 }
 
@@ -214,7 +236,7 @@ class TelecomAuthService {
   // -------------------------------------------------------------------
 
   static void _debugLog(String message) {
-    if (kReleaseMode) return;
+    if (!kDebugMode) return;
     debugPrint('[TelecomAuth] $message');
   }
 
@@ -324,22 +346,28 @@ class TelecomAuthService {
       );
     }
 
-    _debugLog('checkSubscription: phone="${_maskPhone(normalized)}"');
+    final endpoint = Uri.parse('$baseUrl/check_subscription.php');
+
+    _debugLog('checkSubscription: POST $endpoint '
+        'user_mobile="${_maskPhone(normalized)}" '
+        'timeout=${checkSubscriptionTimeout.inSeconds}s');
 
     final response = await _safeFormPost(
-      Uri.parse('$baseUrl/check_subscription.php'),
+      endpoint,
       {'user_mobile': normalized},
       checkSubscriptionTimeout,
     );
 
-    _debugLog('checkSubscription: HTTP ${response.statusCode}, '
+    _debugLog('checkSubscription: HTTP ${response.statusCode} '
         'body_len=${response.body.length}');
 
     final result = _parseSubscriptionResponse(response.body);
-    debugPrint(
-      '[TelecomAuth] checkSubscription result: status=${result.status}, '
-      'shouldEnterApp=${result.shouldEnterApp}, rawStatus="${result.rawStatus}"',
-    );
+
+    _debugLog('checkSubscription: status=${result.status} '
+        'shouldEnterApp=${result.shouldEnterApp} '
+        'maySendOtp=${result.maySendOtp} '
+        'rawStatus="${result.rawStatus}"');
+
     return result;
   }
 
@@ -402,42 +430,62 @@ class TelecomAuthService {
   static TelecomSubscriptionResult _parseSubscriptionResponse(String body) {
     final raw = _readSubscriptionStatus(body);
 
-    // Do NOT treat HTTP 200, success=true, S1000, empty status,
-    // unknown status, or any other signal as "already subscribed".
-    // Only the subscriptionStatus field value itself determines
-    // whether the user enters without OTP.
-    //
-    // Previously, statusCode S1000/E1351 shortcuts were checked here
-    // and returned `registered` — this bypassed the actual
-    // subscriptionStatus check and routed non-subscribed users
-    // straight into the app without OTP.
-
+    // Only the subscriptionStatus field value itself determines the
+    // subscription state. HTTP 200, S1000, isSubscribed, and other
+    // metadata must never override it.
     if (raw == null || raw.isEmpty) {
-      debugPrint(
-        '[TelecomAuth] checkSubscription: empty/null subscriptionStatus → NOT_SUBSCRIBED (OTP required)',
+      _debugLog(
+        'checkSubscription: empty/null subscriptionStatus → UNKNOWN (fail closed)',
       );
-      return TelecomSubscriptionResult.notSubscribed;
+      return TelecomSubscriptionResult.unknown;
     }
     final normalized = _normalizeSubscriptionStatus(raw);
 
-    debugPrint(
-      '[TelecomAuth] checkSubscription: subscriptionStatus="$normalized"',
+    _debugLog(
+      'checkSubscription: subscriptionStatus="$normalized"',
     );
 
     if (normalized == 'REGISTERED') {
-      debugPrint('[TelecomAuth] branch: REGISTERED → skip OTP, enter app');
-      return TelecomSubscriptionResult.registered;
+      _debugLog('checkSubscription: branch: REGISTERED → enter app');
+      return TelecomSubscriptionResult(
+        status: TelecomSubscriptionStatus.registered,
+        shouldEnterApp: true,
+        rawStatus: normalized,
+      );
     }
     if (normalized.contains('INITIAL CHARGING PENDING')) {
-      debugPrint(
-        '[TelecomAuth] branch: INITIAL_CHARGING_PENDING → skip OTP, enter app',
+      _debugLog(
+        'checkSubscription: branch: INITIAL_CHARGING_PENDING → enter app',
       );
-      return TelecomSubscriptionResult.initialChargingPending;
+      return TelecomSubscriptionResult(
+        status: TelecomSubscriptionStatus.initialChargingPending,
+        shouldEnterApp: true,
+        rawStatus: normalized,
+      );
+    }
+    if (normalized == 'TEMPORARY BLOCKED') {
+      _debugLog(
+        'checkSubscription: branch: TEMPORARY_BLOCKED → no OTP, no auth',
+      );
+      return TelecomSubscriptionResult.temporaryBlocked;
+    }
+    if (normalized == 'NOT SUBSCRIBED') {
+      _debugLog('checkSubscription: branch: NOT_SUBSCRIBED → OTP allowed');
+      return TelecomSubscriptionResult(
+        status: TelecomSubscriptionStatus.notSubscribed,
+        shouldEnterApp: false,
+        rawStatus: normalized,
+      );
     }
 
-    // NOT SUBSCRIBED / UNREGISTERED / any other state → OTP required.
-    debugPrint('[TelecomAuth] branch: "$normalized" → OTP required');
-    return TelecomSubscriptionResult.notSubscribed;
+    _debugLog(
+      'checkSubscription: branch: "$normalized" → UNKNOWN (fail closed, no OTP)',
+    );
+    return TelecomSubscriptionResult(
+      status: TelecomSubscriptionStatus.unknown,
+      shouldEnterApp: false,
+      rawStatus: normalized,
+    );
   }
 
   /// Reads the `subscriptionStatus` field from a JSON body. Returns the
@@ -454,33 +502,39 @@ class TelecomAuthService {
   ///   - `data.subscription_status` (nested snake_case)
   static String? _readSubscriptionStatus(String body) {
     final trimmed = body.trim();
-    if (trimmed.isEmpty) return null;
+    if (trimmed.isEmpty) {
+      _debugLog('_readSubscriptionStatus: EMPTY body');
+      return null;
+    }
     try {
       final decoded = json.decode(trimmed);
+
       if (decoded is Map) {
         final data = decoded['data'];
         final dataMap = data is Map ? data : null;
 
-        // Ordered by specificity: canonical names first, then aliases.
-        final candidates = <dynamic>[
-          decoded['subscriptionStatus'],
-          dataMap?['subscriptionStatus'],
-          decoded['status'],
-          dataMap?['status'],
-          decoded['subscription_status'],
-          dataMap?['subscription_status'],
+        final candidates = <(String, dynamic)>[
+          ('decoded.subscriptionStatus', decoded['subscriptionStatus']),
+          ('data.subscriptionStatus', dataMap?['subscriptionStatus']),
+          ('decoded.status', decoded['status']),
+          ('data.status', dataMap?['status']),
+          ('decoded.subscription_status', decoded['subscription_status']),
+          ('data.subscription_status', dataMap?['subscription_status']),
         ];
-        for (final c in candidates) {
+
+        for (final (path, c) in candidates) {
           if (c is String && c.trim().isNotEmpty) {
             final normalized = c.trim().toUpperCase();
-            _debugLog('_readSubscriptionStatus: found "$normalized"');
+            _debugLog('_readSubscriptionStatus: matched $path → "$normalized"');
             return normalized;
           }
         }
-        _debugLog('_readSubscriptionStatus: no status field found in body');
+        _debugLog('_readSubscriptionStatus: no subscriptionStatus field found');
+      } else {
+        _debugLog('_readSubscriptionStatus: decoded is not a Map');
       }
-    } catch (_) {
-      // Non-JSON body — fall through.
+    } catch (e) {
+      _debugLog('_readSubscriptionStatus: JSON decode FAILED: $e');
     }
     return null;
   }
@@ -642,13 +696,16 @@ class TelecomAuthService {
       // the PART 17 unsubscribe flow).
       final recheck = await pollSubscription(normalized);
       if (recheck.shouldEnterApp) {
-        // Sentinel — caller checks against
-        // [kAlreadySubscribedSentinel] to know it can skip OTP and
-        // call the Firebase exchange immediately.
         return kAlreadySubscribedSentinel;
       }
-      // Re-check still NOT SUBSCRIBED — carrier is likely propagating.
-      // Show activation message; do NOT send a duplicate OTP.
+      if (recheck.status == TelecomSubscriptionStatus.temporaryBlocked) {
+        throw TelecomAuthException(
+          GochanoLanguage.text(
+            'Your subscription is temporarily blocked. Please try again later or check your carrier subscription.',
+            'আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা অপারেটরের সাবস্ক্রিপশন অবস্থা যাচাই করুন।',
+          ),
+        );
+      }
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Your subscription is already being activated. Please try again shortly.',

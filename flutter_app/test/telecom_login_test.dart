@@ -96,7 +96,28 @@ void main() {
     test('notSubscribed result requires OTP', () {
       const r = TelecomSubscriptionResult.notSubscribed;
       expect(r.shouldEnterApp, isFalse);
+      expect(r.maySendOtp, isTrue);
       expect(r.status, TelecomSubscriptionStatus.notSubscribed);
+    });
+
+    test('temporaryBlocked result blocks app and OTP', () {
+      const r = TelecomSubscriptionResult.temporaryBlocked;
+      expect(r.shouldEnterApp, isFalse);
+      expect(r.maySendOtp, isFalse);
+      expect(r.status, TelecomSubscriptionStatus.temporaryBlocked);
+      expect(r.rawStatus, 'TEMPORARY BLOCKED');
+    });
+
+    test('unknown result fail-closed blocks OTP', () {
+      const r = TelecomSubscriptionResult.unknown;
+      expect(r.shouldEnterApp, isFalse);
+      expect(r.maySendOtp, isFalse);
+      expect(r.status, TelecomSubscriptionStatus.unknown);
+    });
+
+    test('registered/initial results must not allow OTP', () {
+      expect(TelecomSubscriptionResult.registered.maySendOtp, isFalse);
+      expect(TelecomSubscriptionResult.initialChargingPending.maySendOtp, isFalse);
     });
   });
 
@@ -105,7 +126,8 @@ void main() {
     // checkSubscription path is impossible without network mocking,
     // so we instead invoke it reflectively. The test surface is what
     // the rest of the app sees: ONLY a REGISTERED or INITIAL CHARGING
-    // PENDING user enters without OTP. All other statuses require OTP.
+    // PENDING user enters without OTP. NOT SUBSCRIBED allows OTP.
+    // Everything else (unknown, temp blocked, malformed) is fail-closed.
     TelecomSubscriptionResult r(String body) {
       return TelecomAuthService.parseSubscriptionResponseForTest(body);
     }
@@ -122,16 +144,19 @@ void main() {
           r('{"subscriptionStatus":"Initial-Charging-Pending"}').shouldEnterApp,
           isTrue);
     });
-    test('"ALREADY REGISTERED" requires OTP (not in the allowed list)', () {
+    test('"ALREADY REGISTERED" is fail-closed (not in the allowed list)', () {
       expect(r('{"subscriptionStatus":"Already Registered"}').shouldEnterApp,
           isFalse);
+      expect(r('{"subscriptionStatus":"Already Registered"}').maySendOtp,
+          isFalse);
     });
-    test('"ALREADY SUBSCRIBED" requires OTP (not in the allowed list)', () {
+    test('"ALREADY SUBSCRIBED" is fail-closed (not in the allowed list)', () {
       expect(r('{"subscriptionStatus":"ALREADY SUBSCRIBED"}').shouldEnterApp,
           isFalse);
     });
-    test('"ACTIVE" requires OTP (not in the allowed list)', () {
+    test('"ACTIVE" is fail-closed (not in the allowed list)', () {
       expect(r('{"subscriptionStatus":"ACTIVE"}').shouldEnterApp, isFalse);
+      expect(r('{"subscriptionStatus":"ACTIVE"}').maySendOtp, isFalse);
     });
     test('E1351 statusCode does NOT grant access (must check subscriptionStatus)', () {
       expect(
@@ -147,9 +172,84 @@ void main() {
     test('"NOT SUBSCRIBED" still requires OTP', () {
       expect(
           r('{"subscriptionStatus":"NOT SUBSCRIBED"}').shouldEnterApp, isFalse);
+      expect(
+          r('{"subscriptionStatus":"NOT SUBSCRIBED"}').maySendOtp, isTrue);
     });
-    test('empty body still requires OTP (safe default)', () {
-      expect(r('').shouldEnterApp, isFalse);
+    test('empty body is fail-closed (unknown, no OTP)', () {
+      final result = r('');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
+      expect(result.status, TelecomSubscriptionStatus.unknown);
+    });
+  });
+
+  group('TEMPORARY BLOCKED exact captured response (Robi 018)', () {
+    const fixture = '''{
+  "subscriptionStatus": "TEMPORARY BLOCKED",
+  "isSubscribed": false,
+  "statusCode": "S1000",
+  "statusDetail": "Request was successfully processed.",
+  "version": "1.0"
+}''';
+
+    TelecomSubscriptionResult r() =>
+        TelecomAuthService.parseSubscriptionResponseForTest(fixture);
+
+    test('A. TEMPORARY BLOCKED → temporaryBlocked state', () {
+      expect(r().status, TelecomSubscriptionStatus.temporaryBlocked);
+    });
+
+    test('B. TEMPORARY BLOCKED → shouldEnterApp is false', () {
+      expect(r().shouldEnterApp, isFalse);
+    });
+
+    test('C. TEMPORARY BLOCKED → maySendOtp is false', () {
+      expect(r().maySendOtp, isFalse);
+    });
+
+    test('D. S1000 does NOT cause Home entry', () {
+      expect(r().shouldEnterApp, isFalse);
+      expect(r().status, isNot(TelecomSubscriptionStatus.registered));
+    });
+
+    test('E. NOT SUBSCRIBED → maySendOtp is true', () {
+      final notSub = TelecomAuthService.parseSubscriptionResponseForTest(
+          '{"subscriptionStatus":"NOT SUBSCRIBED"}');
+      expect(notSub.maySendOtp, isTrue);
+      expect(notSub.shouldEnterApp, isFalse);
+    });
+
+    test('F. REGISTERED → Home auth flow', () {
+      final reg = TelecomAuthService.parseSubscriptionResponseForTest(
+          '{"subscriptionStatus":"REGISTERED"}');
+      expect(reg.shouldEnterApp, isTrue);
+      expect(reg.maySendOtp, isFalse);
+    });
+
+    test('G. INITIAL CHARGING PENDING → Home auth flow', () {
+      final icp = TelecomAuthService.parseSubscriptionResponseForTest(
+          '{"subscriptionStatus":"INITIAL CHARGING PENDING"}');
+      expect(icp.shouldEnterApp, isTrue);
+      expect(icp.maySendOtp, isFalse);
+    });
+
+    test('H. rawStatus preserves TEMPORARY BLOCKED', () {
+      expect(r().rawStatus, 'TEMPORARY BLOCKED');
+    });
+
+    test('I. unknown state → no Home, no OTP, recoverable error', () {
+      final unknown = TelecomAuthService.parseSubscriptionResponseForTest(
+          '{"subscriptionStatus":"ACTIVE"}');
+      expect(unknown.status, TelecomSubscriptionStatus.unknown);
+      expect(unknown.shouldEnterApp, isFalse);
+      expect(unknown.maySendOtp, isFalse);
+    });
+
+    test('malformed non-JSON → fail closed', () {
+      final bad = TelecomAuthService.parseSubscriptionResponseForTest('not json');
+      expect(bad.status, TelecomSubscriptionStatus.unknown);
+      expect(bad.shouldEnterApp, isFalse);
+      expect(bad.maySendOtp, isFalse);
     });
   });
 
@@ -263,6 +363,18 @@ void main() {
       expect(source, contains('_legacyPrefIsLoggedIn'));
       expect(source, contains("'telecom_isLoggedIn'"));
     });
+
+    test('TEMPORARY BLOCKED is a distinct state', () {
+      expect(source, contains('temporaryBlocked'));
+    });
+
+    test('unknown status is fail-closed', () {
+      expect(source, contains('TelecomSubscriptionStatus.unknown'));
+    });
+
+    test('maySendOtp getter exists', () {
+      expect(source, contains('maySendOtp'));
+    });
   });
 
   group('LoginScreen structural checks', () {
@@ -360,6 +472,44 @@ void main() {
       expect(propagationIndex, lessThan(sendOtpIndex),
           reason: 'Propagation guard must be checked before SEND_OTP branch');
     });
+
+    test('TEMPORARY BLOCKED branch appears before SEND_OTP', () {
+      final blockedIndex = screenSource.indexOf('temporaryBlocked');
+      final sendIndex = screenSource.indexOf('SEND_OTP');
+      expect(blockedIndex, greaterThanOrEqualTo(0));
+      expect(sendIndex, greaterThanOrEqualTo(0));
+      expect(blockedIndex, lessThan(sendIndex),
+          reason: 'TEMPORARY BLOCKED must block OTP before SEND_OTP branch');
+    });
+
+    test('TEMPORARY BLOCKED shows bilingual message', () {
+      expect(screenSource, contains('Your subscription is temporarily blocked'));
+      expect(screenSource, contains('আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে'));
+    });
+
+    test('TEMPORARY BLOCKED does not send OTP', () {
+      final blockedIndex = screenSource.indexOf('temporaryBlocked');
+      final sendIndex = screenSource.indexOf('SEND_OTP');
+      expect(blockedIndex, lessThan(sendIndex));
+    });
+
+    test('unknown status branch appears before SEND_OTP', () {
+      final unknownIndex = screenSource.indexOf('TelecomSubscriptionStatus.unknown');
+      final sendIndex = screenSource.indexOf('SEND_OTP');
+      expect(unknownIndex, greaterThanOrEqualTo(0));
+      expect(sendIndex, greaterThanOrEqualTo(0));
+      expect(unknownIndex, lessThan(sendIndex),
+          reason: 'Unknown status must fail closed before SEND_OTP branch');
+    });
+
+    test('maySendOtp guard appears before SEND_OTP', () {
+      final guardIndex = screenSource.indexOf('maySendOtp');
+      final sendIndex = screenSource.indexOf('SEND_OTP');
+      expect(guardIndex, greaterThanOrEqualTo(0));
+      expect(sendIndex, greaterThanOrEqualTo(0));
+      expect(guardIndex, lessThan(sendIndex),
+          reason: 'maySendOtp guard must be checked before SEND_OTP');
+    });
   });
 
   group('OtpVerifyScreen structural checks', () {
@@ -415,10 +565,13 @@ void main() {
       expect(screenSource, contains('_referenceNo = null'));
     });
 
-    test('PART 30: OTP success shows bilingual success message', () {
-      // The OTP screen must show a bilingual success message.
-      expect(screenSource, contains('Number verified. Sign in with your number.'));
-      expect(screenSource, contains('নম্বর যাচাই হয়েছে। আপনার নম্বর দিয়ে সাইন ইন করুন।'));
+    test('PART 30: already-registered recovery shows bilingual message in LoginScreen', () {
+      // The "already registered" recovery message is now in LoginScreen
+      // (not OtpVerifyScreen) since the recovery performs authenticated
+      // entry directly. Check LoginScreen for the activation message.
+      final loginSrc = _read('lib/features/auth/presentation/login_screen.dart');
+      expect(loginSrc, contains('Your subscription is activating'));
+      expect(loginSrc, contains('আপনার সাবস্ক্রিপশন সক্রিয় হচ্ছে'));
     });
 
     test('no longer relies on persistSession as the entrypoint', () {
@@ -431,12 +584,14 @@ void main() {
               'directly from OtpVerifyScreen');
     });
 
-    test('PART 30: kAlreadySubscribedSentinel returns to LoginScreen', () {
-      // When sendOtp returns kAlreadySubscribedSentinel, the OTP screen
-      // must navigate to LoginScreen, not enter the shell directly.
-      expect(screenSource, contains('kAlreadySubscribedSentinel'));
-      // Must store marker and navigate to LoginScreen
-      expect(screenSource, contains('setRecentlyVerified'));
+    test('PART 30: kAlreadySubscribedSentinel handled in LoginScreen', () {
+      // When sendOtp returns kAlreadySubscribedSentinel, LoginScreen
+      // handles the recovery directly — OtpVerifyScreen is never pushed.
+      final loginSrc = _read('lib/features/auth/presentation/login_screen.dart');
+      expect(loginSrc, contains('kAlreadySubscribedSentinel'));
+      expect(loginSrc, contains('setRecentlyVerified'));
+      // OtpVerifyScreen no longer handles kAlreadySubscribedSentinel
+      expect(screenSource, isNot(contains('kAlreadySubscribedSentinel')));
     });
   });
 
@@ -1665,16 +1820,25 @@ void main() {
       );
     });
 
-    test('empty status value falls through to notSubscribed', () {
-      expect(r('{"subscriptionStatus":""}').shouldEnterApp, isFalse);
+    test('empty status value is fail-closed (unknown)', () {
+      final result = r('{"subscriptionStatus":""}');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
+      expect(result.status, TelecomSubscriptionStatus.unknown);
     });
 
-    test('null status value falls through to notSubscribed', () {
-      expect(r('{"subscriptionStatus":null}').shouldEnterApp, isFalse);
+    test('null status value is fail-closed (unknown)', () {
+      final result = r('{"subscriptionStatus":null}');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
+      expect(result.status, TelecomSubscriptionStatus.unknown);
     });
 
-    test('numeric status falls through to notSubscribed', () {
-      expect(r('{"subscriptionStatus":123}').shouldEnterApp, isFalse);
+    test('numeric status is fail-closed (unknown)', () {
+      final result = r('{"subscriptionStatus":123}');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
+      expect(result.status, TelecomSubscriptionStatus.unknown);
     });
   });
 
@@ -1710,8 +1874,10 @@ void main() {
       expect(TelecomAuthService.isSupportedPhone('01812345678'), isTrue);
     });
 
-    test('E. 018 + empty subscriptionStatus → OTP required', () {
-      expect(r('{"subscriptionStatus":""}').shouldEnterApp, isFalse);
+    test('E. 018 + empty subscriptionStatus → fail-closed (unknown)', () {
+      final result = r('{"subscriptionStatus":""}');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
     });
   });
 
@@ -1741,8 +1907,10 @@ void main() {
       expect(TelecomAuthService.isSupportedPhone('01612345678'), isTrue);
     });
 
-    test('J. 016 + empty subscriptionStatus → OTP required', () {
-      expect(r('{"subscriptionStatus":""}').shouldEnterApp, isFalse);
+    test('J. 016 + empty subscriptionStatus → fail-closed (unknown)', () {
+      final result = r('{"subscriptionStatus":""}');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
     });
   });
 
@@ -1774,10 +1942,11 @@ void main() {
     });
 
     test('L. no direct GochanoShell navigation from send_otp error', () {
-      // The OTP screen must NOT navigate to GochanoShell when
-      // kAlreadySubscribedSentinel is returned. It must go to LoginScreen.
-      expect(otpSrc, contains('kAlreadySubscribedSentinel'));
-      expect(otpSrc, contains('LoginScreen()'));
+      // kAlreadySubscribedSentinel is now handled in LoginScreen (before
+      // OTP screen is pushed), not in OtpVerifyScreen.
+      expect(loginSrc, contains('kAlreadySubscribedSentinel'));
+      // OtpVerifyScreen must NOT reference kAlreadySubscribedSentinel
+      expect(otpSrc, isNot(contains('kAlreadySubscribedSentinel')));
     });
 
     test('M. no manual loggedIn SharedPreferences bypass', () {
