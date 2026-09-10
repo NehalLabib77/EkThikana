@@ -71,6 +71,10 @@ class _TaskFormState extends State<_TaskForm> {
   bool _saving = false;
   String? _error;
 
+  // Optional cross-module relationships (Phase 5).
+  String? _relatedNoteId;
+  String? _relatedMaterialId;
+
   bool get _isEdit => widget.existing != null;
 
   @override
@@ -79,6 +83,8 @@ class _TaskFormState extends State<_TaskForm> {
     final data = widget.existing?.data() ?? const <String, dynamic>{};
     _title = TextEditingController(text: data['title']?.toString() ?? '');
     _dueAt = (data['dueAt'] as Timestamp?)?.toDate();
+    _relatedNoteId = data['relatedNoteId']?.toString();
+    _relatedMaterialId = data['relatedMaterialId']?.toString();
     // For a new task, if the caller supplied a date (e.g. from Plan view's
     // selected day), pre-fill due time to 09:00 on that date so the task
     // shows up immediately in the correct day's list without the user having
@@ -190,6 +196,12 @@ class _TaskFormState extends State<_TaskForm> {
             _remindAt != null ? Timestamp.fromDate(_remindAt!) : null,
         'updatedAt': FieldValue.serverTimestamp(),
       };
+
+      // Optional cross-module relationships (Phase 5).
+      if (_relatedNoteId != null) payload['relatedNoteId'] = _relatedNoteId;
+      if (_relatedMaterialId != null) {
+        payload['relatedMaterialId'] = _relatedMaterialId;
+      }
 
       final String taskId;
       if (_isEdit) {

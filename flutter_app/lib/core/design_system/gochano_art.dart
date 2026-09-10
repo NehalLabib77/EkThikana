@@ -57,7 +57,6 @@ abstract final class GochanoArt {
   static const String featureCommunity = 'feature.community';
   static const String featureTasks = 'feature.tasks';
   static const String featurePlanner = 'feature.planner';
-  static const String featureFocus = 'feature.focus';
   static const String featureProfile = 'feature.profile';
   static const String featureHome = 'feature.home';
 
@@ -545,14 +544,6 @@ abstract final class GochanoArt {
 <path d="M24 52h20M24 64h14" stroke="{ink}" stroke-width="3.4"/>
 <circle cx="70" cy="64" r="18" fill="{fill}" stroke="{ink}" stroke-width="3.4"/>
 <path d="M70 54v10l7 4" stroke="{ink}" stroke-width="3.4"/>''',
-
-    featureFocus: '''
-<circle cx="48" cy="54" r="30" fill="{paper}" stroke="{ink}" stroke-width="3.4"/>
-<path d="M48 54V36" stroke="{ink}" stroke-width="3.4"/>
-<path d="M48 54l14 9" stroke="{ink}" stroke-width="3.4"/>
-<path d="M38 12h20" stroke="{ink}" stroke-width="3.4"/>
-<path d="M48 12v12" stroke="{ink}" stroke-width="3.4"/>
-<path d="M78 54a30 30 0 00-30-30" stroke="{ink}" stroke-width="5"/>''',
 
     featureProfile: '''
 <rect x="12" y="20" width="72" height="58" rx="10" fill="{paper}" stroke="{ink}" stroke-width="3.4"/>

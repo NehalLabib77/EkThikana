@@ -416,33 +416,44 @@ class ApiService {
   static Future<String> aiNote(String action, String text) async =>
       _decode(await _post('/api/ai/note', body: {'action': action, 'text': text}))['result'] as String;
 
-  static Future<String> askPdf({required String materialId, required String question, int? page}) async =>
-      _decode(await _post('/api/ai/pdf-question', body: {
-        'material_id': materialId,
-        'question': question,
-        'page': page,
-      }))['answer'] as String;
-
-  static Future<Map<String, dynamic>> prescriptionOcr({
-    required Uint8List bytes,
-    required String fileName,
+  static Future<String> askPdf({
+    required String materialId,
+    required String question,
+    int? page,
+    Map<String, dynamic>? studentContext,
   }) async {
-    final uri = _uri('/api/prescriptions/extract');
-    final response = await _sendMultipart(
-      method: 'POST',
-      uri: uri,
-      auth: true,
-      build: () async {
-        final request = http.MultipartRequest('POST', uri);
-        request.headers['Authorization'] = 'Bearer ${await _token()}';
-        request.headers['Accept'] = 'application/json';
-        request.files.add(
-          http.MultipartFile.fromBytes('file', bytes, filename: fileName),
-        );
-        return request;
-      },
-    );
-    return _decode(response);
+    final body = <String, dynamic>{
+      'material_id': materialId,
+      'question': question,
+    };
+    if (page != null) body['page'] = page;
+    if (studentContext != null) body['student_context'] = studentContext;
+    return _decode(await _post('/api/ai/pdf-question', body: body))['answer'] as String;
+  }
+
+  /// Ask a question about a material using text extraction.
+  /// Used for DOCX/TXT materials that need text extraction.
+  static Future<String> askMaterialAttachment({
+    required String materialId,
+    required String question,
+    Map<String, dynamic>? studentContext,
+  }) async {
+    final body = <String, dynamic>{
+      'material_id': materialId,
+      'question': question,
+    };
+    if (studentContext != null) body['student_context'] = studentContext;
+    return _decode(await _post('/api/ai/material-attachment-question', body: body))['answer'] as String;
+  }
+
+  /// Ask a general question with optional StudentContext.
+  static Future<String> askWithContext({
+    required String question,
+    Map<String, dynamic>? studentContext,
+  }) async {
+    final body = <String, dynamic>{'question': question};
+    if (studentContext != null) body['student_context'] = studentContext;
+    return _decode(await _post('/api/ai/general-question', body: body))['answer'] as String;
   }
 
   /// Reads a list field from a decoded response body, never throwing.
@@ -549,42 +560,6 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getRemaining(DateTime month) async =>
       _decode(await _get('/api/budget/remaining', query: {'month_key': _monthKey(month)}));
-
-  // ---------------- Focus / study stats ----------------
-  static Future<Map<String, dynamic>> startFocus({
-    String label = '',
-    int plannedMinutes = 25,
-    String note = '',
-  }) async =>
-      _decode(await _post('/api/study/focus/start', body: {
-        'label': label,
-        'planned_minutes': plannedMinutes,
-        'note': note,
-      }));
-
-  /// Pause / resume / complete / cancel a focus session.
-  ///
-  /// The backend route is `PATCH /api/study/focus/{focus_id}`. This used to
-  /// send POST, which FastAPI answered with 405 Method Not Allowed — so
-  /// pause, resume and finish never reached the server.
-  static Future<Map<String, dynamic>> patchFocus(String focusId, String action) async =>
-      _decode(await _patch('/api/study/focus/$focusId', body: {'action': action}));
-
-  /// Recent focus sessions within the last [days] (backend accepts 1..365).
-  ///
-  /// This used to send `limit`, which the route does not declare; FastAPI
-  /// ignored it and always applied the default 30-day window.
-  ///
-  /// The route returns its rows under `sessions`, but `items` is also
-  /// accepted so a build against an older backend still works.
-  static Future<List<dynamic>> listFocus({int days = 30}) async {
-    final body = _decode(
-      await _get('/api/study/focus/list', query: {'days': '$days'}),
-    );
-    final sessions = _listField(body, 'sessions');
-    if (sessions.isNotEmpty) return sessions;
-    return _listField(body, 'items');
-  }
 
   static Future<Map<String, dynamic>> getStudyStats() async =>
       _deduplicatedGet('/api/study/stats');
@@ -833,13 +808,16 @@ class ApiService {
   static Future<String> askImage({
     required String materialId,
     required String question,
+    Map<String, dynamic>? studentContext,
   }) async {
     return _guard(() async {
       final uri = _uri('/api/ai/image-question');
-      final body = jsonEncode({
+      final body = <String, dynamic>{
         'material_id': materialId,
         'question': question,
-      });
+      };
+      if (studentContext != null) body['student_context'] = studentContext;
+      final encoded = jsonEncode(body);
       final response = await _send(
         method: 'POST',
         uri: uri,
@@ -848,7 +826,7 @@ class ApiService {
         build: () async {
           final request = http.Request('POST', uri);
           request.headers.addAll(await _headers());
-          request.body = body;
+          request.body = encoded;
           return request;
         },
       );
@@ -875,6 +853,7 @@ class ApiService {
     required String fileName,
     required String mimeType,
     required String question,
+    Map<String, dynamic>? studentContext,
   }) async {
     return _guard(() async {
       final uri = _uri('/api/ai/attachment-question');
@@ -888,6 +867,9 @@ class ApiService {
         ..headers.addAll(await _headers())
         ..files.add(multipartFile)
         ..fields['question'] = question;
+      if (studentContext != null) {
+        request.fields['student_context_json'] = jsonEncode(studentContext);
+      }
       final streamed = await _client.send(request).timeout(
         const Duration(seconds: 120),
       );

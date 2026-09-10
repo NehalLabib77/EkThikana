@@ -1,8 +1,7 @@
 // Community chat reaction picker.
 //
 // Bottom sheet that presents Gochano-exclusive reactions from the
-// centralized ReactionCatalog, grouped by pack. Locked reactions show
-// a lock overlay and tapping them reveals how much XP is needed.
+// centralized AnimatedReactionCatalog, grouped by pack.
 
 import 'package:flutter/material.dart';
 
@@ -10,15 +9,12 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
-import '../../focus_rewards/data/reward_service.dart';
-import '../../focus_rewards/domain/level_helper.dart';
-import '../../focus_rewards/domain/reaction_catalog.dart';
-import '../../focus_rewards/domain/reward_model.dart';
+import '../domain/animated_reaction_catalog.dart';
 
-/// Shows the reaction picker. Returns the selected [GochanoReaction] if the
-/// user picked an unlocked reaction, or `null` if they dismissed the sheet.
-Future<GochanoReaction?> showReactionPicker(BuildContext context) {
-  return showModalBottomSheet<GochanoReaction>(
+/// Shows the reaction picker. Returns the selected [AnimatedReaction] if the
+/// user picked a reaction, or `null` if they dismissed the sheet.
+Future<AnimatedReaction?> showReactionPicker(BuildContext context) {
+  return showModalBottomSheet<AnimatedReaction>(
     context: context,
     isScrollControlled: true,
     isDismissible: true,
@@ -27,35 +23,12 @@ Future<GochanoReaction?> showReactionPicker(BuildContext context) {
   );
 }
 
-class _ReactionPickerBody extends StatefulWidget {
+class _ReactionPickerBody extends StatelessWidget {
   const _ReactionPickerBody();
-
-  @override
-  State<_ReactionPickerBody> createState() => _ReactionPickerBodyState();
-}
-
-class _ReactionPickerBodyState extends State<_ReactionPickerBody> {
-  RewardProfile _profile = RewardProfile.empty();
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final profile = await RewardService.readProfile();
-      if (mounted) setState(() => _profile = profile);
-    } catch (_) {
-      // Default to empty (all locked except Level 1).
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final level = levelForXp(_profile.totalXp);
 
     return SafeArea(
       child: Padding(
@@ -79,16 +52,6 @@ class _ReactionPickerBodyState extends State<_ReactionPickerBody> {
                     style: context.type.sectionHeading,
                   ),
                 ),
-                Text(
-                  GochanoLanguage.text(
-                    'Level $level',
-                    'লেভেল $level',
-                  ),
-                  style: context.type.caption.copyWith(
-                    color: colors.study,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: GochanoSpacing.sm),
@@ -106,14 +69,12 @@ class _ReactionPickerBodyState extends State<_ReactionPickerBody> {
             const SizedBox(height: GochanoSpacing.sm),
 
             // Reaction packs
-            for (final pack in reactionPacks) ...[
+            for (final pack in animatedReactionPacks) ...[
               _PackSection(
                 pack: pack,
-                currentLevel: level,
                 onReactionSelected: (reaction) {
                   Navigator.of(context).pop(reaction);
                 },
-                onLockedTap: (reaction) => _showLockedMessage(context, reaction, level),
               ),
               const SizedBox(height: GochanoSpacing.sm),
             ],
@@ -124,79 +85,19 @@ class _ReactionPickerBodyState extends State<_ReactionPickerBody> {
       ),
     );
   }
-
-  void _showLockedMessage(
-    BuildContext context,
-    GochanoReaction reaction,
-    int currentLevel,
-  ) {
-    final remaining = xpRemainingToNextLevel(_profile.totalXp);
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(GochanoSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                reaction.emoji,
-                style: const TextStyle(fontSize: 40),
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-              Text(
-                GochanoLanguage.text(
-                  'Unlocks at Level ${reaction.requiredLevel}',
-                  'লেভেল ${reaction.requiredLevel}-এ আনলক হবে',
-                ),
-                style: context.type.sectionHeading,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: GochanoSpacing.xs),
-              Text(
-                remaining > 0
-                    ? GochanoLanguage.text(
-                        'Earn $remaining more XP by completing Focus sessions.',
-                        'ফোকাস সেশন সম্পন্ন করে আরও $remaining XP অর্জন করুন।',
-                      )
-                    : GochanoLanguage.text(
-                        'Keep focusing to reach the next level.',
-                        'পরবর্তী লেভেলে পৌঁছাতে ফোকাস চালিয়ে যান।',
-                      ),
-                style: context.type.bodySecondary,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: GochanoSpacing.lg),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(GochanoLanguage.text('OK', 'ঠিক আছে')),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _PackSection extends StatelessWidget {
   const _PackSection({
     required this.pack,
-    required this.currentLevel,
     required this.onReactionSelected,
-    required this.onLockedTap,
   });
 
-  final ReactionPack pack;
-  final int currentLevel;
-  final ValueChanged<GochanoReaction> onReactionSelected;
-  final ValueChanged<GochanoReaction> onLockedTap;
+  final AnimatedReactionPack pack;
+  final ValueChanged<AnimatedReaction> onReactionSelected;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final packUnlocked = currentLevel >= pack.level;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -209,18 +110,9 @@ class _PackSection extends StatelessWidget {
                 'লেভেল ${pack.level}',
               ),
               style: context.type.label.copyWith(
-                color: packUnlocked ? colors.textPrimary : colors.textTertiary,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            if (!packUnlocked) ...[
-              const SizedBox(width: GochanoSpacing.xxs),
-              Icon(
-                Icons.lock_rounded,
-                size: 14,
-                color: colors.textTertiary,
-              ),
-            ],
           ],
         ),
         const SizedBox(height: GochanoSpacing.xxs),
@@ -232,14 +124,7 @@ class _PackSection extends StatelessWidget {
               Expanded(
                 child: _ReactionTile(
                   reaction: reaction,
-                  unlocked: packUnlocked,
-                  onTap: () {
-                    if (packUnlocked) {
-                      onReactionSelected(reaction);
-                    } else {
-                      onLockedTap(reaction);
-                    }
-                  },
+                  onTap: () => onReactionSelected(reaction),
                 ),
               ),
               if (reaction != pack.reactions.last)
@@ -255,12 +140,10 @@ class _PackSection extends StatelessWidget {
 class _ReactionTile extends StatelessWidget {
   const _ReactionTile({
     required this.reaction,
-    required this.unlocked,
     required this.onTap,
   });
 
-  final GochanoReaction reaction;
-  final bool unlocked;
+  final AnimatedReaction reaction;
   final VoidCallback onTap;
 
   @override
@@ -269,60 +152,27 @@ class _ReactionTile extends StatelessWidget {
 
     return Semantics(
       button: true,
-      enabled: unlocked,
-      label: unlocked
-          ? GochanoLanguage.text(
-              'Send ${reaction.label} reaction',
-              '${reaction.label} রিঅ্যাকশন পাঠান',
-            )
-          : GochanoLanguage.text(
-              'Locked — unlocks at Level ${reaction.requiredLevel}',
-              'লকড — লেভেল ${reaction.requiredLevel}-এ আনলক হবে',
-            ),
+      label: GochanoLanguage.text(
+        'Send ${reaction.labelEn} reaction',
+        '${reaction.labelBn} রিঅ্যাকশন পাঠান',
+      ),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           height: 56,
           decoration: BoxDecoration(
-            color: unlocked
-                ? colors.surface
-                : colors.surfaceVariant.withValues(alpha: 0.5),
+            color: colors.surface,
             borderRadius: BorderRadius.circular(GochanoRadius.md),
-            border: Border.all(
-              color: unlocked ? colors.border : colors.surfaceVariant,
-            ),
+            border: Border.all(color: colors.border),
           ),
           child: Stack(
             alignment: Alignment.center,
             children: [
               // Emoji
               Text(
-                reaction.emoji,
-                style: TextStyle(
-                  fontSize: 28,
-                  color: unlocked ? null : Colors.grey,
-                ),
+                reaction.fallbackEmoji,
+                style: const TextStyle(fontSize: 28),
               ),
-
-              // Lock indicator
-              if (!unlocked)
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Icon(
-                      Icons.lock_rounded,
-                      size: 10,
-                      color: colors.textTertiary,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

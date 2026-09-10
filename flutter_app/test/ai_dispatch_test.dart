@@ -113,5 +113,59 @@ void main() {
       }
       expect(AiContextRouting.routeFor(), AiContextRoute.imageQuestion);
     });
+
+    // Phase 6: DOCX routing fix.
+    test('DOCX routes to attachmentQuestion, not imageQuestion', () {
+      expect(
+        AiContextRouting.routeFor(
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          fileName: 'report.docx',
+        ),
+        AiContextRoute.attachmentQuestion,
+      );
+    });
+
+    test('DOCX by filename routes to attachmentQuestion', () {
+      expect(
+        AiContextRouting.routeFor(fileName: 'notes.docx'),
+        AiContextRoute.attachmentQuestion,
+      );
+    });
+
+    test('DOC by MIME routes to attachmentQuestion', () {
+      expect(
+        AiContextRouting.routeFor(mimeType: 'application/msword'),
+        AiContextRoute.attachmentQuestion,
+      );
+    });
+
+    test('TXT routes to attachmentQuestion', () {
+      expect(
+        AiContextRouting.routeFor(mimeType: 'text/plain'),
+        AiContextRoute.attachmentQuestion,
+      );
+      expect(
+        AiContextRouting.routeFor(fileName: 'readme.txt'),
+        AiContextRoute.attachmentQuestion,
+      );
+    });
+
+    test('DOCX does NOT route to imageQuestion', () {
+      expect(
+        AiContextRouting.routeFor(
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          fileName: 'report.docx',
+        ),
+        isNot(AiContextRoute.imageQuestion),
+      );
+    });
+
+    test('isDocName detects docx/doc/txt', () {
+      expect(AiContextRouting.isDocName('report.docx'), isTrue);
+      expect(AiContextRouting.isDocName('report.doc'), isTrue);
+      expect(AiContextRouting.isDocName('notes.txt'), isTrue);
+      expect(AiContextRouting.isDocName('report.pdf'), isFalse);
+      expect(AiContextRouting.isDocName('image.png'), isFalse);
+    });
   });
 }

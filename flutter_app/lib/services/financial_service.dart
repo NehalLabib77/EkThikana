@@ -58,7 +58,6 @@ class FinancialService {
     };
   }
 
-
   static Stream<List<FinancialTransactionModel>> allTransactionsStream({
     int limit = 2000,
   }) {
@@ -170,7 +169,6 @@ class FinancialService {
     return sourceRef.id;
   }
 
-
   static Future<void> updateDailyExpense({
     required String id,
     required String category,
@@ -186,37 +184,29 @@ class FinancialService {
         .doc(transactionId('daily', id));
     final batch = db.batch();
 
-    batch.set(
-      sourceRef,
-      {
-        'ownerId': uid,
-        'category': category,
-        'title': title.trim(),
-        'amount': amount,
-        'note': note.trim(),
-        'date': Timestamp.fromDate(date),
-        'dateKey': dateKey(date),
-        'monthKey': monthKey(date),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    batch.set(
-      financialRef,
-      {
-        ..._financialData(
-          type: 'expense',
-          source: 'daily',
-          sourceRecordId: id,
-          category: category,
-          title: title,
-          amount: amount,
-          date: date,
-        ),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(sourceRef, {
+      'ownerId': uid,
+      'category': category,
+      'title': title.trim(),
+      'amount': amount,
+      'note': note.trim(),
+      'date': Timestamp.fromDate(date),
+      'dateKey': dateKey(date),
+      'monthKey': monthKey(date),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(financialRef, {
+      ..._financialData(
+        type: 'expense',
+        source: 'daily',
+        sourceRecordId: id,
+        category: category,
+        title: title,
+        amount: amount,
+        date: date,
+      ),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     await batch.commit();
     notifyBudgetChanged();
   }
@@ -277,43 +267,35 @@ class FinancialService {
         .doc(transactionId('bazar', sourceRef.id));
     final batch = db.batch();
 
-    batch.set(
-      sourceRef,
-      {
-        'ownerId': uid,
-        'sessionId': sessionId,
-        'category': category,
-        'title': title.trim(),
-        'quantity': quantity,
-        'unit': unit,
-        'price': price,
-        'purchased': purchased,
-        'date': Timestamp.fromDate(date),
-        'dateKey': dateKey(date),
-        'monthKey': monthKey(date),
-        if (id == null) 'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(sourceRef, {
+      'ownerId': uid,
+      'sessionId': sessionId,
+      'category': category,
+      'title': title.trim(),
+      'quantity': quantity,
+      'unit': unit,
+      'price': price,
+      'purchased': purchased,
+      'date': Timestamp.fromDate(date),
+      'dateKey': dateKey(date),
+      'monthKey': monthKey(date),
+      if (id == null) 'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     if (purchased && price > 0) {
-      batch.set(
-        financialRef,
-        {
-          ..._financialData(
-            type: 'expense',
-            source: 'bazar',
-            sourceRecordId: sourceRef.id,
-            category: category,
-            title: title,
-            amount: price,
-            date: date,
-          ),
-          if (id == null) 'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      batch.set(financialRef, {
+        ..._financialData(
+          type: 'expense',
+          source: 'bazar',
+          sourceRecordId: sourceRef.id,
+          category: category,
+          title: title,
+          amount: price,
+          date: date,
+        ),
+        if (id == null) 'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } else if (id != null) {
       // Only an *existing* item can have left a mirror row behind. A brand
       // new item has no ledger row to clear, and asking to delete one that
@@ -405,48 +387,39 @@ class FinancialService {
         : 0.0;
     final batch = db.batch();
 
-    batch.set(
-      doseRef,
-      {
-        'ownerId': uid,
-        'medicineId': medicineId,
-        'medicineName': medicineName,
-        'scheduledTime': scheduledTime,
-        'scheduledDate': dateKey(date),
-        'status': status,
-        'unit': unit,
-        'unitPriceSnapshot': unitPriceSnapshot,
-        'actualQuantityTaken': status == 'taken' ? actualQuantityTaken : 0,
-        'cost': cost,
-        'takenAt':
-            status == 'taken' ? FieldValue.serverTimestamp() : null,
-        'note': note.trim(),
-        'date': Timestamp.fromDate(date),
-        'dateKey': dateKey(date),
-        'monthKey': monthKey(date),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(doseRef, {
+      'ownerId': uid,
+      'medicineId': medicineId,
+      'medicineName': medicineName,
+      'scheduledTime': scheduledTime,
+      'scheduledDate': dateKey(date),
+      'status': status,
+      'unit': unit,
+      'unitPriceSnapshot': unitPriceSnapshot,
+      'actualQuantityTaken': status == 'taken' ? actualQuantityTaken : 0,
+      'cost': cost,
+      'takenAt': status == 'taken' ? FieldValue.serverTimestamp() : null,
+      'note': note.trim(),
+      'date': Timestamp.fromDate(date),
+      'dateKey': dateKey(date),
+      'monthKey': monthKey(date),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     if (status == 'taken' && cost > 0) {
-      batch.set(
-        financialRef,
-        {
-          ..._financialData(
-            type: 'expense',
-            source: 'medicine',
-            sourceRecordId: id,
-            category: 'Medicine',
-            title: medicineName,
-            amount: cost,
-            date: date,
-          ),
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      batch.set(financialRef, {
+        ..._financialData(
+          type: 'expense',
+          source: 'medicine',
+          sourceRecordId: id,
+          category: 'Medicine',
+          title: medicineName,
+          amount: cost,
+          date: date,
+        ),
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } else {
       batch.delete(financialRef);
     }
@@ -588,7 +561,9 @@ class FinancialService {
     String fareSource = '',
     String fareConfidence = '',
   }) async {
-    if (actualFare <= 0) throw Exception('Actual fare must be greater than zero.');
+    if (actualFare <= 0) {
+      throw Exception('Actual fare must be greater than zero.');
+    }
     final tripRef = db.collection('commute_trips').doc();
     final financialRef = db
         .collection('financial_transactions')
@@ -696,34 +671,33 @@ class FinancialService {
         ? db.collection('dena_pawna_items').doc()
         : db.collection('dena_pawna_items').doc(id);
 
-    await ref.set(
-      {
-        'ownerId': uid,
-        'personName': personName.trim(),
-        'amount': amount,
-        'outstandingAmount': amount,
-        'type': type,
-        'status': 'outstanding',
-        'settled': false,
-        'note': note.trim(),
-        'date': Timestamp.fromDate(date),
-        'dateKey': dateKey(date),
-        'monthKey': monthKey(date),
-        'settlements': <dynamic>[],
-        if (dueDate != null) 'dueDate': Timestamp.fromDate(dueDate),
-        if (dueDate != null) 'dueDateKey': dateKey(dueDate),
-        if (id == null) 'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await ref.set({
+      'ownerId': uid,
+      'personName': personName.trim(),
+      'amount': amount,
+      'outstandingAmount': amount,
+      'type': type,
+      'status': 'outstanding',
+      'settled': false,
+      'note': note.trim(),
+      'date': Timestamp.fromDate(date),
+      'dateKey': dateKey(date),
+      'monthKey': monthKey(date),
+      'settlements': <dynamic>[],
+      if (dueDate != null) 'dueDate': Timestamp.fromDate(dueDate),
+      if (dueDate != null) 'dueDateKey': dateKey(dueDate),
+      if (id == null) 'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     return ref.id;
   }
 
   /// Partial or full settlement of a Dena/Pawna record.
   ///
   /// Settlement history is stored inline in the dena_pawna_items document.
-  /// Each settlement gets a deterministic ID for idempotency.
+  /// A full settlement gets a stable per-record ID for idempotency. Partial
+  /// settlements remain distinct events because the same amount can be paid
+  /// more than once over the life of a record.
   ///
   /// CRITICAL ACCOUNTING RULE:
   /// - Dena (borrow) settlement = money I PAY → must increase Total Spent
@@ -733,7 +707,7 @@ class FinancialService {
   ///
   /// To satisfy both rules:
   /// - For Dena settlements, we write to financial_transactions (source:
-  ///   'dena_payment') so Total Spent includes it
+  ///   'dena_paid') so Total Spent includes it
   /// - For Pawna settlements, we do NOT write to financial_transactions
   ///   (it's already handled by the UI's adjusted remaining calculation)
   static Future<void> settleDenaPawna(
@@ -760,33 +734,45 @@ class FinancialService {
     final currentOutstanding =
         (data['outstandingAmount'] as num?)?.toDouble() ?? amount;
 
+    // A repeated Mark Paid action after the first commit is a successful
+    // no-op. This matters when the app is closed between the Firestore commit
+    // and the UI refresh.
+    if (currentOutstanding <= 0.001) return;
+
     if (settleAmount > currentOutstanding + 0.001) {
       throw Exception('Settlement amount cannot exceed outstanding amount.');
     }
 
-    final newOutstanding = (currentOutstanding - settleAmount).clamp(0.0, amount);
+    final newOutstanding = (currentOutstanding - settleAmount).clamp(
+      0.0,
+      amount,
+    );
     final isFullySettled = newOutstanding <= 0.001;
-    final newStatus =
-        isFullySettled ? 'settled' : 'partially_settled';
+    final newStatus = isFullySettled ? 'settled' : 'partially_settled';
 
-    // Deterministic settlement ID for idempotency
-    final settlementId = '${id}_${dateKey(DateTime.now())}_'
-        '${DateTime.now().millisecondsSinceEpoch}';
+    final settledAt = DateTime.now();
+    final settlementDateKey = dateKey(DateTime.now());
+    final isFullRequest = settleAmount >= currentOutstanding - 0.001;
+    final settlementId = isFullRequest
+        ? '${id}_full'
+        : '${id}_${dateKey(settledAt)}_${settledAt.millisecondsSinceEpoch}';
 
     final settlementRecord = {
       'id': settlementId,
       'amount': settleAmount,
-      'date': Timestamp.fromDate(DateTime.now()),
-      'dateKey': dateKey(DateTime.now()),
+      'date': Timestamp.fromDate(settledAt),
+      'dateKey': settlementDateKey,
     };
 
-    final existingSettlements =
-        (data['settlements'] as List<dynamic>?) ?? [];
+    final existingSettlements = (data['settlements'] as List<dynamic>?) ?? [];
 
     final batch = db.batch();
 
-    // Update the dena_pawna_items document with new settlement
+    // Update the dena_pawna_items document with new settlement.
+    // ownerId must be included so the Firestore security rule
+    // (request.resource.data.ownerId == resource.data.ownerId) passes.
     batch.update(db.collection('dena_pawna_items').doc(id), {
+      'ownerId': currentUid,
       'outstandingAmount': isFullySettled ? 0.0 : newOutstanding,
       'status': newStatus,
       'settled': isFullySettled,
@@ -801,26 +787,26 @@ class FinancialService {
     if (type == 'borrow') {
       // Write to financial_transactions so Total Spent includes this payment.
       // Uses a deterministic ID based on settlement to prevent duplicates.
+      // NOTE: source must be 'dena_paid' to match the Firestore security rule
+      // at firestore.rules line 243. Using 'dena_payment' causes the entire
+      // batch to roll back with permission-denied.
       final financialRef = db
           .collection('financial_transactions')
-          .doc(transactionId('dena_payment', settlementId));
+          .doc(transactionId('dena_paid', settlementId));
 
-      batch.set(
-        financialRef,
-        {
-          ..._financialData(
-            type: 'expense',
-            source: 'dena_payment',
-            sourceRecordId: settlementId,
-            category: 'Dena Paid',
-            title: 'Paid $personName',
-            amount: settleAmount,
-            date: DateTime.now(),
-          ),
-          'denaPawnaId': id,
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-      );
+      batch.set(financialRef, {
+        ..._financialData(
+          type: 'expense',
+          source: 'dena_paid',
+          sourceRecordId: settlementId,
+          category: 'Dena Paid',
+          title: 'Paid $personName',
+          amount: settleAmount,
+          date: DateTime.now(),
+        ),
+        'denaPawnaId': id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
 
     await batch.commit();
@@ -868,9 +854,10 @@ class FinancialService {
   ) {
     final currentUid = uid;
     if (currentUid == null) {
-      return Stream<Map<String, double>>.value(
-        const {'pawnaReceived': 0, 'denaPaid': 0},
-      );
+      return Stream<Map<String, double>>.value(const {
+        'pawnaReceived': 0,
+        'denaPaid': 0,
+      });
     }
     final mk = monthKey(month);
     return db
@@ -878,27 +865,27 @@ class FinancialService {
         .where('ownerId', isEqualTo: currentUid)
         .snapshots()
         .map((snapshot) {
-      var pawnaReceived = 0.0;
-      var denaPaid = 0.0;
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final type = data['type']?.toString() ?? 'lend';
-        final settlementsList =
-            (data['settlements'] as List<dynamic>?) ?? [];
-        for (final s in settlementsList) {
-          final sm = s as Map<String, dynamic>;
-          final sdk = sm['dateKey']?.toString() ?? '';
-          if (sdk.startsWith(mk)) {
-            final amt = (sm['amount'] as num?)?.toDouble() ?? 0;
-            if (type == 'lend') {
-              pawnaReceived += amt;
-            } else {
-              denaPaid += amt;
+          var pawnaReceived = 0.0;
+          var denaPaid = 0.0;
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            final type = data['type']?.toString() ?? 'lend';
+            final settlementsList =
+                (data['settlements'] as List<dynamic>?) ?? [];
+            for (final s in settlementsList) {
+              final sm = s as Map<String, dynamic>;
+              final sdk = sm['dateKey']?.toString() ?? '';
+              if (sdk.startsWith(mk)) {
+                final amt = (sm['amount'] as num?)?.toDouble() ?? 0;
+                if (type == 'lend') {
+                  pawnaReceived += amt;
+                } else {
+                  denaPaid += amt;
+                }
+              }
             }
           }
-        }
-      }
-      return {'pawnaReceived': pawnaReceived, 'denaPaid': denaPaid};
-    });
+          return {'pawnaReceived': pawnaReceived, 'denaPaid': denaPaid};
+        });
   }
 }

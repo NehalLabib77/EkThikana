@@ -43,6 +43,8 @@ import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../core/student/student.dart';
+import '../../../../core/student/student_ai_context.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/connectivity_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -103,6 +105,8 @@ class AiAssistantScreen extends StatefulWidget {
     this.contextMimeType,
     this.contextFileName,
     this.contextPage,
+    this.prefilledQuestion,
+    this.enableContext = false,
   });
 
   /// When set, answers are grounded in this material.
@@ -116,6 +120,12 @@ class AiAssistantScreen extends StatefulWidget {
   /// Current page, so "explain this page" can scope the question.
   final int? contextPage;
 
+  /// Optional prefilled question shown in the text field on open.
+  final String? prefilledQuestion;
+
+  /// Whether to enable Gochano context on open.
+  final bool enableContext;
+
   @override
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
 }
@@ -128,6 +138,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final List<_Attachment> _attachments = [];
   bool _busy = false;
   String _error = '';
+
+  /// Whether to include StudentContext in AI requests (Phase 6).
+  bool _useGochanoContext = false;
+
+  /// Cached StudentAiContext for the current session.
+  StudentAiContext? _cachedAiContext;
 
   /// Null once the student removes the context (spec §34).
   String? _materialId;
@@ -157,6 +173,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _materialTitle = widget.contextMaterialTitle;
     _mimeType = widget.contextMimeType;
     _fileName = widget.contextFileName;
+    if (widget.prefilledQuestion != null) {
+      _question.text = widget.prefilledQuestion!;
+    }
+    if (widget.enableContext) {
+      _useGochanoContext = true;
+    }
   }
 
   @override
@@ -295,23 +317,37 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     try {
       final String answer;
       final materialId = _materialId;
+      final ctx = _useGochanoContext ? _cachedAiContext : null;
+      final contextJson = ctx?.toJsonScoped(question);
 
       if (materialId == null && _attachments.isEmpty) {
-        // General academic question
-        answer = await ApiService.aiNote('explain', question);
+        // General academic question — include StudentContext if toggle is ON.
+        answer = await ApiService.askWithContext(
+          question: question,
+          studentContext: contextJson,
+        );
       } else if (_attachments.isNotEmpty) {
-        // Has attachments — upload and get answer
-        answer = await _askWithAttachment(question);
+        // Has attachments — upload and get answer (with optional context).
+        answer = await _askWithAttachment(question, studentContext: contextJson);
+      } else if (_route == AiContextRoute.attachmentQuestion) {
+        // DOCX/TXT material — use attachment-question endpoint.
+        answer = await ApiService.askMaterialAttachment(
+          materialId: materialId!,
+          question: question,
+          studentContext: contextJson,
+        );
       } else if (_route == AiContextRoute.imageQuestion) {
         answer = await ApiService.askImage(
           materialId: materialId!,
           question: question,
+          studentContext: contextJson,
         );
       } else {
         answer = await ApiService.askPdf(
           materialId: materialId!,
           question: question,
           page: widget.contextPage,
+          studentContext: contextJson,
         );
       }
 
@@ -345,8 +381,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
   }
 
-  /// Upload attachment and get AI answer.
-  Future<String> _askWithAttachment(String question) async {
+  /// Upload attachment and get AI answer (with optional StudentContext).
+  Future<String> _askWithAttachment(
+    String question, {
+    Map<String, dynamic>? studentContext,
+  }) async {
     if (_attachments.isEmpty) {
       throw Exception('No attachment to process');
     }
@@ -362,6 +401,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         fileName: attachment.name,
         mimeType: attachment.mimeType ?? 'application/octet-stream',
         question: question,
+        studentContext: studentContext,
       );
 
       attachment.isUploading = false;
@@ -471,6 +511,41 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               _fileName = null;
             }),
           ),
+          // Phase 6: Gochano context toggle — available when no shell material context.
+          // Shown with user-uploaded attachments so context + attachment work together.
+          if (!_hasContext)
+            _GochanoContextToggle(
+              enabled: _useGochanoContext,
+              onChanged: (value) async {
+                setState(() {
+                  _useGochanoContext = value;
+                  if (value && _cachedAiContext == null) {
+                    _busy = true;
+                  }
+                });
+                if (value && _cachedAiContext == null) {
+                  // Build context on first enable.
+                  try {
+                    final ctx = await StudentContextService.build(
+                      day: DateTime.now(),
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _cachedAiContext = StudentAiContext.fromContext(ctx);
+                        _busy = false;
+                      });
+                    }
+                  } catch (_) {
+                    if (mounted) {
+                      setState(() {
+                        _useGochanoContext = false;
+                        _busy = false;
+                      });
+                    }
+                  }
+                }
+              },
+            ),
           Expanded(
             child: ListView(
               controller: _scroll,
@@ -588,6 +663,84 @@ class _ContextChip extends StatelessWidget {
               'এই উপকরণ ছাড়া জিজ্ঞাসা',
             ),
             onPressed: onRemove,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Phase 6: Toggle for including StudentContext in AI requests.
+class _GochanoContextToggle extends StatelessWidget {
+  const _GochanoContextToggle({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        GochanoSpacing.md,
+        GochanoSpacing.xs,
+        GochanoSpacing.md,
+        0,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.sm,
+        vertical: GochanoSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: enabled
+            ? colors.ai.withValues(alpha: context.isDark ? 0.18 : 0.10)
+            : colors.surfaceVariant,
+        borderRadius: GochanoRadius.mdAll,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            enabled ? Icons.school_rounded : Icons.school_outlined,
+            size: 20,
+            color: enabled ? colors.ai : colors.textTertiary,
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  GochanoLanguage.text(
+                    'Use Gochano context',
+                    'গোছানো কনটেক্সট ব্যবহার করুন',
+                  ),
+                  style: context.type.caption.copyWith(
+                    color: enabled ? colors.ai : colors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  GochanoLanguage.text(
+                    'AI knows your schedule & deadlines',
+                    'এআই আপনার সময়সূচী ও সময়সীমা জানে',
+                  ),
+                  style: context.type.caption.copyWith(
+                    color: colors.textTertiary,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: enabled,
+            onChanged: onChanged,
+            activeTrackColor: colors.ai,
           ),
         ],
       ),

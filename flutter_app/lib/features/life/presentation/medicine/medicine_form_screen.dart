@@ -13,9 +13,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_dates.dart';
@@ -32,23 +30,14 @@ class MedicineFormScreen extends StatefulWidget {
     super.key,
     this.medicineId,
     this.initialData,
-    this.ocrSourceText = '',
-    this.ocrSuggested = false,
   });
 
   /// Edit an existing medicine. When set and [initialData] is null the
   /// document is fetched on open.
   final String? medicineId;
 
-  /// Pre-filled values — used by the prescription review step.
+  /// Pre-filled values.
   final Map<String, dynamic>? initialData;
-
-  /// The OCR text these values came from, stored for provenance so a student
-  /// can later see what the suggestion was based on.
-  final String ocrSourceText;
-
-  /// True when the values arrived from OCR rather than from typing.
-  final bool ocrSuggested;
 
   @override
   State<MedicineFormScreen> createState() => _MedicineFormScreenState();
@@ -320,11 +309,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
           'endDate': _endDate == null ? null : Timestamp.fromDate(_endDate!),
           'active': true,
           'paused': false,
-          // Provenance: whatever OCR suggested, this document only exists
-          // because the student pressed Save on it.
           'confirmedByUser': true,
-          'ocrSuggested': widget.ocrSuggested,
-          'ocrSourceText': widget.ocrSourceText,
           if (widget.medicineId == null)
             'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -406,11 +391,6 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          if (widget.ocrSuggested) ...[
-            const _OcrReviewNotice(),
-            const SizedBox(height: GochanoSpacing.md),
-          ],
-
           TextField(
             controller: _name,
             textCapitalization: TextCapitalization.words,
@@ -649,45 +629,6 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Shown when the form was reached from a prescription scan (spec §58).
-class _OcrReviewNotice extends StatelessWidget {
-  const _OcrReviewNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.all(GochanoSpacing.sm),
-      decoration: BoxDecoration(
-        color: colors.warningSoft,
-        borderRadius: GochanoRadius.mdAll,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GochanoIllustration(
-            GochanoArt.featurePrescription,
-            size: 32,
-            accent: colors.warning,
-          ),
-          const SizedBox(width: GochanoSpacing.xs),
-          Expanded(
-            child: Text(
-              GochanoLanguage.text(
-                'These values were read from your prescription image and may '
-                'be wrong. Check the name, strength and dose, and set the '
-                'reminder times yourself before saving.',
-                'এই তথ্যগুলো আপনার প্রেসক্রিপশনের ছবি থেকে পড়া হয়েছে এবং ভুল হতে পারে। সংরক্ষণের আগে নাম, শক্তি ও ডোজ যাচাই করুন এবং রিমাইন্ডারের সময় নিজে নির্ধারণ করুন।',
-              ),
-              style: context.type.bodySecondary.copyWith(color: colors.warning),
-            ),
-          ),
         ],
       ),
     );

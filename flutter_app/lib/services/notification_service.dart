@@ -132,7 +132,9 @@ class NotificationService {
       enableVibration: effectiveVibration,
       playSound: effectivePlaySound,
       actions: actions,
-      sound: (effectivePlaySound && soundFile != null) ? RawResourceAndroidNotificationSound(soundFile) : null,
+      sound: (effectivePlaySound && soundFile != null)
+          ? RawResourceAndroidNotificationSound(soundFile)
+          : null,
       vibrationPattern: effectiveVibration ? vibrationPattern : null,
     );
   }
@@ -145,8 +147,10 @@ class NotificationService {
   /// at the OS level (older Android versions).
   static Future<bool?> areNotificationsEnabled() async {
     if (!_ready) return null;
-    final android = plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     return android?.areNotificationsEnabled();
   }
 
@@ -188,7 +192,10 @@ class NotificationService {
   static bool get isVibrationEnabled => _vibrationEnabled;
 
   /// Toggle a specific reminder type on/off and persist.
-  static Future<void> toggleReminder(ReminderType type, {required bool enabled}) async {
+  static Future<void> toggleReminder(
+    ReminderType type, {
+    required bool enabled,
+  }) async {
     _reminderPrefs[type] = enabled;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -319,8 +326,7 @@ class NotificationService {
   // Task reminders
   // ---------------------------------------------------------------------------
 
-  static int _taskNotificationId(String taskId) =>
-      taskId.hashCode & 0x7fffffff;
+  static int _taskNotificationId(String taskId) => taskId.hashCode & 0x7fffffff;
 
   /// Exposed for tests so we can pin the deterministic id policy without
   /// having to spin up the platform channel. Schedule and cancel MUST use
@@ -396,6 +402,34 @@ class NotificationService {
   static int _medicineNotificationId(String medicineId, String hhmm) =>
       '$medicineId|$hhmm'.hashCode & 0x7fffffff;
 
+  /// Exact alarms are a special-access capability on modern Android. Medicine
+  /// reminders use the precise idle-safe mode when the OS grants it and keep
+  /// the idle-safe inexact mode as a delivery-preserving fallback otherwise.
+  @visibleForTesting
+  static AndroidScheduleMode medicineScheduleModeForCapability(
+    bool exactAlarmAvailable,
+  ) => exactAlarmAvailable
+      ? AndroidScheduleMode.exactAllowWhileIdle
+      : AndroidScheduleMode.inexactAllowWhileIdle;
+
+  static Future<AndroidScheduleMode> _medicineScheduleMode() async {
+    final android = plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) {
+      return medicineScheduleModeForCapability(false);
+    }
+    try {
+      final exactAlarmAvailable =
+          await android.canScheduleExactNotifications() ?? false;
+      return medicineScheduleModeForCapability(exactAlarmAvailable);
+    } catch (_) {
+      // A capability probe must never prevent a reminder from being scheduled.
+      return medicineScheduleModeForCapability(false);
+    }
+  }
+
   /// Exposed for tests so we can pin the deterministic id policy without
   /// having to spin up the platform channel.
   @visibleForTesting
@@ -419,6 +453,8 @@ class NotificationService {
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
     if (hour == null || minute == null) return;
+
+    final scheduleMode = await _medicineScheduleMode();
 
     final now = tz.TZDateTime.now(tz.local);
     var next = tz.TZDateTime(
@@ -469,7 +505,7 @@ class NotificationService {
           ],
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: payload,
     );
@@ -568,8 +604,7 @@ class NotificationService {
     String projectId,
     String taskId,
     String userId,
-  ) =>
-      '$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff;
+  ) => '$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff;
 
   static Future<void> scheduleCommunityTaskReminder({
     required String groupId,

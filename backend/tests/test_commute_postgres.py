@@ -14,6 +14,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
@@ -24,6 +26,7 @@ from app.database.models import (
     BrtaFareSegment,
     BrtaRoute,
     BrtaRouteStop,
+    BusService,
     BusServiceStop,
     MetroFare,
     MetroStation,
@@ -40,138 +43,164 @@ from app.services.commute.service import CommuteService
 
 def _seed_tables():
     """Seed a SQLite in-memory DB with the canonical fixture set."""
+    from app.core.config import get_settings
+
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
+    get_settings.cache_clear()
     reset_engine_cache()
     engine = get_engine()
     Base.metadata.create_all(engine)
     Session = get_sessionmaker()
     with Session() as session:
-        session.add_all(
-            [
-                Place(
-                    place_id="P1",
-                    name_en="Mirpur 10",
-                    name_bn="\u09ae\u09bf\u09b0\u09aa\u09c1\u09b0 \u09e7\u09e6",
-                    normalized_name="mirpur 10",
-                    latitude=23.8067,
-                    longitude=90.3687,
-                    geocode_status="verified",
-                    source_id="S1",
-                ),
-                Place(
-                    place_id="P2",
-                    name_en="Motijheel",
-                    name_bn="\u09ae\u09a4\u09bf\u099d\u09bf\u09b2",
-                    normalized_name="motijheel",
-                    latitude=23.733,
-                    longitude=90.417,
-                    geocode_status="verified",
-                    source_id="S1",
-                ),
-            ]
-        )
-        session.add(
-            StopAlias(
-                alias_id=1,
-                raw_stop_name="Mirpur Ten",
-                normalized_stop_name="mirpur ten",
-                canonical_place_id="P1",
-                canonical_name_en="Mirpur 10",
-                match_score=0.99,
-                match_method="manual",
-                needs_manual_review=False,
-                source_id="S2",
+            session.add_all(
+                [
+                    Place(
+                        place_id="P1",
+                        name_en="Mirpur 10",
+                        name_bn="\u09ae\u09bf\u09b0\u09aa\u09c1\u09b0 \u09e7\u09e6",
+                        normalized_name="mirpur 10",
+                        latitude=23.8067,
+                        longitude=90.3687,
+                        geocode_status="verified",
+                        source_id="S1",
+                    ),
+                    Place(
+                        place_id="P2",
+                        name_en="Motijheel",
+                        name_bn="\u09ae\u09a4\u09bf\u099d\u09bf\u09b2",
+                        normalized_name="motijheel",
+                        latitude=23.733,
+                        longitude=90.417,
+                        geocode_status="verified",
+                        source_id="S1",
+                    ),
+                ]
             )
-        )
-        session.add_all(
-            [
-                MetroStation(
-                    station_id="M1",
+            session.add(
+                StopAlias(
+                    alias_id=1,
+                    raw_stop_name="Mirpur Ten",
+                    normalized_stop_name="mirpur ten",
+                    canonical_place_id="P1",
+                    canonical_name_en="Mirpur 10",
+                    match_score=0.99,
+                    match_method="manual",
+                    needs_manual_review=False,
+                    source_id="S2",
+                )
+            )
+            session.add_all(
+                [
+                    MetroStation(
+                        station_id="M1",
+                        line_id="MRT6",
+                        station_order=1,
+                        name_en="Mirpur 10",
+                        name_bn="\u09ae\u09bf\u09b0\u09aa\u09c1\u09b0 \u09e7\u09e6",
+                        operational_status="in_service",
+                        live_routing_enabled=True,
+                        latitude=23.8067,
+                        longitude=90.3687,
+                        source_id="SM",
+                    ),
+                    MetroStation(
+                        station_id="M2",
+                        line_id="MRT6",
+                        station_order=2,
+                        name_en="Motijheel",
+                        name_bn="\u09ae\u09a4\u09bf\u099d\u09bf\u09b2",
+                        operational_status="in_service",
+                        live_routing_enabled=True,
+                        latitude=23.733,
+                        longitude=90.417,
+                        source_id="SM",
+                    ),
+                ]
+            )
+            session.flush()
+            session.add(
+                MetroFare(
                     line_id="MRT6",
-                    station_order=1,
-                    name_en="Mirpur 10",
-                    name_bn="\u09ae\u09bf\u09b0\u09aa\u09c1\u09b0 \u09e7\u09e6",
-                    operational_status="in_service",
-                    live_routing_enabled=True,
-                    latitude=23.8067,
-                    longitude=90.3687,
-                    source_id="SM",
-                ),
-                MetroStation(
-                    station_id="M2",
-                    line_id="MRT6",
-                    station_order=2,
-                    name_en="Motijheel",
-                    name_bn="\u09ae\u09a4\u09bf\u099d\u09bf\u09b2",
-                    operational_status="in_service",
-                    live_routing_enabled=True,
-                    latitude=23.733,
-                    longitude=90.417,
-                    source_id="SM",
-                ),
-            ]
-        )
-        session.add(
-            MetroFare(
-                line_id="MRT6",
-                from_station_id="M1",
-                to_station_id="M2",
-                single_journey_fare_tk=40,
-                mrt_rapid_pass_fare_tk=36,
-                live_usable=True,
-                source_id="MF",
+                    from_station_id="M1",
+                    to_station_id="M2",
+                    single_journey_fare_tk=40,
+                    mrt_rapid_pass_fare_tk=36,
+                    live_usable=True,
+                    source_id="MF",
+                )
             )
-        )
-        session.add(
-            BrtaRoute(
-                route_id="R1",
-                route_name_en="R1",
-                fare_per_km_tk=2.45,
-                minimum_fare_tk=10,
-                live_use=True,
-                source_id="BRTA",
-            )
-        )
-        session.add_all(
-            [
-                BrtaRouteStop(
+            session.add(
+                BrtaRoute(
                     route_id="R1",
+                    route_name_en="R1",
+                    fare_per_km_tk=2.45,
+                    minimum_fare_tk=10,
+                    live_use=True,
+                    source_id="BRTA",
+                )
+            )
+            session.add_all(
+                [
+                    BrtaRouteStop(
+                        route_id="R1",
+                        stop_sequence=1,
+                        place_id="P1",
+                        stop_name_en="Mirpur 10",
+                        cumulative_distance_km=0,
+                    ),
+                    BrtaRouteStop(
+                        route_id="R1",
+                        stop_sequence=2,
+                        place_id="P2",
+                        stop_name_en="Motijheel",
+                        cumulative_distance_km=8,
+                    ),
+                ]
+            )
+            session.add(
+                BrtaFareSegment(
+                    route_id="R1",
+                    from_place_id="P1",
+                    from_name_en="Mirpur 10",
+                    to_place_id="P2",
+                    to_name_en="Motijheel",
+                    distance_km=8,
+                    fare_tk=25,
+                    source_id="BRTA",
+                )
+            )
+            session.add(
+                BusService(
+                    service_id="SVC1",
+                    operator_name_en="Test Operator",
+                    source_id="BS",
+                )
+            )
+            session.add(
+                BusServiceStop(
+                    service_id="SVC1",
                     stop_sequence=1,
-                    place_id="P1",
-                    stop_name_en="Mirpur 10",
-                    cumulative_distance_km=0,
-                ),
-                BrtaRouteStop(
-                    route_id="R1",
-                    stop_sequence=2,
-                    place_id="P2",
-                    stop_name_en="Motijheel",
-                    cumulative_distance_km=8,
-                ),
-            ]
-        )
-        session.add(
-            BrtaFareSegment(
-                route_id="R1",
-                from_place_id="P1",
-                from_name_en="Mirpur 10",
-                to_place_id="P2",
-                to_name_en="Motijheel",
-                distance_km=8,
-                fare_tk=25,
-                source_id="BRTA",
+                    canonical_place_id="P1",
+                    canonical_name_en="Mirpur 10",
+                )
             )
-        )
-        session.add(
-            BusServiceStop(
-                service_id="SVC1",
-                stop_sequence=1,
-                canonical_place_id="P1",
-                canonical_name_en="Mirpur 10",
-            )
-        )
-        session.commit()
+            session.commit()
     return Session
+
+
+@pytest.fixture(autouse=True)
+def _restore_db_env():
+    """Ensure each test starts with a clean DB env and restores it after."""
+    from app.core.config import get_settings
+
+    orig = os.environ.get("DATABASE_URL")
+    yield
+    if orig is None:
+        os.environ.pop("DATABASE_URL", None)
+    else:
+        os.environ["DATABASE_URL"] = orig
+    get_settings.cache_clear()
+    reset_engine_cache()
 
 
 class _FakeRouting:

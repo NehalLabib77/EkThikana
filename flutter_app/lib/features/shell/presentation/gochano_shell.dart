@@ -1,9 +1,8 @@
-// The Gochano application shell — four primary destinations.
+// The Gochano application shell — five student destinations.
 //
-//   Home | Study | Community | Expense
+//   Today | Study | Money | Commute | Community
 //
-// Life and Profile are removed from the bottom navigation bar. Their
-// features are now surfaced via Home shortcuts (Medicine, CommuteBD, Profile).
+// Profile is accessible from the Today header avatar, NOT from the bottom bar.
 // Screens and business logic are NOT deleted.
 //
 // State between destinations is preserved with an IndexedStack, so switching
@@ -14,9 +13,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../../core/navigation.dart';
 import '../../community/presentation/community_screen.dart';
 import '../../home/presentation/home_screen.dart';
+import '../../life/presentation/commute/commute_screen.dart';
 import '../../life/presentation/expense/expense_screen.dart';
+import '../../study/presentation/ai/ai_assistant_screen.dart';
 import '../../study/presentation/study_screen.dart';
 
 class GochanoShell extends StatefulWidget {
@@ -35,6 +37,7 @@ class GochanoShell extends StatefulWidget {
 
 class _GochanoShellState extends State<GochanoShell> {
   int _index = 0;
+  int _studyTab = 0;
 
   bool get _isStudent => widget.role == 'student';
 
@@ -61,10 +64,13 @@ class _GochanoShellState extends State<GochanoShell> {
           role: widget.role,
           displayName: widget.displayName,
           onOpenDestination: _select,
+          onOpenStudyTab: _openStudyTab,
+          onOpenAiAssistant: _openAiAssistant,
         ),
-        StudyScreen(),
-        CommunityScreen(),
+        StudyScreen(initialTab: _studyTab),
         const ExpenseScreen(),
+        const CommuteScreen(),
+        CommunityScreen(),
       ];
     }
 
@@ -73,6 +79,8 @@ class _GochanoShellState extends State<GochanoShell> {
         role: widget.role,
         displayName: widget.displayName,
         onOpenDestination: _select,
+        onOpenStudyTab: _openStudyTab,
+        onOpenAiAssistant: _openAiAssistant,
       ),
       const ExpenseScreen(),
     ];
@@ -84,7 +92,7 @@ class _GochanoShellState extends State<GochanoShell> {
     if (_isStudent) {
       return [
         _Destination(
-          label: GochanoLanguage.text('Home', 'হোম'),
+          label: GochanoLanguage.text('Today', 'আজ'),
           icon: Icons.home_outlined,
           selectedIcon: Icons.home_rounded,
         ),
@@ -94,26 +102,31 @@ class _GochanoShellState extends State<GochanoShell> {
           selectedIcon: Icons.menu_book_rounded,
         ),
         _Destination(
+          label: GochanoLanguage.text('Money', 'টাকা'),
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long_rounded,
+        ),
+        _Destination(
+          label: GochanoLanguage.text('Commute', 'যাতায়াত'),
+          icon: Icons.directions_bus_outlined,
+          selectedIcon: Icons.directions_bus_rounded,
+        ),
+        _Destination(
           label: GochanoLanguage.text('Community', 'কমিউনিটি'),
           icon: Icons.groups_outlined,
           selectedIcon: Icons.groups_rounded,
-        ),
-        _Destination(
-          label: GochanoLanguage.text('Expense', 'খরচ'),
-          icon: Icons.receipt_long_outlined,
-          selectedIcon: Icons.receipt_long_rounded,
         ),
       ];
     }
 
     return [
       _Destination(
-        label: GochanoLanguage.text('Home', 'হোম'),
+        label: GochanoLanguage.text('Today', 'আজ'),
         icon: Icons.home_outlined,
         selectedIcon: Icons.home_rounded,
       ),
       _Destination(
-        label: GochanoLanguage.text('Expense', 'খরচ'),
+        label: GochanoLanguage.text('Money', 'টাকা'),
         icon: Icons.receipt_long_outlined,
         selectedIcon: Icons.receipt_long_rounded,
       ),
@@ -124,6 +137,19 @@ class _GochanoShellState extends State<GochanoShell> {
     final count = _buildDestinations().length;
     if (index < 0 || index >= count || index == _index) return;
     setState(() => _index = index);
+  }
+
+  void _openStudyTab(int tab) {
+    setState(() {
+      _studyTab = tab;
+      _index = StudentArea.study.tabIndex;
+    });
+  }
+
+  void _openAiAssistant() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AiAssistantScreen()),
+    );
   }
 
   @override

@@ -21,6 +21,7 @@ import '../../../../services/firestore_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
+import '../../../../shared/widgets/related_chips.dart';
 
 class NoteEditorScreen extends StatefulWidget {
   const NoteEditorScreen({
@@ -49,6 +50,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late final TextEditingController _content;
   late String _visibility;
   String? _groupId;
+  String? _relatedTaskId;
+  String? _relatedMaterialId;
 
   bool _saving = false;
   bool _thinking = false;
@@ -65,6 +68,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     _visibility =
         data['visibility']?.toString() ?? widget.initialVisibility;
     _groupId = data['groupId']?.toString() ?? widget.initialGroupId;
+    _relatedTaskId = data['relatedTaskId']?.toString();
+    _relatedMaterialId = data['relatedMaterialId']?.toString();
   }
 
   @override
@@ -106,6 +111,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         content: _content.text,
         visibility: _visibility,
         groupId: _groupId,
+        relatedTaskId: _relatedTaskId,
+        relatedMaterialId: _relatedMaterialId,
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
@@ -263,6 +270,16 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             ),
           ),
 
+          // Phase 5: show related items when editing an existing note.
+          if (_isEdit &&
+              (_relatedTaskId != null || _relatedMaterialId != null)) ...[
+            const SizedBox(height: GochanoSpacing.sm),
+            _RelatedSection(
+              relatedTaskId: _relatedTaskId,
+              relatedMaterialId: _relatedMaterialId,
+            ),
+          ],
+
           if (_thinking) ...[
             const SizedBox(height: GochanoSpacing.md),
             StaticLoadingState(
@@ -329,5 +346,46 @@ Future<bool> deleteNote(
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
     return false;
+  }
+}
+
+/// Shows optional related task/material chips when editing an existing note.
+class _RelatedSection extends StatelessWidget {
+  const _RelatedSection({
+    required this.relatedTaskId,
+    required this.relatedMaterialId,
+  });
+
+  final String? relatedTaskId;
+  final String? relatedMaterialId;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          GochanoLanguage.text('Related', 'সম্পর্কিত'),
+          style: context.type.caption.copyWith(
+            color: colors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: GochanoSpacing.xxs),
+        Wrap(
+          spacing: GochanoSpacing.xs,
+          runSpacing: GochanoSpacing.xxs,
+          children: [
+            if (relatedTaskId != null)
+              RelatedNoteChip(noteId: relatedTaskId!),
+            if (relatedMaterialId != null)
+              RelatedMaterialChip(materialId: relatedMaterialId!),
+          ],
+        ),
+      ],
+    );
   }
 }

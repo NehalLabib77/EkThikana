@@ -3,8 +3,7 @@
 //   Workspace  Semester → Subject → Materials, plus recent materials surfaced
 //              at the top so the common case is one tap, not three (spec §29).
 //   Plan       Combined dashboard: schedule, deadlines, tasks, reminders,
-//              and study goal — the single screen for "what now?"
-//   Focus      A distraction-free timer.
+//              and study plan — the single screen for "what now?"
 //
 // Groups are not a fifth tab here. They are the Community destination in the
 // bottom bar; putting them in both places would be the duplication spec §86
@@ -24,8 +23,6 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import 'ai/ai_assistant_screen.dart';
-import 'focus/focus_hub_view.dart';
-import 'insights/insights_view.dart';
 import 'planner/plan_view.dart';
 import 'workspace/workspace_view.dart';
 
@@ -47,9 +44,9 @@ class _StudyScreenState extends State<StudyScreen>
   void initState() {
     super.initState();
     _tabs = TabController(
-      length: 4,
+      length: 2,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 3),
+      initialIndex: widget.initialTab.clamp(0, 1),
     );
     GochanoLanguage.current.addListener(_onLanguageChange);
   }
@@ -97,14 +94,12 @@ class _StudyScreenState extends State<StudyScreen>
           tabs: [
             Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')))),
             Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Plan', 'পরিকল্পনা')))),
-            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Focus', 'ফোকাস')))),
-            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Insights', 'বিশ্লেষণ')))),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
-        children: [WorkspaceView(), PlanView(), const FocusHubView(), InsightsView()],
+        children: [WorkspaceView(), PlanView()],
       ),
     );
   }

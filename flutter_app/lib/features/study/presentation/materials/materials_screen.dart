@@ -158,7 +158,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
 
         if (widget.mimeFilter != null) {
           docs = docs
-              .where((d) => d.data()['mimeType']?.toString().toLowerCase().startsWith(widget.mimeFilter!) == true)
+              .where((d) => _matchesMimeFilter(d.data()['mimeType']?.toString(), widget.mimeFilter!))
               .toList();
         }
 
@@ -216,6 +216,12 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
             emptyMessage = GochanoLanguage.text(
               'Upload PDFs using the + button.',
               '+ বোতাম দিয়ে পিডিএফ আপলোড করুন।',
+            );
+          } else if (widget.mimeFilter == 'doc/') {
+            emptyTitle = GochanoLanguage.text('No docs yet', 'এখনো কোনো ডক নেই');
+            emptyMessage = GochanoLanguage.text(
+              'Upload documents using the + button.',
+              '+ বোতাম দিয়ে ডকুমেন্ট আপলোড করুন।',
             );
           } else if (isFiltered) {
             emptyTitle = GochanoLanguage.text('No materials yet', 'এখনো কোনো উপকরণ নেই');
@@ -433,12 +439,30 @@ String _createdAt(Object? value) {
   return '${when.day} ${months[when.month - 1]} ${when.year}';
 }
 
+/// Matches a material's MIME type against the given filter category.
+/// Uses 'doc/' as the filter key for document types (DOCX, DOC, TXT).
+bool _matchesMimeFilter(String? mimeType, String filter) {
+  if (mimeType == null) return false;
+  final lower = mimeType.toLowerCase();
+  if (filter == 'doc/') {
+    // Document types: DOCX, DOC, and plain text
+    return lower.contains('wordprocessing') ||
+        lower.contains('msword') ||
+        lower == 'text/plain';
+  }
+  // Default: use prefix match (works for 'image/' and 'application/pdf')
+  return lower.startsWith(filter);
+}
+
 String _mimeFilterTitle(String mimeFilter) {
   if (mimeFilter.startsWith('image/')) {
     return GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি');
   }
   if (mimeFilter.contains('pdf')) {
     return GochanoLanguage.text('PDFs', 'পিডিএফ');
+  }
+  if (mimeFilter == 'doc/') {
+    return GochanoLanguage.text('Docs', 'ডকস');
   }
   return GochanoLanguage.text('Materials', 'উপকরণ');
 }

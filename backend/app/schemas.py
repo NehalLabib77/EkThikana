@@ -30,6 +30,12 @@ class PdfQuestionRequest(BaseModel):
     material_id: str
     question: str = Field(min_length=2, max_length=1000)
     page: int | None = Field(default=None, ge=1)
+    student_context: dict | None = Field(default=None)
+
+
+class GeneralQuestionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    student_context: dict | None = Field(default=None)
 
 
 class StudyPlanRequest(BaseModel):

@@ -14,9 +14,11 @@ import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
+import '../../../core/page_route.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../study/presentation/ai/ai_assistant_screen.dart';
 import 'add_task_sheet.dart';
 
 /// Which slice of the task list is shown.
@@ -300,6 +302,20 @@ class _TaskRow extends StatelessWidget {
           ),
           GochanoOverflowMenu(
             items: [
+              GochanoMenuAction(
+                label: GochanoLanguage.text('Ask AI about this', 'এই বিষয়ে জিজ্ঞাসা করুন'),
+                icon: Icons.psychology_rounded,
+                onSelected: () {
+                  Navigator.of(context).push(
+                    GochanoRoute.to(
+                      builder: (_) => AiAssistantScreen(
+                        prefilledQuestion: 'Help me understand how to approach: ${doc['title'] ?? ''}',
+                        enableContext: true,
+                      ),
+                    ),
+                  );
+                },
+              ),
               GochanoMenuAction(
                 label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
                 icon: Icons.edit_outlined,

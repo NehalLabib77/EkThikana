@@ -10,9 +10,6 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
-import '../../focus_rewards/data/reward_service.dart';
-import '../../focus_rewards/domain/level_helper.dart';
-import '../../focus_rewards/domain/reward_model.dart';
 import '../domain/animated_reaction_catalog.dart';
 import '../domain/sticker_catalog.dart';
 
@@ -69,13 +66,11 @@ class _MediaPickerBody extends StatefulWidget {
 class _MediaPickerBodyState extends State<_MediaPickerBody>
     with SingleTickerProviderStateMixin {
   late final TabController _tabCtrl;
-  RewardProfile _profile = RewardProfile.empty();
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
-    _loadProfile();
   }
 
   @override
@@ -84,17 +79,9 @@ class _MediaPickerBodyState extends State<_MediaPickerBody>
     super.dispose();
   }
 
-  Future<void> _loadProfile() async {
-    try {
-      final profile = await RewardService.readProfile();
-      if (mounted) setState(() => _profile = profile);
-    } catch (_) {}
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final level = levelForXp(_profile.totalXp);
 
     return SafeArea(
       child: Column(
@@ -130,12 +117,9 @@ class _MediaPickerBodyState extends State<_MediaPickerBody>
               children: [
                 _EmojiTab(onSelected: (e) => Navigator.of(context).pop(EmojiPick(e))),
                 _ReactionTab(
-                  currentLevel: level,
-                  profile: _profile,
                   onSelected: (r) => Navigator.of(context).pop(ReactionPick(r)),
                 ),
                 _StickerTab(
-                  currentLevel: level,
                   onSelected: (s) => Navigator.of(context).pop(StickerPick(s)),
                 ),
               ],
@@ -221,23 +205,18 @@ class _EmojiTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Reactions tab — level-gated animated reactions
+// Reactions tab — animated reactions (all unlocked)
 // ---------------------------------------------------------------------------
 
 class _ReactionTab extends StatelessWidget {
   const _ReactionTab({
-    required this.currentLevel,
-    required this.profile,
     required this.onSelected,
   });
 
-  final int currentLevel;
-  final RewardProfile profile;
   final ValueChanged<AnimatedReaction> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     return ListView(
       padding: const EdgeInsets.all(GochanoSpacing.sm),
       children: [
@@ -248,14 +227,6 @@ class _ReactionTab extends StatelessWidget {
               GochanoLanguage.text('Reactions', 'রিঅ্যাকশন'),
               style: context.type.label.copyWith(fontWeight: FontWeight.w600),
             ),
-            const Spacer(),
-            Text(
-              GochanoLanguage.text('Level $currentLevel', 'লেভেল $currentLevel'),
-              style: context.type.caption.copyWith(
-                color: colors.study,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ],
         ),
         const SizedBox(height: GochanoSpacing.sm),
@@ -263,8 +234,6 @@ class _ReactionTab extends StatelessWidget {
         for (final pack in animatedReactionPackets) ...[
           _AnimatedPackSection(
             pack: pack,
-            currentLevel: currentLevel,
-            profile: profile,
             onSelected: onSelected,
           ),
           const SizedBox(height: GochanoSpacing.sm),
@@ -279,21 +248,14 @@ List<AnimatedReactionPack> get animatedReactionPackets => animatedReactionPacks;
 class _AnimatedPackSection extends StatelessWidget {
   const _AnimatedPackSection({
     required this.pack,
-    required this.currentLevel,
-    required this.profile,
     required this.onSelected,
   });
 
   final AnimatedReactionPack pack;
-  final int currentLevel;
-  final RewardProfile profile;
   final ValueChanged<AnimatedReaction> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final unlocked = currentLevel >= pack.level;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -305,14 +267,9 @@ class _AnimatedPackSection extends StatelessWidget {
                 'লেভেল ${pack.level}',
               ),
               style: context.type.label.copyWith(
-                color: unlocked ? colors.textPrimary : colors.textTertiary,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            if (!unlocked) ...[
-              const SizedBox(width: GochanoSpacing.xxs),
-              Icon(Icons.lock_rounded, size: 14, color: colors.textTertiary),
-            ],
           ],
         ),
         const SizedBox(height: GochanoSpacing.xxs),
@@ -322,14 +279,7 @@ class _AnimatedPackSection extends StatelessWidget {
               Expanded(
                 child: _AnimatedReactionTile(
                   reaction: reaction,
-                  unlocked: unlocked,
-                  onTap: () {
-                    if (unlocked) {
-                      onSelected(reaction);
-                    } else {
-                      _showLocked(context, reaction);
-                    }
-                  },
+                  onTap: () => onSelected(reaction),
                 ),
               ),
               if (reaction != pack.reactions.last)
@@ -340,71 +290,15 @@ class _AnimatedPackSection extends StatelessWidget {
       ],
     );
   }
-
-  void _showLocked(BuildContext context, AnimatedReaction reaction) {
-    final requiredXp = levelThresholds[reaction.requiredLevel - 2];
-    final remaining = (requiredXp - profile.totalXp).clamp(0, 99999);
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(GochanoSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              reaction.assetPath != null
-                  ? Image.asset(
-                      reaction.assetPath!,
-                      width: 64,
-                      height: 64,
-                      fit: BoxFit.contain,
-                      semanticLabel: 'Reaction sticker: ${reaction.labelEn}',
-                      errorBuilder: (_, _, _) => Text(
-                        reaction.fallbackEmoji,
-                        style: const TextStyle(fontSize: 40),
-                      ),
-                    )
-                  : Text(reaction.fallbackEmoji, style: const TextStyle(fontSize: 40)),
-              const SizedBox(height: GochanoSpacing.sm),
-              Text(
-                GochanoLanguage.text(
-                  'Unlocks at Level ${reaction.requiredLevel}',
-                  'লেভেল ${reaction.requiredLevel}-এ আনলক হবে',
-                ),
-                style: context.type.sectionHeading,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: GochanoSpacing.xs),
-              Text(
-                GochanoLanguage.text(
-                  'Earn $remaining more XP by completing Focus sessions.',
-                  'ফোকাস সেশন সম্পন্ন করে আরও $remaining XP অর্জন করুন।',
-                ),
-                style: context.type.bodySecondary,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: GochanoSpacing.lg),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(GochanoLanguage.text('OK', 'ঠিক আছে')),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _AnimatedReactionTile extends StatelessWidget {
   const _AnimatedReactionTile({
     required this.reaction,
-    required this.unlocked,
     required this.onTap,
   });
 
   final AnimatedReaction reaction;
-  final bool unlocked;
   final VoidCallback onTap;
 
   @override
@@ -412,28 +306,18 @@ class _AnimatedReactionTile extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       button: true,
-      enabled: unlocked,
-      label: unlocked
-          ? GochanoLanguage.text(
-              'Send ${reaction.labelEn} reaction',
-              '${reaction.labelBn} রিঅ্যাকশন পাঠান',
-            )
-          : GochanoLanguage.text(
-              'Locked — unlocks at Level ${reaction.requiredLevel}',
-              'লকড — লেভেল ${reaction.requiredLevel}-এ আনলক হবে',
-            ),
+      label: GochanoLanguage.text(
+        'Send ${reaction.labelEn} reaction',
+        '${reaction.labelBn} রিঅ্যাকশন পাঠান',
+      ),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           height: 56,
           decoration: BoxDecoration(
-            color: unlocked
-                ? colors.surface
-                : colors.surfaceVariant.withValues(alpha: 0.5),
+            color: colors.surface,
             borderRadius: BorderRadius.circular(GochanoRadius.md),
-            border: Border.all(
-              color: unlocked ? colors.border : colors.surfaceVariant,
-            ),
+            border: Border.all(color: colors.border),
           ),
           child: Stack(
             alignment: Alignment.center,
@@ -444,37 +328,16 @@ class _AnimatedReactionTile extends StatelessWidget {
                       width: 36,
                       height: 36,
                       fit: BoxFit.contain,
-                      color: unlocked ? null : Colors.grey,
                       semanticLabel: 'Reaction sticker: ${reaction.labelEn}',
                       errorBuilder: (_, _, _) => Text(
                         reaction.fallbackEmoji,
-                        style: TextStyle(
-                          fontSize: 28,
-                          color: unlocked ? null : Colors.grey,
-                        ),
+                        style: const TextStyle(fontSize: 28),
                       ),
                     )
                   : Text(
                       reaction.fallbackEmoji,
-                      style: TextStyle(
-                        fontSize: 28,
-                        color: unlocked ? null : Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 28),
                     ),
-              if (!unlocked)
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Icon(Icons.lock_rounded, size: 10, color: colors.textTertiary),
-                  ),
-                ),
             ],
           ),
         ),
@@ -489,11 +352,9 @@ class _AnimatedReactionTile extends StatelessWidget {
 
 class _StickerTab extends StatelessWidget {
   const _StickerTab({
-    required this.currentLevel,
     required this.onSelected,
   });
 
-  final int currentLevel;
   final ValueChanged<StickerItem> onSelected;
 
   @override
@@ -519,14 +380,9 @@ class _StickerTab extends StatelessWidget {
             itemCount: pack.stickers.length,
             itemBuilder: (context, i) {
               final sticker = pack.stickers[i];
-              final locked = sticker.requiredLevel > 0 &&
-                  currentLevel < sticker.requiredLevel;
               return _StickerTile(
                 sticker: sticker,
-                locked: locked,
-                onTap: () {
-                  if (!locked) onSelected(sticker);
-                },
+                onTap: () => onSelected(sticker),
               );
             },
           ),
@@ -540,12 +396,10 @@ class _StickerTab extends StatelessWidget {
 class _StickerTile extends StatelessWidget {
   const _StickerTile({
     required this.sticker,
-    required this.locked,
     required this.onTap,
   });
 
   final StickerItem sticker;
-  final bool locked;
   final VoidCallback onTap;
 
   @override
@@ -553,27 +407,17 @@ class _StickerTile extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       button: true,
-      enabled: !locked,
-      label: locked
-          ? GochanoLanguage.text(
-              'Locked sticker',
-              'লকড স্টিকার',
-            )
-          : GochanoLanguage.text(
-              'Send ${sticker.labelEn} sticker',
-              '${sticker.labelBn} স্টিকার পাঠান',
-            ),
+      label: GochanoLanguage.text(
+        'Send ${sticker.labelEn} sticker',
+        '${sticker.labelBn} স্টিকার পাঠান',
+      ),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: locked
-                ? colors.surfaceVariant.withValues(alpha: 0.5)
-                : colors.surface,
+            color: colors.surface,
             borderRadius: BorderRadius.circular(GochanoRadius.md),
-            border: Border.all(
-              color: locked ? colors.surfaceVariant : colors.border,
-            ),
+            border: Border.all(color: colors.border),
           ),
           child: Stack(
             alignment: Alignment.center,
@@ -587,48 +431,27 @@ class _StickerTile extends StatelessWidget {
                           width: 64,
                           height: 64,
                           fit: BoxFit.contain,
-                          color: locked ? Colors.grey : null,
                           semanticLabel: 'Sticker: ${sticker.labelEn}',
                           errorBuilder: (_, _, _) => Text(
                             sticker.fallbackEmoji,
-                            style: TextStyle(
-                              fontSize: 36,
-                              color: locked ? Colors.grey : null,
-                            ),
+                            style: const TextStyle(fontSize: 36),
                           ),
                         )
                       : Text(
                           sticker.fallbackEmoji,
-                          style: TextStyle(
-                            fontSize: 36,
-                            color: locked ? Colors.grey : null,
-                          ),
+                          style: const TextStyle(fontSize: 36),
                         ),
                   const SizedBox(height: 2),
                   Text(
                     GochanoLanguage.text(sticker.labelEn, sticker.labelBn),
                     style: context.type.caption.copyWith(
-                      color: locked ? colors.textTertiary : colors.textSecondary,
+                      color: colors.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
-              if (locked)
-                Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Icon(Icons.lock_rounded, size: 10, color: colors.textTertiary),
-                  ),
-                ),
             ],
           ),
         ),

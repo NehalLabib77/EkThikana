@@ -104,18 +104,22 @@ void main() {
           contains('GochanoLanguage.current.removeListener(_onLanguageChange)'),
         );
         expect(shellSource, contains('_buildDestinations()'));
-        expect(shellSource, contains("GochanoLanguage.text('Home', 'হোম')"));
+        expect(shellSource, contains("GochanoLanguage.text('Today', 'আজ')"));
         expect(
           shellSource,
           contains("GochanoLanguage.text('Study', 'পড়াশোনা')"),
         );
         expect(
           shellSource,
-          contains("GochanoLanguage.text('Community', 'কমিউনিটি')"),
+          contains("GochanoLanguage.text('Money', 'টাকা')"),
         );
         expect(
           shellSource,
-          contains("GochanoLanguage.text('Expense', 'খরচ')"),
+          contains("GochanoLanguage.text('Commute', 'যাতায়াত')"),
+        );
+        expect(
+          shellSource,
+          contains("GochanoLanguage.text('Community', 'কমিউনিটি')"),
         );
       },
     );
@@ -132,19 +136,23 @@ void main() {
                 destinations: [
                   NavigationDestination(
                     icon: const Icon(Icons.home),
-                    label: GochanoLanguage.text('Home', 'হোম'),
+                    label: GochanoLanguage.text('Today', 'আজ'),
                   ),
                   NavigationDestination(
                     icon: const Icon(Icons.school),
                     label: GochanoLanguage.text('Study', 'পড়াশোনা'),
                   ),
                   NavigationDestination(
-                    icon: const Icon(Icons.groups),
-                    label: GochanoLanguage.text('Community', 'কমিউনিটি'),
+                    icon: const Icon(Icons.receipt_long),
+                    label: GochanoLanguage.text('Money', 'টাকা'),
                   ),
                   NavigationDestination(
-                    icon: const Icon(Icons.receipt_long),
-                    label: GochanoLanguage.text('Expense', 'খরচ'),
+                    icon: const Icon(Icons.directions_bus),
+                    label: GochanoLanguage.text('Commute', 'যাতায়াত'),
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.groups),
+                    label: GochanoLanguage.text('Community', 'কমিউনিটি'),
                   ),
                 ],
               );
@@ -157,30 +165,33 @@ void main() {
         );
 
         // Verify English bottom nav labels
-        expect(find.text('Home'), findsOneWidget);
+        expect(find.text('Today'), findsOneWidget);
         expect(find.text('Study'), findsOneWidget);
+        expect(find.text('Money'), findsOneWidget);
+        expect(find.text('Commute'), findsOneWidget);
         expect(find.text('Community'), findsOneWidget);
-        expect(find.text('Expense'), findsOneWidget);
 
         // Switch language to Bangla
         GochanoLanguage.current.value = GochanoLocale.bangla;
         await tester.pump();
 
         // Verify Bangla bottom nav labels immediately update
-        expect(find.text('হোম'), findsOneWidget);
+        expect(find.text('আজ'), findsOneWidget);
         expect(find.text('পড়াশোনা'), findsOneWidget);
+        expect(find.text('টাকা'), findsOneWidget);
+        expect(find.text('যাতায়াত'), findsOneWidget);
         expect(find.text('কমিউনিটি'), findsOneWidget);
-        expect(find.text('খরচ'), findsOneWidget);
 
         // Switch back to English
         GochanoLanguage.current.value = GochanoLocale.english;
         await tester.pump();
 
         // Verify labels flip back to English
-        expect(find.text('Home'), findsOneWidget);
+        expect(find.text('Today'), findsOneWidget);
         expect(find.text('Study'), findsOneWidget);
+        expect(find.text('Money'), findsOneWidget);
+        expect(find.text('Commute'), findsOneWidget);
         expect(find.text('Community'), findsOneWidget);
-        expect(find.text('Expense'), findsOneWidget);
       },
     );
   });

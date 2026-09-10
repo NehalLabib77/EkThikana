@@ -119,6 +119,40 @@ def _safe_snippet(body_text: str, limit: int = 240) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Retriable provider error decision (centralised).
+#
+# A Groq failure is retried with Gemini exactly once if it is a transient /
+# provider-side issue.  Client errors (400, 401, 403) and validation
+# failures are NOT retried — they indicate a bad request, not a flaky
+# provider.
+# ---------------------------------------------------------------------------
+_RETRIABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
+
+
+def _is_retriable(exc: HTTPException) -> bool:
+    """Return True when a Groq HTTPException should trigger one Gemini fallback.
+
+    Retriable conditions:
+      * timeout (504 from httpx TimeoutException)
+      * connection/network error (502 from httpx HTTPError)
+      * HTTP 429 (rate limit / quota)
+      * HTTP 500, 502, 503, 504 (server-side transient)
+
+    NOT retriable:
+      * HTTP 400 (bad request / validation)
+      * HTTP 401 (unauthenticated)
+      * HTTP 403 (permission denied)
+      * config errors (503 + "configuration") — these indicate a bad key
+        or wrong model and will not succeed with Gemini using the same
+        broken config.
+    """
+    # Config errors are NOT retriable — they indicate a setup problem.
+    if exc.status_code == 503 and "configuration" in (exc.detail or ""):
+        return False
+    return exc.status_code in _RETRIABLE_STATUSES
+
+
+# ---------------------------------------------------------------------------
 # Daily-quota gate. Atomic Firestore transaction per (uid, day).
 # ---------------------------------------------------------------------------
 def _consume_quota(uid: str) -> None:
@@ -486,7 +520,7 @@ async def _gemini_generate_multimodal(parts: list[dict[str, Any]]) -> str:
 # Public surface — GROQ primary, Gemini fallback.
 # ---------------------------------------------------------------------------
 async def generate(uid: str, prompt: str) -> str:
-    """Text generation: tries GROQ first, falls back to Gemini."""
+    """Text generation: tries GROQ first, falls back to Gemini on retriable errors."""
     settings = get_settings()
     _consume_quota(uid)
 
@@ -495,18 +529,15 @@ async def generate(uid: str, prompt: str) -> str:
         try:
             return await _groq_generate(prompt)
         except HTTPException as exc:
-            # If GROQ fails with a config error (bad key, wrong model),
-            # fall through to Gemini. Other errors (timeout, rate limit)
-            # are raised directly.
-            if exc.status_code == 503 and "configuration" in (exc.detail or ""):
+            if _is_retriable(exc):
                 logger.warning(
-                    "GROQ config error, falling back to Gemini: %s",
+                    "GROQ retriable error, falling back to Gemini: %s",
                     exc.detail,
                 )
             else:
                 raise
 
-    # Gemini fallback.
+    # Gemini fallback (max one attempt).
     if settings.gemini_api_key:
         return await _gemini_generate(prompt)
 
@@ -517,7 +548,7 @@ async def generate(uid: str, prompt: str) -> str:
 
 
 async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
-    """Multimodal generation (image + text): tries GROQ vision, falls back to Gemini."""
+    """Multimodal generation (image + text): tries GROQ vision, falls back to Gemini on retriable errors."""
     settings = get_settings()
     _consume_quota(uid)
 
@@ -526,15 +557,15 @@ async def generate_multimodal(uid: str, parts: list[dict[str, Any]]) -> str:
         try:
             return await _groq_generate_multimodal(parts)
         except HTTPException as exc:
-            if exc.status_code == 503 and "configuration" in (exc.detail or ""):
+            if _is_retriable(exc):
                 logger.warning(
-                    "GROQ config error (multimodal), falling back to Gemini: %s",
+                    "GROQ retriable error (multimodal), falling back to Gemini: %s",
                     exc.detail,
                 )
             else:
                 raise
 
-    # Gemini fallback.
+    # Gemini fallback (max one attempt).
     if settings.gemini_api_key:
         return await _gemini_generate_multimodal(parts)
 

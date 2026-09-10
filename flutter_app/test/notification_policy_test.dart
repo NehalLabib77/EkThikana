@@ -18,6 +18,8 @@
 import 'package:gochano/services/financial_service.dart';
 import 'package:gochano/services/notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:io';
 
 void main() {
   group('Medicine notification id (deterministic, no duplicates)', () {
@@ -109,6 +111,71 @@ void main() {
       // Sanity-check that the helper exists - keeps import surfaces stable.
       // The actual bilingual switch is exercised in widget tests.
       expect(NotificationService.debugMedicineNotificationId, isNotNull);
+    });
+  });
+
+  group('Android medicine background scheduling', () {
+    test('uses exact idle-safe mode only when capability is granted', () {
+      expect(
+        NotificationService.medicineScheduleModeForCapability(true),
+        AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      expect(
+        NotificationService.medicineScheduleModeForCapability(false),
+        AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    });
+
+    test('uses OS scheduling and deterministic cancel identity', () {
+      final source = File(
+        'lib/services/notification_service.dart',
+      ).readAsStringSync();
+      expect(source, contains('plugin.zonedSchedule'));
+      expect(source, contains('canScheduleExactNotifications'));
+      expect(source, contains('plugin.cancel(id: _medicineNotificationId'));
+      expect(source, isNot(contains('Timer(')));
+      expect(source, isNot(contains('Future.delayed')));
+    });
+
+    test('manifest declares notification, vibration, and boot support', () {
+      final manifest = File(
+        'android/app/src/main/AndroidManifest.xml',
+      ).readAsStringSync();
+      expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
+      expect(manifest, contains('android.permission.VIBRATE'));
+      expect(manifest, contains('android.permission.RECEIVE_BOOT_COMPLETED'));
+      expect(manifest, contains('android.permission.SCHEDULE_EXACT_ALARM'));
+      expect(
+        manifest,
+        contains(
+          'com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver',
+        ),
+      );
+      expect(
+        manifest,
+        contains(
+          'com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver',
+        ),
+      );
+      expect(manifest, contains('android.intent.action.BOOT_COMPLETED'));
+      expect(manifest, contains('android.intent.action.MY_PACKAGE_REPLACED'));
+    });
+
+    test('medicine edit and cancellation reuse medicineId plus hhmm', () {
+      final source = File(
+        'lib/services/notification_service.dart',
+      ).readAsStringSync();
+      expect(source, contains('id: _medicineNotificationId(medicineId, hhmm)'));
+      expect(
+        source,
+        contains(
+          'plugin.cancel(id: _medicineNotificationId(medicineId, time))',
+        ),
+      );
+      expect(
+        source,
+        contains('matchDateTimeComponents: DateTimeComponents.time'),
+      );
     });
   });
 }

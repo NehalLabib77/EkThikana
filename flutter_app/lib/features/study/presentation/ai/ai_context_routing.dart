@@ -21,10 +21,16 @@ enum AiContextRoute {
 
   /// `POST /api/ai/image-question` — Gemini multimodal.
   imageQuestion,
+
+  /// `POST /api/ai/attachment-question` — text extraction for DOCX/TXT/PDF
+  /// via multipart upload. Used when material context is a document type
+  /// that cannot be handled by pdf-question or image-question.
+  attachmentQuestion,
 }
 
 abstract final class AiContextRouting {
   static const Set<String> imageExtensions = {'png', 'jpg', 'jpeg', 'webp'};
+  static const Set<String> docExtensions = {'docx', 'doc', 'txt'};
 
   /// The lowercased extension without the dot, or `''` when there is none.
   ///
@@ -40,13 +46,17 @@ abstract final class AiContextRouting {
   static bool isImageName(String fileName) =>
       imageExtensions.contains(extensionOf(fileName));
 
+  static bool isDocName(String fileName) =>
+      docExtensions.contains(extensionOf(fileName));
+
   /// Chooses the endpoint for a material.
   ///
   /// Order of evidence: an explicit MIME type wins, then the file name.
-  /// Anything unrecognised routes to [AiContextRoute.imageQuestion] — the
-  /// multimodal endpoint is the more forgiving of the two, and sending an
-  /// unknown file to the PDF extractor guarantees a 400 while sending it to
-  /// the vision endpoint at least has a chance of answering.
+  ///
+  /// PDF → pdfQuestion (text extraction + OCR fallback)
+  /// Image → imageQuestion (Gemini multimodal)
+  /// DOCX/TXT/DOC → attachmentQuestion (text extraction via attachment flow)
+  /// Unknown → imageQuestion (most forgiving)
   static AiContextRoute routeFor({String? mimeType, String? fileName}) {
     final mime = (mimeType ?? '').toLowerCase().trim();
     final name = (fileName ?? '').trim();
@@ -54,8 +64,16 @@ abstract final class AiContextRouting {
     if (mime.contains('pdf')) return AiContextRoute.pdfQuestion;
     if (mime.startsWith('image/')) return AiContextRoute.imageQuestion;
 
+    // DOCX / DOC / TXT — use attachment-question for text extraction.
+    if (mime.contains('word') ||
+        mime.contains('document') ||
+        mime == 'text/plain') {
+      return AiContextRoute.attachmentQuestion;
+    }
+
     if (isPdfName(name)) return AiContextRoute.pdfQuestion;
     if (isImageName(name)) return AiContextRoute.imageQuestion;
+    if (isDocName(name)) return AiContextRoute.attachmentQuestion;
 
     return AiContextRoute.imageQuestion;
   }

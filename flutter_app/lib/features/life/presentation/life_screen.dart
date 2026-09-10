@@ -67,8 +67,8 @@ class LifeScreen extends StatelessWidget {
           _ModuleCard(
             title: GochanoLanguage.text('Medicine', 'ওষুধ'),
             description: GochanoLanguage.text(
-              'Reminders, doses taken and prescription scanning',
-              'রিমাইন্ডার, ডোজ ও প্রেসক্রিপশন স্ক্যান',
+              'Reminders, doses taken and tracking',
+              'রিমাইন্ডার, ডোজ ও ট্র্যাকিং',
             ),
             illustration: GochanoArt.featureMedicine,
             accent: colors.medicine,

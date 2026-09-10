@@ -248,11 +248,11 @@ void main() {
     );
 
     test('has all required bento sections', () {
-      expect(source, contains('_SmartSummaryCard'));
-      expect(source, contains('_TodaysTasksCard'));
-      expect(source, contains('_StudyProgressCard'));
-      expect(source, contains('_MoneyCard'));
-      expect(source, contains('_RecentMaterialsCard'));
+      expect(source, contains('_DailyPrioritySummary'));
+      expect(source, contains('_TodaySchedule'));
+      expect(source, contains('_StudySnapshot'));
+      expect(source, contains('_MoneySnapshot'));
+      expect(source, contains('_NowNextCard'));
     });
 
     test('uses accent-rail cards with colored left border', () {
