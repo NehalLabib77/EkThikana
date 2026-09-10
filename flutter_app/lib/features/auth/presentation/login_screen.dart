@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
           phone: phone,
           exchange: exchange,
         );
-        debugPrint('[AuthFlow] firebase user=${FirebaseAuth.instance.currentUser?.uid ?? 'null'}');
+        debugPrint('[AuthFlow] firebase user=${FirebaseAuth.instance.currentUser != null ? "non-null" : "null"}');
       } on TelecomAuthException catch (e) {
         _showError(e.message);
         if (mounted) setState(() => _busy = false);

@@ -1,7 +1,7 @@
 // Tests for the Final Core Bug-Fix Sprint (Part 14).
 //
 // Covers:
-//   1. Financial remaining formula (backendRemaining + pawnaReceived - denaPaid)
+//   1. Financial remaining formula (backendRemaining + pawnaReceived, denaPaid already in ledger)
 //   2. Month boundary — transactions from previous months excluded
 //   3. Grocery counted exactly once (idempotent mirror write path)
 //   4. Task date filter: !due.isBefore(dayKey) && due.isBefore(endOfDay)
@@ -42,19 +42,18 @@ void main() {
   // 1. Financial remaining formula
   // -------------------------------------------------------------------------
   group('Financial remaining formula', () {
-    test('adjustedRemaining = backendRemaining + pawnaReceived - denaPaid', () {
+    test('adjustedRemaining = backendRemaining + pawnaReceived (denaPaid already in ledger)', () {
       const backendRemaining = 2000.0;
       const pawnaReceived = 500.0;
       const denaPaid = 300.0;
-      final adjusted = backendRemaining + pawnaReceived - denaPaid;
-      expect(adjusted, equals(2200.0));
+      final adjusted = backendRemaining + pawnaReceived;
+      expect(adjusted, equals(2500.0));
     });
 
     test('negative remaining when overspent', () {
       const backendRemaining = -52655.0;
       const pawnaReceived = 0.0;
-      const denaPaid = 0.0;
-      final adjusted = backendRemaining + pawnaReceived - denaPaid;
+      final adjusted = backendRemaining + pawnaReceived;
       expect(adjusted, isNegative);
       expect(adjusted, equals(-52655.0));
     });
@@ -62,33 +61,32 @@ void main() {
     test('pawna inflow raises remaining', () {
       const backendRemaining = 1000.0;
       const pawnaReceived = 3000.0;
-      const denaPaid = 0.0;
-      final adjusted = backendRemaining + pawnaReceived - denaPaid;
+      final adjusted = backendRemaining + pawnaReceived;
       expect(adjusted, equals(4000.0));
     });
 
-    test('dena outflow reduces remaining', () {
-      const backendRemaining = 5000.0;
+    test('dena paid: backendRemaining already includes the deduction', () {
+      // After marking Dena paid, the dena_paid entry is in financial_transactions,
+      // so backendRemaining already reflects it. adjustedRemaining does NOT subtract denaPaid again.
+      const backendRemaining = 3000.0; // already reduced from 5000 by 2000 dena_paid tx
       const pawnaReceived = 0.0;
-      const denaPaid = 2000.0;
-      final adjusted = backendRemaining + pawnaReceived - denaPaid;
+      final adjusted = backendRemaining + pawnaReceived;
       expect(adjusted, equals(3000.0));
     });
 
     test('no settlement leaves remaining unchanged', () {
       const backendRemaining = 2900.0;
-      final adjusted = backendRemaining + 0 - 0;
+      final adjusted = backendRemaining + 0;
       expect(adjusted, equals(2900.0));
     });
 
     test('monthly money itself is never mutated by settlement', () {
       const monthlyMoney = 5000.0;
-      const backendRemaining = 2000.0;
+      const backendRemaining = 3500.0; // 5000 - 2000 expenses - 500 dena_paid = 2500, but let's say 3500
       const pawnaReceived = 1000.0;
-      const denaPaid = 500.0;
-      final adjusted = backendRemaining + pawnaReceived - denaPaid;
+      final adjusted = backendRemaining + pawnaReceived;
       expect(monthlyMoney, equals(5000.0));
-      expect(adjusted, equals(2500.0));
+      expect(adjusted, equals(4500.0));
     });
   });
 

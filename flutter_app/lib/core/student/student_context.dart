@@ -92,7 +92,9 @@ class MoneySummary {
     this.denaPaid = 0,
   });
 
-  /// Backend-computed remaining (available − totalSpent − denaPaid).
+  /// Backend-computed remaining (available − totalSpent).
+  /// dena_paid settlements are already in financial_transactions,
+  /// so backendRemaining already accounts for them.
   final double backendRemaining;
 
   /// Sum of all expense ledger entries this month.
@@ -101,12 +103,16 @@ class MoneySummary {
   /// Income from lend settlements (not in ledger).
   final double pawnaReceived;
 
-  /// Payments for borrow settlements (IS in ledger).
+  /// Payments for borrow settlements (IS in ledger — already reflected in backendRemaining).
   final double denaPaid;
 
   /// Adjusted remaining matching the authoritative Gochano formula:
-  /// backendRemaining + pawnaReceived − denaPaid.
-  double get adjustedRemaining => backendRemaining + pawnaReceived - denaPaid;
+  /// backendRemaining + pawnaReceived.
+  /// NOTE: denaPaid is NOT subtracted here because dena_paid settlements
+  /// are written to financial_transactions, which the backend already
+  /// includes when computing backendRemaining. Subtracting again would
+  /// double-count the deduction.
+  double get adjustedRemaining => backendRemaining + pawnaReceived;
 }
 
 /// Lightweight commute snapshot from existing trip data.

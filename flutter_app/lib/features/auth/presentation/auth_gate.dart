@@ -184,7 +184,7 @@ class _AuthGateState extends State<AuthGate> {
 
       // ── Stage 2: Check Firebase user (authenticated path) ──
       final staleFlag = isLoggedIn && current == null;
-      debugPrint('[AuthGate] firebaseUser=${current != null ? current.uid.substring(0, min(8, current.uid.length)) : "null"} staleFlag=$staleFlag');
+      debugPrint('[AuthGate] firebaseUser=${current != null ? "non-null" : "null"} staleFlag=$staleFlag');
 
       if (staleFlag) {
         // Flag set but Firebase did not restore the user. Refuse entry;

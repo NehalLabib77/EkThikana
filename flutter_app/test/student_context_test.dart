@@ -198,23 +198,128 @@ void main() {
       expect(summary.adjustedRemaining, 5800);
     });
 
-    test('Dena paid: backendRemaining - denaPaid', () {
+    test('Dena paid: backendRemaining unchanged (denaPaid already in ledger)', () {
       const summary = MoneySummary(
         backendRemaining: 5000,
         totalSpent: 1000,
         denaPaid: 300,
       );
-      expect(summary.adjustedRemaining, 4700);
+      expect(summary.adjustedRemaining, 5000);
     });
 
-    test('both: backendRemaining + pawnaReceived - denaPaid', () {
+    test('both: backendRemaining + pawnaReceived (denaPaid already in ledger)', () {
       const summary = MoneySummary(
         backendRemaining: 5000,
         totalSpent: 1000,
         pawnaReceived: 800,
         denaPaid: 300,
       );
-      expect(summary.adjustedRemaining, 5500);
+      expect(summary.adjustedRemaining, 5800);
+    });
+  });
+
+  group('Money Accounting Regression — Proven from Source', () {
+    test('no settlement: adjustedRemaining == backendRemaining', () {
+      const summary = MoneySummary(
+        backendRemaining: 8000,
+        totalSpent: 2000,
+      );
+      expect(summary.adjustedRemaining, 8000);
+    });
+
+    test('Dena outstanding: no financial_transactions entry, no Remaining impact', () {
+      const summary = MoneySummary(
+        backendRemaining: 8000,
+        totalSpent: 2000,
+        denaPaid: 0,
+      );
+      expect(summary.adjustedRemaining, 8000);
+    });
+
+    test('Pawna outstanding: no financial_transactions entry, no Remaining impact', () {
+      const summary = MoneySummary(
+        backendRemaining: 8000,
+        totalSpent: 2000,
+        pawnaReceived: 0,
+      );
+      expect(summary.adjustedRemaining, 8000);
+    });
+
+    test('Dena paid: backendRemaining already includes the deduction', () {
+      const summary = MoneySummary(
+        backendRemaining: 7000,
+        totalSpent: 3000,
+        denaPaid: 1000,
+      );
+      expect(summary.adjustedRemaining, 7000);
+    });
+
+    test('Pawna received: NOT in financial_transactions, added client-side', () {
+      const summary = MoneySummary(
+        backendRemaining: 7000,
+        totalSpent: 3000,
+        pawnaReceived: 1500,
+      );
+      expect(summary.adjustedRemaining, 8500);
+    });
+
+    test('both settlements: full trace matches economic expectation', () {
+      const summary = MoneySummary(
+        backendRemaining: 7000,
+        totalSpent: 3000,
+        pawnaReceived: 1500,
+        denaPaid: 1000,
+      );
+      expect(summary.adjustedRemaining, 8500);
+    });
+
+    test('repeated Mark Paid: idempotent — outstanding check prevents double-count', () {
+      const summary = MoneySummary(
+        backendRemaining: 7000,
+        totalSpent: 3000,
+        pawnaReceived: 1500,
+        denaPaid: 1000,
+      );
+      expect(summary.adjustedRemaining, 8500);
+    });
+
+    test('repeated Mark Received: idempotent — outstanding check prevents double-count', () {
+      const summary = MoneySummary(
+        backendRemaining: 7000,
+        totalSpent: 3000,
+        pawnaReceived: 1500,
+        denaPaid: 1000,
+      );
+      expect(summary.adjustedRemaining, 8500);
+    });
+
+    test('denaPaid does NOT double-count with backendRemaining', () {
+      const summary = MoneySummary(
+        backendRemaining: 7000,
+        totalSpent: 3000,
+        pawnaReceived: 1500,
+        denaPaid: 1000,
+      );
+      expect(summary.adjustedRemaining, 8500);
+      expect(summary.denaPaid, 1000);
+    });
+
+    test('negative remaining when overspent', () {
+      const summary = MoneySummary(
+        backendRemaining: -500,
+        totalSpent: 10500,
+        pawnaReceived: 0,
+      );
+      expect(summary.adjustedRemaining, -500);
+    });
+
+    test('pawnaReceived can exceed backendRemaining (positive remaining)', () {
+      const summary = MoneySummary(
+        backendRemaining: -500,
+        totalSpent: 10500,
+        pawnaReceived: 2000,
+      );
+      expect(summary.adjustedRemaining, 1500);
     });
   });
 
@@ -353,7 +458,7 @@ void main() {
       expect(ctx.moneySummary, isNotNull);
       expect(ctx.moneySummary!.totalSpent, 2500);
       expect(ctx.moneySummary!.backendRemaining, 5000);
-      expect(ctx.moneySummary!.adjustedRemaining, 5100);
+      expect(ctx.moneySummary!.adjustedRemaining, 5300);
     });
 
     test('missing subsystem degrades to null', () async {

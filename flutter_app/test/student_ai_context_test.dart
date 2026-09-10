@@ -234,7 +234,7 @@ void main() {
 
       final ai = AiMoneySummary.fromMoneySummary(m);
       expect(ai.totalSpent, 500);
-      expect(ai.remaining, 1100); // 1000 + 200 - 100
+      expect(ai.remaining, 1200); // 1000 + 200 (denaPaid already in ledger)
     });
   });
 

@@ -8099,5 +8099,429 @@ onSelected: () async {
 | `flutter_app/test/student_signal_test.dart` | Added 4 upcomingAssignment de-duplication tests, 1 clearDay safety test |
 
 ```
+PHASE 7.2 STATUS: PASS
+```
+
+---
+
+# PHASE 7.3 — FINAL LINKED MATERIAL UI CLOSURE
+
+**Date:** 2026-09-10
+**Branch:** `final-cleanup-release-v2`
+**Status:** IMPLEMENTED — All tests passing (826 Flutter / 486 backend)
+
+## 1. Problem
+
+In Phase 7.2, the "Plan with this material" menu item appeared for assignments with a `relatedMaterialId`, but the material existence was only checked on tap (one-shot `.get()`). This created a misleading UX: the action appeared enabled even when the linked material had been deleted.
+
+## 2. Material Availability Resolution Strategy
+
+### Architecture: Pre-resolve at Row Level
+
+Converted `_PlannerItemRow` from `StatelessWidget` to `StatefulWidget`. On `initState`, a single one-shot `.get()` checks if the linked material document exists.
+
+```
+_plannerItemRow
+  initState → _checkMaterial()
+    FirebaseFirestore.instance.collection('materials').doc(materialId).get()
+    → sets _materialExists = snap.exists
+```
+
+### State Machine
+
+| `_materialExists` | Meaning | Menu Behavior |
+|---|---|---|
+| `null` | Still loading | Disabled menu item shown (not misleading) |
+| `true` | Material exists | Full menu item with tap → AI flow |
+| `false` | Deleted/unavailable | Menu item hidden entirely |
+
+### Why NOT a Permanent Listener
+
+- `_checkMaterial()` uses `.get()` (one-shot read), NOT `.snapshots()` (live listener)
+- Runs only in `initState`, not in every `build`
+- Bounded: one Firestore read per row that has `relatedMaterialId`
+- No permanent per-row listener pattern introduced
+
+## 3. Enabled / Disabled / Hidden Behavior
+
+### Material Exists
+```
+Plan with this material  ← enabled, full functionality
+```
+Tap → one-shot `.get()` (safety fallback) → AI with material context
+
+### Material Loading
+```
+Plan with this material  [disabled]
+```
+Shown as disabled `GochanoMenuAction(enabled: false)`. Not misleading.
+
+### Material Deleted/Unavailable
+Menu item **hidden entirely**. User never sees an apparently usable action for a deleted resource.
+
+## 4. Performance / N+1 Safety
+
+| Concern | Addressed? |
+|---|---|
+| Permanent per-row listener | NO — uses `.get()`, not `.snapshots()` |
+| Unbounded Firestore reads | NO — bounded to rows with `relatedMaterialId` |
+| Reads at build time | NO — runs in `initState`, not `build` |
+| Listener lifecycle | NO — one-shot async, no stream subscription |
+| Duplicate Material persistence | NO — reads existing `relatedMaterialId` field |
+
+## 5. Valid Material AI Flow (Preserved)
+
+```dart
+AiAssistantScreen(
+  contextMaterialId: materialId,
+  contextMaterialTitle: mData['title']?.toString() ?? title,
+  contextMimeType: mData['mimeType']?.toString(),
+  contextFileName: mData['fileName']?.toString(),
+  enableContext: true,
+  prefilledQuestion: 'Using this assignment and the linked material, help me decide what to study first: $title',
+)
+```
+
+User must still tap Send. No automatic AI request.
+
+## 6. Broken Relation Behavior
+
+| Operation | Works? |
+|---|---|
+| Assignment edit | YES |
+| Assignment complete | YES |
+| Assignment delete | YES |
+| Normal "Ask AI about this" | YES (independent of material) |
+| "Plan with this material" | HIDDEN (material deleted) |
+| No crash | YES |
+| No B2 operation | YES |
+| No cascade-delete | YES |
+
+## 7. Tests Added (Phase 7.3)
+
+| # | Test | Category |
+|---|---|---|
+| 1 | `_PlannerItemRow` is StatefulWidget with `_materialExists` field | Architecture |
+| 2 | Material existence check runs in `initState`, not `build` | Architecture |
+| 3 | Menu item visibility requires `_materialExists == true` | Visibility |
+| 4 | Menu item hidden when `_materialExists` is false or null | Visibility |
+| 5 | Disabled menu item shown when material existence is unknown | Loading state |
+| 6 | Tap handler still has safety fallback for deleted material | Race protection |
+| 7 | Valid material AI flow preserves all required parameters | AI flow |
+| 8 | `_checkMaterial` handles deleted material gracefully | Error handling |
+| 9 | No permanent per-row Firestore listener (`.get()` not `.snapshots()`) | Performance |
+| 10 | Material check is bounded to rows with `relatedMaterialId` | Performance |
+| 11 | Normal Assignment "Ask AI" still works regardless of material | Safety |
+
+## 8. Validation
+
+| Check | Result |
+|-------|--------|
+| `flutter analyze` | **PASS — 0 issues** |
+| `flutter test` | **PASS — 826/826** |
+| Backend `pytest` | **PASS — 486/486** |
+| No permanent per-row Firestore listener | PASS |
+| Bounded material reads | PASS |
+| Menu hidden for deleted Material | PASS |
+| Menu enabled for valid Material | PASS |
+| Disabled during loading | PASS |
+| AI flow preserved (all parameters) | PASS |
+| Race condition fallback preserved | PASS |
+| Normal Ask AI unaffected | PASS |
+| No B2 duplication | PASS |
+| No crash on deleted Material | PASS |
+| Stable systems untouched | PASS |
+
+## 9. Files Changed (Phase 7.3)
+
+| File | Change |
+|------|--------|
+| `flutter_app/lib/features/study/presentation/planner/plan_view.dart` | Converted `_PlannerItemRow` to `StatefulWidget`; added `_checkMaterial()` in `initState`; "Plan with this material" requires `_materialExists == true`; disabled variant for `_materialExists == null` |
+| `flutter_app/test/planner_material_availability_test.dart` | NEW — 11 architecture and behavior tests |
+
+```
 PHASE 7 STATUS: PASS — READY FOR PHASE 8
 ```
+
+---
+
+# STUDENT LIFE OS — PHASE 8
+## BETA → PRODUCTION READINESS
+
+**Date:** 2026-09-10
+**Branch:** `final-cleanup-release-v2`
+**Status:** READY FOR FINAL RELEASE AUTHORIZATION
+
+---
+
+## 1. CURRENT PRODUCTION BASELINE
+
+### Bottom Navigation
+Today | Study | Money | Commute | Community
+
+### Study Sub-tabs
+Workspace | Plan
+
+### Permanently Removed (must NOT exist)
+Focus / Distraction / Insights / Rewards / XP / Gems / Levels / Study Goal / OCR
+
+### AI
+- Groq: PRIMARY
+- Gemini: controlled fallback (429, 500, 502, 503, 504, timeout, connection failure)
+
+### Storage
+- Backblaze B2 via authenticated backend
+
+### Backend
+- FastAPI / Render
+
+### Auth
+- Telecom (Robi 018, Cirkle 016) → Firebase custom token
+
+### Database
+- Firestore (primary) + Neon/PostGIS (CommuteBD)
+
+---
+
+## 2. VALIDATION RESULTS
+
+| Metric | Result |
+|--------|--------|
+| `flutter analyze` | **PASS — 0 issues** |
+| `flutter test` | **PASS — 826/826** |
+| Backend `pytest` | **PASS — 486/486** |
+
+---
+
+## 3. SOURCE-SCOPE AUDIT
+
+### Removed Feature Residue
+
+| Category | Count | Action |
+|----------|-------|--------|
+| Active production code (Class A) | 0 | Clean |
+| Dead/unreferenced files (Class B) | 3 color tokens | Non-blocking — cosmetic |
+| Test-only strings (Class C) | 0 | Clean |
+| Stale doc comments (Class D) | 5 comments | Non-blocking — cosmetic |
+
+**Bottom nav confirmed clean:** Today | Study | Money | Commute | Community
+
+No removed feature is compiled, reachable, or present in active UI/navigation.
+
+---
+
+## 4. CRITICAL BUGS FOUND & FIXED
+
+### P1: MoneySummary.adjustedRemaining Double-Counted denaPaid
+
+**File:** `flutter_app/lib/core/student/student_context.dart:109`
+**Bug:** `adjustedRemaining = backendRemaining + pawnaReceived - denaPaid`
+**Root cause:** `dena_paid` settlements are written to `financial_transactions` (source: 'dena_paid'). The backend's `GET /api/budget/remaining` already accounts for them. Subtracting `denaPaid` again double-counted the deduction.
+**Impact:** Home screen money display showed wrong remaining. Budget attention signal could trigger falsely. AI received incorrect remaining.
+**Fix:** Changed to `adjustedRemaining = backendRemaining + pawnaReceived` with explanatory comment.
+**Downstream consumers updated:** home_screen.dart, student_signal_service.dart, student_ai_context.dart — all consume the getter, no code changes needed.
+**Tests updated:** 4 tests in student_context_test.dart, 1 in student_ai_context_test.dart, 1 in sprint_core_bugfix_test.dart.
+
+### P1: Auth Logging Exposed Sensitive Data
+
+**Files:** telecom_auth_service.dart, auth_gate.dart, login_screen.dart, otp_verify_screen.dart
+**Bug:** Full phone numbers, Firebase UIDs, and HTTP response bodies logged unconditionally in production builds.
+**Fix:**
+- Added `_debugLog()` helper with `kReleaseMode` guard to `TelecomAuthService`
+- Added `_maskPhone()` to mask phone numbers (first 3 + last 2 digits)
+- Replaced 5 sensitive `debugPrint` calls in telecom_auth_service.dart
+- Replaced UID exposures in auth_gate.dart, login_screen.dart, otp_verify_screen.dart with `non-null`/`null`
+
+### P2: Notification Sound Not Wired
+
+**File:** `flutter_app/lib/services/notification_service.dart`
+**Bug:** `gochano_reminder.wav` bundled in APK but never passed as `soundFile` to task/medicine/community schedule methods.
+**Fix:** Added `soundFile: 'gochano_reminder'` to `scheduleTask`, `rescheduleTask`, `scheduleDailyMedicine`, `scheduleCommunityTaskReminder`, `rescheduleCommunityTaskReminder`.
+
+---
+
+## 5. AUDIT SUMMARY BY DOMAIN
+
+### Auth (13/13 PASS)
+- Robi=018, Cirkle=016 only, regex correct
+- No Airtel/SmartList residue
+- recentlyVerified is routing marker only, never auth proof
+- SharedPreferences never sufficient auth proof
+- Firebase currentUser required for authenticated routes
+- Profile tri-state (exists/missing/error) distinct
+- No sign-out storm
+- No AuthGate infinite spinner
+- No generation race regression
+- Registered subscriber flow matches spec
+- Not-subscribed flow matches spec
+- Post-OTP rollback safety correct
+
+### AI (9/9 PASS)
+- Groq PRIMARY, Gemini fallback only for retriable errors
+- No provider loops (1 Groq → 1 Gemini → stop)
+- Config errors NOT retriable
+- Privacy: no phone/UID/tokens/OTP in AI context
+- Context scoping deterministic
+- AI requests user-triggered only
+
+### Money/Dena-Pawna (10/10 PASS after fix)
+- Give → Mark paid → financial impact exactly once
+- Receive → Mark received → financial impact exactly once
+- Outstanding items → no Remaining impact
+- Formula correct after P1 fix
+- Deterministic settlement IDs
+- No duplicate transactions
+
+### Medicine (10/10 PASS)
+- Add/edit/delete/Taken/Skipped all work
+- Future-time validation exists
+- Expense mirroring exactly once
+- Skipped medicine does NOT create invalid expense
+- Home/Today representation correct
+- StudentContext includes medicine availability
+- OCR remains absent
+
+### Notifications (18/18 PASS after fix)
+- Centralized NotificationService
+- All permissions declared and handled
+- Deterministic notification IDs
+- Cancel/reschedule logic correct
+- Vibration configured
+- "ting" sound wired (after fix)
+- Reboot persistence via BootReceiver
+- Background scheduling with AllowWhileIdle
+- No OEM hacks, no device model branches
+
+### AI Attachments (PASS)
+- PDF → PDF question flow
+- DOCX → document/attachment flow
+- image → image question flow
+- attachment + StudentContext co-exist
+- No auto-send
+- Deleted Material handled
+
+### Navigation (16/16 PASS)
+- All canonical routes verified
+- Money snapshot ≠ Add Expense Quick Action
+- No magic tab indices
+- Back blocked after Logout/Unsubscribe
+- Logout/Unsubscribe clear session + AuthGate
+
+### Community (10/10 PASS)
+- Group list/detail/task features work
+- Reactions and chat work
+- Emoji/sticker behavior correct
+- Ownership/permissions enforced
+- No old reward/level gating
+
+### B2 Storage (PASS)
+- Flutter → backend → B2 flow clean
+- No B2 secrets in Flutter
+- Signed URL generation correct
+- Expired URL recovery works
+- Ownership enforced
+- File-size and quota limits configured
+
+### Firestore Rules (PASS)
+- signedIn() check present
+- Owner rules for all 8 collections
+- Community/group rules correct
+- Backend-only collections explicitly denied
+
+### Firestore Indexes (12/13 PASS)
+- All compound indexes present
+- Gap: no compound indexes for `tasks` collection group (minor — single-field indexes sufficient for current queries)
+
+### CommuteBD (8/8 PASS)
+- Feature opens, backend connectivity works
+- Route types supported, multi-modal response intact
+- No route API call on Today load
+- No AI-invented locations
+- Failure/timeout UI exists
+- No device-specific logic
+
+---
+
+## 6. BLOCKER CLASSIFICATION
+
+### P0 BLOCKERS
+None.
+
+### P1 BLOCKERS (all fixed)
+| # | Issue | Status |
+|---|-------|--------|
+| 1 | MoneySummary.adjustedRemaining double-counted denaPaid | **FIXED** |
+| 2 | Auth logging exposed phone numbers + UIDs in production | **FIXED** |
+
+### P2 NON-BLOCKING (documented)
+| # | Issue | Category |
+|---|-------|----------|
+| 1 | 5 stale doc comments referencing removed Focus feature | Cosmetic |
+| 2 | 3 dead color tokens (usageLow/Medium/High) from removed Distraction feature | Cosmetic |
+| 1 | Stale comment in group_chat_view.dart line 122 | Cosmetic |
+| 1 | `requiredLevel` fields in reaction/sticker catalog never enforced | Cosmetic |
+| 1 | SUPABASE_* env vars still in backend config.py (inert) | Config hygiene |
+| 1 | Missing compound indexes for `tasks` collection group | Minor gap |
+| 1 | Unbounded Firestore queries in groupProjects/projectTasks/denaPawnaSettlementTotals | Performance |
+| 1 | Heavy client-side filtering in planner (300-task fetch) | Performance |
+
+---
+
+## 7. FILES CHANGED IN PHASE 8
+
+| File | Change |
+|------|--------|
+| `flutter_app/lib/core/student/student_context.dart` | Fixed adjustedRemaining formula, updated comments |
+| `flutter_app/lib/core/services/telecom_auth_service.dart` | Added _debugLog/_maskPhone, masked 5 sensitive log statements |
+| `flutter_app/lib/features/auth/presentation/auth_gate.dart` | Masked partial UID exposure |
+| `flutter_app/lib/features/auth/presentation/login_screen.dart` | Masked full UID exposure |
+| `flutter_app/lib/features/auth/presentation/otp_verify_screen.dart` | Masked UID + exception exposure |
+| `flutter_app/lib/services/notification_service.dart` | Wired gochano_reminder.wav to 5 schedule methods |
+| `flutter_app/test/student_context_test.dart` | Updated 3 tests for corrected formula |
+| `flutter_app/test/student_ai_context_test.dart` | Updated 1 test for corrected formula |
+| `flutter_app/test/sprint_core_bugfix_test.dart` | Updated 1 test for corrected formula |
+
+---
+
+## 8. GIT STATUS
+
+- **Branch:** `final-cleanup-release-v2`
+- **Uncommitted changes:** Modified IMPLEMENTATION_REPORT.md, untracked planner_material_availability_test.dart, plus Phase 8 fixes
+- **No commits made during Phase 8** (as required)
+- **No push, deploy, or APK build performed**
+
+---
+
+## 9. REMAINING MANUAL / DEPLOYMENT ACTIONS
+
+| # | Action | Authorization Required |
+|---|--------|----------------------|
+| 1 | Commit all Phase 8 changes | User |
+| 2 | Push to remote | User |
+| 3 | Deploy Firestore rules (`firebase deploy --only firestore:rules`) | User |
+| 4 | Deploy Firestore indexes (`firebase deploy --only firestore:indexes`) | User |
+| 5 | Backend Render deployment (if backend changes were made) | User |
+| 6 | Real-device smoke testing (auth, AI, money, medicine, notifications) | User |
+| 7 | Build final APK (`flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com`) | User |
+| 8 | Play Store submission | User |
+
+---
+
+## 10. RELEASE BUILD FEASIBILITY
+
+- **Kotlin Gradle Plugin:** Version 2.3.20, fully configured, no migration needed
+- **compileSdk:** 36 (latest)
+- **minSdk:** 24 (exceeds 21+ requirement)
+- **pdfium_dart:** Native asset download risk exists but has not been verified in this session
+- **Recommended:** Run `flutter build apk --release --split-per-abi` in a clean environment to verify release compilation
+
+---
+
+```
+PHASE 8 STATUS: READY FOR FINAL RELEASE AUTHORIZATION
+```
+
+**Automated validation:** flutter analyze 0 issues, 826/826 Flutter tests, 486/486 backend tests.
+**P0/P1 blockers:** 0 remaining (2 found and fixed during Phase 8).
+**Device testing:** NOT performed (no Android device connected). Required before final release.
+**Deployment:** NOT performed. Awaiting user authorization.

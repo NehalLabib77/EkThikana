@@ -226,9 +226,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
             phone: widget.phone,
             exchange: exchange,
           );
-          debugPrint('[AuthFlow] firebase user=${FirebaseAuth.instance.currentUser?.uid ?? 'null'}');
+          debugPrint('[AuthFlow] firebase user=${FirebaseAuth.instance.currentUser != null ? "non-null" : "null"}');
         } catch (e) {
-          debugPrint('[AuthFlow] FAIL: firebase sign-in exception: $e');
+          debugPrint('[AuthFlow] FAIL: firebase sign-in exception: ${e.runtimeType}');
           await _handlePostOtpFailure('Firebase sign-in failed');
           return;
         }

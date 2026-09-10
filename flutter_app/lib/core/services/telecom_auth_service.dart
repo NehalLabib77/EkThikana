@@ -210,6 +210,21 @@ class TelecomAuthService {
   TelecomAuthService._();
 
   // -------------------------------------------------------------------
+  // Debug logging — guarded by kReleaseMode
+  // -------------------------------------------------------------------
+
+  static void _debugLog(String message) {
+    if (kReleaseMode) return;
+    debugPrint('[TelecomAuth] $message');
+  }
+
+  /// Mask phone for logging: shows first 3 and last 2 digits.
+  static String _maskPhone(String phone) {
+    if (phone.length <= 5) return '***';
+    return '${phone.substring(0, 3)}***${phone.substring(phone.length - 2)}';
+  }
+
+  // -------------------------------------------------------------------
   // Endpoint configuration
   // -------------------------------------------------------------------
 
@@ -309,7 +324,7 @@ class TelecomAuthService {
       );
     }
 
-    debugPrint('[TelecomAuth] checkSubscription: phone="$normalized"');
+    _debugLog('checkSubscription: phone="${_maskPhone(normalized)}"');
 
     final response = await _safeFormPost(
       Uri.parse('$baseUrl/check_subscription.php'),
@@ -934,7 +949,7 @@ class TelecomAuthService {
     try {
       debugPrint('[TelecomAuth] signInWithCustomToken: starting');
       final cred = await auth.signInWithCustomToken(exchange.customToken);
-      debugPrint('[TelecomAuth] signInWithCustomToken: uid=${cred.user?.uid ?? 'null'}');
+      _debugLog('signInWithCustomToken: uid=${cred.user != null ? "non-null" : "null"}');
       // Force a token refresh so the ID token includes fresh custom claims
       // (telecom_verified, email_verified) set server-side via
       // set_custom_user_claims() / update_user().  Without this, the
@@ -991,7 +1006,7 @@ class TelecomAuthService {
     }
 
     final uri = Uri.parse('$backendBaseUrl/v1/auth/telecom/exchange');
-    debugPrint('[TelecomAuth] exchangeSubscription: url=$uri, phone=$cleanPhone');
+    _debugLog('exchangeSubscription: url=$uri, phone=${_maskPhone(cleanPhone)}');
     final response = await _safeJsonPost(uri, {
       'phone': cleanPhone,
       'already_subscribed': true,
@@ -1068,7 +1083,7 @@ class TelecomAuthService {
         ),
       );
     }
-    debugPrint('[TelecomAuth] enterSession: currentUser=${currentUser.uid}');
+    _debugLog('enterSession: currentUser=non-null');
     await persistSession(phone: phone);
   }
 
@@ -1349,9 +1364,7 @@ class TelecomAuthService {
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      debugPrint(
-          '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri '
-          'body=${response.body.length > 200 ? "${response.body.substring(0, 200)}..." : response.body}');
+      _debugLog('_safeJsonPost: HTTP ${response.statusCode} on $uri body_len=${response.body.length}');
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Server is not responding. Please try again in a moment.',
