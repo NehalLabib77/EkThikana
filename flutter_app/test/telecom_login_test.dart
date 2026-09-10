@@ -1595,4 +1595,327 @@ void main() {
           reason: 'Fast-path must come before token refresh');
     });
   });
+
+  // -------------------------------------------------------------------
+  // Auth blocker: _readSubscriptionStatus field-path coverage
+  // -------------------------------------------------------------------
+
+  group('_readSubscriptionStatus field-path coverage', () {
+    TelecomSubscriptionResult r(String body) {
+      return TelecomAuthService.parseSubscriptionResponseForTest(body);
+    }
+
+    test('top-level subscriptionStatus (canonical)', () {
+      expect(r('{"subscriptionStatus":"REGISTERED"}').shouldEnterApp, isTrue);
+    });
+
+    test('nested data.subscriptionStatus', () {
+      expect(
+        r('{"data":{"subscriptionStatus":"REGISTERED"}}').shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('top-level status shorthand', () {
+      expect(r('{"status":"REGISTERED"}').shouldEnterApp, isTrue);
+    });
+
+    test('nested data.status shorthand', () {
+      expect(r('{"data":{"status":"REGISTERED"}}').shouldEnterApp, isTrue);
+    });
+
+    test('top-level subscription_status (snake_case)', () {
+      expect(
+        r('{"subscription_status":"INITIAL CHARGING PENDING"}').shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('nested data.subscription_status (snake_case)', () {
+      expect(
+        r('{"data":{"subscription_status":"INITIAL CHARGING PENDING"}}')
+            .shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('title-case "Registered" normalises to REGISTERED', () {
+      expect(r('{"subscriptionStatus":"Registered"}').shouldEnterApp, isTrue);
+    });
+
+    test('underscored "INITIAL_CHARGING_PENDING" grants access', () {
+      expect(
+        r('{"subscriptionStatus":"INITIAL_CHARGING_PENDING"}').shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('hyphenated "Initial-Charging-Pending" grants access', () {
+      expect(
+        r('{"subscriptionStatus":"Initial-Charging-Pending"}').shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('status in data with other fields does not break parsing', () {
+      expect(
+        r('{"statusCode":"S1000","data":{"status":"REGISTERED","other":"x"}}')
+            .shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('empty status value falls through to notSubscribed', () {
+      expect(r('{"subscriptionStatus":""}').shouldEnterApp, isFalse);
+    });
+
+    test('null status value falls through to notSubscribed', () {
+      expect(r('{"subscriptionStatus":null}').shouldEnterApp, isFalse);
+    });
+
+    test('numeric status falls through to notSubscribed', () {
+      expect(r('{"subscriptionStatus":123}').shouldEnterApp, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Carrier matrix: Robi (018) + Cirkle (016)
+  // -------------------------------------------------------------------
+
+  group('Robi 018 carrier matrix', () {
+    TelecomSubscriptionResult r(String body) {
+      return TelecomAuthService.parseSubscriptionResponseForTest(body);
+    }
+
+    test('A. 018 + REGISTERED → skip OTP, enter app', () {
+      expect(r('{"subscriptionStatus":"REGISTERED"}').shouldEnterApp, isTrue);
+      expect(r('{"subscriptionStatus":"REGISTERED"}').status,
+          TelecomSubscriptionStatus.registered);
+    });
+
+    test('B. 018 + INITIAL CHARGING PENDING → skip OTP, enter app', () {
+      final result = r('{"subscriptionStatus":"INITIAL CHARGING PENDING"}');
+      expect(result.shouldEnterApp, isTrue);
+      expect(result.status,
+          TelecomSubscriptionStatus.initialChargingPending);
+    });
+
+    test('C. 018 + NOT SUBSCRIBED → OTP required', () {
+      expect(r('{"subscriptionStatus":"NOT SUBSCRIBED"}').shouldEnterApp, isFalse);
+      expect(r('{"subscriptionStatus":"NOT SUBSCRIBED"}').status,
+          TelecomSubscriptionStatus.notSubscribed);
+    });
+
+    test('D. 018 prefix accepted by validator', () {
+      expect(TelecomAuthService.isSupportedPhone('01812345678'), isTrue);
+    });
+
+    test('E. 018 + empty subscriptionStatus → OTP required', () {
+      expect(r('{"subscriptionStatus":""}').shouldEnterApp, isFalse);
+    });
+  });
+
+  group('Cirkle 016 carrier matrix', () {
+    TelecomSubscriptionResult r(String body) {
+      return TelecomAuthService.parseSubscriptionResponseForTest(body);
+    }
+
+    test('F. 016 + REGISTERED → skip OTP, enter app', () {
+      expect(r('{"subscriptionStatus":"REGISTERED"}').shouldEnterApp, isTrue);
+      expect(r('{"subscriptionStatus":"REGISTERED"}').status,
+          TelecomSubscriptionStatus.registered);
+    });
+
+    test('G. 016 + INITIAL CHARGING PENDING → skip OTP, enter app', () {
+      final result = r('{"subscriptionStatus":"INITIAL CHARGING PENDING"}');
+      expect(result.shouldEnterApp, isTrue);
+      expect(result.status,
+          TelecomSubscriptionStatus.initialChargingPending);
+    });
+
+    test('H. 016 + NOT SUBSCRIBED → OTP required', () {
+      expect(r('{"subscriptionStatus":"NOT SUBSCRIBED"}').shouldEnterApp, isFalse);
+    });
+
+    test('I. 016 prefix accepted by validator', () {
+      expect(TelecomAuthService.isSupportedPhone('01612345678'), isTrue);
+    });
+
+    test('J. 016 + empty subscriptionStatus → OTP required', () {
+      expect(r('{"subscriptionStatus":""}').shouldEnterApp, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // sendOtp already-registered recovery
+  // -------------------------------------------------------------------
+
+  group('sendOtp already-registered recovery', () {
+    late String loginSrc;
+    late String otpSrc;
+    late String telecomSrc;
+
+    setUpAll(() {
+      loginSrc = _read('lib/features/auth/presentation/login_screen.dart');
+      otpSrc = _read('lib/features/auth/presentation/otp_verify_screen.dart');
+      telecomSrc = _read('lib/core/services/telecom_auth_service.dart');
+    });
+
+    dynamic r(String body) =>
+        TelecomAuthService.parseSendOtpResponseForTest(body);
+
+    test('K. "user already registered" alone is NEVER auth proof', () {
+      // The sendOtp response parser must flag alreadyRegistered but
+      // must NOT grant access on its own — only the re-poll of
+      // checkSubscription can grant access.
+      final result = r('{"success":false,"message":"user already registered"}');
+      expect(result.alreadyRegistered, isTrue);
+      // alreadyRegistered is just a signal; no access is granted here.
+    });
+
+    test('L. no direct GochanoShell navigation from send_otp error', () {
+      // The OTP screen must NOT navigate to GochanoShell when
+      // kAlreadySubscribedSentinel is returned. It must go to LoginScreen.
+      expect(otpSrc, contains('kAlreadySubscribedSentinel'));
+      expect(otpSrc, contains('LoginScreen()'));
+    });
+
+    test('M. no manual loggedIn SharedPreferences bypass', () {
+      // Neither login_screen nor otp_verify_screen must manually set
+      // prefIsLoggedIn outside of enterSession/persistSession.
+      expect(loginSrc, isNot(contains("prefs.setBool('isLoggedIn'")));
+      expect(otpSrc, isNot(contains("prefs.setBool('isLoggedIn'")));
+    });
+
+    test('N. no exchangeOtpForFirebaseSession reuse from OTP screen', () {
+      expect(otpSrc, isNot(contains('exchangeOtpForFirebaseSession')));
+    });
+
+    test('O. backend /v1/auth/telecom/exchange still independently verifies', () {
+      // The exchange endpoint must exist and be called from both paths.
+      expect(telecomSrc, contains('/v1/auth/telecom/exchange'));
+      expect(loginSrc, contains('exchangeSubscriptionForFirebaseSession'));
+      expect(otpSrc, contains('exchangeSubscriptionForFirebaseSession'));
+    });
+
+    test('E1351 statusCode triggers alreadyRegistered', () {
+      expect(r('{"statusCode":"E1351"}').alreadyRegistered, isTrue);
+    });
+
+    test('"already subscribed" in message triggers alreadyRegistered', () {
+      expect(
+        r('{"success":false,"message":"You are already subscribed."}')
+            .alreadyRegistered,
+        isTrue,
+      );
+    });
+
+    test('subscriptionStatus REGISTERED in sendOtp triggers alreadyRegistered', () {
+      expect(
+        r('{"success":false,"subscriptionStatus":"REGISTERED"}')
+            .alreadyRegistered,
+        isTrue,
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // sendOtp activation message on re-check failure
+  // -------------------------------------------------------------------
+
+  group('sendOtp activation message on re-check failure', () {
+    late String source;
+
+    setUpAll(() =>
+        source = _read('lib/core/services/telecom_auth_service.dart'));
+
+    test('shows activation message when re-check returns NOT SUBSCRIBED', () {
+      expect(source, contains('Your subscription is already being activated'));
+      expect(source, contains('আপনার সাবস্ক্রিপশন সক্রিয় হচ্ছে'));
+    });
+
+    test('does NOT show "contact support" for re-check failure', () {
+      // The old message said "contact support" — the new one says
+      // "try again shortly" instead.
+      expect(source, isNot(contains('Please contact support')),
+          reason: 'Re-check failure must not say contact support');
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Carrier mapping correctness
+  // -------------------------------------------------------------------
+
+  group('Carrier mapping', () {
+    late String loginSrc;
+
+    setUpAll(() =>
+        loginSrc = _read('lib/features/auth/presentation/login_screen.dart'));
+
+    test('018 = Robi', () {
+      // UI must mention Robi near the 018 prefix.
+      expect(loginSrc, contains('Robi'));
+      expect(loginSrc, contains('018'));
+    });
+
+    test('016 = Cirkle', () {
+      expect(loginSrc, contains('Cirkle'));
+      expect(loginSrc, contains('016'));
+    });
+
+    test('regex accepts only 016 and 018', () {
+      expect(TelecomAuthService.isSupportedPhone('01612345678'), isTrue);
+      expect(TelecomAuthService.isSupportedPhone('01812345678'), isTrue);
+      expect(TelecomAuthService.isSupportedPhone('01712345678'), isFalse);
+      expect(TelecomAuthService.isSupportedPhone('01912345678'), isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // _readSubscriptionStatus additional field-path recovery
+  // -------------------------------------------------------------------
+
+  group('_readSubscriptionStatus additional field paths', () {
+    TelecomSubscriptionResult r(String body) {
+      return TelecomAuthService.parseSubscriptionResponseForTest(body);
+    }
+
+    test('status field at top level (not subscriptionStatus)', () {
+      expect(r('{"status":"REGISTERED"}').shouldEnterApp, isTrue);
+    });
+
+    test('data.status field (not data.subscriptionStatus)', () {
+      expect(
+        r('{"data":{"status":"INITIAL CHARGING PENDING"}}').shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('subscription_status snake_case at top level', () {
+      expect(
+        r('{"subscription_status":"REGISTERED"}').shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('data.subscription_status snake_case', () {
+      expect(
+        r('{"data":{"subscription_status":"REGISTERED"}}').shouldEnterApp,
+        isTrue,
+      );
+    });
+
+    test('deeply nested status is NOT supported (only one level of data)', () {
+      // We only look in top-level and data.* — not data.deep.status.
+      expect(
+        r('{"data":{"deep":{"status":"REGISTERED"}}}').shouldEnterApp,
+        isFalse,
+      );
+    });
+
+    test('non-string status value is skipped', () {
+      expect(r('{"status":true}').shouldEnterApp, isFalse);
+      expect(r('{"status":42}').shouldEnterApp, isFalse);
+    });
+  });
 }

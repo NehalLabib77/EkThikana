@@ -332,6 +332,9 @@ class TelecomAuthService {
       checkSubscriptionTimeout,
     );
 
+    _debugLog('checkSubscription: HTTP ${response.statusCode}, '
+        'body_len=${response.body.length}');
+
     final result = _parseSubscriptionResponse(response.body);
     debugPrint(
       '[TelecomAuth] checkSubscription result: status=${result.status}, '
@@ -440,20 +443,41 @@ class TelecomAuthService {
   /// Reads the `subscriptionStatus` field from a JSON body. Returns the
   /// trimmed+uppercased value, or null when the body is not JSON or the
   /// field is absent.
+  ///
+  /// Checks multiple field paths because different carriers and response
+  /// versions place the status in different locations:
+  ///   - `subscriptionStatus` (top-level, canonical)
+  ///   - `data.subscriptionStatus` (nested)
+  ///   - `status` (top-level shorthand)
+  ///   - `data.status` (nested shorthand)
+  ///   - `subscription_status` (snake_case variant)
+  ///   - `data.subscription_status` (nested snake_case)
   static String? _readSubscriptionStatus(String body) {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return null;
     try {
       final decoded = json.decode(trimmed);
       if (decoded is Map) {
-        // Defensive: look in both top-level and under `data`.
+        final data = decoded['data'];
+        final dataMap = data is Map ? data : null;
+
+        // Ordered by specificity: canonical names first, then aliases.
         final candidates = <dynamic>[
           decoded['subscriptionStatus'],
-          if (decoded['data'] is Map) decoded['data']['subscriptionStatus'],
+          dataMap?['subscriptionStatus'],
+          decoded['status'],
+          dataMap?['status'],
+          decoded['subscription_status'],
+          dataMap?['subscription_status'],
         ];
         for (final c in candidates) {
-          if (c is String && c.trim().isNotEmpty) return c.trim().toUpperCase();
+          if (c is String && c.trim().isNotEmpty) {
+            final normalized = c.trim().toUpperCase();
+            _debugLog('_readSubscriptionStatus: found "$normalized"');
+            return normalized;
+          }
         }
+        _debugLog('_readSubscriptionStatus: no status field found in body');
       }
     } catch (_) {
       // Non-JSON body — fall through.
@@ -623,12 +647,13 @@ class TelecomAuthService {
         // call the Firebase exchange immediately.
         return kAlreadySubscribedSentinel;
       }
+      // Re-check still NOT SUBSCRIBED — carrier is likely propagating.
+      // Show activation message; do NOT send a duplicate OTP.
       throw TelecomAuthException(
-        parsed.message ??
-            GochanoLanguage.text(
-              'Your number is already registered. Please contact support.',
-              'আপনার নম্বর ইতোমধ্যে নিবন্ধিত। সাপোর্টের সাথে যোগাযোগ করুন।',
-            ),
+        GochanoLanguage.text(
+          'Your subscription is already being activated. Please try again shortly.',
+          'আপনার সাবস্ক্রিপশন সক্রিয় হচ্ছে। একটু পরে আবার চেষ্টা করুন।',
+        ),
       );
     }
 

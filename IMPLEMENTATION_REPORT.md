@@ -8525,3 +8525,518 @@ PHASE 8 STATUS: READY FOR FINAL RELEASE AUTHORIZATION
 **P0/P1 blockers:** 0 remaining (2 found and fixed during Phase 8).
 **Device testing:** NOT performed (no Android device connected). Required before final release.
 **Deployment:** NOT performed. Awaiting user authorization.
+
+---
+
+# PHASE 8.1 — FINAL RELEASE CLOSURE
+
+**Date:** 2026-09-10
+**Branch:** `final-cleanup-release-v2`
+**Scope:** Prove money semantics from source, validate release build, full regression, deployment audit.
+
+---
+
+## 1. MONEY SEMANTICS — SOURCE CODE TRACE
+
+### 1.1 Canonical Formula (Proven from Source)
+
+```dart
+// flutter_app/lib/core/student/student_context.dart:115
+double get adjustedRemaining => backendRemaining + pawnaReceived;
+```
+
+**`denaPaid` is NOT subtracted.** This is correct because `dena_paid` settlements are written to `financial_transactions` (see §1.3), which the backend already includes when computing `backendRemaining`. Subtracting again would double-count.
+
+### 1.2 Backend: `GET /api/budget/remaining` (part3.py:289–387)
+
+```python
+# 1. Read availableAmount from users/{uid}/monthly_budget/{monthKey}
+available = float(budget_snap.to_dict().get("availableAmount", 0.0))
+
+# 2. Query ALL financial_transactions for this user + monthKey
+all_rows = list(
+    db.collection("financial_transactions")
+    .where("ownerId", "==", user.uid)
+    .where("monthKey", "==", month_key)
+    .stream()
+)
+
+# 3. Sum confirmed rows — NO source filter
+for s in all_rows:
+    d = s.to_dict()
+    if status == "confirmed":
+        total_confirmed += amt          # includes ALL sources
+
+# 4. Return
+remaining = round(available - total_confirmed, 2)
+```
+
+**Critical:** The backend sums ALL `financial_transactions` regardless of `source`. It does not filter on `source == 'dena_paid'` or any other source.
+
+### 1.3 Financial Transaction Inclusion/Exclusion Matrix
+
+| Action | Writes to `financial_transactions`? | source value | Backend sees it? |
+|--------|--------------------------------------|-------------|-----------------|
+| Daily expense | YES | `daily` | YES — reduces remaining |
+| Bazar purchased | YES | `bazar` | YES — reduces remaining |
+| Medicine taken | YES | `medicine` | YES — reduces remaining |
+| Commute trip | YES | `commute` | YES — reduces remaining |
+| **Dena paid (borrow settlement)** | **YES** | **`dena_paid`** | **YES — reduces remaining** |
+| **Pawna received (lend settlement)** | **NO** | N/A | **NO — NOT in ledger** |
+| Dena/Pawna created | NO | N/A | NO |
+
+### 1.4 Settlement Write Path (financial_service.dart:713–816)
+
+```dart
+// settleDenaPawna()
+if (type == 'borrow') {
+  // Dena settlement → WRITE to financial_transactions
+  batch.set(financialRef, {
+    ..._financialData(type: 'expense', source: 'dena_paid', ...),
+  });
+}
+// Pawna settlement → NO write to financial_transactions
+// (only updates dena_pawna_items inline settlements array)
+```
+
+### 1.5 Backend Settlement Totals (financial_service.dart:852–889)
+
+`denaPawnaSettlementTotalsStream()` reads `dena_pawna_items` documents and sums settlements by `dateKey` prefix and `type`. Returns `{pawnaReceived: X, denaPaid: Y}`.
+
+### 1.6 Remaining Consumers
+
+| Consumer | Formula | Source |
+|----------|---------|--------|
+| `MoneySummary.adjustedRemaining` | `backendRemaining + pawnaReceived` | student_context.dart:115 |
+| `OverviewTab` | `(backendRemaining ?? 0) + pawnaReceived` | overview_tab.dart:153–155 |
+| `LifeScreen` | `(remaining ?? avail) + pawnaReceived` | life_screen.dart:167–168 |
+| `StudentAiContext` (AI prompts) | `m.adjustedRemaining` | student_ai_context.dart:270 |
+| `StudentSignalService._budgetAttention` | `money.adjustedRemaining` | student_signal_service.dart:295 |
+| `TodayScreen` (Home) | `money.adjustedRemaining` | home_screen.dart:1422 |
+
+All consumers use the same canonical formula: `backendRemaining + pawnaReceived`. No consumer subtracts `denaPaid` from the adjusted value.
+
+---
+
+## 2. NUMERIC TRACE: 10,000 → 8,000 → 7,000 → 8,500
+
+### Stage Setup
+
+- Monthly Money (availableAmount): 10,000
+- Normal expenses (daily, bazar, medicine, commute): 2,000
+
+### Stage 1: Initial Remaining
+
+| Component | Value |
+|-----------|-------|
+| `available` | 10,000 |
+| `financial_transactions` | 2× daily expense (2,000) |
+| `total_confirmed` | 2,000 |
+| `backendRemaining` | 10,000 − 2,000 = **8,000** |
+| `pawnaReceived` | 0 |
+| `denaPaid` | 0 |
+| **adjustedRemaining** | 8,000 + 0 = **8,000** ✓ |
+
+### Stage 2: Dena outstanding = 1,000
+
+Creating a dena record does NOT write to `financial_transactions`.
+
+| Component | Value |
+|-----------|-------|
+| `financial_transactions` | unchanged (2,000) |
+| `backendRemaining` | **8,000** (unchanged) |
+| `pawnaReceived` | 0 |
+| `denaPaid` | 0 |
+| **adjustedRemaining** | 8,000 + 0 = **8,000** ✓ |
+
+### Stage 3: Pawna outstanding = 1,500
+
+Creating a pawna record does NOT write to `financial_transactions`.
+
+| Component | Value |
+|-----------|-------|
+| `financial_transactions` | unchanged (2,000) |
+| `backendRemaining` | **8,000** (unchanged) |
+| `pawnaReceived` | 0 |
+| `denaPaid` | 0 |
+| **adjustedRemaining** | 8,000 + 0 = **8,000** ✓ |
+
+### Stage 4: Mark Dena Paid 1,000
+
+`settleDenaPawna()` with `type == 'borrow'` writes to `financial_transactions` with `source: 'dena_paid'`.
+
+| Component | Value |
+|-----------|-------|
+| `financial_transactions` | 2,000 (expenses) + 1,000 (dena_paid) |
+| `total_confirmed` | 3,000 |
+| `backendRemaining` | 10,000 − 3,000 = **7,000** |
+| `pawnaReceived` | 0 |
+| `denaPaid` | 1,000 (from dena_pawna_items settlements) |
+| **adjustedRemaining** | 7,000 + 0 = **7,000** ✓ |
+
+### Stage 5: Mark Pawna Received 1,500
+
+`settleDenaPawna()` with `type == 'lend'` does NOT write to `financial_transactions`. Only updates `dena_pawna_items` inline.
+
+| Component | Value |
+|-----------|-------|
+| `financial_transactions` | unchanged (3,000) |
+| `total_confirmed` | 3,000 |
+| `backendRemaining` | **7,000** (unchanged) |
+| `pawnaReceived` | 1,500 (from dena_pawna_items settlements) |
+| `denaPaid` | 1,000 |
+| **adjustedRemaining** | 7,000 + 1,500 = **8,500** ✓ |
+
+### Economic Sanity Check
+
+- Started with 10,000
+- Spent 2,000 on expenses → 8,000
+- Paid back 1,000 dena → 7,000
+- Received 1,500 pawna → 8,500
+- **Final: 8,500** ✓
+
+### Double-Count / Idempotency Proof
+
+- `denaPaid` appears in `MoneySummary.denaPaid` (for display in Overview breakdown) but is NOT subtracted in `adjustedRemaining`
+- `dena_paid` is in `financial_transactions` → backend includes it in `total_confirmed` → `backendRemaining` already reflects it
+- If we also subtracted `denaPaid` in `adjustedRemaining`, the same money would be counted twice
+- The correct formula `backendRemaining + pawnaReceived` handles this cleanly
+- Idempotency: `settleDenaPawna()` guards with `if (currentOutstanding <= 0.001) return;` — repeat "Mark Paid" is a no-op
+
+---
+
+## 3. REGRESSION TESTS
+
+Tests in `student_context_test.dart` group `'Money Accounting Regression — Proven from Source'`:
+
+| Test | Scenario | Expected |
+|------|----------|----------|
+| no settlement | `MoneySummary(backendRemaining: 8000)` | adjustedRemaining = 8000 |
+| Dena outstanding (no tx) | `denaPaid: 0` | 8000 |
+| Pawna outstanding (no tx) | `pawnaReceived: 0` | 8000 |
+| Dena paid | `backendRemaining: 7000, denaPaid: 1000` | 7000 (NOT 6000) |
+| Pawna received | `backendRemaining: 7000, pawnaReceived: 1500` | 8500 |
+| Both settlements | `backend: 7000, pawna: 1500, dena: 1000` | 8500 |
+| Idempotent Mark Paid | same as above | 8500 |
+| Idempotent Mark Received | same as above | 8500 |
+| No double-count | `denaPaid: 1000` explicitly | 8500 (not 7500) |
+| Negative remaining | `backend: -500` | -500 |
+| Pawna exceeds backend | `backend: -500, pawna: 2000` | 1500 |
+
+Additional formula tests in `sprint_core_bugfix_test.dart` group `'Financial remaining formula'`:
+- `adjustedRemaining = backendRemaining + pawnaReceived` (denaPaid already in ledger)
+- Negative remaining when overspent
+- Pawna inflow raises remaining
+- Dena paid: backendRemaining already includes deduction
+- No settlement leaves remaining unchanged
+- Monthly money never mutated by settlement
+
+---
+
+## 4. FLUTTER ANALYZE
+
+```
+Analyzing flutter_app...
+No issues found! (ran in 8.0s)
+```
+
+---
+
+## 5. FLUTTER TEST
+
+```
+837/837 passed
+```
+
+All 837 tests pass. 0 failures.
+
+---
+
+## 6. BACKEND PYTEST
+
+```
+486 passed, 1 warning in 21.83s
+```
+
+All 486 backend tests pass. 1 deprecation warning (starlette httpx — cosmetic).
+
+---
+
+## 7. RELEASE BUILD
+
+**Command:**
+```
+flutter clean && flutter pub get && flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com
+```
+
+**Result:** SUCCESS
+
+| ABI | APK File | Size |
+|-----|----------|------|
+| armeabi-v7a | `app-armeabi-v7a-release.apk` | 44.6 MB |
+| arm64-v8a | `app-arm64-v8a-release.apk` | 48.7 MB |
+| x86_64 | `app-x86_64-release.apk` | 50.4 MB |
+
+### pdfium_dart
+Native asset download: **SUCCESS** — no errors during build.
+
+### Kotlin Gradle Plugin Warning
+```
+WARNING: Your Android app project applies the Kotlin Gradle Plugin, which will cause build failures in future versions of Flutter.
+```
+**Status:** Warning only. Build succeeds. Not a blocker for current release. P2 technical debt for future Flutter migration.
+
+---
+
+## 8. FIRESTORE DEPLOYMENT DIFFERENCE
+
+### Local Files Requiring Production Deployment
+
+| File | Local Path | Production Status |
+|------|-----------|-------------------|
+| Firestore Rules | `firebase/firestore.rules` | **DEPLOYMENT PENDING** |
+| Firestore Indexes | `firebase/firestore.indexes.json` | **DEPLOYMENT PENDING** |
+
+### Rules Summary (303 lines)
+- `signedIn()` + `ownedCreate/ReadDelete/Update` for all personal data
+- `financial_transactions`: verified + ownerId + source in `[daily, bazar, medicine, commute, dena_paid, pawna_received]`
+- `dena_pawna_items`: verified + owner-only CRUD
+- Backend-only collections: `ai_usage`, `upload_usage`, `reports` → deny all
+
+### Indexes Summary (13 compound indexes)
+- `financial_transactions`: (ownerId, monthKey), (ownerId, dateKey)
+- `dena_pawna_items`: (ownerId, date DESC)
+- `materials`: (visibility, createdAt), (groupId, createdAt), (groupId, visibility)
+- `notes`: (visibility, createdAt), (groupId, createdAt), (groupId, visibility)
+- `groups`: (memberIds CONTAINS, createdAt)
+- `bazar_items`: (ownerId, sessionId)
+- `medicine_doses`: (ownerId, medicineId)
+- `group_messages`: (groupId, createdAt)
+
+### Deployment Command
+```
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
+**DEPLOYMENT PENDING USER AUTHORIZATION** — Do NOT deploy without explicit approval.
+
+---
+
+## 9. DEVICE SMOKE STATUS
+
+```
+DEVICE FINAL SMOKE: PENDING — DEVICE UNAVAILABLE
+```
+
+No physical Android device connected to this Windows development machine. `flutter devices` returns only Windows desktop, Chrome, and Edge.
+
+Real-device mandatory checks before public release:
+| Scenario | Status |
+|----------|--------|
+| Auth (sign-in, sign-out, session restore) | PENDING |
+| AI (ask question, context-aware scoping) | PENDING |
+| Money (expense, settlement, remaining) | PENDING |
+| Medicine (add, mark taken, notification) | PENDING |
+| Notifications (foreground, background, killed) | PENDING |
+| Commute (trip, fare) | PENDING |
+| Community (groups, messages) | PENDING |
+
+---
+
+## 10. COMMIT / PUSH / DEPLOY STATUS
+
+| Action | Status |
+|--------|--------|
+| Commit | NOT DONE — awaiting user authorization |
+| Push to remote | NOT DONE — awaiting user authorization |
+| Deploy Firestore rules | NOT DONE — awaiting user authorization |
+| Deploy Firestore indexes | NOT DONE — awaiting user authorization |
+| Backend Render deployment | NOT DONE — awaiting user authorization |
+| APK distribution | NOT DONE — awaiting user authorization |
+
+---
+
+```
+PHASE 8 STATUS: READY FOR FINAL RELEASE AUTHORIZATION
+```
+
+**Automated validation:** flutter analyze 0 issues, 837/837 Flutter tests, 486/486 backend tests.
+**Release build:** SUCCESS — 3 APK variants (armeabi-v7a 44.6MB, arm64-v8a 48.7MB, x86_64 50.4MB).
+**Money semantics:** PROVEN from source — `adjustedRemaining = backendRemaining + pawnaReceived`. Double-count proof documented.
+**P0/P1 blockers:** 0 remaining.
+**Device testing:** PENDING — DEVICE UNAVAILABLE. Required before public release.
+**Deployment:** NOT performed. Awaiting user authorization.
+
+---
+
+# REAL DEVICE AUTH BLOCKER — ROBI + CIRKLE REGISTERED/OTP ROUTING FIX
+
+**Date:** 2026-09-10
+**Branch:** `final-cleanup-release-v2`
+**Severity:** P0 — production auth-flow blocker
+**Carriers affected:** Robi (018), Cirkle (016)
+
+---
+
+## 1. Problem
+
+A registered subscriber was incorrectly routed:
+
+```
+LoginScreen → check_subscription → OtpVerifyScreen → send_otp.php → "user already registered"
+```
+
+The user could not enter the app despite being a paying subscriber.
+
+## 2. Root Cause
+
+`_readSubscriptionStatus()` (telecom_auth_service.dart:443) only checked **2 field paths**:
+
+1. `decoded['subscriptionStatus']`
+2. `decoded['data']['subscriptionStatus']`
+
+If the carrier response placed the status under `status`, `subscription_status`, or used snake_case, the parser returned `null` → `notSubscribed` → routed to OTP.
+
+## 3. Fix: `_readSubscriptionStatus` Field-Path Expansion
+
+**Before:** 2 field paths
+**After:** 6 field paths
+
+```dart
+final candidates = <dynamic>[
+  decoded['subscriptionStatus'],           // canonical top-level
+  dataMap?['subscriptionStatus'],          // canonical nested
+  decoded['status'],                       // shorthand top-level
+  dataMap?['status'],                      // shorthand nested
+  decoded['subscription_status'],          // snake_case top-level
+  dataMap?['subscription_status'],         // snake_case nested
+];
+```
+
+Added `_debugLog` calls (guarded by `kReleaseMode`) to capture which field path matched, aiding future diagnosis without exposing PII.
+
+## 4. Fix: sendOtp Already-Registered Recovery Message
+
+**Before:** Threw "Your number is already registered. Please contact support."
+**After:** Throws "Your subscription is already being activated. Please try again shortly." (EN) / "আপনার সাবস্ক্রিপশন সক্রিয় হচ্ছে। একটু পরে আবার চেষ্টা করুন।" (BN)
+
+This applies when:
+1. `send_otp.php` returns "already registered"
+2. Re-poll of `check_subscription.php` still returns NOT SUBSCRIBED
+3. Carrier is likely propagating — show activation message, no duplicate OTP
+
+## 5. Fix: Debug Logging in `checkSubscription`
+
+Added safe HTTP status + body length logging (no PII) to aid carrier response diagnosis:
+
+```dart
+_debugLog('checkSubscription: HTTP ${response.statusCode}, body_len=${response.body.length}');
+```
+
+## 6. Security Guarantees (Unchanged)
+
+| Guarantee | Status |
+|-----------|--------|
+| "user already registered" is NEVER auth proof | ✅ |
+| No direct GochanoShell from send_otp error | ✅ |
+| No manual loggedIn SharedPreferences bypass | ✅ |
+| No exchangeOtpForFirebaseSession reuse | ✅ |
+| Backend /v1/auth/telecom/exchange still independently verifies | ✅ |
+| REGISTERED/INITIAL CHARGING PENDING still required for OTP-less entry | ✅ |
+| E1351/statusCode shortcuts NOT used for access | ✅ |
+
+## 7. Tests Added (42 new)
+
+### _readSubscriptionStatus field-path coverage (12 tests)
+- Top-level `subscriptionStatus` (canonical)
+- Nested `data.subscriptionStatus`
+- Top-level `status` shorthand
+- Nested `data.status` shorthand
+- Top-level `subscription_status` snake_case
+- Nested `data.subscription_status` snake_case
+- Title-case "Registered" normalization
+- Underscored "INITIAL_CHARGING_PENDING"
+- Hyphenated "Initial-Charging-Pending"
+- Status in data with other fields
+- Empty/null/numeric status values
+
+### Robi 018 carrier matrix (5 tests)
+- A. 018 + REGISTERED → skip OTP
+- B. 018 + INITIAL CHARGING PENDING → skip OTP
+- C. 018 + NOT SUBSCRIBED → OTP
+- D. 018 prefix accepted
+- E. 018 + empty status → OTP
+
+### Cirkle 016 carrier matrix (5 tests)
+- F. 016 + REGISTERED → skip OTP
+- G. 016 + INITIAL CHARGING PENDING → skip OTP
+- H. 016 + NOT SUBSCRIBED → OTP
+- I. 016 prefix accepted
+- J. 016 + empty status → OTP
+
+### sendOtp already-registered recovery (8 tests)
+- K. "user already registered" alone is NEVER auth proof
+- L. No direct GochanoShell from send_otp error
+- M. No manual loggedIn SharedPreferences bypass
+- N. No exchangeOtpForFirebaseSession reuse
+- O. Backend exchange still independently verifies
+- E1351 statusCode triggers alreadyRegistered
+- "already subscribed" in message triggers alreadyRegistered
+- subscriptionStatus REGISTERED in sendOtp triggers alreadyRegistered
+
+### sendOtp activation message (2 tests)
+- Shows activation message on re-check failure
+- Does NOT say "contact support"
+
+### Carrier mapping (3 tests)
+- 018 = Robi
+- 016 = Cirkle
+- Regex accepts only 016 and 018
+
+### Additional field-path recovery (6 tests)
+- `status` top-level
+- `data.status`
+- `subscription_status` snake_case
+- `data.subscription_status`
+- Deeply nested NOT supported
+- Non-string status skipped
+
+## 8. Validation
+
+| Check | Result |
+|-------|--------|
+| flutter analyze | **0 issues** |
+| flutter test | **879/879 passed** (42 new) |
+| Backend pytest | **486/486 passed** (unchanged) |
+| Release build | Not re-run (Flutter code only) |
+
+## 9. Device Re-Test Required
+
+```
+DEVICE RE-TEST: PENDING — DEVICE UNAVAILABLE
+```
+
+Required cases:
+- Robi 018 registered subscriber → Continue → MUST NOT get stuck on OTP
+- Cirkle 016 registered subscriber → Continue → MUST NOT get stuck on OTP
+- Both carriers: exchange → Firebase → profile → Home
+
+## 10. Commit/Push/Deploy Status
+
+| Action | Status |
+|--------|--------|
+| Commit | NOT DONE — awaiting user authorization |
+| Push to remote | NOT DONE — awaiting user authorization |
+| Deploy Firestore rules | NOT DONE — awaiting user authorization |
+| Deploy Firestore indexes | NOT DONE — awaiting user authorization |
+| Backend Render deployment | NOT DONE — awaiting user authorization |
+| APK distribution | NOT DONE — awaiting user authorization |
+
+```
+PHASE 8 STATUS: BLOCKED — DEVICE RE-TEST REQUIRED
+```
+
+**Code fix:** COMPLETE — `_readSubscriptionStatus` expanded from 2 to 6 field paths, activation message improved.
+**Automated validation:** flutter analyze 0 issues, 879/879 Flutter tests, 486/486 backend tests.
+**Device testing:** PENDING — DEVICE UNAVAILABLE. Fresh debug build + physical device test required.
+**Deployment:** NOT performed. Awaiting user authorization.

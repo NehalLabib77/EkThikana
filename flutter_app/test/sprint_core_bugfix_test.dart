@@ -45,7 +45,7 @@ void main() {
     test('adjustedRemaining = backendRemaining + pawnaReceived (denaPaid already in ledger)', () {
       const backendRemaining = 2000.0;
       const pawnaReceived = 500.0;
-      const denaPaid = 300.0;
+      // denaPaid (300) is NOT subtracted — it's already in backendRemaining
       final adjusted = backendRemaining + pawnaReceived;
       expect(adjusted, equals(2500.0));
     });
