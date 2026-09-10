@@ -361,6 +361,11 @@ class TelecomAuthService {
     _debugLog('checkSubscription: HTTP ${response.statusCode} '
         'body_len=${response.body.length}');
 
+    // Diagnostic: log first 200 chars of raw body for carrier contract identification
+    if (kDebugMode && response.body.length <= 500) {
+      _debugLog('checkSubscription: raw_body="${response.body}"');
+    }
+
     final result = _parseSubscriptionResponse(response.body);
 
     _debugLog('checkSubscription: status=${result.status} '
@@ -488,18 +493,125 @@ class TelecomAuthService {
     );
   }
 
+  /// Diagnostic logging for subscription response structure.
+  ///
+  /// Logs only sanitized structural information to identify the carrier
+  /// response contract. Never logs full phone, OTP, tokens, or secrets.
+  /// Only active in debug mode.
+  static void _logResponseStructure(String body) {
+    if (!kDebugMode) return;
+    try {
+      final decoded = json.decode(body.trim());
+      if (decoded is! Map) {
+        _debugLog('responseStructure: decoded is ${decoded.runtimeType}, not Map');
+        return;
+      }
+
+      // Log top-level keys and their types
+      final keys = <String>[];
+      for (final entry in decoded.entries) {
+        keys.add('${entry.key}:${entry.value.runtimeType}');
+      }
+      _debugLog('responseKeys=$keys');
+
+      // If there is a 'data' nested object, log its keys too
+      final data = decoded['data'];
+      if (data is Map) {
+        final dataKeys = <String>[];
+        for (final entry in data.entries) {
+          dataKeys.add('${entry.key}:${entry.value.runtimeType}');
+        }
+        _debugLog('dataKeys=$dataKeys');
+      }
+
+      // If there is a 'response' nested object, log its keys too
+      final resp = decoded['response'];
+      if (resp is Map) {
+        final respKeys = <String>[];
+        for (final entry in resp.entries) {
+          respKeys.add('${entry.key}:${entry.value.runtimeType}');
+        }
+        _debugLog('responseWrapperKeys=$respKeys');
+      }
+
+      // Log candidate subscription-classification fields
+      final candidates = <String, dynamic>{
+        'subscriptionStatus': decoded['subscriptionStatus'],
+        'subscription_status': decoded['subscription_status'],
+        'status': decoded['status'],
+        'statusCode': decoded['statusCode'],
+        'statusDetail': decoded['statusDetail'],
+        'isSubscribed': decoded['isSubscribed'],
+        'message': decoded['message'],
+        'result': decoded['result'],
+        'state': decoded['state'],
+        'serviceStatus': decoded['serviceStatus'],
+        'subscriberStatus': decoded['subscriberStatus'],
+        'registrationStatus': decoded['registrationStatus'],
+        'responseStatus': decoded['responseStatus'],
+      };
+
+      // Also check inside 'data' and 'response' if present
+      if (data is Map) {
+        candidates['data.subscriptionStatus'] = data['subscriptionStatus'];
+        candidates['data.subscription_status'] = data['subscription_status'];
+        candidates['data.status'] = data['status'];
+        candidates['data.statusCode'] = data['statusCode'];
+        candidates['data.statusDetail'] = data['statusDetail'];
+        candidates['data.result'] = data['result'];
+        candidates['data.state'] = data['state'];
+        candidates['data.serviceStatus'] = data['serviceStatus'];
+        candidates['data.subscriberStatus'] = data['subscriberStatus'];
+        candidates['data.registrationStatus'] = data['registrationStatus'];
+        candidates['data.responseStatus'] = data['responseStatus'];
+      }
+      if (resp is Map) {
+        candidates['response.subscriptionStatus'] = resp['subscriptionStatus'];
+        candidates['response.subscription_status'] = resp['subscription_status'];
+        candidates['response.status'] = resp['status'];
+        candidates['response.statusCode'] = resp['statusCode'];
+        candidates['response.statusDetail'] = resp['statusDetail'];
+        candidates['response.result'] = resp['result'];
+        candidates['response.state'] = resp['state'];
+        candidates['response.serviceStatus'] = resp['serviceStatus'];
+        candidates['response.subscriberStatus'] = resp['subscriberStatus'];
+        candidates['response.registrationStatus'] = resp['registrationStatus'];
+        candidates['response.responseStatus'] = resp['responseStatus'];
+        candidates['response.subscription_state'] = resp['subscription_state'];
+        candidates['response.carrierStatus'] = resp['carrierStatus'];
+        candidates['response.carrier_status'] = resp['carrier_status'];
+      }
+
+      for (final entry in candidates.entries) {
+        final v = entry.value;
+        if (v != null) {
+          final display = v is String ? '"$v"' : '$v';
+          _debugLog('candidate field="${entry.value}" value=$display');
+        }
+      }
+    } catch (e) {
+      _debugLog('responseStructure: parse error: $e');
+    }
+  }
+
   /// Reads the `subscriptionStatus` field from a JSON body. Returns the
   /// trimmed+uppercased value, or null when the body is not JSON or the
   /// field is absent.
   ///
-  /// Checks multiple field paths because different carriers and response
-  /// versions place the status in different locations:
-  ///   - `subscriptionStatus` (top-level, canonical)
+  /// Only proven semantic fields are checked. A generic `status`, `result`,
+  /// `message`, `statusCode`, or `statusDetail` field is NOT treated as
+  /// a subscription state because those may represent request-level
+  /// success/failure rather than the user's subscription semantic state.
+  ///
+  /// Proven field paths (in priority order):
+  ///   - `subscriptionStatus` (top-level, canonical — Robi 018)
   ///   - `data.subscriptionStatus` (nested)
-  ///   - `status` (top-level shorthand)
-  ///   - `data.status` (nested shorthand)
   ///   - `subscription_status` (snake_case variant)
   ///   - `data.subscription_status` (nested snake_case)
+  ///
+  /// When a carrier (e.g. Cirkle 016) proves a different field/path on a
+  /// physical device, add ONLY that exact proven path here. Do NOT add
+  /// speculative candidates.
   static String? _readSubscriptionStatus(String body) {
     final trimmed = body.trim();
     if (trimmed.isEmpty) {
@@ -513,11 +625,11 @@ class TelecomAuthService {
         final data = decoded['data'];
         final dataMap = data is Map ? data : null;
 
+        // Authoritative path: subscriptionStatus is the only known
+        // semantic field. Check top-level first, then nested data.
         final candidates = <(String, dynamic)>[
           ('decoded.subscriptionStatus', decoded['subscriptionStatus']),
           ('data.subscriptionStatus', dataMap?['subscriptionStatus']),
-          ('decoded.status', decoded['status']),
-          ('data.status', dataMap?['status']),
           ('decoded.subscription_status', decoded['subscription_status']),
           ('data.subscription_status', dataMap?['subscription_status']),
         ];
@@ -530,6 +642,7 @@ class TelecomAuthService {
           }
         }
         _debugLog('_readSubscriptionStatus: no subscriptionStatus field found');
+        _logResponseStructure(body);
       } else {
         _debugLog('_readSubscriptionStatus: decoded is not a Map');
       }

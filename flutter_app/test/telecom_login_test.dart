@@ -1771,14 +1771,6 @@ void main() {
       );
     });
 
-    test('top-level status shorthand', () {
-      expect(r('{"status":"REGISTERED"}').shouldEnterApp, isTrue);
-    });
-
-    test('nested data.status shorthand', () {
-      expect(r('{"data":{"status":"REGISTERED"}}').shouldEnterApp, isTrue);
-    });
-
     test('top-level subscription_status (snake_case)', () {
       expect(
         r('{"subscription_status":"INITIAL CHARGING PENDING"}').shouldEnterApp,
@@ -1808,14 +1800,6 @@ void main() {
     test('hyphenated "Initial-Charging-Pending" grants access', () {
       expect(
         r('{"subscriptionStatus":"Initial-Charging-Pending"}').shouldEnterApp,
-        isTrue,
-      );
-    });
-
-    test('status in data with other fields does not break parsing', () {
-      expect(
-        r('{"statusCode":"S1000","data":{"status":"REGISTERED","other":"x"}}')
-            .shouldEnterApp,
         isTrue,
       );
     });
@@ -2049,17 +2033,6 @@ void main() {
       return TelecomAuthService.parseSubscriptionResponseForTest(body);
     }
 
-    test('status field at top level (not subscriptionStatus)', () {
-      expect(r('{"status":"REGISTERED"}').shouldEnterApp, isTrue);
-    });
-
-    test('data.status field (not data.subscriptionStatus)', () {
-      expect(
-        r('{"data":{"status":"INITIAL CHARGING PENDING"}}').shouldEnterApp,
-        isTrue,
-      );
-    });
-
     test('subscription_status snake_case at top level', () {
       expect(
         r('{"subscription_status":"REGISTERED"}').shouldEnterApp,
@@ -2074,6 +2047,20 @@ void main() {
       );
     });
 
+    test('generic status field is NOT recognized (unknown)', () {
+      final result = r('{"status":"REGISTERED"}');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
+      expect(result.status, TelecomSubscriptionStatus.unknown);
+    });
+
+    test('generic data.status field is NOT recognized (unknown)', () {
+      final result = r('{"data":{"status":"REGISTERED"}}');
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
+      expect(result.status, TelecomSubscriptionStatus.unknown);
+    });
+
     test('deeply nested status is NOT supported (only one level of data)', () {
       // We only look in top-level and data.* — not data.deep.status.
       expect(
@@ -2083,8 +2070,213 @@ void main() {
     });
 
     test('non-string status value is skipped', () {
-      expect(r('{"status":true}').shouldEnterApp, isFalse);
-      expect(r('{"status":42}').shouldEnterApp, isFalse);
+      expect(r('{"subscriptionStatus":true}').shouldEnterApp, isFalse);
+      expect(r('{"subscriptionStatus":42}').shouldEnterApp, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Cirkle 016 response contract — speculative fields return UNKNOWN
+  // -------------------------------------------------------------------
+  //
+  // Until a physical Cirkle 016 device proves the real response field,
+  // all unproven field names (result, state, serviceStatus, etc.) must
+  // NOT be recognized. The parser returns UNKNOWN → no OTP → no Home.
+
+  group('Cirkle 016 response contract (unproven fields → UNKNOWN)', () {
+    TelecomSubscriptionResult r(String body) {
+      return TelecomAuthService.parseSubscriptionResponseForTest(body);
+    }
+
+    test('result field is NOT recognized → UNKNOWN', () {
+      final body = '{"result":"REGISTERED","isSubscribed":true}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+      expect(r(body).maySendOtp, isFalse);
+    });
+
+    test('data.result field is NOT recognized → UNKNOWN', () {
+      final body = '{"data":{"result":"REGISTERED"}}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('response.result field is NOT recognized → UNKNOWN', () {
+      final body = '{"response":{"result":"REGISTERED"}}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('state field is NOT recognized → UNKNOWN', () {
+      final body = '{"state":"NOT SUBSCRIBED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).maySendOtp, isFalse);
+    });
+
+    test('data.state field is NOT recognized → UNKNOWN', () {
+      final body = '{"data":{"state":"REGISTERED"}}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('serviceStatus field is NOT recognized → UNKNOWN', () {
+      final body = '{"serviceStatus":"NOT SUBSCRIBED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).maySendOtp, isFalse);
+    });
+
+    test('subscriberStatus field is NOT recognized → UNKNOWN', () {
+      final body = '{"subscriberStatus":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('registrationStatus field is NOT recognized → UNKNOWN', () {
+      final body = '{"registrationStatus":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('responseStatus field is NOT recognized → UNKNOWN', () {
+      final body = '{"responseStatus":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('carrierStatus field is NOT recognized → UNKNOWN', () {
+      final body = '{"carrierStatus":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('carrier_status field is NOT recognized → UNKNOWN', () {
+      final body = '{"carrier_status":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('subscription_state field is NOT recognized → UNKNOWN', () {
+      final body = '{"subscription_state":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('generic status field is NOT recognized → UNKNOWN', () {
+      final body = '{"status":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('generic message field is NOT recognized → UNKNOWN', () {
+      final body = '{"message":"REGISTERED"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('Cirkle response without subscriptionStatus → UNKNOWN, no OTP, no Home', () {
+      final body = '{"statusCode":"S1000","isSubscribed":true}';
+      final result = r(body);
+      expect(result.status, TelecomSubscriptionStatus.unknown);
+      expect(result.shouldEnterApp, isFalse);
+      expect(result.maySendOtp, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // isSubscribed=false must NOT imply NOT SUBSCRIBED
+  // -------------------------------------------------------------------
+
+  group('isSubscribed=false does NOT imply NOT SUBSCRIBED', () {
+    TelecomSubscriptionResult r(String body) {
+      return TelecomAuthService.parseSubscriptionResponseForTest(body);
+    }
+
+    test('TEMPORARY BLOCKED has isSubscribed=false → not NOT SUBSCRIBED', () {
+      // Robi 018 TEMPORARY BLOCKED response
+      final body = '''{
+        "subscriptionStatus": "TEMPORARY BLOCKED",
+        "isSubscribed": false,
+        "statusCode": "S1000",
+        "statusDetail": "Request was successfully processed."
+      }''';
+      expect(r(body).status, TelecomSubscriptionStatus.temporaryBlocked);
+      expect(r(body).maySendOtp, isFalse);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('isSubscribed=false alone → fail closed (UNKNOWN)', () {
+      final body = '{"isSubscribed":false}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).maySendOtp, isFalse);
+      expect(r(body).shouldEnterApp, isFalse);
+    });
+
+    test('isSubscribed=false with UNKNOWN status text → UNKNOWN', () {
+      final body = '{"subscriptionStatus":"UNKNOWN","isSubscribed":false}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).maySendOtp, isFalse);
+    });
+
+    test('S1000 alone → does NOT imply REGISTERED', () {
+      final body = '{"statusCode":"S1000"}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+      expect(r(body).maySendOtp, isFalse);
+    });
+
+    test('S1000 alone → does NOT imply NOT SUBSCRIBED', () {
+      final body = '{"statusCode":"S1000"}';
+      expect(r(body).maySendOtp, isFalse);
+    });
+
+    test('"Request was successfully processed." → must never control auth', () {
+      final body = '{"statusDetail":"Request was successfully processed."}';
+      expect(r(body).status, TelecomSubscriptionStatus.unknown);
+      expect(r(body).shouldEnterApp, isFalse);
+      expect(r(body).maySendOtp, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Robi 018 TEMPORARY BLOCKED regression
+  // -------------------------------------------------------------------
+
+  group('Robi 018 TEMPORARY BLOCKED regression', () {
+    const fixture = '''{
+      "subscriptionStatus": "TEMPORARY BLOCKED",
+      "isSubscribed": false,
+      "statusCode": "S1000",
+      "statusDetail": "Request was successfully processed.",
+      "version": "1.0"
+    }''';
+
+    TelecomSubscriptionResult r() =>
+        TelecomAuthService.parseSubscriptionResponseForTest(fixture);
+
+    test('A. status = temporaryBlocked', () {
+      expect(r().status, TelecomSubscriptionStatus.temporaryBlocked);
+    });
+
+    test('B. shouldEnterApp = false', () {
+      expect(r().shouldEnterApp, isFalse);
+    });
+
+    test('C. maySendOtp = false', () {
+      expect(r().maySendOtp, isFalse);
+    });
+
+    test('D. rawStatus = TEMPORARY BLOCKED', () {
+      expect(r().rawStatus, 'TEMPORARY BLOCKED');
+    });
+
+    test('E. S1000 does NOT grant access', () {
+      expect(r().shouldEnterApp, isFalse);
+      expect(r().status, isNot(TelecomSubscriptionStatus.registered));
+    });
+
+    test('F. isSubscribed=false does NOT make it NOT SUBSCRIBED', () {
+      expect(r().status, isNot(TelecomSubscriptionStatus.notSubscribed));
+      expect(r().maySendOtp, isFalse);
     });
   });
 }

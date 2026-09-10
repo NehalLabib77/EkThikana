@@ -857,6 +857,441 @@ Fresh-build on Infinix X665E (Android 12). Do NOT use hot-reload.
 
 ---
 
+# REAL DEVICE AUTH RETEST — TEMPORARY BLOCKED HANDLING PASS
+
+**Date:** 2026-09-10
+**Branch:** `final-cleanup-release-v2`
+**Status:** PASS — VERIFIED ON PHYSICAL DEVICE
+
+> **AUTHORITATIVE NOTE:** This section documents the first physical-device
+> verification of the TEMPORARY BLOCKED subscription classification and
+> routing behavior. No source code was changed. No backend was redeployed.
+> No Firebase rules/indexes were modified.
+
+---
+
+## 1. Device Result
+
+| Field | Value |
+|---|---|
+| Device | Physical Android device |
+| Test number | Robi 018 |
+| `check_subscription` result | `TEMPORARY BLOCKED` |
+| `isSubscribed` | `false` |
+| `statusCode` | `S1000` |
+| `statusDetail` | `Request was successfully processed.` |
+
+### Observed Behavior
+
+| Step | Expected | Actual |
+|---|---|---|
+| Continue → `check_subscription.php` | `TEMPORARY BLOCKED` classification | CONFIRMED |
+| `TEMPORARY BLOCKED` routing | Stay on LoginScreen | CONFIRMED |
+| Blocked message displayed | Yes | CONFIRMED |
+| OTP screen opened | NO | CONFIRMED — NO OTP screen |
+| `send_otp.php` called | NO | CONFIRMED — NO send_otp flow |
+| Firebase exchange attempted | NO | CONFIRMED — NO Firebase exchange |
+| Home entered | NO | CONFIRMED — NO direct Home navigation |
+
+### Blocked Message
+
+```
+"Your subscription is temporarily blocked. Please try again later or
+check your carrier subscription."
+```
+
+---
+
+## 2. What Was NOT Executed (Confirmed)
+
+| Action | Status |
+|---|---|
+| OTP screen shown | NOT executed |
+| `send_otp.php` called | NOT executed |
+| Firebase `signInWithCustomToken` called | NOT executed |
+| `/v1/auth/telecom/exchange` called | NOT executed |
+| `getIdToken(true)` called | NOT executed |
+| `GochanoShell` navigated to | NOT executed |
+| `ProfileSetupScreen` navigated to | NOT executed |
+| SharedPreferences `isLoggedIn` set | NOT executed |
+| Authentication bypass | NOT executed |
+
+---
+
+## 3. Verdict
+
+| Check | Result |
+|---|---|
+| **FLUTTER AUTH CLASSIFICATION** | **PASS** |
+| **TEMPORARY BLOCKED ROUTING** | **PASS** |
+| **OTP GATING** | **PASS** |
+| **SECURITY BEHAVIOR** | **PASS** |
+
+---
+
+## 4. Classification Architecture (Unchanged)
+
+The following mapping is verified correct and must NOT be modified:
+
+| Subscription Status | Routing |
+|---|---|
+| `REGISTERED` | Authenticated entry → `/v1/auth/telecom/exchange` → Firebase sign-in → `getIdToken(true)` → profile → Home/ProfileSetup |
+| `INITIAL CHARGING PENDING` | Same authenticated entry as REGISTERED |
+| `NOT SUBSCRIBED` | Send OTP → valid `referenceNo` → OtpVerifyScreen |
+| `TEMPORARY BLOCKED` | NO OTP → NO authenticated entry → remain LoginScreen with blocked message |
+| `UNKNOWN` / malformed | Fail closed → NO OTP → NO authenticated entry |
+
+---
+
+## 5. Security Guarantees (All Preserved)
+
+- S1000 is NOT authentication proof
+- `"user already registered"` is NOT authentication proof
+- `TEMPORARY BLOCKED` is NOT treated as `REGISTERED`
+- Only `REGISTERED` / `INITIAL CHARGING PENDING` may enter Firebase exchange
+- Backend `/v1/auth/telecom/exchange` independently verifies bdApps
+- No direct `GochanoShell` navigation from carrier error text
+- SharedPreferences is never sufficient auth proof
+- Consumed OTP is never reused
+- `exchangeOtpForFirebaseSession` remains unused by the current post-OTP client flow
+
+---
+
+## 6. Remaining Auth Blocker
+
+The remaining issue is **NOT** a Flutter parser/routing bug.
+
+The carrier/bdApps currently reports the tested Robi number as:
+
+```
+TEMPORARY BLOCKED
+isSubscribed = false
+```
+
+Therefore the app **MUST NOT** authenticate this number. Home-entry validation
+remains pending until bdApps returns either:
+
+- `REGISTERED`
+- `INITIAL CHARGING PENDING`
+
+When that happens, the final device test must verify:
+
+```
+Continue
+→ REGISTERED / INITIAL CHARGING PENDING
+→ NO OTP
+→ /v1/auth/telecom/exchange
+→ Firebase signInWithCustomToken
+→ getIdToken(true)
+→ profile check
+→ Home/ProfileSetup
+```
+
+---
+
+## 7. Cirkle 016
+
+The same classification architecture applies to Cirkle 016.
+
+| Scenario | Expected Behavior |
+|---|---|
+| 016 REGISTERED | NO OTP → authenticated entry |
+| 016 NOT SUBSCRIBED | OTP |
+| 016 TEMPORARY BLOCKED | NO OTP → blocked message |
+
+**CIRKLE DEVICE TEST: PENDING — TEST NUMBER UNAVAILABLE**
+
+> Do NOT fabricate PASS. Mark as PENDING until a real Cirkle test number is
+> available and tested.
+
+---
+
+## 8. What Did NOT Change (No Source Code Modified)
+
+| Component | Status |
+|---|---|
+| Subscription parser | Unchanged |
+| TEMPORARY BLOCKED mapping | Unchanged |
+| NOT SUBSCRIBED OTP rule | Unchanged |
+| Firebase custom-token flow | Unchanged |
+| Backend telecom verification | Unchanged |
+| SharedPreferences authentication policy | Unchanged |
+| OTP recovery architecture | Unchanged |
+| Robi/Cirkle mapping | Unchanged |
+| bdApps base URL | Unchanged |
+| Backend (`/v1/auth/telecom/exchange`) | Unchanged |
+| Render deployment | No redeploy needed |
+| Firebase rules/indexes | No deploy needed |
+
+---
+
+## 9. No-Rerun Requirements
+
+Since no source code was changed:
+
+- No need to rerun backend pytest
+- No need to redeploy Render
+- No need to deploy Firebase rules/indexes
+- No need to rebuild APK
+
+---
+
+## 10. Authoritative Status
+
+```
+AUTH TEMPORARY-BLOCKED FIX:
+PASS — VERIFIED ON PHYSICAL DEVICE
+
+ROBI / CARRIER HOME ENTRY:
+PENDING — CURRENT TEST NUMBER REPORTED TEMPORARY BLOCKED BY bdApps
+
+PHASE 8:
+BLOCKED ONLY ON FINAL REGISTERED/PENDING CARRIER HOME-ENTRY DEVICE TEST
+AND REMAINING RELEASE DEPLOYMENT/SMOKE STEPS
+```
+
+---
+
+# REAL DEVICE AUTH — CIRKLE 016 RESPONSE CONTRACT FIX
+
+**Date:** 2026-09-10
+**Branch:** `final-cleanup-release-v2`
+**Status:** FIX IMPLEMENTED — Tests passing (268/268) — DEVICE RE-TEST PENDING
+
+> **AUTHORITATIVE NOTE:** This section documents the parser fix for Cirkle 016
+> subscription response handling. The `_readSubscriptionStatus()` method was
+> extended to recognize additional carrier response fields. No backend was
+> redeployed. No Firebase rules/indexes were modified.
+
+---
+
+## 1. Root Cause
+
+A real Cirkle 016 number produces an HTTP 200 response with body length ~209
+bytes. The `_readSubscriptionStatus()` parser failed to find any of the
+expected subscription-status fields:
+
+```
+[TelecomAuth] checkSubscription: HTTP 200 body_len=209
+[TelecomAuth] _readSubscriptionStatus: no subscriptionStatus field found
+[TelecomAuth] checkSubscription: empty/null subscriptionStatus → UNKNOWN (fail closed)
+```
+
+**Previous field coverage (6 paths):**
+- `subscriptionStatus` (top-level)
+- `data.subscriptionStatus` (nested)
+- `status` (top-level shorthand)
+- `data.status` (nested shorthand)
+- `subscription_status` (snake_case)
+- `data.subscription_status` (nested snake_case)
+
+Cirkle 016 uses a different field name for its subscription-status semantic.
+The parser had no fallback for fields like `result`, `state`,
+`serviceStatus`, `subscriberStatus`, `registrationStatus`, `responseStatus`,
+`carrierStatus`, `carrier_status`, or `subscription_state`.
+
+**Why isSubscribed=false is insufficient:** Robi 018 TEMPORARY BLOCKED also
+returns `isSubscribed: false`. Using `isSubscribed` alone to infer NOT
+SUBSCRIBED would incorrectly route a TEMPORARY BLOCKED user into the OTP
+flow.
+
+---
+
+## 2. Parser Change
+
+Extended `_readSubscriptionStatus()` from 6 candidate paths to 30 paths.
+
+**New field candidates added:**
+
+| Field Path | Location |
+|---|---|
+| `result` | top-level |
+| `data.result` | nested |
+| `response.result` | response wrapper |
+| `state` | top-level |
+| `data.state` | nested |
+| `response.state` | response wrapper |
+| `serviceStatus` | top-level |
+| `data.serviceStatus` | nested |
+| `response.serviceStatus` | response wrapper |
+| `subscriberStatus` | top-level |
+| `data.subscriberStatus` | nested |
+| `response.subscriberStatus` | response wrapper |
+| `registrationStatus` | top-level |
+| `data.registrationStatus` | nested |
+| `response.registrationStatus` | response wrapper |
+| `responseStatus` | top-level |
+| `data.responseStatus` | nested |
+| `response.responseStatus` | response wrapper |
+| `subscription_state` | top-level (snake_case) |
+| `data.subscription_state` | nested (snake_case) |
+| `response.subscription_state` | response wrapper (snake_case) |
+| `carrierStatus` | top-level |
+| `data.carrierStatus` | nested |
+| `response.carrierStatus` | response wrapper |
+| `carrier_status` | top-level (snake_case) |
+| `data.carrier_status` | nested (snake_case) |
+| `response.carrier_status` | response wrapper (snake_case) |
+
+**Priority order:** The parser checks fields in the order listed above.
+The first non-empty string value wins. All values are normalized via
+`trim().toUpperCase()` with whitespace/hyphen/underscore collapse.
+
+**Diagnostic logging:** When no candidate field matches (UNKNOWN fallback),
+`_logResponseStructure()` logs sanitized structural information in debug mode:
+- Top-level JSON keys and their types
+- `data` nested keys (if present)
+- `response` nested keys (if present)
+- Candidate field values for subscription-classification fields
+
+This logging is debug-only (`kDebugMode`), never active in release builds.
+
+---
+
+## 3. Why This Fix Is Correct
+
+The fix extends the parser's field coverage without changing the
+classification logic. The four subscription states are still determined
+solely by the normalized string value:
+
+| Normalized Value | Status | shouldEnterApp | maySendOtp |
+|---|---|---|---|
+| `REGISTERED` | registered | true | false |
+| `INITIAL CHARGING PENDING` | initialChargingPending | true | false |
+| `NOT SUBSCRIBED` | notSubscribed | false | true |
+| `TEMPORARY BLOCKED` | temporaryBlocked | false | false |
+| anything else | unknown | false | false |
+
+The fix does NOT:
+- Change the classification logic
+- Add new subscription states
+- Modify the `isSubscribed` handling
+- Change the OTP gating behavior
+- Touch the Firebase exchange flow
+- Modify the backend
+
+---
+
+## 4. Regression Tests
+
+Added 33 new tests across 3 test groups:
+
+### 4.1 Cirkle 016 Response Contract (15 tests)
+
+Tests all new field paths for Cirkle 016 responses:
+- `result` field with REGISTERED, NOT SUBSCRIBED, TEMPORARY BLOCKED, INITIAL CHARGING PENDING
+- `data.result` field
+- `response.result` field
+- `state` field
+- `data.state` field
+- `serviceStatus` field
+- `subscriberStatus` field
+- `registrationStatus` field
+- `responseStatus` field
+- `carrierStatus` field
+- `carrier_status` field
+- `subscription_state` field
+
+### 4.2 isSubscribed=false Does NOT Imply NOT SUBSCRIBED (6 tests)
+
+Critical security tests:
+- TEMPORARY BLOCKED has `isSubscribed=false` → NOT treated as NOT SUBSCRIBED
+- `isSubscribed=false` alone → fail closed (UNKNOWN)
+- `isSubscribed=false` with UNKNOWN status text → UNKNOWN
+- S1000 alone → does NOT imply REGISTERED
+- S1000 alone → does NOT imply NOT SUBSCRIBED
+- "Request was successfully processed." → must never control auth routing
+
+### 4.3 Robi 018 TEMPORARY BLOCKED Regression (6 tests)
+
+Ensures the Robi 018 TEMPORARY BLOCKED response is not regressed:
+- status = temporaryBlocked
+- shouldEnterApp = false
+- maySendOtp = false
+- rawStatus = TEMPORARY BLOCKED
+- S1000 does NOT grant access
+- isSubscribed=false does NOT make it NOT SUBSCRIBED
+
+---
+
+## 5. Analyzer / Test Results
+
+```
+flutter analyze → No issues found!
+flutter test    → 268/268 passed (0 failures)
+```
+
+---
+
+## 6. Physical-Device Result
+
+**DEVICE RE-TEST PENDING**
+
+The parser fix is ready for physical-device verification. Expected log for
+a genuine non-subscriber Cirkle 016 number:
+
+```
+checkSubscription HTTP 200
+→ semantic field found at <actual proven path>
+→ normalizedStatus="NOT SUBSCRIBED"
+→ status=notSubscribed
+→ shouldEnterApp=false
+→ maySendOtp=true
+→ LoginScreen branch=SEND_OTP
+→ send_otp.php
+→ OtpVerifyScreen
+```
+
+If the actual response proves a different semantic status (e.g., TEMPORARY
+BLOCKED), the parser will correctly route to that state rather than
+forcing OTP.
+
+---
+
+## 7. What Did NOT Change
+
+| Component | Status |
+|---|---|
+| Classification logic | Unchanged — same 4 states + UNKNOWN |
+| isSubscribed handling | Unchanged — not used for classification |
+| statusCode S1000 handling | Unchanged — not used for classification |
+| OTP gating rules | Unchanged — only NOT SUBSCRIBED allows OTP |
+| Firebase exchange flow | Unchanged |
+| Backend (`/v1/auth/telecom/exchange`) | Unchanged |
+| Robi 018 responses | Unchanged — all existing tests pass |
+| AuthGate | Unchanged |
+| Profile routing | Unchanged |
+| Logout/unsubscribe | Unchanged |
+| Robi/Cirkle mapping | Unchanged |
+| bdApps base URL | Unchanged |
+| Firestore rules | Unchanged |
+
+---
+
+## 8. No-Rerun Requirements
+
+Since no backend or Firebase changes were made:
+
+- No need to redeploy Render
+- No need to deploy Firebase rules/indexes
+
+---
+
+## 9. Authoritative Status
+
+```
+CIRKLE 016 PARSER FIX:
+IMPLEMENTED — Tests passing (268/268) — DEVICE RE-TEST PENDING
+
+ROBI 018 BEHAVIOR:
+UNCHANGED — All existing tests pass
+
+PHASE 8:
+AWAITING CIRKLE 016 PHYSICAL DEVICE VERIFICATION
+```
+
+---
+
 ## PART 19 — Study UI Correction: Workspace Drag + Plan Empty State + Tab Spacing + Icon Sizing
 
 **Date:** 2026-09-08
@@ -9324,4 +9759,165 @@ DEVICE RE-TEST: PENDING — DEVICE UNAVAILABLE
 
 ```
 AUTH ROOT-CAUSE FIX STATUS: COMPLETE — AWAITING DEVICE RE-TEST
+```
+
+---
+
+# AUTH PARSER CORRECTION — PROVEN STATUS FIELDS ONLY
+
+## 1. What Changed
+
+The previous `_readSubscriptionStatus()` expansion from 6→30 speculative candidate
+paths was **too broad**. It used "first non-empty string wins" across 30 guessed
+field paths, including generic fields like `status`, `result`, `state`,
+`serviceStatus`, `subscriberStatus`, `registrationStatus`, `responseStatus`,
+`carrierStatus`, `carrier_status`, and `subscription_state`.
+
+This is **NOT acceptable** for production authentication because:
+- A generic `status` field may represent HTTP request success/failure, not subscription state
+- `isSubscribed=false` appears in both NOT SUBSCRIBED and TEMPORARY BLOCKED
+- `statusCode=S1000` only means "request processed", not "registered"
+- "first non-empty string wins" ordering can be overridden by later fields
+
+## 2. What Was Removed
+
+**Removed from `_readSubscriptionStatus()`** (30→4 paths):
+
+Removed speculative field names:
+- `status` / `data.status` / `response.status`
+- `result` / `data.result` / `response.result`
+- `state` / `data.state` / `response.state`
+- `serviceStatus` / `data.serviceStatus` / `response.serviceStatus`
+- `subscriberStatus` / `data.subscriberStatus` / `response.subscriberStatus`
+- `registrationStatus` / `data.registrationStatus` / `response.registrationStatus`
+- `responseStatus` / `data.responseStatus` / `response.responseStatus`
+- `carrierStatus` / `data.carrierStatus` / `response.carrierStatus`
+- `carrier_status` / `data.carrier_status` / `response.carrier_status`
+- `subscription_state` / `data.subscription_state` / `response.subscription_state`
+- All `response.*` wrapper variants
+
+**Removed from tests:**
+- `top-level status shorthand` → now asserts UNKNOWN
+- `nested data.status shorthand` → now asserts UNKNOWN
+- `status in data with other fields` → removed (used data.status)
+- All 15 Cirkle 016 `result`/`state`/`serviceStatus`/`subscriberStatus`/
+  `registrationStatus`/`responseStatus`/`carrierStatus`/`carrier_status`/
+  `subscription_state` positive-matching tests → now assert UNKNOWN
+
+## 3. What Was Kept (Proven Paths Only)
+
+```dart
+final candidates = <(String, dynamic)>[
+  ('decoded.subscriptionStatus', decoded['subscriptionStatus']),
+  ('data.subscriptionStatus', dataMap?['subscriptionStatus']),
+  ('decoded.subscription_status', decoded['subscription_status']),
+  ('data.subscription_status', dataMap?['subscription_status']),
+];
+```
+
+These 4 paths are the only proven semantic subscription-status fields.
+
+## 4. Robi 018 TEMPORARY BLOCKED Contract — Preserved
+
+```
+Fixture:
+{
+  "subscriptionStatus": "TEMPORARY BLOCKED",
+  "isSubscribed": false,
+  "statusCode": "S1000",
+  "statusDetail": "Request was successfully processed."
+}
+
+Result:
+  status = temporaryBlocked
+  shouldEnterApp = false
+  maySendOtp = false
+  rawStatus = "TEMPORARY BLOCKED"
+```
+
+Asserted by 6 regression tests in `Robi 018 TEMPORARY BLOCKED regression` group:
+- A. status = temporaryBlocked
+- B. shouldEnterApp = false
+- C. maySendOtp = false
+- D. rawStatus = TEMPORARY BLOCKED
+- E. S1000 does NOT grant access
+- F. isSubscribed=false does NOT make it NOT SUBSCRIBED
+
+Plus 6 tests in `isSubscribed=false does NOT imply NOT SUBSCRIBED` group:
+- TEMPORARY BLOCKED has isSubscribed=false → not NOT SUBSCRIBED
+- isSubscribed=false alone → fail closed (UNKNOWN)
+- isSubscribed=false with UNKNOWN status text → UNKNOWN
+- S1000 alone → does NOT imply REGISTERED
+- S1000 alone → does NOT imply NOT SUBSCRIBED
+- "Request was successfully processed." → must never control auth
+
+## 5. Cirkle 016 — Still Pending Physical Evidence
+
+**No Cirkle response field name is guessed.** Until a physical Cirkle 016 device
+captures the real response, all speculative field names return UNKNOWN.
+
+Behavior when Cirkle responds without `subscriptionStatus`:
+```
+→ no recognized subscription status field
+→ UNKNOWN
+→ shouldEnterApp = false
+→ maySendOtp = false
+→ no OTP, no Home
+```
+
+15 tests in `Cirkle 016 response contract (unproven fields → UNKNOWN)` group
+verify that `result`, `state`, `serviceStatus`, `subscriberStatus`,
+`registrationStatus`, `responseStatus`, `carrierStatus`, `carrier_status`,
+`subscription_state`, generic `status`, and generic `message` all return
+UNKNOWN.
+
+**On the next physical-device 016 test:**
+1. Capture the real Cirkle response JSON
+2. Identify the exact field name containing subscription semantic state
+3. Add ONLY that exact proven path to `_readSubscriptionStatus()`
+4. Do NOT add speculative candidates
+
+## 6. Canonical Routing (unchanged)
+
+| Status | Classification | shouldEnterApp | maySendOtp | Action |
+|--------|---------------|----------------|------------|--------|
+| REGISTERED | registered | true | false | secure Firebase entry |
+| INITIAL CHARGING PENDING | initialChargingPending | true | false | secure Firebase entry |
+| NOT SUBSCRIBED | notSubscribed | false | true | send OTP |
+| TEMPORARY BLOCKED | temporaryBlocked | false | false | stay on LoginScreen |
+| UNKNOWN / missing / malformed | unknown | false | false | recoverable error |
+
+## 7. Security Rules (unchanged)
+
+- `isSubscribed=false` does NOT imply NOT SUBSCRIBED (TEMPORARY BLOCKED also has it)
+- `statusCode=S1000` does NOT imply REGISTERED (only means request processed)
+- `"user already registered"` in sendOtp does NOT authenticate (requires re-poll)
+- Generic `status`, `result`, `message` fields do NOT control authentication
+
+## 8. Validation
+
+| Check | Result |
+|-------|--------|
+| flutter analyze | **0 issues** |
+| flutter test | **924/924 passed** |
+| Backend | **UNCHANGED** — no changes |
+| Firebase rules | **UNCHANGED** |
+| Firestore indexes | **UNCHANGED** |
+| AuthGate | **UNCHANGED** |
+| Firebase custom-token flow | **UNCHANGED** |
+| OTP verification | **UNCHANGED** |
+| Profile routing | **UNCHANGED** |
+| Logout / unsubscribe | **UNCHANGED** |
+
+## 9. Commit/Push/Deploy Status
+
+| Action | Status |
+|--------|--------|
+| Commit | NOT DONE — awaiting user authorization |
+| Push to remote | NOT DONE — awaiting user authorization |
+| Backend deployment | NOT REQUIRED — no backend changes |
+| APK distribution | NOT DONE — awaiting user authorization |
+
+```
+AUTH PARSER CORRECTION STATUS: COMPLETE — 924/924 TESTS PASSING
 ```
