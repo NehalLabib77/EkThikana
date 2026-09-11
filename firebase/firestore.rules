@@ -234,6 +234,12 @@ service cloud.firestore {
         && request.resource.data.actualFare > 0;
     }
 
+    match /planned_commute_trips/{id} {
+      allow create: if ownedCreate();
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate();
+    }
+
     // Central expense ledger. IDs are deterministic by source + sourceRecordId.
     match /financial_transactions/{id} {
       allow create: if verified()

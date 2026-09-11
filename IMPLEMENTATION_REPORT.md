@@ -48,19 +48,58 @@ Implementation and verification were conducted exclusively in `D:\Gochano_Rebuil
 
 ### Files Added / Modified
 
-- `lib/services/notification_service.dart`: Added commute reminder schedule, reschedule, and cancel methods with deterministic integer IDs.
-- `lib/features/life/presentation/commute/planned_trip_models.dart` [NEW]: `PlannedCommuteTrip` model and `CommuteTripService` Firestore integration.
-- `lib/features/life/presentation/commute/plan_trip_sheet.dart` [NEW]: Future trip planning modal with date, time, and reminder picker.
+- `lib/services/notification_service.dart`: Added commute reminder schedule, reschedule, and cancel methods with deterministic integer IDs (`debugCommuteTripNotificationId` for testing).
+- `lib/features/life/presentation/commute/planned_trip_models.dart`: `PlannedCommuteTrip` model, `CommuteTripService` with Create, Edit (`updateTrip`), and Delete (`deleteTripById`) Firestore + notification integration.
+- `lib/features/life/presentation/commute/plan_trip_sheet.dart`: Trip planning modal and public `PlanTripForm` supporting both Create and Edit/Delete modes with departure validation, reminder prefill, and confirmation dialogs.
 - `lib/features/life/presentation/commute/commute_route_map.dart`: Added `transfers` marker support and dynamic bounds fitting.
-- `lib/features/life/presentation/commute/journey_view.dart`: Bounded `_StrategyChooser` with `IntrinsicHeight`, added `selectedIndex`, `onJourneySelected`, and `hideMap` properties to `JourneyPlanSection`.
-- `lib/features/life/presentation/commute/commute_screen.dart`: Reordered layout to match exact specification, wired map to selected journey alternatives, added estimated route banner, and added `Plan a trip` action.
-- `lib/features/home/presentation/home_screen.dart`: Wired `_CommuteCard` to stream upcoming planned trips with tap-to-open prefilled route.
-- `test/commute_rebuild_step6_test.dart` [NEW]: Model unit tests and layout regression tests for unconstrained `_StrategyChooser`.
+- `lib/features/life/presentation/commute/journey_view.dart`: Removed `IntrinsicHeight` from `_StrategyChooser` (using natural bounded `Row` with `crossAxisAlignment: CrossAxisAlignment.start`), added `selectedIndex`, `onJourneySelected`, and `hideMap` properties to `JourneyPlanSection`.
+- `lib/features/life/presentation/commute/commute_screen.dart`: Reordered layout to match exact specification, wired map to selected journey alternatives, removed redundant second `JourneyPlanSection`, added estimated route banner, and added `Plan a trip` action.
+- `lib/features/home/presentation/home_screen.dart`: Wired `_CommuteCard` to stream upcoming planned trips with tap-to-open prefilled route and an edit button to launch `showPlanTripSheet(context, existingTrip: trip)`.
+- `firebase/firestore.rules`: Added owner-only security rules for `planned_commute_trips` collection (`ownedCreate()`, `ownedReadDelete()`, `ownedUpdate()`).
+- `test/commute_rebuild_step6_test.dart`: Expanded test suite covering model serialization, IntrinsicHeight exclusion assertion, unconstrained rendering, deterministic notification ID, PlanTripForm Create/Edit/Delete modes, and Firestore rules contract.
 
 ### Verification Results
 
 - `flutter analyze`: **0 issues** (clean).
-- `flutter test`: **544 / 544 tests passed** (100% pass rate).
+- `flutter test`: **548 / 548 tests passed** (100% pass rate).
+
+---
+
+## STEP 6 — CORRECTION AUDIT & POLISH
+
+### 1. IntrinsicHeight Removal
+- Identified and removed `IntrinsicHeight` and `CrossAxisAlignment.stretch` in `_StrategyChooser` (`journey_view.dart`).
+- Switched to `Row(crossAxisAlignment: CrossAxisAlignment.start, ...)` with naturally sized `Expanded` columns and `minHeight: GochanoSizes.minTouchTarget`.
+- Added automated AST/code inspection test to ensure `IntrinsicHeight` is never reintroduced in `journey_view.dart`.
+
+### 2. Firestore Security Rules & Indexes Audit
+- Audited `firebase/firestore.rules` and added owner-only rules for collection `/planned_commute_trips/{id}`:
+  - `allow create: if ownedCreate();`
+  - `allow read, delete: if ownedReadDelete();`
+  - `allow update: if ownedUpdate();`
+- Audited `firestore.indexes.json`: Verified that `CommuteTripService.streamPlannedTrips()` queries `where('ownerId', isEqualTo: uid)` and sorts in memory (`trips.sort(...)`), requiring no composite index.
+- Followed hard rule: Did not run `firebase deploy` or build APK.
+
+### 3. Complete Trip CRUD UI & Lifecycle
+- **Create**: Fully functional via `PlanTripForm` in `plan_trip_sheet.dart` and Commute screen AppBar action.
+- **Edit**: Exposed via `showPlanTripSheet(context, existingTrip: trip)`. Updates Firestore doc and reschedules notification via `CommuteTripService.updateTrip`.
+- **Delete**: Added a prominent "Delete trip" action with confirmation dialog inside the edit sheet. Cancels active notification and deletes doc via `CommuteTripService.deleteTripById`.
+- **Home Integration**: Added an Edit icon button (`Icons.edit_calendar_outlined`) to the upcoming commute card on Home, opening the trip sheet in edit mode.
+
+### 4. Reminder Policy & Bangladesh Timezone
+- Integrated with `NotificationService` using Bangladesh timezone (`Asia/Dhaka`).
+- Generated deterministic notification IDs from `tripId.hashCode.abs() % 1000000`.
+- Scheduled inexact alarms (`inexactAllowWhileIdle`) on channel `kChannelRemindersId`.
+- Cancelled existing reminders on deletion or prior to rescheduling on trip update.
+
+### 5. Fallback & Alternative Verification
+- Verified fallback pipeline: Displays `"Some route details are estimated"` banner when public transit is unavailable, offering distance/fare alternatives without fabricating stops or routes.
+- Removed duplicate `JourneyPlanSection` in `commute_screen.dart`.
+- Selected alternative directly controls map display, transfer markers, and polyline.
+
+### 6. Verification Summary
+- `flutter analyze`: **0 issues** (clean).
+- `flutter test`: **548 / 548 tests passed** (100% pass rate).
 
 ---
 

@@ -493,4 +493,9 @@ class NotificationService {
     await init();
     await plugin.cancel(id: _commuteTripReminderId(tripId));
   }
+
+  @visibleForTesting
+  static int debugCommuteTripNotificationId(String tripId) {
+    return _commuteTripReminderId(tripId);
+  }
 }

@@ -129,8 +129,47 @@ class CommuteTripService {
     return ref.id;
   }
 
+  static Future<void> updateTrip({
+    required String tripId,
+    required String originName,
+    required String destinationName,
+    double? originLat,
+    double? originLon,
+    double? destinationLat,
+    double? destinationLon,
+    required DateTime departureTime,
+    required int reminderMinutes,
+  }) async {
+    await FirestoreService.db.collection(collection).doc(tripId).update({
+      'originName': originName,
+      'destinationName': destinationName,
+      'originLat': originLat,
+      'originLon': originLon,
+      'destinationLat': destinationLat,
+      'destinationLon': destinationLon,
+      'departureTime': Timestamp.fromDate(departureTime),
+      'reminderMinutes': reminderMinutes,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final notifyAt = reminderMinutes > 0
+        ? departureTime.subtract(Duration(minutes: reminderMinutes))
+        : null;
+
+    await NotificationService.rescheduleCommuteTripReminder(
+      tripId: tripId,
+      title: 'Trip to $destinationName in $reminderMinutes mins',
+      when: notifyAt,
+    );
+  }
+
   static Future<void> deleteTrip(PlannedCommuteTrip trip) async {
     await NotificationService.cancelCommuteTripReminder(trip.id);
     await FirestoreService.deleteOwnerDocument(collection, trip.id);
+  }
+
+  static Future<void> deleteTripById(String tripId) async {
+    await NotificationService.cancelCommuteTripReminder(tripId);
+    await FirestoreService.deleteOwnerDocument(collection, tripId);
   }
 }

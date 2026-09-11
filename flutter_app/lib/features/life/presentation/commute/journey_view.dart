@@ -181,62 +181,60 @@ class _StrategyChooser extends StatelessWidget {
     final colors = context.colors;
     final type = context.type;
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < journeys.length; i++) ...[
-            if (i > 0) const SizedBox(width: GochanoSpacing.xs),
-            Expanded(
-              child: Semantics(
-                selected: i == selected,
-                button: true,
-                child: InkWell(
-                  onTap: () => onSelected(i),
-                  borderRadius: GochanoRadius.mdAll,
-                  child: Container(
-                    constraints: const BoxConstraints(
-                      minHeight: GochanoSizes.minTouchTarget,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < journeys.length; i++) ...[
+          if (i > 0) const SizedBox(width: GochanoSpacing.xs),
+          Expanded(
+            child: Semantics(
+              selected: i == selected,
+              button: true,
+              child: InkWell(
+                onTap: () => onSelected(i),
+                borderRadius: GochanoRadius.mdAll,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minHeight: GochanoSizes.minTouchTarget,
+                  ),
+                  padding: const EdgeInsets.all(GochanoSpacing.xs),
+                  decoration: BoxDecoration(
+                    color: i == selected ? colors.brandSoft : colors.surface,
+                    borderRadius: GochanoRadius.mdAll,
+                    border: Border.all(
+                      color: i == selected ? colors.commute : colors.border,
+                      width: i == selected ? 1.6 : 1,
                     ),
-                    padding: const EdgeInsets.all(GochanoSpacing.xs),
-                    decoration: BoxDecoration(
-                      color: i == selected ? colors.brandSoft : colors.surface,
-                      borderRadius: GochanoRadius.mdAll,
-                      border: Border.all(
-                        color: i == selected ? colors.commute : colors.border,
-                        width: i == selected ? 1.6 : 1,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        journeyStrategyLabel(journeys[i]),
+                        style: type.label.copyWith(
+                          color: i == selected ? colors.commute : null,
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          journeyStrategyLabel(journeys[i]),
-                          style: type.label.copyWith(
-                            color: i == selected ? colors.commute : null,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          journeys[i].totalFareTk <= 0
-                              ? GochanoLanguage.text('Free', 'ফ্রি')
-                              : formatTaka(journeys[i].totalFareTk),
-                          style: type.cardHeading,
-                        ),
-                        Text(
-                          formatJourneyDuration(journeys[i].totalDurationMinutes),
-                          style: type.caption,
-                        ),
-                      ],
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        journeys[i].totalFareTk <= 0
+                            ? GochanoLanguage.text('Free', 'ফ্রি')
+                            : formatTaka(journeys[i].totalFareTk),
+                        style: type.cardHeading,
+                      ),
+                      Text(
+                        formatJourneyDuration(journeys[i].totalDurationMinutes),
+                        style: type.caption,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }

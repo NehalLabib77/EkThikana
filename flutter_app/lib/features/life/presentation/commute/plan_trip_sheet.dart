@@ -12,6 +12,7 @@ Future<bool?> showPlanTripSheet(
   BuildContext context, {
   CommutePlace? initialOrigin,
   CommutePlace? initialDestination,
+  PlannedCommuteTrip? existingTrip,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
@@ -20,45 +21,59 @@ Future<bool?> showPlanTripSheet(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
       ),
-      child: _PlanTripForm(
+      child: PlanTripForm(
         initialOrigin: initialOrigin,
         initialDestination: initialDestination,
+        existingTrip: existingTrip,
       ),
     ),
   );
 }
 
-class _PlanTripForm extends StatefulWidget {
-  const _PlanTripForm({
+class PlanTripForm extends StatefulWidget {
+  const PlanTripForm({
+    super.key,
     this.initialOrigin,
     this.initialDestination,
+    this.existingTrip,
   });
 
   final CommutePlace? initialOrigin;
   final CommutePlace? initialDestination;
+  final PlannedCommuteTrip? existingTrip;
 
   @override
-  State<_PlanTripForm> createState() => _PlanTripFormState();
+  State<PlanTripForm> createState() => _PlanTripFormState();
 }
 
-class _PlanTripFormState extends State<_PlanTripForm> {
-  late CommutePlace? _origin = widget.initialOrigin;
-  late CommutePlace? _destination = widget.initialDestination;
-  DateTime _date = DateTime.now();
-  TimeOfDay _time = TimeOfDay.fromDateTime(
-    DateTime.now().add(const Duration(minutes: 30)),
-  );
-  int _reminderMinutes = 30;
+class _PlanTripFormState extends State<PlanTripForm> {
+  late CommutePlace? _origin = widget.existingTrip != null
+      ? CommutePlace(
+          name: widget.existingTrip!.originName,
+          lat: widget.existingTrip!.originLat,
+          lon: widget.existingTrip!.originLon,
+        )
+      : widget.initialOrigin;
+  late CommutePlace? _destination = widget.existingTrip != null
+      ? CommutePlace(
+          name: widget.existingTrip!.destinationName,
+          lat: widget.existingTrip!.destinationLat,
+          lon: widget.existingTrip!.destinationLon,
+        )
+      : widget.initialDestination;
+  late DateTime _date = widget.existingTrip?.departureTime ?? DateTime.now();
+  late TimeOfDay _time = widget.existingTrip != null
+      ? TimeOfDay.fromDateTime(widget.existingTrip!.departureTime)
+      : TimeOfDay.fromDateTime(
+          DateTime.now().add(const Duration(minutes: 30)),
+        );
+  late int _reminderMinutes = widget.existingTrip?.reminderMinutes ?? 30;
   bool _saving = false;
+  bool _deleting = false;
   String? _error;
 
-  DateTime get _departureDateTime => DateTime(
-        _date.year,
-        _date.month,
-        _date.day,
-        _time.hour,
-        _time.minute,
-      );
+  DateTime get _departureDateTime =>
+      DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -71,10 +86,7 @@ class _PlanTripFormState extends State<_PlanTripForm> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _time,
-    );
+    final picked = await showTimePicker(context: context, initialTime: _time);
     if (picked != null) setState(() => _time = picked);
   }
 
@@ -126,16 +138,30 @@ class _PlanTripFormState extends State<_PlanTripForm> {
     });
 
     try {
-      await CommuteTripService.createTrip(
-        originName: origin.name,
-        destinationName: destination.name,
-        originLat: origin.lat,
-        originLon: origin.lon,
-        destinationLat: destination.lat,
-        destinationLon: destination.lon,
-        departureTime: departure,
-        reminderMinutes: _reminderMinutes,
-      );
+      if (widget.existingTrip != null) {
+        await CommuteTripService.updateTrip(
+          tripId: widget.existingTrip!.id,
+          originName: origin.name,
+          destinationName: destination.name,
+          originLat: origin.lat,
+          originLon: origin.lon,
+          destinationLat: destination.lat,
+          destinationLon: destination.lon,
+          departureTime: departure,
+          reminderMinutes: _reminderMinutes,
+        );
+      } else {
+        await CommuteTripService.createTrip(
+          originName: origin.name,
+          destinationName: destination.name,
+          originLat: origin.lat,
+          originLon: origin.lon,
+          destinationLat: destination.lat,
+          destinationLon: destination.lon,
+          departureTime: departure,
+          reminderMinutes: _reminderMinutes,
+        );
+      }
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -147,10 +173,63 @@ class _PlanTripFormState extends State<_PlanTripForm> {
     }
   }
 
+  Future<void> _delete() async {
+    final existing = widget.existingTrip;
+    if (existing == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(
+          GochanoLanguage.text('Delete planned trip?', 'যাত্রা মুছে ফেলবেন?'),
+        ),
+        content: Text(
+          GochanoLanguage.text(
+            'This trip and its reminder will be cancelled.',
+            'এই যাত্রা এবং এর রিমাইন্ডার বাতিল করা হবে।',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: context.colors.error,
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: Text(GochanoLanguage.text('Delete', 'মুছুন')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+
+    try {
+      await CommuteTripService.deleteTrip(existing);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _deleting = false;
+        _error = e.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
+    final isEditing = widget.existingTrip != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(GochanoSpacing.md),
@@ -164,7 +243,15 @@ class _PlanTripFormState extends State<_PlanTripForm> {
               const SizedBox(width: GochanoSpacing.xs),
               Expanded(
                 child: Text(
-                  GochanoLanguage.text('Plan a future trip', 'ভবিষ্যৎ যাত্রা পরিকল্পনা'),
+                  isEditing
+                      ? GochanoLanguage.text(
+                          'Edit planned trip',
+                          'যাত্রা সম্পাদনা',
+                        )
+                      : GochanoLanguage.text(
+                          'Plan a future trip',
+                          'ভবিষ্যৎ যাত্রা পরিকল্পনা',
+                        ),
                   style: type.sectionHeading,
                 ),
               ),
@@ -182,7 +269,11 @@ class _PlanTripFormState extends State<_PlanTripForm> {
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.trip_origin_rounded, color: colors.commute),
             title: Text(
-              _origin?.name ?? GochanoLanguage.text('Pick starting place', 'শুরুর স্থান বাছুন'),
+              _origin?.name ??
+                  GochanoLanguage.text(
+                    'Pick starting place',
+                    'শুরুর স্থান বাছুন',
+                  ),
               style: _origin != null ? type.body : type.bodySecondary,
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -193,7 +284,8 @@ class _PlanTripFormState extends State<_PlanTripForm> {
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.place_rounded, color: colors.error),
             title: Text(
-              _destination?.name ?? GochanoLanguage.text('Pick destination', 'গন্তব্য বাছুন'),
+              _destination?.name ??
+                  GochanoLanguage.text('Pick destination', 'গন্তব্য বাছুন'),
               style: _destination != null ? type.body : type.bodySecondary,
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -237,7 +329,10 @@ class _PlanTripFormState extends State<_PlanTripForm> {
                   label: Text(
                     mins == 0
                         ? GochanoLanguage.text('None', 'নেই')
-                        : GochanoLanguage.text('$mins min before', '$mins মিনিট আগে'),
+                        : GochanoLanguage.text(
+                            '$mins min before',
+                            '$mins মিনিট আগে',
+                          ),
                   ),
                   selected: _reminderMinutes == mins,
                   onSelected: (val) {
@@ -249,18 +344,35 @@ class _PlanTripFormState extends State<_PlanTripForm> {
           const SizedBox(height: GochanoSpacing.md),
 
           if (_error != null) ...[
-            Text(
-              _error!,
-              style: type.caption.copyWith(color: colors.error),
-            ),
+            Text(_error!, style: type.caption.copyWith(color: colors.error)),
             const SizedBox(height: GochanoSpacing.sm),
           ],
 
           PrimaryButton(
-            label: GochanoLanguage.text('Save planned trip', 'যাত্রা সেভ করুন'),
+            label: isEditing
+                ? GochanoLanguage.text('Update trip', 'যাত্রা আপডেট করুন')
+                : GochanoLanguage.text('Save planned trip', 'যাত্রা সেভ করুন'),
             busy: _saving,
-            onPressed: _saving ? null : _save,
+            onPressed: (_saving || _deleting) ? null : _save,
           ),
+
+          if (isEditing) ...[
+            const SizedBox(height: GochanoSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: (_saving || _deleting) ? null : _delete,
+              icon: _deleting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(Icons.delete_outline_rounded, color: colors.error),
+              label: Text(
+                GochanoLanguage.text('Delete trip', 'যাত্রা মুছুন'),
+                style: type.label.copyWith(color: colors.error),
+              ),
+            ),
+          ],
         ],
       ),
     );

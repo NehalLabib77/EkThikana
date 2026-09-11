@@ -26,6 +26,7 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../life/presentation/expense/add_expense_sheet.dart';
 import '../../life/presentation/commute/commute_screen.dart';
 import '../../life/presentation/commute/commute_place_picker.dart';
+import '../../life/presentation/commute/plan_trip_sheet.dart';
 import '../../life/presentation/commute/planned_trip_models.dart';
 import '../../../core/localization/gochano_dates.dart';
 import '../../../services/notification_service.dart';
@@ -1334,9 +1335,7 @@ class _MoneyRow extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _CommuteCard extends StatelessWidget {
-  const _CommuteCard({
-    required this.onOpenCommute,
-  });
+  const _CommuteCard({required this.onOpenCommute});
 
   final VoidCallback onOpenCommute;
 
@@ -1349,12 +1348,16 @@ class _CommuteCard extends StatelessWidget {
       builder: (context, snapshot) {
         final trips = snapshot.data ?? const [];
         final now = DateTime.now();
-        final upcomingTrips = trips.where((t) => t.departureTime.isAfter(now)).toList();
+        final upcomingTrips = trips
+            .where((t) => t.departureTime.isAfter(now))
+            .toList();
         final trip = upcomingTrips.isNotEmpty ? upcomingTrips.first : null;
 
         if (trip != null) {
-          final timeStr = '${trip.departureTime.hour.toString().padLeft(2, '0')}:${trip.departureTime.minute.toString().padLeft(2, '0')}';
-          final dateStr = '${trip.departureTime.day}/${trip.departureTime.month}';
+          final timeStr =
+              '${trip.departureTime.hour.toString().padLeft(2, '0')}:${trip.departureTime.minute.toString().padLeft(2, '0')}';
+          final dateStr =
+              '${trip.departureTime.day}/${trip.departureTime.month}';
 
           return _AccentRailCard(
             accent: colors.commute,
@@ -1382,7 +1385,11 @@ class _CommuteCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.directions_transit_rounded, size: 18, color: colors.commute),
+                    Icon(
+                      Icons.directions_transit_rounded,
+                      size: 18,
+                      color: colors.commute,
+                    ),
                     const SizedBox(width: GochanoSpacing.xs),
                     Expanded(
                       child: Text(
@@ -1392,10 +1399,22 @@ class _CommuteCard extends StatelessWidget {
                     ),
                     if (trip.reminderMinutes > 0)
                       GochanoBadge(
-                        label: GochanoLanguage.text('${trip.reminderMinutes}m reminder', '${trip.reminderMinutes}মি রিমাইন্ডার'),
+                        label: GochanoLanguage.text(
+                          '${trip.reminderMinutes}m reminder',
+                          '${trip.reminderMinutes}মি রিমাইন্ডার',
+                        ),
                         tone: GochanoBadgeTone.brand,
                         icon: Icons.notifications_active_outlined,
                       ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+                      tooltip: GochanoLanguage.text('Edit trip', 'যাত্রা সম্পাদনা'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => showPlanTripSheet(
+                        context,
+                        existingTrip: trip,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: GochanoSpacing.xs),
@@ -1408,7 +1427,11 @@ class _CommuteCard extends StatelessWidget {
                 const SizedBox(height: GochanoSpacing.xxs),
                 Row(
                   children: [
-                    Icon(Icons.access_time_rounded, size: 14, color: colors.textSecondary),
+                    Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: colors.textSecondary,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '${GochanoLanguage.text('Leave at', 'রওনা')} $timeStr ($dateStr)',
