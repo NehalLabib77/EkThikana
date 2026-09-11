@@ -30,10 +30,8 @@ import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../life/domain/medicine_schedule.dart';
 import '../../life/presentation/medicine/medicine_screen.dart';
-import '../../life/presentation/medicine/prescription_scan_screen.dart';
 import '../../study/presentation/ai/ai_assistant_screen.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
-import '../../tasks/presentation/add_task_sheet.dart';
 import '../../../widgets/language_toggle.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -57,6 +55,7 @@ class HomeScreen extends StatelessWidget {
     return GochanoScaffold(
       padBody: false,
       appBar: _HomeAppBar(
+        displayName: displayName,
         onOpenProfile: onOpenProfile,
         actions: [
           const LanguageToggle(),
@@ -71,25 +70,24 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
-          _SmartSummaryCard(isStudent: _isStudent),
-          const SizedBox(height: GochanoSpacing.sm),
+          SectionHeader(
+            title: GochanoLanguage.text('Quick Access', 'দ্রুত প্রবেশ'),
+          ),
           _QuickActions(isStudent: _isStudent),
-          const SizedBox(height: GochanoSpacing.sm),
+          const SizedBox(height: GochanoSpacing.md),
           _TodaysTasksCard(
             onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
           ),
-          if (_isStudent) ...[
-            const SizedBox(height: GochanoSpacing.sm),
-            const _BentoRow(
-              left: _StudyProgressCard(),
-              right: _MedicineScheduleCard(),
-            ),
-          ] else ...[
-            const SizedBox(height: GochanoSpacing.sm),
-            const _MedicineScheduleCard(),
-          ],
           const SizedBox(height: GochanoSpacing.sm),
-          _RecentMaterialsCard(onOpenStudy: () => onOpenDestination(0)),
+          _MedicineScheduleCard(),
+          const SizedBox(height: GochanoSpacing.sm),
+          _CommuteCard(
+            onOpenCommute: () => onOpenDestination(_isStudent ? 2 : 1),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+          _MoneyCard(
+            onOpenExpense: () => onOpenDestination(_isStudent ? 3 : 1),
+          ),
         ],
       ),
     );
@@ -98,9 +96,14 @@ class HomeScreen extends StatelessWidget {
 
 /// Custom AppBar for Home screen showing [circular avatar] DisplayName.
 class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _HomeAppBar({this.actions, required this.onOpenProfile});
+  const _HomeAppBar({
+    this.actions,
+    required this.displayName,
+    required this.onOpenProfile,
+  });
 
   final List<Widget>? actions;
+  final String displayName;
   final VoidCallback onOpenProfile;
 
   @override
@@ -148,7 +151,7 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: GochanoSpacing.sm),
               Expanded(
                 child: Text(
-                  displayName.isNotEmpty ? displayName : displayName,
+                  _greeting(displayName),
                   style: type.pageTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -161,12 +164,24 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: actions,
     );
   }
+
+  String _greeting(String name) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? GochanoLanguage.text('Good morning', 'সুপ্রভাত')
+        : hour < 17
+        ? GochanoLanguage.text('Good afternoon', 'শুভ অপরাহ্ন')
+        : GochanoLanguage.text('Good evening', 'শুভ সন্ধ্যা');
+    final trimmed = name.trim();
+    return trimmed.isEmpty ? greeting : '$greeting, $trimmed';
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Bento grid helpers
 // ---------------------------------------------------------------------------
 
+// ignore: unused_element
 class _BentoRow extends StatelessWidget {
   const _BentoRow({required this.left, required this.right});
 
@@ -251,6 +266,7 @@ class _AccentRailCard extends StatelessWidget {
 // Smart summary
 // ---------------------------------------------------------------------------
 
+// ignore: unused_element
 class _SmartSummaryCard extends StatelessWidget {
   const _SmartSummaryCard({required this.isStudent});
 
@@ -627,6 +643,7 @@ class _TaskLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = doc.data();
     final title = data['title']?.toString() ?? '';
+    final isAssignment = data['type']?.toString() == 'assignment';
     final due = (data['dueAt'] as Timestamp?)?.toDate();
     final isOverdue = due != null && due.isBefore(DateTime.now());
 
@@ -648,11 +665,26 @@ class _TaskLine extends StatelessWidget {
           ),
           const SizedBox(width: GochanoSpacing.xxs),
           Expanded(
-            child: Text(
-              title,
-              style: context.type.body,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: context.type.body,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.xs),
+                GochanoBadge(
+                  label: isAssignment
+                      ? GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')
+                      : GochanoLanguage.text('Task', 'কাজ'),
+                  tone: isAssignment
+                      ? GochanoBadgeTone.info
+                      : GochanoBadgeTone.brand,
+                ),
+              ],
             ),
           ),
           if (due != null)
@@ -1296,6 +1328,52 @@ class _MoneyRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Commute
+// ---------------------------------------------------------------------------
+
+class _CommuteCard extends StatelessWidget {
+  const _CommuteCard({required this.onOpenCommute});
+
+  final VoidCallback onOpenCommute;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return _AccentRailCard(
+      accent: colors.commute,
+      onTap: onOpenCommute,
+      child: Row(
+        children: [
+          Icon(Icons.directions_transit_rounded, color: colors.commute),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  GochanoLanguage.text('Commute', 'যাতায়াত'),
+                  style: context.type.sectionHeading,
+                ),
+                const SizedBox(height: GochanoSpacing.xxs),
+                Text(
+                  GochanoLanguage.text(
+                    'Plan a trip',
+                    'একটি যাত্রা পরিকল্পনা করুন',
+                  ),
+                  style: context.type.bodySecondary,
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: colors.textTertiary),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Money: Remaining + Spent
 // ---------------------------------------------------------------------------
 
@@ -1516,6 +1594,7 @@ class _MoneyCardState extends State<_MoneyCard> {
 // Recent materials
 // ---------------------------------------------------------------------------
 
+// ignore: unused_element
 class _RecentMaterialsCard extends StatelessWidget {
   const _RecentMaterialsCard({required this.onOpenStudy});
 
@@ -1698,10 +1777,6 @@ class _QuickActions extends StatefulWidget {
 }
 
 class _QuickActionsState extends State<_QuickActions> {
-  static const _collapsedCount = 3;
-
-  bool _expanded = false;
-
   List<_QuickAction> _actions(BuildContext context) {
     final colors = context.colors;
     return <_QuickAction>[
@@ -1721,24 +1796,15 @@ class _QuickActionsState extends State<_QuickActions> {
         onTap: () => showAddExpenseSheet(context),
       ),
       _QuickAction(
-        label: GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
-        icon: Icons.task_alt_rounded,
-        accent: colors.brand,
-        onTap: () => showAddTaskSheet(context),
-      ),
-      _QuickAction(
-        label: GochanoLanguage.text(
-          'Scan prescription',
-          'প্রেসক্রিপশন স্ক্যান',
-        ),
-        icon: Icons.document_scanner_rounded,
+        label: GochanoLanguage.text('Medicine', 'ওষুধ'),
+        icon: Icons.medication_outlined,
         accent: colors.medicine,
         onTap: () => Navigator.of(
           context,
-        ).push(GochanoRoute.to(builder: (_) => const PrescriptionScanScreen())),
+        ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
       ),
       _QuickAction(
-        label: GochanoLanguage.text('Find a route', 'রুট খুঁজুন'),
+        label: GochanoLanguage.text('CommuteBD', 'কমিউটবিডি'),
         icon: Icons.directions_bus_rounded,
         accent: colors.commute,
         onTap: () => Navigator.of(
@@ -1751,10 +1817,6 @@ class _QuickActionsState extends State<_QuickActions> {
   @override
   Widget build(BuildContext context) {
     final actions = _actions(context);
-    final hasMore = actions.length > _collapsedCount;
-    final visible = (_expanded || !hasMore)
-        ? actions
-        : actions.take(_collapsedCount).toList();
 
     final screenWidth = MediaQuery.of(context).size.width;
     final columns = screenWidth >= 380 ? 4 : 3;
@@ -1772,40 +1834,15 @@ class _QuickActionsState extends State<_QuickActions> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
-            itemCount: visible.length,
+            itemCount: actions.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
               mainAxisExtent: 88,
               crossAxisSpacing: GochanoSpacing.xxs,
               mainAxisSpacing: GochanoSpacing.xs,
             ),
-            itemBuilder: (context, i) => visible[i],
+            itemBuilder: (context, i) => actions[i],
           ),
-          if (hasMore)
-            Center(
-              child: InkWell(
-                onTap: () => setState(() => _expanded = !_expanded),
-                borderRadius: GochanoRadius.mdAll,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: GochanoSpacing.md,
-                    vertical: GochanoSpacing.xs,
-                  ),
-                  child: Tooltip(
-                    message: _expanded
-                        ? GochanoLanguage.text('See less', 'কম দেখুন')
-                        : GochanoLanguage.text('See more', 'আরো দেখুন'),
-                    child: Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: GochanoSizes.iconMd,
-                      color: context.colors.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );

@@ -76,6 +76,59 @@ Unsubscribe, backend security, or Firestore rules were redesigned.
 
 ---
 
+## STEP 2 — HOME SCREEN REBUILD
+
+### Files changed
+
+- `flutter_app/lib/features/home/presentation/home_screen.dart`
+- `flutter_app/test/home_quick_actions_test.dart`
+- `flutter_app/test/home_rebuild_test.dart`
+- `flutter_app/test/profile_structure_test.dart`
+
+Authentication, the global shell/navigation structure, and all non-Home
+business logic were left unchanged.
+
+### Final Home order
+
+The visible Today screen now composes exactly:
+
+1. Compact greeting header with EN/BN control and Profile avatar
+2. Quick Access
+3. Today
+4. Medicine
+5. Commute
+6. Money
+
+Smart Summary, Study Progress, Recent Materials, Bento layout composition, and
+other legacy Home sections are no longer mounted.
+
+### Integrations
+
+- Quick Access contains exactly Ask AI, Add Expense, Medicine, and CommuteBD.
+  The old Add Task, Scan Prescription, and expand/collapse controls are gone.
+- Today uses the existing reactive `FirestoreService.ownerStream('tasks')`
+  source used by Plan. It supports both Task and Assignment badges, due times,
+  completion writes, empty state, loading/error state, and a compact `+N more`
+  footer.
+- Medicine reuses `MedicineSchedule`, `medicines`, `medicine_doses`, existing
+  dose completion, and reminder rescheduling logic. It safely handles loading,
+  errors, no schedule, all-completed, and up to two actionable doses.
+- Commute opens the existing CommuteBD screen and shows “Plan a trip” when no
+  planned-trip storage is available. No duplicate commute persistence was
+  invented; planned-trip integration remains for the dedicated Commute step.
+- Money reuses the existing ledger, `getRemaining`, Dena/Pawna settlement
+  stream, and authoritative remaining formula. Expense calculations and
+  accounting logic were not changed.
+
+### Validation
+
+- `flutter analyze`: **0 issues**.
+- Full `flutter test`: **524 passed, 0 failed**.
+- Focused Home/profile/shell tests: **40 passed, 0 failed**.
+- Physical Android-device verification: **not performed in this environment**.
+
+---
+
 ## PART 17 — Monthly Money Immediate Refresh Fix
 
 **Date:** 2026-09-06

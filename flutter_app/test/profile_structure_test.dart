@@ -126,12 +126,12 @@ void main() {
       () => source = _read('lib/features/home/presentation/home_screen.dart'),
     );
 
-    test('collapses to three with an expander', () {
-      expect(source, contains('_collapsedCount = 3'));
-      expect(source, contains('See more'));
-      expect(source, contains('See less'));
-      expect(source, contains('আরো দেখুন'));
-      expect(source, contains('কম দেখুন'));
+    test('shows exactly four compact Step 2 shortcuts', () {
+      expect(source, contains("GochanoLanguage.text('Medicine'"));
+      expect(source, contains("GochanoLanguage.text('CommuteBD'"));
+      expect(source, isNot(contains('Add task')));
+      expect(source, isNot(contains('Scan prescription')));
+      expect(source, isNot(contains('_expanded')));
     });
 
     test('every existing destination is still reachable', () {
@@ -140,8 +140,7 @@ void main() {
       for (final destination in const [
         'AiAssistantScreen',
         'showAddExpenseSheet',
-        'showAddTaskSheet',
-        'PrescriptionScanScreen',
+        "GochanoLanguage.text('Medicine'",
         'CommuteScreen',
       ]) {
         expect(
@@ -204,14 +203,20 @@ void main() {
       );
       expect(source, contains('GridView.builder'));
       expect(source, contains('crossAxisCount: 3'));
-      final match =
-          RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(source);
-      expect(match, isNotNull,
-          reason: 'Quick Access grid must declare a finite mainAxisExtent');
+      final match = RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(source);
+      expect(
+        match,
+        isNotNull,
+        reason: 'Quick Access grid must declare a finite mainAxisExtent',
+      );
       final value = int.parse(match!.group(1)!);
       expect(value, greaterThanOrEqualTo(80));
-      expect(value, lessThanOrEqualTo(96),
-          reason: 'mainAxisExtent should be between 80-96px for overflow-safe tiles');
+      expect(
+        value,
+        lessThanOrEqualTo(96),
+        reason:
+            'mainAxisExtent should be between 80-96px for overflow-safe tiles',
+      );
     });
 
     test('every existing destination is still reachable', () {
@@ -247,8 +252,11 @@ void main() {
       );
       // The old design used childAspectRatio: 2.8 which caused overflow.
       // The new design uses mainAxisExtent instead.
-      expect(source, isNot(contains('childAspectRatio')),
-          reason: 'Must not use childAspectRatio which caused the overflow');
+      expect(
+        source,
+        isNot(contains('childAspectRatio')),
+        reason: 'Must not use childAspectRatio which caused the overflow',
+      );
     });
   });
 
@@ -259,12 +267,12 @@ void main() {
       () => source = _read('lib/features/home/presentation/home_screen.dart'),
     );
 
-    test('has all required bento sections', () {
-      expect(source, contains('_SmartSummaryCard'));
+    test('has the required Home cards', () {
       expect(source, contains('_TodaysTasksCard'));
-      expect(source, contains('_StudyProgressCard'));
+      expect(source, contains('_MedicineScheduleCard'));
+      expect(source, contains('_CommuteCard'));
       expect(source, contains('_MoneyCard'));
-      expect(source, contains('_RecentMaterialsCard'));
+      expect(source, contains('Quick Access'));
     });
 
     test('uses accent-rail cards with colored left border', () {
@@ -272,15 +280,20 @@ void main() {
       expect(source, contains('SizedBox(width: 3'));
     });
 
-    test('uses bento row for side-by-side layout', () {
-      expect(source, contains('_BentoRow'));
+    test('does not compose legacy dashboard sections', () {
+      final buildStart = source.indexOf('Widget build(BuildContext context)');
+      final buildEnd = source.indexOf('\n  }', buildStart);
+      final build = source.substring(buildStart, buildEnd);
+      expect(build, isNot(contains('_SmartSummaryCard')));
+      expect(build, isNot(contains('_StudyProgressCard')));
+      expect(build, isNot(contains('_RecentMaterialsCard')));
+      expect(build, isNot(contains('_BentoRow')));
     });
 
     test('quick actions use Material Design icons, not illustrations', () {
       expect(source, contains('Icons.auto_awesome_rounded'));
       expect(source, contains('Icons.receipt_long_rounded'));
-      expect(source, contains('Icons.task_alt_rounded'));
-      expect(source, contains('Icons.document_scanner_rounded'));
+      expect(source, contains('Icons.medication_outlined'));
       expect(source, contains('Icons.directions_bus_rounded'));
     });
 
