@@ -9921,3 +9921,51 @@ UNKNOWN.
 ```
 AUTH PARSER CORRECTION STATUS: COMPLETE — 924/924 TESTS PASSING
 ```
+
+---
+
+# TEMPORARY DEBUG-ONLY DEVELOPER ACCESS
+
+**Date:** 2026-09-11
+**Scope:** Debug-only developer login bypass gated by `kDebugMode && DEV_AUTH_BYPASS`
+
+## Purpose
+Add a temporary, debug-only developer login path for QA/testing without deploying Firebase test phone numbers. Uses Firebase email/password authentication (NOT telecom endpoints) gated behind a double compile-time + runtime flag.
+
+## Double Gate
+| Layer | Mechanism | Effect |
+|---|---|---|
+| Compile-time | `kDebugMode == true` | Always `false` in release/profile builds; Dart compiler eliminates dead code |
+| Runtime | `--dart-define=DEV_AUTH_BYPASS=true` | Must be explicitly passed at build time |
+
+Both must be true for the developer login button to appear. In production, `kDebugMode` is `false`, so the flag is unreachable regardless of dart-defines.
+
+## Test Account
+Credentials read from `--dart-define=DEV_TEST_EMAIL=...` and `--dart-define=DEV_TEST_PASSWORD=...`. Never committed to source.
+
+## Auth Flow
+1. Button appears only when `isDevAuthEnabled` is true
+2. `_devLogin()` calls `FirebaseAuth.instance.signInWithEmailAndPassword()`
+3. Checks `emailVerified` and calls `getIdToken(true)`
+4. Calls `FirestoreService.checkProfileState()` (same as production)
+5. Persists session via `TelecomAuthService.persistSession()` for AuthGate dual-gate compatibility
+
+## Files Changed
+| File | Change |
+|---|---|
+| `lib/core/services/dev_auth_config.dart` | New — double-gate flag, `DevLoginOutcome`, `devLogin()` |
+| `lib/features/auth/presentation/login_screen.dart` | Added `_devLogin()` method + conditional button |
+| `test/dev_auth_test.dart` | New — 30+ tests covering gate logic, security, Firebase path |
+
+## Files NOT Changed
+- `auth_gate.dart` — remains dual-gate (SharedPreferences + FirebaseAuth)
+- `telecom_auth_service.dart` — production auth flow untouched
+- No backend changes, no OTP changes, no production behavior changes
+
+## Verification
+- `flutter analyze` — **0 issues**
+- `flutter test` — **962/962 tests passing** (38 new dev auth tests + 924 existing)
+
+```
+DEV_AUTH_BYPASS STATUS: COMPLETE — 962/962 TESTS PASSING, ANALYZER CLEAN
+```

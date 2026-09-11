@@ -34,6 +34,7 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../../core/services/dev_auth_config.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/widgets/gochano_controls.dart';
@@ -544,6 +545,106 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // ---------------------------------------------------------------
+  // TEMPORARY DEVELOPMENT ACCESS — debug-only Firebase email/password
+  // login. Does NOT touch telecom endpoints. Only callable when
+  // kDebugMode && DEV_AUTH_BYPASS. Remove before final release, or
+  // leave permanently disabled because kDebugMode prevents
+  // activation in release builds.
+  // ---------------------------------------------------------------
+
+  Future<void> _devLogin() async {
+    if (_busy) return;
+    if (!isDevAuthEnabled) return;
+
+    setState(() {
+      _busy = true;
+      _busyMessage = 'Developer sign-in…';
+    });
+
+    final outcome = await devLogin();
+    if (!mounted) return;
+
+    if (!outcome.success) {
+      _showError(outcome.errorMessage ?? 'Developer sign-in failed');
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+
+    // Firebase sign-in succeeded — FirebaseAuth.currentUser is non-null.
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      _showError('Sign-in incomplete. Please try again.');
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+
+    // Persist only the existing local routing metadata. AuthGate still
+    // requires FirebaseAuth.currentUser, so SharedPreferences alone can
+    // never authenticate a developer session.
+    final devPhone = currentUser.email ?? currentUser.uid;
+    try {
+      await TelecomAuthService.persistSession(phone: devPhone);
+    } catch (_) {
+      _showError(GochanoLanguage.text(
+        'Could not save your session. Please try again.',
+        'সেশন সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+      ));
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+
+    final profileState = await FirestoreService.checkProfileState();
+    if (!mounted) return;
+
+    if (profileState == ProfileCheckResult.error) {
+      _showError(GochanoLanguage.text(
+        'Could not load your profile. Please try again.',
+        'আপনার প্রোফাইল লোড করা যায়নি। আবার চেষ্টা করুন।',
+      ));
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _busyMessage = 'Taking you in…';
+      });
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Taking you in…'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1200),
+      ),
+    );
+    await Future.delayed(const Duration(milliseconds: 1200));
+
+    if (!mounted) return;
+
+    switch (profileState) {
+      case ProfileCheckResult.exists:
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => GochanoShell(
+              role: 'student',
+              displayName: devPhone,
+            ),
+          ),
+          (_) => false,
+        );
+      case ProfileCheckResult.missing:
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => ProfileSetupScreen(phone: devPhone),
+          ),
+          (_) => false,
+        );
+      case ProfileCheckResult.error:
+        break;
+    }
+  }
+
   String? _validatePhone(String? value) {
     final raw = (value ?? '').trim();
     if (raw.isEmpty) {
@@ -707,6 +808,28 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _busy ? null : _continue,
                           icon: Icons.arrow_forward_rounded,
                         ),
+                        // TEMPORARY DEVELOPMENT ACCESS — debug-only
+                        // Developer Login button. Only visible when
+                        // kDebugMode && DEV_AUTH_BYPASS. Never appears
+                        // in profile/release builds.
+                        if (isDevAuthEnabled) ...[
+                          const SizedBox(height: GochanoSpacing.sm),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _busy ? null : _devLogin,
+                              icon: const Icon(Icons.code_rounded, size: 18),
+                              label: const Text('Developer Login'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: colors.warning,
+                                side: BorderSide(color: colors.warning),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

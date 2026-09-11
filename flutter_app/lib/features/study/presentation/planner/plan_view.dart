@@ -275,9 +275,13 @@ class _CombinedPlannerList extends StatelessWidget {
         final endOfDay = dayKey.add(const Duration(days: 1));
 
         final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        var completedCount = 0;
         for (final doc in [...?snapshot.data?.docs]) {
           final data = doc.data();
-          if (data['done'] == true) continue;
+          if (data['done'] == true) {
+            completedCount++;
+            continue;
+          }
           final due = (data['dueAt'] as Timestamp?)?.toDate();
           if (due == null) continue;
           if (!due.isBefore(dayKey) && due.isBefore(endOfDay)) {
@@ -375,7 +379,7 @@ class _CombinedPlannerList extends StatelessWidget {
                     tone: GochanoBadgeTone.brand,
                   ),
                   const SizedBox(width: GochanoSpacing.xs),
-                  _HistoryButton(),
+                  if (completedCount > 0) _HistoryButton(),
                 ],
               ),
               const SizedBox(height: GochanoSpacing.xs),

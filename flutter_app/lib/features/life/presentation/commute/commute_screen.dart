@@ -261,17 +261,6 @@ class _CommuteScreenState extends State<CommuteScreen> {
             onPickDestination: () => _pick(isOrigin: false),
             onSwap: _swap,
           ),
-          const SizedBox(height: GochanoSpacing.md),
-          PrimaryButton(
-            label: GochanoLanguage.text('Find routes', 'রুট খুঁজুন'),
-            icon: Icons.search_rounded,
-            busy: _searching,
-            busyLabel: GochanoLanguage.text(
-              'Checking route…',
-              'রুট দেখা হচ্ছে…',
-            ),
-            onPressed: _canSearch ? _findRoutes : null,
-          ),
 
           // The map *is* the picker: a trip can be chosen by looking at it
           // rather than by knowing what a place is called. It stays until
@@ -284,6 +273,19 @@ class _CommuteScreenState extends State<CommuteScreen> {
               onPicked: _pickFromMap,
             ),
           ],
+
+          // Find route button sits below the map (spec visual order).
+          const SizedBox(height: GochanoSpacing.md),
+          PrimaryButton(
+            label: GochanoLanguage.text('Find routes', 'রুট খুঁজুন'),
+            icon: Icons.search_rounded,
+            busy: _searching,
+            busyLabel: GochanoLanguage.text(
+              'Checking route…',
+              'রুট দেখা হচ্ছে…',
+            ),
+            onPressed: _canSearch ? _findRoutes : null,
+          ),
 
           if (_error.isNotEmpty) ...[
             const SizedBox(height: GochanoSpacing.lg),

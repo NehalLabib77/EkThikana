@@ -251,6 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
             loaded: _loaded,
             onSeeAll: () => widget.onOpenStudyTab(StudyTab.plan.tabIndex),
           ),
+          const SizedBox(height: GochanoSpacing.sm),
+          _QuickActions(isStudent: _isStudent),
           if (_isStudent) ...[
             const SizedBox(height: GochanoSpacing.sm),
             _BentoRow(
@@ -271,8 +273,6 @@ class _HomeScreenState extends State<HomeScreen> {
             loaded: _loaded,
             onOpenDestination: widget.onOpenDestination,
           ),
-          const SizedBox(height: GochanoSpacing.sm),
-          _QuickActions(isStudent: _isStudent),
         ],
       ),
     );
