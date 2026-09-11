@@ -74,16 +74,24 @@ void main() {
       expect(source, contains('showConfirmationSheet'));
     });
 
-    test('usage access stays tappable in both permission states', () {
-      final row = source.substring(
-        source.indexOf("'Usage Access'"),
-        source.indexOf('String _appearanceLabel'),
+    test('Study statistics section is completely removed', () {
+      expect(source, isNot(contains('_StudyStatsRow')));
+      expect(
+        source,
+        isNot(contains("GochanoLanguage.text('Study', 'পড়াশোনা')")),
       );
-      expect(row, contains('_usageAccessGranted'));
-      expect(row, contains('UsageStatsService.openSettings()'));
-      expect(row, contains('_checkUsageAccess()'));
-      expect(row, isNot(contains('IgnorePointer')));
-      expect(row, isNot(contains('AbsorbPointer')));
+      expect(source, isNot(contains('Focus today')));
+      expect(source, isNot(contains('This month')));
+      expect(source, isNot(contains('Streak')));
+      expect(source, isNot(contains('ApiService.getStudyStats()')));
+    });
+
+    test('Usage Access is completely removed', () {
+      expect(source, isNot(contains('Usage Access')));
+      expect(source, isNot(contains('ব্যবহার অ্যাক্সেস')));
+      expect(source, isNot(contains('_usageAccessGranted')));
+      expect(source, isNot(contains('_checkUsageAccess')));
+      expect(source, isNot(contains('UsageStatsService')));
     });
 
     test('settings row uses GestureDetector for reliable hit-test', () {
@@ -115,7 +123,40 @@ void main() {
       expect(source, contains('FirestoreService.profileStream()'));
       expect(source, contains("data['displayName']"));
       expect(source, contains("data['email']"));
-      expect(source, contains('ApiService.getStudyStats()'));
+      expect(source, contains("data['phone']"));
+      expect(source, contains('TelecomAuthService.readUserPhone()'));
+      expect(source, isNot(contains('ApiService.getStudyStats()')));
+    });
+
+    test(
+      'retains Monthly Money, Language, Appearance, and Reminders in settings',
+      () {
+        expect(
+          source,
+          contains("GochanoLanguage.text('Monthly money', 'মাসিক টাকা')"),
+        );
+        expect(source, contains("GochanoLanguage.text('Language', 'ভাষা')"));
+        expect(
+          source,
+          contains("GochanoLanguage.text('Appearance', 'চেহারা')"),
+        );
+        expect(
+          source,
+          contains("GochanoLanguage.text('Reminders', 'রিমাইন্ডার')"),
+        );
+      },
+    );
+
+    test('no XP, levels, gems, badges, or productivity stats remain', () {
+      expect(source, isNot(contains('XP')));
+      expect(source, isNot(contains('gems')));
+      expect(source, isNot(contains('badges')));
+      expect(source, isNot(contains('level')));
+      expect(source, isNot(contains('productivity')));
+    });
+
+    test('appBar supports back navigation when pushed from home', () {
+      expect(source, contains('Navigator.of(context).canPop()'));
     });
   });
 

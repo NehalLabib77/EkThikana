@@ -16,7 +16,6 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -33,7 +32,7 @@ import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
-import '../../../services/usage_stats_service.dart';
+
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
@@ -55,18 +54,13 @@ class ProfileScreen extends StatelessWidget {
           padBody: false,
           appBar: GochanoAppBar(
             title: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-            automaticallyImplyLeading: false,
+            automaticallyImplyLeading: Navigator.of(context).canPop(),
           ),
           body: ListView(
             padding: GochanoSpacing.scrollBody,
             children: [
               _IdentityHeader(),
               _RoleBadge(role: role),
-
-              if (role == 'student') ...[
-                SectionHeader(title: GochanoLanguage.text('Study', 'পড়াশোনা')),
-                _StudyStatsRow(),
-              ],
 
               const SizedBox(height: GochanoSpacing.sm),
               _SettingsCard(isStudent: role == 'student'),
@@ -105,6 +99,7 @@ class ProfileScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// Avatar, name, email and where the student studies.
+/// Avatar, name, phone/email and where the student studies.
 class _IdentityHeader extends StatelessWidget {
   const _IdentityHeader();
 
@@ -118,6 +113,7 @@ class _IdentityHeader extends StatelessWidget {
         final data = snapshot.data?.data() ?? const <String, dynamic>{};
         final name = data['displayName']?.toString().trim() ?? '';
         final email = data['email']?.toString().trim() ?? '';
+        final phone = data['phone']?.toString().trim() ?? '';
         final university = data['university']?.toString().trim() ?? '';
         final department = data['department']?.toString().trim() ?? '';
         final photoUrl = data['photoURL']?.toString().trim() ?? '';
@@ -157,6 +153,39 @@ class _IdentityHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+            FutureBuilder<String?>(
+              future: phone.isNotEmpty
+                  ? Future<String?>.value(phone)
+                  : TelecomAuthService.readUserPhone(),
+              builder: (context, phoneSnap) {
+                final displayPhone = phoneSnap.data?.trim() ?? phone;
+                // Never show internal placeholders or roles like "student" as phone
+                final validPhone = displayPhone.isNotEmpty &&
+                        displayPhone.toLowerCase() != 'student'
+                    ? displayPhone
+                    : '';
+
+                if (validPhone.isNotEmpty) {
+                  return Text(
+                    validPhone,
+                    style: context.type.bodySecondary,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }
+                if (email.isNotEmpty) {
+                  return Text(
+                    email,
+                    style: context.type.bodySecondary,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             if (university.isNotEmpty || department.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -475,100 +504,6 @@ class _RoleBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Study statistics
-// ---------------------------------------------------------------------------
-
-class _StudyStatsRow extends StatefulWidget {
-  const _StudyStatsRow();
-
-  @override
-  State<_StudyStatsRow> createState() => _StudyStatsRowState();
-}
-
-class _StudyStatsRowState extends State<_StudyStatsRow> {
-  Map<String, dynamic>? _stats;
-  String _error = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final stats = await ApiService.getStudyStats();
-      if (mounted) setState(() => _stats = stats);
-    } catch (error) {
-      if (mounted) setState(() => _error = friendlyErrorMessage(error));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_error.isNotEmpty && _stats == null) {
-      return ErrorState(compact: true, message: _error, onRetry: _load);
-    }
-    if (_stats == null) {
-      return StaticLoadingState(
-        compact: true,
-        message: GochanoLanguage.text(
-          'Loading your study stats…',
-          'আপনার পড়ার পরিসংখ্যান লোড হচ্ছে…',
-        ),
-      );
-    }
-
-    // Backend returns `todaySeconds`/`monthSeconds`/`streakDays` as
-    // canonical keys, with `accumulatedSeconds` already coerced server-side
-    // (a 24h ceiling rejects poisoned rows). Aliases are kept for older
-    // responses so a stale shape still renders something.
-    int read(String camel, String snake) {
-      final raw = _stats![camel] ?? _stats![snake];
-      return raw is num ? raw.toInt() : 0;
-    }
-
-    final todayMinutes = (read('todaySeconds', 'today_seconds') / 60).round();
-    final monthMinutes = (read('monthSeconds', 'month_seconds') / 60).round();
-    final streak = read('streakDays', 'streak_days');
-
-    return Row(
-      children: [
-        Expanded(
-          child: StatCard(
-            compact: true,
-            label: GochanoLanguage.text('Focus today', 'আজ ফোকাস'),
-            value: GochanoLanguage.text(
-              '$todayMinutes min',
-              '$todayMinutes মি',
-            ),
-          ),
-        ),
-        const SizedBox(width: GochanoSpacing.sm),
-        Expanded(
-          child: StatCard(
-            compact: true,
-            label: GochanoLanguage.text('This month', 'এই মাস'),
-            value: GochanoLanguage.text(
-              '$monthMinutes min',
-              '$monthMinutes মি',
-            ),
-          ),
-        ),
-        const SizedBox(width: GochanoSpacing.sm),
-        Expanded(
-          child: StatCard(
-            compact: true,
-            label: GochanoLanguage.text('Streak', 'ধারাবাহিকতা'),
-            value: GochanoLanguage.text('$streak d', '$streak দি'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
@@ -665,7 +600,6 @@ class _SettingsCard extends StatefulWidget {
 class _SettingsCardState extends State<_SettingsCard>
     with WidgetsBindingObserver {
   bool? _notificationsEnabled;
-  bool? _usageAccessGranted;
 
   /// The month's amount, or null while unread. Kept separate from "zero" so
   /// a failed read is never shown as "not set".
@@ -678,7 +612,6 @@ class _SettingsCardState extends State<_SettingsCard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkNotifications();
-    _checkUsageAccess();
     if (widget.isStudent) _loadBudget();
   }
 
@@ -686,16 +619,6 @@ class _SettingsCardState extends State<_SettingsCard>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (kDebugMode) {
-        debugPrint('[Profile] App resumed — re-checking usage access.');
-      }
-      _checkUsageAccess();
-    }
   }
 
   Future<void> _loadBudget() async {
@@ -740,22 +663,6 @@ class _SettingsCardState extends State<_SettingsCard>
   Future<void> _checkNotifications() async {
     final enabled = await NotificationService.areNotificationsEnabled();
     if (mounted) setState(() => _notificationsEnabled = enabled);
-  }
-
-  Future<void> _checkUsageAccess() async {
-    if (kDebugMode) debugPrint('[Profile] _checkUsageAccess: checking…');
-    try {
-      final granted = await UsageStatsService.hasPermission();
-      if (kDebugMode) {
-        debugPrint('[Profile] _checkUsageAccess: granted=$granted');
-      }
-      if (mounted) setState(() => _usageAccessGranted = granted);
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[Profile] _checkUsageAccess: error=$e');
-      }
-      if (mounted) setState(() => _usageAccessGranted = false);
-    }
   }
 
   @override
@@ -844,41 +751,6 @@ class _SettingsCardState extends State<_SettingsCard>
                           ),
                         )
                       : null,
-                ),
-                _SettingsRow(
-                  icon: Icons.screen_lock_portrait_rounded,
-                  title: GochanoLanguage.text(
-                    'Usage Access',
-                    'ব্যবহার অ্যাক্সেস',
-                  ),
-                  value: switch (_usageAccessGranted) {
-                    true => GochanoLanguage.text('Granted', 'দেওয়া হয়েছে'),
-                    false => GochanoLanguage.text(
-                      'Permission required',
-                      'অনুমতি প্রয়োজন',
-                    ),
-                    null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
-                  },
-                  onTap: () async {
-                    if (kDebugMode) {
-                      debugPrint(
-                        '[Profile] Usage Access row tapped. '
-                        'current state=$_usageAccessGranted',
-                      );
-                      debugPrint(
-                        '[Profile] Calling UsageStatsService.openSettings() '
-                        '→ ACTION_USAGE_ACCESS_SETTINGS intent…',
-                      );
-                    }
-                    await UsageStatsService.openSettings();
-                    if (kDebugMode) {
-                      debugPrint(
-                        '[Profile] Returned from settings. '
-                        'Re-checking permission…',
-                      );
-                    }
-                    await _checkUsageAccess();
-                  },
                 ),
               ],
             );

@@ -189,6 +189,51 @@ coverage still depend on them; no obsolete API or asset was reintroduced.
 
 ---
 
+## STEP 4 — PROFILE REBUILD
+
+### Files changed
+
+- `flutter_app/lib/features/profile/presentation/profile_screen.dart`
+- `flutter_app/test/profile_structure_test.dart`
+
+Auth screens, `login_screen.dart`, `otp_verify_screen.dart`, `auth_gate.dart`, `telecom_auth_service.dart`, Developer Login, Home, Study, Money, Commute, Community, and backend/Firestore contracts were NOT changed.
+
+### Final Profile sections
+
+The rebuilt Profile screen now consists strictly of:
+1. **Compact identity header**: Profile avatar with photo picker/upload, tap-to-edit display name, and stored phone number from Firestore `users/{uid}` with fallback to `TelecomAuthService.readUserPhone()` (avoiding internal labels or "student" strings), plus university/department.
+2. **Role badge**: Clean, compact badge identifying the account tier (Student account / General account).
+3. **Settings card**: Immediately follows header with standard design system spacing (`CardGroup` + `_SettingsRow` with full-width hit-test `GestureDetector`):
+   - Monthly Money (for students; preserves backend save + `FinancialService.notifyBudgetChanged()` refresh)
+   - Language (immediate bilingual EN/BN reactive toggle via `GochanoLanguage`)
+   - Appearance (System / Light / Dark selector via `GochanoAppearance`)
+   - Reminders (shows actual system notification status and routes directly to app notification settings)
+4. **Account deletion card**: `_DangerCard` kept distinct with error-tone accent and full confirmation sheet.
+5. **App info card**: `_AboutCard` displaying app name and subtitle.
+6. **Logout**: Standalone primary button invoking confirmed local session clear + `AuthService.logout()` to AuthGate without touching subscription.
+7. **Unsubscribe**: Standalone secondary button invoking confirmed carrier unsubscribe via `TelecomAuthService.unsubscribe()`; only upon successful server termination clears session and signs out.
+
+### Removed sections & residue
+
+- Completely removed Study heading and study statistics row (`_StudyStatsRow`, `StatCard`, Focus today, This month, Streak, `ApiService.getStudyStats()`).
+- Completely removed Usage Access / distraction permission entry points (`_usageAccessGranted`, `_checkUsageAccess`, `UsageStatsService`).
+- Completely verified absence of any XP, gems, levels, badges, productivity stats, or Focus/Insights residues.
+
+### Retained settings & interactions
+
+- **Monthly Money**: Preserved existing backend save and `FinancialService` refresh flow. No changes to financial formulas, transaction mirroring, or Dena/Pawna settlements.
+- **Language & Appearance**: Fully reactive through existing notifier infrastructure; updates immediately across both English and Bengali.
+- **Logout & Unsubscribe**: Logout never calls `unsubscribe.php`. Unsubscribe strictly calls carrier first and only purges local session and signs out upon confirmed success.
+- **Navigation**: Profile opens from the Today avatar via pushed route; `automaticallyImplyLeading: Navigator.of(context).canPop()` guarantees back navigation returns seamlessly to Today. Profile is NOT in the student bottom nav.
+
+### Validation
+
+- `flutter analyze`: **0 issues**.
+- Full `flutter test`: **535 passed, 0 failed** (100% passing).
+- Physical-device status: Connected on `Infinix X665E` (Kind: Flutter - Device: Infinix X665E - Package: gochano, live reload verified).
+
+---
+
 ## PART 17 — Monthly Money Immediate Refresh Fix
 
 **Date:** 2026-09-06
