@@ -251,7 +251,12 @@ class _OverviewBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: GochanoSpacing.scrollBody,
+      padding: const EdgeInsets.fromLTRB(
+        GochanoSpacing.md,
+        GochanoSpacing.xl,
+        GochanoSpacing.md,
+        GochanoSpacing.xxxl + GochanoSpacing.xxl,
+      ),
       children: [
         // A. Month Selector
         _MonthSelector(

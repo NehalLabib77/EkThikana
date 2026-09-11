@@ -53,7 +53,7 @@ class _QuickAccess extends StatefulWidget {
 class _QuickAccessState extends State<_QuickAccess> {
   static const _crossAxisCount = 4;
   static const _collapsedCount = 4;
-  static const _mainAxisExtent = 84.0;
+  static const _mainAxisExtent = 96.0;
   static const _mainAxisSpacing = GochanoSpacing.xs;
   static const _flingThreshold = 450.0;
   static const _dragDampening = 0.4;

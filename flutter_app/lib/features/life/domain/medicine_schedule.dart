@@ -38,6 +38,16 @@ enum DoseStatus {
   String get id => name;
 }
 
+/// Stable string key for [DoseStatus].
+/// Uses explicit switch — never relies on `.name` getter which can fail
+/// when the status value arrives as `dynamic`.
+String doseStatusKey(DoseStatus status) => switch (status) {
+      DoseStatus.pending => 'pending',
+      DoseStatus.taken => 'taken',
+      DoseStatus.skipped => 'skipped',
+      DoseStatus.missed => 'missed',
+    };
+
 /// One scheduled dose of one medicine on one day.
 class ScheduledDose {
   const ScheduledDose({

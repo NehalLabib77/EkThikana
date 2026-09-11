@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../features/life/domain/medicine_schedule.dart'
+    show DoseStatus, doseStatusKey;
+
 /// Canonical student-event types derived from existing Firestore data.
 enum StudentEventType {
   task,
@@ -150,8 +153,8 @@ class StudentEvent {
     final String medicineId = dose.medicineId as String;
     final String medicineName = dose.medicineName as String;
     final String time = dose.time as String;
-    final dynamic doseStatus = dose.status; // DoseStatus enum
-    final String statusName = doseStatus.name as String;
+    final DoseStatus doseStatus = dose.status as DoseStatus;
+    final String statusName = doseStatusKey(doseStatus);
 
     final StudentEventStatus status;
     switch (statusName) {

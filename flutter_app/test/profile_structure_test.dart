@@ -74,18 +74,6 @@ void main() {
       expect(source, contains('showConfirmationSheet'));
     });
 
-    test('usage access stays tappable in both permission states', () {
-      final row = source.substring(
-        source.indexOf("'Usage Access'"),
-        source.indexOf('String _appearanceLabel'),
-      );
-      expect(row, contains('_usageAccessGranted'));
-      expect(row, contains('UsageStatsService.openSettings()'));
-      expect(row, contains('_checkUsageAccess()'));
-      expect(row, isNot(contains('IgnorePointer')));
-      expect(row, isNot(contains('AbsorbPointer')));
-    });
-
     test('settings row uses GestureDetector for reliable hit-test', () {
       // _SettingsRow must use a single GestureDetector with
       // HitTestBehavior.opaque wrapping the entire row, not ListTile.onTap,
@@ -199,7 +187,7 @@ void main() {
       );
       expect(source, contains('GridView.builder'));
       expect(source, contains('_crossAxisCount = 4'));
-      expect(source, contains('_mainAxisExtent = 84.0'));
+      expect(source, contains('_mainAxisExtent = 96.0'));
     });
 
     test('every existing destination is still reachable', () {

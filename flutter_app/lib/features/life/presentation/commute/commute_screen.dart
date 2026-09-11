@@ -21,7 +21,6 @@
 // returns real bus services connecting the two stops.
 
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
@@ -36,8 +35,8 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../home/presentation/home_screen.dart' show formatTaka;
 import 'commute_map_picker.dart';
 import 'commute_place_picker.dart';
-import 'commute_route_map.dart';
 import 'fare_report_sheet.dart';
+import 'client_route_estimator.dart';
 import 'journey_models.dart';
 import 'journey_view.dart';
 
@@ -144,12 +143,77 @@ class _CommuteScreenState extends State<CommuteScreen> {
         destinationLon: destination.lon,
       );
       if (!mounted) return;
+
+      // Check if the backend result has usable journey data.
+      final plan = JourneyPlan.fromResponse(body);
+      if (plan.hasJourneys) {
+        setState(() {
+          _searching = false;
+          _result = body;
+        });
+        return;
+      }
+
+      // Backend returned but no usable journeys — try client-side fallback.
+      if (origin.lat != null &&
+          origin.lon != null &&
+          destination.lat != null &&
+          destination.lon != null) {
+        final fallback = estimateClientRoutes(
+          originName: origin.name,
+          destName: destination.name,
+          originLat: origin.lat!,
+          originLon: origin.lon!,
+          destLat: destination.lat!,
+          destLon: destination.lon!,
+        );
+        if (fallback.hasJourneys && mounted) {
+          setState(() {
+            _searching = false;
+            _result = _buildFallbackResult(
+              origin: origin,
+              destination: destination,
+              plan: fallback,
+            );
+          });
+          return;
+        }
+      }
+
+      // No fallback possible — show the backend result as-is.
       setState(() {
         _searching = false;
         _result = body;
       });
     } catch (error) {
       if (!mounted) return;
+
+      // Backend failed — try client-side fallback.
+      if (origin.lat != null &&
+          origin.lon != null &&
+          destination.lat != null &&
+          destination.lon != null) {
+        final fallback = estimateClientRoutes(
+          originName: origin.name,
+          destName: destination.name,
+          originLat: origin.lat!,
+          originLon: origin.lon!,
+          destLat: destination.lat!,
+          destLon: destination.lon!,
+        );
+        if (fallback.hasJourneys) {
+          setState(() {
+            _searching = false;
+            _result = _buildFallbackResult(
+              origin: origin,
+              destination: destination,
+              plan: fallback,
+            );
+          });
+          return;
+        }
+      }
+
       final msg = friendlyErrorMessage(error);
       String title;
       if (msg.contains('Could not find')) {
@@ -176,6 +240,91 @@ class _CommuteScreenState extends State<CommuteScreen> {
       });
     }
   }
+
+  /// Build the result map expected by [_Results] from a client-side
+  /// [JourneyPlan] fallback. The structure mirrors the backend response
+  /// so the existing [_Results] widget can render it without changes.
+  Map<String, dynamic> _buildFallbackResult({
+    required CommutePlace origin,
+    required CommutePlace destination,
+    required JourneyPlan plan,
+  }) {
+    final distance = plan.journeys.isNotEmpty
+        ? plan.journeys.first.totalDistanceKm
+        : 0.0;
+    final duration = plan.journeys.isNotEmpty
+        ? plan.journeys.first.totalDurationMinutes
+        : 0;
+
+    return {
+      'distanceKm': distance,
+      'estimatedDurationMin': duration,
+      'origin': {
+        'name': origin.name,
+        'lat': origin.lat,
+        'lon': origin.lon,
+        'placeId': origin.placeId,
+      },
+      'destination': {
+        'name': destination.name,
+        'lat': destination.lat,
+        'lon': destination.lon,
+        'placeId': destination.placeId,
+      },
+      'journeyPlanning': {
+        'available': true,
+        'reason': null,
+        'coverageRadiusKm': null,
+        'outsideCoverage': <String>[],
+        'clientEstimated': true,
+      },
+      'journeys': plan.journeys.map((j) => _journeyToMap(j)).toList(),
+      'polyline': <Map<String, dynamic>>[],
+      'transitCandidates': <Map<String, dynamic>>[],
+    };
+  }
+
+  /// Convert a [Journey] to a JSON-compatible map matching the backend format.
+  Map<String, dynamic> _journeyToMap(Journey j) => {
+        'objectives': j.objectives,
+        'category': j.category,
+        'origin': j.origin,
+        'destination': j.destination,
+        'totalFareTk': j.totalFareTk,
+        'totalDurationMinutes': j.totalDurationMinutes,
+        'totalDistanceKm': j.totalDistanceKm,
+        'totalWalkKm': j.totalWalkKm,
+        'transfers': j.transfers,
+        'modeSummary': j.modeSummary,
+        'fareCertainty': j.fareCertainty,
+        'fareCertaintyLabel': j.fareCertaintyLabel,
+        'fareDeltaTk': j.fareDeltaTk,
+        'durationDeltaMinutes': j.durationDeltaMinutes,
+        'whyRecommended': j.whyRecommended,
+        'legs': j.legs.map((l) => _legToMap(l)).toList(),
+      };
+
+  /// Convert a [JourneyLeg] to a JSON-compatible map.
+  Map<String, dynamic> _legToMap(JourneyLeg l) => {
+        'mode': l.mode,
+        'modeLabel': l.modeLabel,
+        'from': l.from,
+        'to': l.to,
+        'distanceKm': l.distanceKm,
+        'durationMinutes': l.durationMinutes,
+        'fareTk': l.fareTk,
+        'fareType': l.fareType,
+        'fareLabel': l.fareLabel,
+        'fareSource': l.fareSource,
+        'instruction': l.instruction,
+        'isTransfer': l.isTransfer,
+        'transferMinutes': l.transferMinutes,
+        'serviceName': l.serviceName,
+        'fromLat': l.fromLat,
+        'fromLon': l.fromLon,
+        'toLat': l.toLat,
+        'toLon': l.toLon,
+      };
 
   void _onModeSelected(String mode) {
     setState(() {
@@ -262,19 +411,15 @@ class _CommuteScreenState extends State<CommuteScreen> {
             onSwap: _swap,
           ),
 
-          // The map *is* the picker: a trip can be chosen by looking at it
-          // rather than by knowing what a place is called. It stays until
-          // there are results, which bring their own journey map.
-          if (_result == null) ...[
-            const SizedBox(height: GochanoSpacing.md),
-            CommuteMapPicker(
-              origin: _origin,
-              destination: _destination,
-              onPicked: _pickFromMap,
-            ),
-          ],
+          // Map is always visible — the trip can be chosen by looking at it.
+          const SizedBox(height: GochanoSpacing.md),
+          CommuteMapPicker(
+            origin: _origin,
+            destination: _destination,
+            onPicked: _pickFromMap,
+          ),
 
-          // Find route button sits below the map (spec visual order).
+          // Find route button sits below the map.
           const SizedBox(height: GochanoSpacing.md),
           PrimaryButton(
             label: GochanoLanguage.text('Find routes', 'রুট খুঁজুন'),
@@ -455,34 +600,54 @@ class _Results extends StatelessWidget {
         .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
         .toList();
 
-    final originMap = result['origin'] as Map?;
-    final destinationMap = result['destination'] as Map?;
-    final originName = originMap?['name']?.toString() ?? '';
-    final destinationName = destinationMap?['name']?.toString() ?? '';
+    final originName =
+        (result['origin'] as Map?)?['name']?.toString() ?? '';
+    final destinationName =
+        (result['destination'] as Map?)?['name']?.toString() ?? '';
 
-    LatLng? point(Map? place) {
-      final lat = (place?['lat'] as num?)?.toDouble();
-      final lon = (place?['lon'] as num?)?.toDouble();
-      return (lat == null || lon == null) ? null : LatLng(lat, lon);
-    }
-
-    final geometry = ((result['polyline'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-        .toList();
+    final isClientEstimated =
+        (result['journeyPlanning'] as Map?)?['clientEstimated'] == true;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          title: GochanoLanguage.text('Your trip', 'আপনার যাত্রা'),
-        ),
-        CommuteRouteMap(
-          polyline: geometry,
-          origin: point(originMap),
-          destination: point(destinationMap),
-        ),
-        const SizedBox(height: GochanoSpacing.sm),
+        // Estimated-data banner (above distance cards, below Find Routes).
+        if (isClientEstimated) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: GochanoSpacing.sm,
+              vertical: GochanoSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: context.colors.surfaceVariant,
+              borderRadius: GochanoRadius.smAll,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: context.colors.textSecondary,
+                ),
+                const SizedBox(width: GochanoSpacing.xs),
+                Expanded(
+                  child: Text(
+                    GochanoLanguage.text(
+                      'Some route details are estimated',
+                      'কিছু রুটের তথ্য আনুমানিক',
+                    ),
+                    style: context.type.caption.copyWith(
+                      color: context.colors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: GochanoSpacing.sm),
+        ],
+
+        // Distance + By road summary cards.
         Row(
           children: [
             Expanded(

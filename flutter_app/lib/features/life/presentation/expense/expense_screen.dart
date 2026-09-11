@@ -114,7 +114,10 @@ class _ExpenseScreenState extends State<ExpenseScreen>
     );
   }
 
-  Widget _buildFab() {
+  Widget? _buildFab() {
+    final isOverview = _tabs.index == 3;
+    if (isOverview) return null;
+
     final isDenaPawna = _tabs.index == 2;
     final isGrocery = _tabs.index == 1;
 

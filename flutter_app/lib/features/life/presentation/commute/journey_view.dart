@@ -161,7 +161,7 @@ class _StrategyChooser extends StatelessWidget {
     final type = context.type;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         for (var i = 0; i < journeys.length; i++) ...[
           if (i > 0) const SizedBox(width: GochanoSpacing.xs),
