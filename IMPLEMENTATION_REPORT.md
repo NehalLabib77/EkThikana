@@ -129,6 +129,66 @@ other legacy Home sections are no longer mounted.
 
 ---
 
+## STEP 3 — STUDY REBUILD
+
+### Files changed
+
+- `flutter_app/lib/features/study/presentation/study_screen.dart`
+- `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart`
+- `flutter_app/lib/features/study/presentation/planner/plan_view.dart`
+- `flutter_app/lib/features/tasks/presentation/add_task_sheet.dart`
+- `flutter_app/test/study_rebuild_test.dart`
+- `flutter_app/test/workspace_content_test.dart` and related Workspace/Study
+  regression expectations in `profile_structure_test.dart`
+
+Auth, Home, global navigation, Money, Commute routing, Community, and backend
+APIs were not changed.
+
+### Final Study structure
+
+Study now exposes exactly two tabs: `Workspace` and `Plan`. Focus and
+Distraction are no longer visible Study tabs or routes. Study Goal is no longer
+composed by Plan. The old Focus/Distraction implementation and historical tests
+remain unreferenced for now because shared legacy services/models and regression
+coverage still depend on them; no obsolete API or asset was reintroduced.
+
+### Workspace
+
+- Quick Access now contains AI Assistant, Notes, PDFs, Saved Images, Docs,
+  Semester, and Shared Box.
+- The grid uses four columns when bounded width permits and three on narrow
+  widths, with bounded cells and two-line ellipsis labels.
+- Saved Images opens the existing `SavedMaterialsScreen` library.
+- Recent material reader routes now preserve the original filename, including
+  DOC/DOCX extensions, so the existing external document-opening path remains
+  usable.
+- Existing Notes, material upload/storage, PDF, AI attachment, and FAB flows
+  were preserved.
+
+### Plan
+
+- Tasks and Assignments remain one chronological list backed by the existing
+  `tasks` owner stream.
+- Selected dates continue to seed new Task and Assignment due dates.
+- Empty dates show a calm message and separate Task/Assignment actions.
+- Editing an existing Assignment now preserves `type: 'assignment'` through the
+  shared task form.
+- History visibility is based on completed records across all dates, not the
+  selected date. Completed Tasks and Assignments can be restored from History.
+- Study Goal is no longer shown in Plan; no new collection or reminder system
+  was introduced.
+
+### Legacy residue and validation
+
+- No Focus, Distraction, OCR, Rewards, XP, Gems, Levels, or Study Goal entry
+  points remain in visible Study navigation.
+- `flutter analyze`: **0 issues**.
+- Full `flutter test`: **531 passed, 0 failed**.
+- Focused Study/Workspace/Plan tests: **82 passed, 0 failed**.
+- Physical Android-device verification: **not performed in this environment**.
+
+---
+
 ## PART 17 — Monthly Money Immediate Refresh Fix
 
 **Date:** 2026-09-06

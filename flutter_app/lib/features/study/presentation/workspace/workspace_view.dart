@@ -51,10 +51,6 @@ class _QuickAccess extends StatefulWidget {
 }
 
 class _QuickAccessState extends State<_QuickAccess> {
-  static const _collapsedCount = 3;
-
-  bool _expanded = false;
-
   @override
   void initState() {
     super.initState();
@@ -107,11 +103,17 @@ class _QuickAccessState extends State<_QuickAccess> {
         icon: Icons.photo_library_rounded,
         label: GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি'),
         accent: colors.commute,
-        onTap: () => Navigator.of(context).push(
-          GochanoRoute.to(
-            builder: (_) => const MaterialsScreen(mimeFilter: 'image/'),
-          ),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const SavedMaterialsScreen())),
+      ),
+      _QuickAccessItem(
+        icon: Icons.description_rounded,
+        label: GochanoLanguage.text('Docs', 'ডকস'),
+        accent: colors.brand,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const MaterialsScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.school_rounded,
@@ -131,11 +133,6 @@ class _QuickAccessState extends State<_QuickAccess> {
       ),
     ];
 
-    final hasMore = items.length > _collapsedCount;
-    final visible = (_expanded || !hasMore)
-        ? items
-        : items.take(_collapsedCount).toList();
-
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,49 +144,26 @@ class _QuickAccessState extends State<_QuickAccess> {
               bottom: GochanoSpacing.xs,
             ),
           ),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: visible.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisExtent: 84,
-              crossAxisSpacing: GochanoSpacing.xs,
-              mainAxisSpacing: GochanoSpacing.xs,
-            ),
-            itemBuilder: (context, i) => _QuickAccessCell(
-              icon: visible[i].icon,
-              label: visible[i].label,
-              accent: visible[i].accent,
-              onTap: visible[i].onTap,
-            ),
-          ),
-          if (hasMore)
-            Center(
-              child: InkWell(
-                onTap: () => setState(() => _expanded = !_expanded),
-                borderRadius: GochanoRadius.mdAll,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: GochanoSpacing.md,
-                    vertical: GochanoSpacing.xs,
-                  ),
-                  child: Tooltip(
-                    message: _expanded
-                        ? GochanoLanguage.text('See less', 'কম দেখুন')
-                        : GochanoLanguage.text('See more', 'আরো দেখুন'),
-                    child: Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: GochanoSizes.iconMd,
-                      color: context.colors.textSecondary,
-                    ),
-                  ),
-                ),
+          LayoutBuilder(
+            builder: (context, constraints) => GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: items.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: constraints.maxWidth < 360 ? 3 : 4,
+                mainAxisExtent: 84,
+                crossAxisSpacing: GochanoSpacing.xs,
+                mainAxisSpacing: GochanoSpacing.xs,
+              ),
+              itemBuilder: (context, i) => _QuickAccessCell(
+                icon: items[i].icon,
+                label: items[i].label,
+                accent: items[i].accent,
+                onTap: items[i].onTap,
               ),
             ),
+          ),
         ],
       ),
     );
@@ -393,6 +367,7 @@ class _RecentMaterials extends StatelessWidget {
                           materialId: doc.id,
                           title: _materialTitle(doc.data()),
                           mimeType: doc.data()['mimeType']?.toString() ?? '',
+                          fileName: doc.data()['fileName']?.toString() ?? '',
                         ),
                       ),
                     ),

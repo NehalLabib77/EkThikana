@@ -19,6 +19,7 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../core/page_route.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../services/notification_service.dart';
 import '../../../../services/study_service.dart';
@@ -36,17 +37,11 @@ class PlanView extends StatefulWidget {
 
 class _PlanViewState extends State<PlanView> {
   DateTime _selectedDay = DateTime.now();
-  StudyStats? _stats;
-  bool _loadingStats = true;
-  int? _dailyGoalMinutes;
-  int? _weeklyGoalMinutes;
-  int _weeklyCompletedSeconds = 0;
 
   @override
   void initState() {
     super.initState();
     GochanoLanguage.current.addListener(_onLanguageChange);
-    _loadStats();
   }
 
   @override
@@ -59,35 +54,10 @@ class _PlanViewState extends State<PlanView> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadStats() async {
-    setState(() => _loadingStats = true);
-    try {
-      final results = await Future.wait([
-        StudyService.stats(),
-        FirestoreService.studyGoals(),
-        StudyService.weeklySeconds(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _stats = results[0] as StudyStats;
-        final goals = results[1] as Map<String, int?>;
-        _dailyGoalMinutes = goals['dailyGoalMinutes'];
-        _weeklyGoalMinutes = goals['weeklyGoalMinutes'];
-        _weeklyCompletedSeconds = results[2] as int;
-        _loadingStats = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingStats = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () async {
-        await _loadStats();
-      },
+      onRefresh: () async {},
       child: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
@@ -97,16 +67,8 @@ class _PlanViewState extends State<PlanView> {
           ),
           const SizedBox(height: GochanoSpacing.md),
           _CombinedPlannerList(selectedDay: _selectedDay),
-          const SizedBox(height: GochanoSpacing.md),
-          _StudyGoalSection(
-            stats: _stats,
-            loading: _loadingStats,
-            dailyGoalMinutes: _dailyGoalMinutes,
-            weeklyGoalMinutes: _weeklyGoalMinutes,
-            weeklyCompletedSeconds: _weeklyCompletedSeconds,
-            onRetry: _loadStats,
-            onGoalSaved: () => _loadStats(),
-          ),
+          const SizedBox(height: GochanoSpacing.sm),
+          const _HistoryEntry(),
           const SizedBox(height: GochanoSpacing.xl),
         ],
       ),
@@ -348,21 +310,40 @@ class _CombinedPlannerList extends StatelessWidget {
                 const SizedBox(height: GochanoSpacing.sm),
                 Text(
                   GochanoLanguage.text(
-                    'Nothing due on this day.',
-                    'এই দিনে কিছু নেই।',
+                    'No tasks or assignments for this day.',
+                    'এই দিনে কোনো কাজ বা অ্যাসাইনমেন্ট নেই।',
                   ),
                   style: context.type.sectionHeading,
                 ),
                 const SizedBox(height: GochanoSpacing.sm),
-                Center(
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        showAddTaskSheet(context, initialDate: selectedDay),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: Text(
-                      GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => showAddTaskSheet(
+                          context,
+                          type: 'task',
+                          initialDate: selectedDay,
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text(GochanoLanguage.text('Task', 'কাজ')),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => showAddTaskSheet(
+                          context,
+                          type: 'assignment',
+                          initialDate: selectedDay,
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text(
+                          GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -564,9 +545,112 @@ class _PlannerItemRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Study Goal — daily + weekly focus targets, completed focus, progress %
+// History
 // ---------------------------------------------------------------------------
 
+class _HistoryEntry extends StatelessWidget {
+  const _HistoryEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('tasks', limit: 300),
+      builder: (context, snapshot) {
+        final completed = (snapshot.data?.docs ?? const [])
+            .where((doc) => doc.data()['done'] == true)
+            .length;
+        if (completed == 0) return const SizedBox.shrink();
+        return OutlinedButton.icon(
+          onPressed: () => Navigator.of(
+            context,
+          ).push(GochanoRoute.to(builder: (_) => const _PlanHistoryScreen())),
+          icon: const Icon(Icons.history_rounded),
+          label: Text(GochanoLanguage.text('History', 'ইতিহাস')),
+        );
+      },
+    );
+  }
+}
+
+class _PlanHistoryScreen extends StatelessWidget {
+  const _PlanHistoryScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return GochanoScaffold(
+      appBar: GochanoAppBar(title: GochanoLanguage.text('History', 'ইতিহাস')),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirestoreService.ownerStream('tasks', limit: 300),
+        builder: (context, snapshot) {
+          final docs = [...?snapshot.data?.docs]
+            ..removeWhere((doc) => doc.data()['done'] != true)
+            ..sort((a, b) {
+              final at = (a.data()['dueAt'] as Timestamp?)?.toDate();
+              final bt = (b.data()['dueAt'] as Timestamp?)?.toDate();
+              if (at == null || bt == null) return 0;
+              return bt.compareTo(at);
+            });
+          if (docs.isEmpty) {
+            return Center(
+              child: Text(
+                GochanoLanguage.text(
+                  'No completed tasks or assignments.',
+                  'কোনো সম্পন্ন কাজ বা অ্যাসাইনমেন্ট নেই।',
+                ),
+                style: context.type.bodySecondary,
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: GochanoSpacing.scrollBody,
+            itemCount: docs.length,
+            separatorBuilder: (_, _) =>
+                const SizedBox(height: GochanoSpacing.xs),
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data();
+              final assignment = data['type']?.toString() == 'assignment';
+              return AppCard(
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: true,
+                      onChanged: (_) => _setDone(context, doc, false),
+                    ),
+                    Expanded(
+                      child: Text(
+                        data['title']?.toString() ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.type.body.copyWith(
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    ),
+                    GochanoBadge(
+                      label: assignment
+                          ? GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')
+                          : GochanoLanguage.text('Task', 'কাজ'),
+                      tone: assignment
+                          ? GochanoBadgeTone.info
+                          : GochanoBadgeTone.brand,
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy study-goal helpers retained only for shared model compatibility.
+// ---------------------------------------------------------------------------
+
+// ignore: unused_element
 class _StudyGoalSection extends StatelessWidget {
   const _StudyGoalSection({
     required this.stats,

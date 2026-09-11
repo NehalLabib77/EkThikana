@@ -4,8 +4,6 @@
 //              at the top so the common case is one tap, not three (spec §29).
 //   Plan       Combined dashboard: schedule, deadlines, tasks, reminders,
 //              and study goal — the single screen for "what now?"
-//   Focus      A distraction-free timer.
-//
 // Groups are not a fifth tab here. They are the Community destination in the
 // bottom bar; putting them in both places would be the duplication spec §86
 // asks to remove.
@@ -24,8 +22,6 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import 'ai/ai_assistant_screen.dart';
-import 'distraction/distraction_view.dart';
-import 'focus/focus_view.dart';
 import 'planner/plan_view.dart';
 import 'workspace/workspace_view.dart';
 
@@ -43,7 +39,7 @@ class _StudyScreenState extends State<StudyScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 2, vsync: this);
     GochanoLanguage.current.addListener(_onLanguageChange);
   }
 
@@ -90,14 +86,12 @@ class _StudyScreenState extends State<StudyScreen>
           tabs: [
             Tab(text: GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')),
             Tab(text: GochanoLanguage.text('Plan', 'পরিকল্পনা')),
-            Tab(text: GochanoLanguage.text('Focus', 'ফোকাস')),
-            Tab(text: GochanoLanguage.text('Distraction', 'বিচ্ছিন্নতা')),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
-        children: [WorkspaceView(), PlanView(), FocusView(), DistractionView()],
+        children: const [WorkspaceView(), PlanView()],
       ),
     );
   }

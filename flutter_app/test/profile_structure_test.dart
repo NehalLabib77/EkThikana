@@ -176,7 +176,10 @@ void main() {
       expect(source, contains('_QuickAccess'));
       expect(source, contains('_QuickAccessCell'));
       expect(source, contains('SliverGridDelegateWithFixedCrossAxisCount'));
-      expect(source, contains('crossAxisCount: 3'));
+      expect(
+        source,
+        contains('crossAxisCount: constraints.maxWidth < 360 ? 3 : 4'),
+      );
       expect(source, contains('AiAssistantScreen'));
       expect(source, contains('NotesScreen'));
       expect(source, contains('SemesterListScreen'));
@@ -185,24 +188,25 @@ void main() {
       expect(source, contains('_RecentMaterials()'));
     });
 
-    test('collapses to three with See more / See less toggle', () {
+    test('shows all Workspace destinations without an expander', () {
       final source = _read(
         'lib/features/study/presentation/workspace/workspace_view.dart',
       );
-      expect(source, contains('_collapsedCount = 3'));
-      expect(source, contains('See more'));
-      expect(source, contains('See less'));
-      expect(source, contains('আরো দেখুন'));
-      expect(source, contains('কম দেখুন'));
-      expect(source, contains('_expanded = !_expanded'));
+      expect(source, contains("GochanoLanguage.text('Docs'"));
+      expect(source, contains('SavedMaterialsScreen'));
+      expect(source, isNot(contains('_collapsedCount')));
+      expect(source, isNot(contains('_expanded')));
     });
 
-    test('uses 3-column grid with fixed mainAxisExtent', () {
+    test('uses a responsive grid with fixed mainAxisExtent', () {
       final source = _read(
         'lib/features/study/presentation/workspace/workspace_view.dart',
       );
       expect(source, contains('GridView.builder'));
-      expect(source, contains('crossAxisCount: 3'));
+      expect(
+        source,
+        contains('crossAxisCount: constraints.maxWidth < 360 ? 3 : 4'),
+      );
       final match = RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(source);
       expect(
         match,

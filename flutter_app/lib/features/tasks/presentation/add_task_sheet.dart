@@ -32,11 +32,16 @@ Future<bool> showAddTaskSheet(
   String type = 'task',
   DateTime? initialDate,
 }) async {
+  final existingType = existing?.data()?['type']?.toString();
+  final resolvedType = existingType == 'assignment' ? 'assignment' : type;
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) =>
-        _TaskForm(existing: existing, type: type, initialDate: initialDate),
+    builder: (sheetContext) => _TaskForm(
+      existing: existing,
+      type: resolvedType,
+      initialDate: initialDate,
+    ),
   );
   return saved ?? false;
 }
@@ -54,10 +59,10 @@ class _TaskForm extends StatefulWidget {
 
   final DocumentSnapshot<Map<String, dynamic>>? existing;
   final String type;
+
   /// Pre-fills the due date for a new task (9 am on this date). Ignored when
   /// [existing] is provided (edit mode).
   final DateTime? initialDate;
-
 
   @override
   State<_TaskForm> createState() => _TaskFormState();
@@ -186,8 +191,7 @@ class _TaskFormState extends State<_TaskForm> {
         'title': title,
         'type': widget.type,
         'dueAt': _dueAt == null ? null : Timestamp.fromDate(_dueAt!),
-        'remindAt':
-            _remindAt != null ? Timestamp.fromDate(_remindAt!) : null,
+        'remindAt': _remindAt != null ? Timestamp.fromDate(_remindAt!) : null,
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
@@ -246,17 +250,17 @@ class _TaskFormState extends State<_TaskForm> {
               Text(
                 _isEdit
                     ? widget.type == 'assignment'
-                        ? GochanoLanguage.text(
-                            'Edit assignment',
-                            'অ্যাসাইনমেন্ট সম্পাদনা',
-                          )
-                        : GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
+                          ? GochanoLanguage.text(
+                              'Edit assignment',
+                              'অ্যাসাইনমেন্ট সম্পাদনা',
+                            )
+                          : GochanoLanguage.text('Edit task', 'কাজ সম্পাদনা')
                     : widget.type == 'assignment'
-                        ? GochanoLanguage.text(
-                            'New assignment',
-                            'নতুন অ্যাসাইনমেন্ট',
-                          )
-                        : GochanoLanguage.text('New task', 'নতুন কাজ'),
+                    ? GochanoLanguage.text(
+                        'New assignment',
+                        'নতুন অ্যাসাইনমেন্ট',
+                      )
+                    : GochanoLanguage.text('New task', 'নতুন কাজ'),
                 style: context.type.sectionHeading,
               ),
               const SizedBox(height: GochanoSpacing.md),
@@ -265,7 +269,10 @@ class _TaskFormState extends State<_TaskForm> {
                 autofocus: !_isEdit,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('What needs doing?', 'কী করতে হবে?'),
+                  labelText: GochanoLanguage.text(
+                    'What needs doing?',
+                    'কী করতে হবে?',
+                  ),
                   hintText: GochanoLanguage.text(
                     'Finish DBMS assignment',
                     'ডিবিএমএস অ্যাসাইনমেন্ট শেষ করা',
@@ -285,7 +292,10 @@ class _TaskFormState extends State<_TaskForm> {
                         ? null
                         : IconActionButton(
                             icon: Icons.close_rounded,
-                            label: GochanoLanguage.text('Clear due date', 'সময়সীমা মুছুন'),
+                            label: GochanoLanguage.text(
+                              'Clear due date',
+                              'সময়সীমা মুছুন',
+                            ),
                             onPressed: () => setState(() {
                               _dueAt = null;
                               _remindAt = null;
@@ -295,7 +305,10 @@ class _TaskFormState extends State<_TaskForm> {
                   ),
                   child: Text(
                     _dueAt == null
-                        ? GochanoLanguage.text('No due date', 'কোনো সময়সীমা নেই')
+                        ? GochanoLanguage.text(
+                            'No due date',
+                            'কোনো সময়সীমা নেই',
+                          )
                         : _formatDueDate(_dueAt!),
                     style: context.type.body.copyWith(
                       color: _dueAt == null ? colors.textTertiary : null,
@@ -322,17 +335,26 @@ class _TaskFormState extends State<_TaskForm> {
                     _buildPresetChip(
                       context,
                       index: 1,
-                      label: GochanoLanguage.text('10 min before', '১০ মিনিট আগে'),
+                      label: GochanoLanguage.text(
+                        '10 min before',
+                        '১০ মিনিট আগে',
+                      ),
                     ),
                     _buildPresetChip(
                       context,
                       index: 2,
-                      label: GochanoLanguage.text('30 min before', '৩০ মিনিট আগে'),
+                      label: GochanoLanguage.text(
+                        '30 min before',
+                        '৩০ মিনিট আগে',
+                      ),
                     ),
                     _buildPresetChip(
                       context,
                       index: 3,
-                      label: GochanoLanguage.text('1 hour before', '১ ঘণ্টা আগে'),
+                      label: GochanoLanguage.text(
+                        '1 hour before',
+                        '১ ঘণ্টা আগে',
+                      ),
                     ),
                   ],
                 ),
@@ -341,7 +363,9 @@ class _TaskFormState extends State<_TaskForm> {
                 const SizedBox(height: GochanoSpacing.xs),
                 Text(
                   _error!,
-                  style: context.type.bodySecondary.copyWith(color: colors.error),
+                  style: context.type.bodySecondary.copyWith(
+                    color: colors.error,
+                  ),
                 ),
               ],
               const SizedBox(height: GochanoSpacing.md),
@@ -363,7 +387,11 @@ class _TaskFormState extends State<_TaskForm> {
     );
   }
 
-  Widget _buildPresetChip(BuildContext context, {required int index, required String label}) {
+  Widget _buildPresetChip(
+    BuildContext context, {
+    required int index,
+    required String label,
+  }) {
     return ChoiceChip(
       label: Text(label),
       selected: _reminderPreset == index,
@@ -380,8 +408,18 @@ class _TaskFormState extends State<_TaskForm> {
 
 String _formatDueDate(DateTime when) {
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
   final minute = when.minute.toString().padLeft(2, '0');
