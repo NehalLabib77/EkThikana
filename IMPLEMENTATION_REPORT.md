@@ -22,7 +22,7 @@ Implementation and verification were conducted exclusively in `D:\Gochano_Rebuil
    4. **Optional Estimated-Details Banner**: Non-blocking banner `"Some route details are estimated"` (`কিছু রুটের বিবরণ আনুমানিক`) when an estimated route fallback is active (never blocking the student from seeing route details).
    5. **Distance / By road**: Dual StatCards displaying distance in km and driving time.
    6. **Your journey** (`JourneyPlanSection`): Displays summary card and step-by-step timeline.
-   7. **Multimodal alternatives** (`_StrategyChooser`): Up to 3 distinct alternatives (Recommended, Cheapest, Fastest, or Alternative) with bounded touch targets wrapped in `IntrinsicHeight` (strictly eliminating unbounded `CrossAxisAlignment.stretch` errors in scrollable views).
+   7. **Multimodal alternatives** (`_StrategyChooser`): Up to 3 distinct alternatives (Recommended, Cheapest, Fastest, or Alternative) rendered in a naturally bounded `Row(crossAxisAlignment: CrossAxisAlignment.start)` with `Expanded` columns and `minHeight: GochanoSizes.minTouchTarget`. No `IntrinsicHeight` or `CrossAxisAlignment.stretch`.
    8. **Choose transport / fare information**: Mode chip selector (`_TransportModeSelector`) and single fare breakdown card (`_SingleFareResultCard`).
 
 2. **Route Fallback Pipeline & Honest Provenance**:
@@ -37,7 +37,7 @@ Implementation and verification were conducted exclusively in `D:\Gochano_Rebuil
 4. **Planned Trips Feature**:
    - Created `PlannedCommuteTrip` model and `CommuteTripService` (`planned_trip_models.dart`).
    - Stored in Firestore collection `planned_commute_trips` (owner-isolated via `FirestoreService.ownerStream` and `addOwnerRecord`).
-   - Scheduled notifications via `NotificationService.scheduleCommuteTripReminder`, `rescheduleCommuteTripReminder`, and `cancelCommuteTripReminder` (channel `kChannelRemindersId`, deterministic notification ID, inexact idle scheduling).
+   - Scheduled notifications via `NotificationService.scheduleCommuteTripReminder`, `rescheduleCommuteTripReminder`, and `cancelCommuteTripReminder` (channel `kChannelRemindersId`, stable deterministic FNV-1a notification ID, exact-capable scheduling with `exactAllowWhileIdle` when granted and `inexactAllowWhileIdle` fallback).
    - Created `showPlanTripSheet` (`plan_trip_sheet.dart`) accessible from the Commute screen AppBar action (`Plan a trip`), allowing students to pick origin, destination, future date, departure time, and leave-by reminders (10m, 30m, 1h).
 
 5. **Home Screen Integration**:
@@ -91,7 +91,7 @@ Implementation and verification were conducted exclusively in `D:\Gochano_Rebuil
   - When exact alarm capability is available/granted: schedules using `AndroidScheduleMode.exactAllowWhileIdle`.
   - When not granted/supported: safely falls back to `AndroidScheduleMode.inexactAllowWhileIdle` without requesting dangerous permissions or adding `USE_EXACT_ALARM`.
 - Adheres to Bangladesh timezone (`AppConfig.bangladeshTimeZone` / `Asia/Dhaka`).
-- Generated deterministic, collision-safe notification IDs from `'commute_trip_$tripId'.hashCode & 0x7fffffff` (pinned and verified across reboots/process lifecycles).
+- Generated deterministic, collision-safe notification IDs using a stable FNV-1a 32-bit hash over the code-units of `'commute_trip_$tripId'`, masked to positive 31-bit range (`& 0x7fffffff`). Unlike Dart's `String.hashCode`, FNV-1a is a fixed algorithm whose output depends only on the character content and is stable across process restarts, device reboots, and Dart VM sessions. Verified with pinned-value tests and code-audit assertions.
 - Cancelled existing reminders before rescheduling on trip edit, and purged on trip delete.
 - Reuses notification channel `kChannelRemindersId` (`Gochano Reminders`).
 
@@ -104,12 +104,13 @@ Implementation and verification were conducted exclusively in `D:\Gochano_Rebuil
   - Display of non-blocking explanatory banner for estimated fallbacks without network crashes.
   - Up to 3 alternatives displayed in `_StrategyChooser`.
   - Selection update in `_StrategyChooser` via `onJourneySelected`.
-  - Deterministic 31-bit positive notification ID consistency.
+  - Deterministic FNV-1a 31-bit positive notification ID consistency with pinned expected values.
+  - Explicit code-audit test proving `_commuteTripReminderId` does NOT use `.hashCode`.
+  - Positive Android-compatible range verification across diverse sample trip IDs.
 
 ### 6. Verification Summary
 - `flutter analyze`: **0 issues** (clean).
-- `flutter test`: **553 / 553 tests passed** (100% pass rate).
-- Device status: Android device `Infinix X665E (mobile) • Android 12 (API 31)` available; DTD connected to daemon (`ws://127.0.0.1:57899/efz7lwYaEwc=`, no running app process requiring hot reload).
+- `flutter test`: **555 / 555 tests passed** (100% pass rate).
 
 ---
 

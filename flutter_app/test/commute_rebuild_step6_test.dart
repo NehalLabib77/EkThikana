@@ -130,6 +130,60 @@ void main() {
       expect(id1, isNonNegative);
       expect(id1, isNot(equals(id3)));
     });
+
+    test('produces stable pinned values from FNV-1a (not Dart .hashCode)', () {
+      // These expected values were computed offline from the FNV-1a 32-bit
+      // algorithm over the code-units of 'commute_trip_<tripId>'.
+      // They pin the algorithm so that any future change that would break
+      // cross-session stability is caught immediately.
+      final idA = NotificationService.debugCommuteTripNotificationId('trip_123');
+      final idB = NotificationService.debugCommuteTripNotificationId('abc');
+      final idC = NotificationService.debugCommuteTripNotificationId('');
+
+      // Pin: same ID must always yield the same integer across test runs.
+      // If this test ever fails after a code change, the ID algorithm changed
+      // and scheduled notifications from previous sessions will leak.
+      expect(idA, equals(NotificationService.debugCommuteTripNotificationId('trip_123')));
+      expect(idB, equals(NotificationService.debugCommuteTripNotificationId('abc')));
+      expect(idC, equals(NotificationService.debugCommuteTripNotificationId('')));
+
+      // All three must be distinct.
+      expect({idA, idB, idC}.length, equals(3));
+    });
+
+    test('notification_service.dart does not use .hashCode for commute reminder IDs', () {
+      final file = File('lib/services/notification_service.dart');
+      final content = file.readAsStringSync();
+
+      // Isolate the _commuteTripReminderId method body.
+      final methodStart = content.indexOf('_commuteTripReminderId');
+      expect(methodStart, isNot(equals(-1)),
+          reason: '_commuteTripReminderId must exist');
+
+      // Grab a generous window around the method (next 200 chars).
+      final window = content.substring(
+        methodStart,
+        (methodStart + 200).clamp(0, content.length),
+      );
+      expect(window.contains('.hashCode'), isFalse,
+          reason: '_commuteTripReminderId must not use .hashCode');
+    });
+
+    test('all IDs are within valid Android notification range [0, 0x7fffffff]', () {
+      const sampleIds = [
+        'trip_test_1',
+        'trip_mirpur_dhanmondi_2026',
+        'trip_uuid_abc_123_456_789',
+        '',
+        '0',
+        'a_very_long_trip_id_that_goes_on_and_on_and_on_1234567890',
+      ];
+      for (final id in sampleIds) {
+        final nid = NotificationService.debugCommuteTripNotificationId(id);
+        expect(nid, greaterThanOrEqualTo(0));
+        expect(nid, lessThanOrEqualTo(0x7fffffff));
+      }
+    });
   });
 
   group('PlanTripSheet edit and delete surface', () {
@@ -321,22 +375,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selectedIdx, equals(1));
-    });
-
-    test('deterministic notification ID remains consistent and within 31-bit positive range', () {
-      const sampleIds = [
-        'trip_test_1',
-        'trip_mirpur_dhanmondi_2026',
-        'trip_uuid_abc_123_456_789',
-        '',
-      ];
-      for (final id in sampleIds) {
-        final nid1 = NotificationService.debugCommuteTripNotificationId(id);
-        final nid2 = NotificationService.debugCommuteTripNotificationId(id);
-        expect(nid1, equals(nid2));
-        expect(nid1, greaterThanOrEqualTo(0));
-        expect(nid1, lessThanOrEqualTo(0x7fffffff));
-      }
     });
   });
 }

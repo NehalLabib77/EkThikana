@@ -453,8 +453,28 @@ class NotificationService {
     }
   }
 
+  /// FNV-1a 32-bit hash over the code-units of [input].
+  ///
+  /// Unlike Dart's `String.hashCode`, this is a fixed algorithm whose output
+  /// depends only on the character content of the string. It is stable across
+  /// process restarts, device reboots, and Dart VM sessions.
+  ///
+  /// The result is masked to 31 bits (`& 0x7fffffff`) so that it is always a
+  /// non-negative integer suitable for Android notification IDs.
+  static int _stableStringId(String input) {
+    // FNV-1a parameters (32-bit).
+    const int fnvOffsetBasis = 0x811c9dc5;
+    const int fnvPrime = 0x01000193;
+    int hash = fnvOffsetBasis;
+    for (var i = 0; i < input.length; i++) {
+      hash ^= input.codeUnitAt(i);
+      hash = (hash * fnvPrime) & 0xffffffff; // keep 32-bit
+    }
+    return hash & 0x7fffffff; // positive 31-bit
+  }
+
   static int _commuteTripReminderId(String tripId) {
-    return 'commute_trip_$tripId'.hashCode & 0x7fffffff;
+    return _stableStringId('commute_trip_$tripId');
   }
 
   static Future<void> scheduleCommuteTripReminder({
