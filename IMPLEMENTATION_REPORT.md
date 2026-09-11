@@ -1,9 +1,66 @@
 # IMPLEMENTATION REPORT — Final UI Fixes
 
 **Branch:** `gochano-ui-rebuild-v1`
-**Date:** 2026-09-11
+**Date:** 2026-09-12
 **API:** `https://ekthikana-api-x473.onrender.com`
-**Status:** Automated validation PASSED — Step 5 (Money / Expense) Complete
+**Status:** Automated validation PASSED — Step 6 (CommuteBD + Multimodal) Complete
+
+---
+
+## STEP 6 — COMMUTEBD + MULTIMODAL REBUILD
+
+### Canonical Target
+
+Implementation and verification were conducted exclusively in `D:\Gochano_Rebuild\flutter_app`.
+
+### Scope & Structure
+
+1. **Commute Screen Order (Locked Specification)**:
+   1. `_TripPlanner` (From / To place fields with swap action).
+   2. **Map** (`CommuteMapPicker` when no result is present; `CommuteRouteMap` when route results exist).
+   3. `PrimaryButton` ("Find routes" / "Checking route…").
+   4. **Optional Estimated-Details Banner**: Non-blocking banner `"Some route details are estimated"` (`কিছু রুটের বিবরণ আনুমানিক`) when an estimated route fallback is active (never blocking the student from seeing route details).
+   5. **Distance / By road**: Dual StatCards displaying distance in km and driving time.
+   6. **Your journey** (`JourneyPlanSection`): Displays summary card and step-by-step timeline.
+   7. **Multimodal alternatives** (`_StrategyChooser`): Up to 3 distinct alternatives (Recommended, Cheapest, Fastest, or Alternative) with bounded touch targets wrapped in `IntrinsicHeight` (strictly eliminating unbounded `CrossAxisAlignment.stretch` errors in scrollable views).
+   8. **Choose transport / fare information**: Mode chip selector (`_TransportModeSelector`) and single fare breakdown card (`_SingleFareResultCard`).
+
+2. **Route Fallback Pipeline & Honest Provenance**:
+   - Eliminated any blocking public transport error states when usable fallback routes and distance-based fare estimates are available.
+   - Surfaced non-blocking banner: `"Some route details are estimated"`.
+   - Never fabricate transit stops/stations or bus lines; preserved the honest hierarchy of fare certainty (`official` -> `route dataset` -> `distance-based estimate`).
+
+3. **Map & Multimodal Selection Sync**:
+   - `CommuteRouteMap` updated to accept `transfers` markers and dynamic journey polyline.
+   - When a student taps an alternative in `_StrategyChooser`, the selected journey's polyline, transfer points, and bounds sync dynamically to the route map.
+
+4. **Planned Trips Feature**:
+   - Created `PlannedCommuteTrip` model and `CommuteTripService` (`planned_trip_models.dart`).
+   - Stored in Firestore collection `planned_commute_trips` (owner-isolated via `FirestoreService.ownerStream` and `addOwnerRecord`).
+   - Scheduled notifications via `NotificationService.scheduleCommuteTripReminder`, `rescheduleCommuteTripReminder`, and `cancelCommuteTripReminder` (channel `kChannelRemindersId`, deterministic notification ID, inexact idle scheduling).
+   - Created `showPlanTripSheet` (`plan_trip_sheet.dart`) accessible from the Commute screen AppBar action (`Plan a trip`), allowing students to pick origin, destination, future date, departure time, and leave-by reminders (10m, 30m, 1h).
+
+5. **Home Screen Integration**:
+   - Refactored `_CommuteCard` in `home_screen.dart` to stream upcoming trips from `CommuteTripService.streamPlannedTrips()`.
+   - When no upcoming trip exists: displays default `"Commute"` -> `"Plan a trip"`.
+   - When an upcoming trip exists: renders upcoming trip card with origin -> destination, leave-by time, date, and reminder badge.
+   - Tapping an upcoming trip navigates to `CommuteScreen` prefilled with the trip's origin and destination.
+
+### Files Added / Modified
+
+- `lib/services/notification_service.dart`: Added commute reminder schedule, reschedule, and cancel methods with deterministic integer IDs.
+- `lib/features/life/presentation/commute/planned_trip_models.dart` [NEW]: `PlannedCommuteTrip` model and `CommuteTripService` Firestore integration.
+- `lib/features/life/presentation/commute/plan_trip_sheet.dart` [NEW]: Future trip planning modal with date, time, and reminder picker.
+- `lib/features/life/presentation/commute/commute_route_map.dart`: Added `transfers` marker support and dynamic bounds fitting.
+- `lib/features/life/presentation/commute/journey_view.dart`: Bounded `_StrategyChooser` with `IntrinsicHeight`, added `selectedIndex`, `onJourneySelected`, and `hideMap` properties to `JourneyPlanSection`.
+- `lib/features/life/presentation/commute/commute_screen.dart`: Reordered layout to match exact specification, wired map to selected journey alternatives, added estimated route banner, and added `Plan a trip` action.
+- `lib/features/home/presentation/home_screen.dart`: Wired `_CommuteCard` to stream upcoming planned trips with tap-to-open prefilled route.
+- `test/commute_rebuild_step6_test.dart` [NEW]: Model unit tests and layout regression tests for unconstrained `_StrategyChooser`.
+
+### Verification Results
+
+- `flutter analyze`: **0 issues** (clean).
+- `flutter test`: **544 / 544 tests passed** (100% pass rate).
 
 ---
 

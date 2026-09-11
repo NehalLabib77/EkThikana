@@ -34,22 +34,41 @@ import 'journey_models.dart';
 
 /// The whole planner block: strategy chooser, map, summary, timeline.
 class JourneyPlanSection extends StatefulWidget {
-  const JourneyPlanSection({super.key, required this.plan});
+  const JourneyPlanSection({
+    super.key,
+    required this.plan,
+    this.selectedIndex,
+    this.onJourneySelected,
+    this.hideMap = false,
+  });
 
   final JourneyPlan plan;
+  final int? selectedIndex;
+  final ValueChanged<int>? onJourneySelected;
+  final bool hideMap;
 
   @override
   State<JourneyPlanSection> createState() => _JourneyPlanSectionState();
 }
 
 class _JourneyPlanSectionState extends State<JourneyPlanSection> {
-  int _selected = 0;
+  int _internalSelected = 0;
+
+  int get _selected => widget.selectedIndex ?? _internalSelected;
+
+  void _onSelect(int index) {
+    if (widget.onJourneySelected != null) {
+      widget.onJourneySelected!(index);
+    } else {
+      setState(() => _internalSelected = index);
+    }
+  }
 
   @override
   void didUpdateWidget(JourneyPlanSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     // A new search invalidates the previous selection.
-    if (!identical(oldWidget.plan, widget.plan)) _selected = 0;
+    if (!identical(oldWidget.plan, widget.plan)) _internalSelected = 0;
   }
 
   String get _sectionTitle =>
@@ -116,13 +135,15 @@ class _JourneyPlanSectionState extends State<JourneyPlanSection> {
           _StrategyChooser(
             journeys: journeys,
             selected: index,
-            onSelected: (i) => setState(() => _selected = i),
+            onSelected: _onSelect,
           ),
           const SizedBox(height: GochanoSpacing.sm),
         ],
 
-        JourneyMap(journey: journey),
-        const SizedBox(height: GochanoSpacing.sm),
+        if (!widget.hideMap) ...[
+          JourneyMap(journey: journey),
+          const SizedBox(height: GochanoSpacing.sm),
+        ],
 
         JourneySummaryCard(journey: journey),
         const SizedBox(height: GochanoSpacing.md),
@@ -160,60 +181,62 @@ class _StrategyChooser extends StatelessWidget {
     final colors = context.colors;
     final type = context.type;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < journeys.length; i++) ...[
-          if (i > 0) const SizedBox(width: GochanoSpacing.xs),
-          Expanded(
-            child: Semantics(
-              selected: i == selected,
-              button: true,
-              child: InkWell(
-                onTap: () => onSelected(i),
-                borderRadius: GochanoRadius.mdAll,
-                child: Container(
-                  constraints: const BoxConstraints(
-                    minHeight: GochanoSizes.minTouchTarget,
-                  ),
-                  padding: const EdgeInsets.all(GochanoSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: i == selected ? colors.brandSoft : colors.surface,
-                    borderRadius: GochanoRadius.mdAll,
-                    border: Border.all(
-                      color: i == selected ? colors.commute : colors.border,
-                      width: i == selected ? 1.6 : 1,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < journeys.length; i++) ...[
+            if (i > 0) const SizedBox(width: GochanoSpacing.xs),
+            Expanded(
+              child: Semantics(
+                selected: i == selected,
+                button: true,
+                child: InkWell(
+                  onTap: () => onSelected(i),
+                  borderRadius: GochanoRadius.mdAll,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minHeight: GochanoSizes.minTouchTarget,
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        journeyStrategyLabel(journeys[i]),
-                        style: type.label.copyWith(
-                          color: i == selected ? colors.commute : null,
+                    padding: const EdgeInsets.all(GochanoSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: i == selected ? colors.brandSoft : colors.surface,
+                      borderRadius: GochanoRadius.mdAll,
+                      border: Border.all(
+                        color: i == selected ? colors.commute : colors.border,
+                        width: i == selected ? 1.6 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          journeyStrategyLabel(journeys[i]),
+                          style: type.label.copyWith(
+                            color: i == selected ? colors.commute : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        journeys[i].totalFareTk <= 0
-                            ? GochanoLanguage.text('Free', 'ফ্রি')
-                            : formatTaka(journeys[i].totalFareTk),
-                        style: type.cardHeading,
-                      ),
-                      Text(
-                        formatJourneyDuration(journeys[i].totalDurationMinutes),
-                        style: type.caption,
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          journeys[i].totalFareTk <= 0
+                              ? GochanoLanguage.text('Free', 'ফ্রি')
+                              : formatTaka(journeys[i].totalFareTk),
+                          style: type.cardHeading,
+                        ),
+                        Text(
+                          formatJourneyDuration(journeys[i].totalDurationMinutes),
+                          style: type.caption,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

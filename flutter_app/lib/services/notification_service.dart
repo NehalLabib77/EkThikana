@@ -435,4 +435,62 @@ class NotificationService {
       id: _communityTaskReminderId(groupId, projectId, taskId, userId),
     );
   }
+
+  static int _commuteTripReminderId(String tripId) {
+    return 'commute_trip_$tripId'.hashCode & 0x7fffffff;
+  }
+
+  static Future<void> scheduleCommuteTripReminder({
+    required String tripId,
+    required String title,
+    required DateTime when,
+  }) async {
+    await init();
+    if (!when.isAfter(DateTime.now())) return;
+    await plugin.zonedSchedule(
+      id: _commuteTripReminderId(tripId),
+      title: 'Commute reminder',
+      body: title,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelRemindersId,
+          channelName: kChannelRemindersName,
+          channelDescription: kChannelRemindersDesc,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: 'commute_trip:$tripId',
+    );
+  }
+
+  static Future<void> rescheduleCommuteTripReminder({
+    required String tripId,
+    required String title,
+    DateTime? when,
+  }) async {
+    await init();
+    await plugin.cancel(id: _commuteTripReminderId(tripId));
+    if (when == null || !when.isAfter(DateTime.now())) return;
+    await plugin.zonedSchedule(
+      id: _commuteTripReminderId(tripId),
+      title: 'Commute reminder',
+      body: title,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: _details(
+          channelId: kChannelRemindersId,
+          channelName: kChannelRemindersName,
+          channelDescription: kChannelRemindersDesc,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: 'commute_trip:$tripId',
+    );
+  }
+
+  static Future<void> cancelCommuteTripReminder(String tripId) async {
+    await init();
+    await plugin.cancel(id: _commuteTripReminderId(tripId));
+  }
 }

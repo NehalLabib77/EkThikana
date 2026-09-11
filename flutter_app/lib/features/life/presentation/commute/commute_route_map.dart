@@ -24,6 +24,7 @@ class CommuteRouteMap extends StatelessWidget {
     required this.polyline,
     required this.origin,
     required this.destination,
+    this.transfers = const [],
     this.height = 220,
   });
 
@@ -32,6 +33,9 @@ class CommuteRouteMap extends StatelessWidget {
 
   final LatLng? origin;
   final LatLng? destination;
+
+  /// Optional transfer points between legs
+  final List<LatLng> transfers;
   final double height;
 
   /// Dhaka, used only when there is nothing to fit to.
@@ -61,7 +65,7 @@ class CommuteRouteMap extends StatelessWidget {
       );
     }
 
-    final markers = <LatLng>[?origin, ?destination];
+    final markers = <LatLng>[?origin, ?destination, ...transfers];
     final fitTargets = points.isNotEmpty ? points : markers;
 
     return ClipRRect(
@@ -122,6 +126,26 @@ class CommuteRouteMap extends StatelessWidget {
                         child: _Pin(
                           icon: Icons.trip_origin_rounded,
                           color: colors.commute,
+                        ),
+                      ),
+                    for (final transfer in transfers)
+                      Marker(
+                        point: transfer,
+                        width: 28,
+                        height: 28,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: colors.borderStrong, width: 2),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.transfer_within_a_station_rounded,
+                              size: 14,
+                              color: colors.textSecondary,
+                            ),
+                          ),
                         ),
                       ),
                     if (destination != null)

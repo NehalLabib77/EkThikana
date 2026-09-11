@@ -40,17 +40,26 @@ import 'commute_route_map.dart';
 import 'fare_report_sheet.dart';
 import 'journey_models.dart';
 import 'journey_view.dart';
+import 'plan_trip_sheet.dart';
 
 class CommuteScreen extends StatefulWidget {
-  const CommuteScreen({super.key});
+  const CommuteScreen({
+    super.key,
+    this.initialOrigin,
+    this.initialDestination,
+  });
+
+  final CommutePlace? initialOrigin;
+  final CommutePlace? initialDestination;
 
   @override
   State<CommuteScreen> createState() => _CommuteScreenState();
 }
 
 class _CommuteScreenState extends State<CommuteScreen> {
-  CommutePlace? _origin;
-  CommutePlace? _destination;
+  late CommutePlace? _origin = widget.initialOrigin;
+  late CommutePlace? _destination = widget.initialDestination;
+  int _selectedJourneyIndex = 0;
 
   bool _searching = false;
   String _error = '';
@@ -242,6 +251,61 @@ class _CommuteScreenState extends State<CommuteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final result = _result;
+    final plan = result != null ? JourneyPlan.fromResponse(result) : null;
+    final journeys = plan?.journeys ?? const [];
+    final selectedJourney = journeys.isNotEmpty
+        ? journeys[_selectedJourneyIndex.clamp(0, journeys.length - 1)]
+        : null;
+
+    // Build geometry and endpoints for route map
+    final originMap = result?['origin'] as Map?;
+    final destinationMap = result?['destination'] as Map?;
+    LatLng? point(Map? place) {
+      final lat = (place?['lat'] as num?)?.toDouble();
+      final lon = (place?['lon'] as num?)?.toDouble();
+      return (lat == null || lon == null) ? null : LatLng(lat, lon);
+    }
+
+    final rawPolyline = ((result?['polyline'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+        .toList();
+
+    // If a selected journey has mappable legs, construct polyline and transfers from it
+    final List<Map<String, dynamic>> displayPolyline;
+    final List<LatLng> transferPoints = [];
+    if (selectedJourney != null) {
+      final mappableLegs = selectedJourney.legs.where((l) => l.isMappable).toList();
+      if (mappableLegs.isNotEmpty) {
+        displayPolyline = [
+          for (final leg in mappableLegs) ...[
+            {'lat': leg.fromLat, 'lon': leg.fromLon},
+            {'lat': leg.toLat, 'lon': leg.toLon},
+          ],
+        ];
+        for (var i = 0; i < mappableLegs.length - 1; i++) {
+          final leg = mappableLegs[i];
+          if (leg.toLat != null && leg.toLon != null) {
+            transferPoints.add(LatLng(leg.toLat!, leg.toLon!));
+          }
+        }
+      } else {
+        displayPolyline = rawPolyline;
+      }
+    } else {
+      displayPolyline = rawPolyline;
+    }
+
+    // Check if estimated fallback applies
+    final isEstimatedFallback = result != null &&
+        (result['isEstimated'] == true ||
+            result['routingProvider'] == 'osrm_fallback' ||
+            result['routingProvider'] == 'haversine' ||
+            (plan != null &&
+                (plan.status == JourneyPlanningStatus.datasetUnavailable ||
+                    plan.status == JourneyPlanningStatus.plannerError)));
+
     return GochanoScaffold(
       padBody: false,
       appBar: GochanoAppBar(
@@ -250,10 +314,22 @@ class _CommuteScreenState extends State<CommuteScreen> {
           'Routes and fares across Bangladesh',
           'বাংলাদেশ জুড়ে রুট ও ভাড়া',
         ),
+        actions: [
+          IconButton(
+            tooltip: GochanoLanguage.text('Plan a trip', 'ভবিষ্যৎ যাত্রা পরিকল্পনা'),
+            icon: const Icon(Icons.calendar_month_outlined),
+            onPressed: () => showPlanTripSheet(
+              context,
+              initialOrigin: _origin,
+              initialDestination: _destination,
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
+          // 1. From / To Trip Planner
           _TripPlanner(
             origin: _origin,
             destination: _destination,
@@ -262,6 +338,25 @@ class _CommuteScreenState extends State<CommuteScreen> {
             onSwap: _swap,
           ),
           const SizedBox(height: GochanoSpacing.md),
+
+          // 2. Map (Picker when no result; route map when result present)
+          if (result == null)
+            CommuteMapPicker(
+              origin: _origin,
+              destination: _destination,
+              onPicked: _pickFromMap,
+            )
+          else ...[
+            CommuteRouteMap(
+              polyline: displayPolyline,
+              origin: point(originMap) ?? (_origin?.lat != null && _origin?.lon != null ? LatLng(_origin!.lat!, _origin!.lon!) : null),
+              destination: point(destinationMap) ?? (_destination?.lat != null && _destination?.lon != null ? LatLng(_destination!.lat!, _destination!.lon!) : null),
+              transfers: transferPoints,
+            ),
+          ],
+          const SizedBox(height: GochanoSpacing.md),
+
+          // 3. Find routes / Checking route button
           PrimaryButton(
             label: GochanoLanguage.text('Find routes', 'রুট খুঁজুন'),
             icon: Icons.search_rounded,
@@ -273,15 +368,35 @@ class _CommuteScreenState extends State<CommuteScreen> {
             onPressed: _canSearch ? _findRoutes : null,
           ),
 
-          // The map *is* the picker: a trip can be chosen by looking at it
-          // rather than by knowing what a place is called. It stays until
-          // there are results, which bring their own journey map.
-          if (_result == null) ...[
+          // 4. Optional estimated-details banner
+          if (isEstimatedFallback) ...[
             const SizedBox(height: GochanoSpacing.md),
-            CommuteMapPicker(
-              origin: _origin,
-              destination: _destination,
-              onPicked: _pickFromMap,
+            Container(
+              padding: const EdgeInsets.all(GochanoSpacing.sm),
+              decoration: BoxDecoration(
+                color: context.colors.surfaceVariant,
+                borderRadius: GochanoRadius.mdAll,
+                border: Border.all(color: context.colors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: GochanoSizes.iconSm,
+                    color: context.colors.textSecondary,
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      GochanoLanguage.text(
+                        'Some route details are estimated',
+                        'কিছু রুটের বিবরণ আনুমানিক',
+                      ),
+                      style: context.type.bodySecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
 
@@ -295,14 +410,17 @@ class _CommuteScreenState extends State<CommuteScreen> {
             ),
           ],
 
-          if (_result != null)
+          // 5-8. Results section (Distance / By road -> Your journey -> Multimodal alternatives -> Choose transport / fare)
+          if (result != null)
             _Results(
-              result: _result!,
+              result: result,
               selectedMode: _selectedTransportMode,
               singleFareResult: _singleFareResult,
               fetchingFare: _fetchingFare,
               singleFareError: _singleFareError,
               onModeSelected: _onModeSelected,
+              selectedJourneyIndex: _selectedJourneyIndex,
+              onJourneySelected: (idx) => setState(() => _selectedJourneyIndex = idx),
             ),
         ],
       ),
@@ -432,6 +550,8 @@ class _Results extends StatelessWidget {
     this.fetchingFare = false,
     this.singleFareError = '',
     this.onModeSelected,
+    this.selectedJourneyIndex = 0,
+    this.onJourneySelected,
   });
 
   final Map<String, dynamic> result;
@@ -440,6 +560,8 @@ class _Results extends StatelessWidget {
   final bool fetchingFare;
   final String singleFareError;
   final ValueChanged<String>? onModeSelected;
+  final int selectedJourneyIndex;
+  final ValueChanged<int>? onJourneySelected;
 
   @override
   Widget build(BuildContext context) {
@@ -481,6 +603,7 @@ class _Results extends StatelessWidget {
           destination: point(destinationMap),
         ),
         const SizedBox(height: GochanoSpacing.sm),
+        const SizedBox(height: GochanoSpacing.md),
         Row(
           children: [
             Expanded(
@@ -504,6 +627,12 @@ class _Results extends StatelessWidget {
 
         // The multimodal planner: the actual journey, step by step.
         JourneyPlanSection(plan: JourneyPlan.fromResponse(result)),
+        JourneyPlanSection(
+          plan: JourneyPlan.fromResponse(result),
+          selectedIndex: selectedJourneyIndex,
+          onJourneySelected: onJourneySelected,
+          hideMap: true,
+        ),
 
         // Transport mode selector
         SectionHeader(
