@@ -57,12 +57,15 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const bool _developerLoginEnabled = kDebugMode &&
-    bool.fromEnvironment('DEV_AUTH_BYPASS', defaultValue: false);
-  static const String _developerEmail =
-    String.fromEnvironment('DEV_TEST_EMAIL');
-  static const String _developerPassword =
-    String.fromEnvironment('DEV_TEST_PASSWORD');
+  static const bool _developerLoginEnabled =
+      kDebugMode &&
+      bool.fromEnvironment('DEV_AUTH_BYPASS', defaultValue: false);
+  static const String _developerEmail = String.fromEnvironment(
+    'DEV_TEST_EMAIL',
+  );
+  static const String _developerPassword = String.fromEnvironment(
+    'DEV_TEST_PASSWORD',
+  );
 
   final TextEditingController _phoneController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -108,10 +111,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _busy = false);
       return;
     } catch (_) {
-      _showError(GochanoLanguage.text(
-        'Network error. Please check your connection and try again.',
-        'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
-      ));
+      _showError(
+        GochanoLanguage.text(
+          'Network error. Please check your connection and try again.',
+          'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
+        ),
+      );
       if (mounted) setState(() => _busy = false);
       return;
     }
@@ -146,36 +151,37 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         exchange =
             await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
-          phone: phone,
-          subscriptionStatus: result.rawStatus,
-        );
+              phone: phone,
+              subscriptionStatus: result.rawStatus,
+            );
       } on TelecomAuthException catch (e) {
         _showError(e.message);
         if (mounted) setState(() => _busy = false);
         return;
       } catch (_) {
-        _showError(GochanoLanguage.text(
-          'Could not link your number to Gochano. Please try again later.',
-          'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
-        ));
+        _showError(
+          GochanoLanguage.text(
+            'Could not link your number to Gochano. Please try again later.',
+            'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+          ),
+        );
         if (mounted) setState(() => _busy = false);
         return;
       }
       if (!mounted) return;
       try {
-        await TelecomAuthService.enterSession(
-          phone: phone,
-          exchange: exchange,
-        );
+        await TelecomAuthService.enterSession(phone: phone, exchange: exchange);
       } on TelecomAuthException catch (e) {
         _showError(e.message);
         if (mounted) setState(() => _busy = false);
         return;
       } catch (_) {
-        _showError(GochanoLanguage.text(
-          'Could not sign you in. Please try again.',
-          'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
-        ));
+        _showError(
+          GochanoLanguage.text(
+            'Could not sign you in. Please try again.',
+            'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
+          ),
+        );
         if (mounted) setState(() => _busy = false);
         return;
       }
@@ -185,10 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => hasProfile
-              ? GochanoShell(
-                  role: 'student',
-                  displayName: phone,
-                )
+              ? GochanoShell(role: 'student', displayName: phone)
               : ProfileSetupScreen(phone: phone),
         ),
         (_) => false,
@@ -199,11 +202,9 @@ class _LoginScreenState extends State<LoginScreen> {
     // Not subscribed yet — drop into the OTP screen.
     debugPrint('[LoginScreen] branch: SEND_OTP → navigate to OTP screen');
     if (mounted) setState(() => _busy = false);
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OtpVerifyScreen(phone: phone),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => OtpVerifyScreen(phone: phone)));
   }
 
   Future<void> _developerLogin() async {
@@ -237,9 +238,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!hasProfile) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) => ProfileSetupScreen(
-              phone: user.email ?? _developerEmail.trim(),
-            ),
+            builder: (_) =>
+                ProfileSetupScreen(phone: user.email ?? _developerEmail.trim()),
           ),
           (_) => false,
         );
@@ -252,7 +252,8 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(
           builder: (_) => GochanoShell(
             role: profile['role']?.toString() ?? 'student',
-            displayName: profile['displayName']?.toString() ??
+            displayName:
+                profile['displayName']?.toString() ??
                 user.displayName ??
                 user.email ??
                 '',
@@ -280,10 +281,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -326,7 +324,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight -
+                    minHeight:
+                        constraints.maxHeight -
                         GochanoSpacing.md -
                         GochanoSpacing.lg,
                   ),
@@ -337,7 +336,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Align(
                           alignment: Alignment.topRight,
                           child: Padding(
-                            padding: const EdgeInsets.only(top: GochanoSpacing.xs),
+                            padding: const EdgeInsets.only(
+                              top: GochanoSpacing.xs,
+                            ),
                             child: LanguageToggle(),
                           ),
                         ),
@@ -430,9 +431,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           GochanoLanguage.text(
                             'Daily charge 2.78 BDT (incl. VAT, SD & SC). '
-                            'Robi (018) and Cirkle (016) only.',
+                                'Robi (018) and Cirkle (016) only.',
                             'প্রতিদিন ২.৭৮ টাকা (VAT, SD ও SC সহ)। '
-                            'শুধু Robi (০১৮) ও Cirkle (০১৬)।',
+                                'শুধু Robi (০১৮) ও Cirkle (০১৬)।',
                           ),
                           style: type.caption.copyWith(
                             color: colors.textSecondary,
@@ -443,10 +444,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         PrimaryButton(
                           label: _busy
                               ? (_busyMessage ??
-                                  GochanoLanguage.text(
-                                      'Please wait…', 'অপেক্ষা করুন…'))
-                              : GochanoLanguage.text(
-                                  'Continue', 'চালিয়ে যান'),
+                                    GochanoLanguage.text(
+                                      'Please wait…',
+                                      'অপেক্ষা করুন…',
+                                    ))
+                              : GochanoLanguage.text('Continue', 'চালিয়ে যান'),
                           onPressed: _busy ? null : _continue,
                           icon: Icons.arrow_forward_rounded,
                         ),
@@ -519,11 +521,8 @@ class _LoginBrand extends StatelessWidget {
             height: 72,
             fit: BoxFit.contain,
             semanticLabel: 'Gochano logo',
-            errorBuilder: (_, _, _) => Icon(
-              Icons.apps_rounded,
-              size: 48,
-              color: colors.brand,
-            ),
+            errorBuilder: (_, _, _) =>
+                Icon(Icons.apps_rounded, size: 48, color: colors.brand),
           ),
         ),
         const SizedBox(height: GochanoSpacing.md),

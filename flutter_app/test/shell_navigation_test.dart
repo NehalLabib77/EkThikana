@@ -14,22 +14,26 @@ void main() {
     home = _read('lib/features/home/presentation/home_screen.dart');
   });
 
-  test('student navigation order is Today, Study, Commute, Money, Community',
-      () {
-    final studentStart = shell.indexOf('List<_Destination> _buildDestinations');
-    final firstReturn = shell.indexOf('\n      return [', studentStart);
-    final generalStart = shell.indexOf('\n    return [', firstReturn + 1);
-    final student = shell.substring(studentStart, generalStart);
+  test(
+    'student navigation order is Today, Study, Commute, Money, Community',
+    () {
+      final studentStart = shell.indexOf(
+        'List<_Destination> _buildDestinations',
+      );
+      final firstReturn = shell.indexOf('\n      return [', studentStart);
+      final generalStart = shell.indexOf('\n    return [', firstReturn + 1);
+      final student = shell.substring(studentStart, generalStart);
 
-    final labels = ['Today', 'Study', 'Commute', 'Money', 'Community'];
-    var previous = -1;
-    for (final label in labels) {
-      final index = student.indexOf("'$label'");
-      expect(index, greaterThan(previous), reason: '$label order is wrong');
-      previous = index;
-    }
-    expect(student, isNot(contains("'Profile'")));
-  });
+      final labels = ['Today', 'Study', 'Commute', 'Money', 'Community'];
+      var previous = -1;
+      for (final label in labels) {
+        final index = student.indexOf("'$label'");
+        expect(index, greaterThan(previous), reason: '$label order is wrong');
+        previous = index;
+      }
+      expect(student, isNot(contains("'Profile'")));
+    },
+  );
 
   test('student pages reuse Commute and Expense screens', () {
     expect(shell, contains('const CommuteScreen()'));
@@ -44,7 +48,10 @@ void main() {
   });
 
   test('general-account destinations remain present', () {
-    final generalStart = shell.indexOf('\n    return [', shell.indexOf('if (_isStudent)'));
+    final generalStart = shell.indexOf(
+      '\n    return [',
+      shell.indexOf('if (_isStudent)'),
+    );
     final general = shell.substring(generalStart);
     expect(general, contains("'Life'"));
     expect(general, contains("'Tasks'"));

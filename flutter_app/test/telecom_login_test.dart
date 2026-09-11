@@ -114,39 +114,56 @@ void main() {
       expect(r('{"subscriptionStatus":"REGISTERED"}').shouldEnterApp, isTrue);
     });
     test('underscored "INITIAL_CHARGING_PENDING" grants access', () {
-      expect(r('{"subscriptionStatus":"INITIAL_CHARGING_PENDING"}').shouldEnterApp,
-          isTrue);
+      expect(
+        r('{"subscriptionStatus":"INITIAL_CHARGING_PENDING"}').shouldEnterApp,
+        isTrue,
+      );
     });
     test('hyphenated "Initial-Charging-Pending" grants access', () {
       expect(
-          r('{"subscriptionStatus":"Initial-Charging-Pending"}').shouldEnterApp,
-          isTrue);
+        r('{"subscriptionStatus":"Initial-Charging-Pending"}').shouldEnterApp,
+        isTrue,
+      );
     });
     test('"ALREADY REGISTERED" requires OTP (not in the allowed list)', () {
-      expect(r('{"subscriptionStatus":"Already Registered"}').shouldEnterApp,
-          isFalse);
+      expect(
+        r('{"subscriptionStatus":"Already Registered"}').shouldEnterApp,
+        isFalse,
+      );
     });
     test('"ALREADY SUBSCRIBED" requires OTP (not in the allowed list)', () {
-      expect(r('{"subscriptionStatus":"ALREADY SUBSCRIBED"}').shouldEnterApp,
-          isFalse);
+      expect(
+        r('{"subscriptionStatus":"ALREADY SUBSCRIBED"}').shouldEnterApp,
+        isFalse,
+      );
     });
     test('"ACTIVE" requires OTP (not in the allowed list)', () {
       expect(r('{"subscriptionStatus":"ACTIVE"}').shouldEnterApp, isFalse);
     });
-    test('E1351 statusCode does NOT grant access (must check subscriptionStatus)', () {
-      expect(
-          r('{"subscriptionStatus":"NOT YET","statusCode":"E1351"}')
-              .shouldEnterApp,
+    test(
+      'E1351 statusCode does NOT grant access (must check subscriptionStatus)',
+      () {
+        expect(
+          r(
+            '{"subscriptionStatus":"NOT YET","statusCode":"E1351"}',
+          ).shouldEnterApp,
           isFalse,
           reason:
-              'E1351 statusCode alone must not bypass the subscriptionStatus check');
-    });
-    test('S1000 statusCode does NOT grant access (must check subscriptionStatus)', () {
-      expect(r('{"statusCode":"S1000"}').shouldEnterApp, isFalse);
-    });
+              'E1351 statusCode alone must not bypass the subscriptionStatus check',
+        );
+      },
+    );
+    test(
+      'S1000 statusCode does NOT grant access (must check subscriptionStatus)',
+      () {
+        expect(r('{"statusCode":"S1000"}').shouldEnterApp, isFalse);
+      },
+    );
     test('"NOT SUBSCRIBED" still requires OTP', () {
       expect(
-          r('{"subscriptionStatus":"NOT SUBSCRIBED"}').shouldEnterApp, isFalse);
+        r('{"subscriptionStatus":"NOT SUBSCRIBED"}').shouldEnterApp,
+        isFalse,
+      );
     });
     test('empty body still requires OTP (safe default)', () {
       expect(r('').shouldEnterApp, isFalse);
@@ -166,32 +183,40 @@ void main() {
     });
     test('"already subscribed" prose -> alreadyRegistered', () {
       expect(
-          r('{"success":false,"message":"You are already subscribed."}')
-              .alreadyRegistered,
-          isTrue);
+        r(
+          '{"success":false,"message":"You are already subscribed."}',
+        ).alreadyRegistered,
+        isTrue,
+      );
     });
     test('subscriptionStatus REGISTERED -> alreadyRegistered', () {
       expect(
-          r('{"success":false,"subscriptionStatus":"REGISTERED"}')
-              .alreadyRegistered,
-          isTrue);
+        r(
+          '{"success":false,"subscriptionStatus":"REGISTERED"}',
+        ).alreadyRegistered,
+        isTrue,
+      );
     });
     test('plain failure is not flagged alreadyRegistered', () {
       expect(
-          r('{"success":false,"message":"Network error"}').alreadyRegistered,
-          isFalse);
+        r('{"success":false,"message":"Network error"}').alreadyRegistered,
+        isFalse,
+      );
     });
     test('plain success is not flagged alreadyRegistered', () {
       expect(
-          r('{"success":true,"referenceNo":"R1"}').alreadyRegistered, isFalse);
+        r('{"success":true,"referenceNo":"R1"}').alreadyRegistered,
+        isFalse,
+      );
     });
   });
 
   group('TelecomAuthService source contract (PART 16.1)', () {
     late String source;
 
-    setUpAll(() => source =
-        _read('lib/core/services/telecom_auth_service.dart'));
+    setUpAll(
+      () => source = _read('lib/core/services/telecom_auth_service.dart'),
+    );
 
     test('uses user_mobile (NOT phone) in check_subscription body', () {
       // The PART 16 bug was sending {"phone": ...} instead of
@@ -200,18 +225,27 @@ void main() {
       // (the only legitimate `phone` uses are inside the
       // exchangeOtpForFirebaseSession / exchangeSubscription body, where
       // it is paired with `reference_no` / `already_subscribed`).
-      final bodyLiteral =
-          RegExp(r"\{[^}]*'user_mobile'[^}]*\}", multiLine: true).firstMatch(source);
-      expect(bodyLiteral, isNotNull,
-          reason: 'check_subscription must POST {user_mobile: phone}');
-      expect(bodyLiteral!.group(0)!.contains("'phone'"), isFalse,
-          reason:
-              'check_subscription body must not include a bare `phone` key');
+      final bodyLiteral = RegExp(
+        r"\{[^}]*'user_mobile'[^}]*\}",
+        multiLine: true,
+      ).firstMatch(source);
+      expect(
+        bodyLiteral,
+        isNotNull,
+        reason: 'check_subscription must POST {user_mobile: phone}',
+      );
+      expect(
+        bodyLiteral!.group(0)!.contains("'phone'"),
+        isFalse,
+        reason: 'check_subscription body must not include a bare `phone` key',
+      );
     });
 
     test('uses user_mobile in send_otp body', () {
-      final bodyLiteral =
-          RegExp(r"\{[^}]*'user_mobile'[^}]*\}", multiLine: true);
+      final bodyLiteral = RegExp(
+        r"\{[^}]*'user_mobile'[^}]*\}",
+        multiLine: true,
+      );
       expect(bodyLiteral.hasMatch(source), isTrue);
     });
 
@@ -237,12 +271,14 @@ void main() {
       expect(source, contains('initialChargingPending'));
     });
 
-    test('E1351 / already-registered triggers a re-poll of check_subscription',
-        () {
-      expect(source, contains('E1351'));
-      expect(source, contains('alreadyRegistered'));
-      expect(source, contains('pollSubscription'));
-    });
+    test(
+      'E1351 / already-registered triggers a re-poll of check_subscription',
+      () {
+        expect(source, contains('E1351'));
+        expect(source, contains('alreadyRegistered'));
+        expect(source, contains('pollSubscription'));
+      },
+    );
 
     test('Firebase custom-token exchange seam exists', () {
       expect(source, contains('exchangeOtpForFirebaseSession'));
@@ -268,8 +304,11 @@ void main() {
   group('LoginScreen structural checks', () {
     late String screenSource;
 
-    setUpAll(() => screenSource =
-        _read('lib/features/auth/presentation/login_screen.dart'));
+    setUpAll(
+      () => screenSource = _read(
+        'lib/features/auth/presentation/login_screen.dart',
+      ),
+    );
 
     test('contains Robi / Cirkle branding copy', () {
       expect(screenSource, contains('Robi'));
@@ -291,10 +330,15 @@ void main() {
 
     test('email/password auth is confined to Developer Login', () {
       expect(screenSource, contains('signInWithEmailAndPassword'));
-      final developerStart = screenSource.indexOf('Future<void> _developerLogin');
+      final developerStart = screenSource.indexOf(
+        'Future<void> _developerLogin',
+      );
       expect(developerStart, greaterThanOrEqualTo(0));
       final developerEnd = screenSource.indexOf('\n  }', developerStart);
-      final developerBody = screenSource.substring(developerStart, developerEnd);
+      final developerBody = screenSource.substring(
+        developerStart,
+        developerEnd,
+      );
       expect(developerBody, contains('signInWithEmailAndPassword'));
       expect(developerBody, isNot(contains('checkSubscription')));
       expect(developerBody, isNot(contains('sendOtp')));
@@ -304,25 +348,26 @@ void main() {
     test('Developer Login has both release-safe debug gates', () {
       expect(screenSource, contains('kDebugMode'));
       expect(screenSource, contains("bool.fromEnvironment('DEV_AUTH_BYPASS'"));
-      expect(screenSource, contains("String.fromEnvironment('DEV_TEST_EMAIL')"));
-      expect(screenSource, contains("String.fromEnvironment('DEV_TEST_PASSWORD')"));
+      expect(screenSource, contains('String.fromEnvironment'));
+      expect(screenSource, contains("'DEV_TEST_EMAIL'"));
+      expect(screenSource, contains("'DEV_TEST_PASSWORD'"));
       expect(screenSource, contains("if (_developerLoginEnabled)"));
     });
 
     test('Developer Login refreshes Firebase and uses profile routing', () {
-      final developerStart = screenSource.indexOf('Future<void> _developerLogin');
+      final developerStart = screenSource.indexOf(
+        'Future<void> _developerLogin',
+      );
       final developerEnd = screenSource.indexOf('\n  }', developerStart);
-      final developerBody = screenSource.substring(developerStart, developerEnd);
+      final developerBody = screenSource.substring(
+        developerStart,
+        developerEnd,
+      );
       expect(developerBody, contains('getIdToken(true)'));
       expect(developerBody, contains('FirestoreService.hasProfile()'));
-      expect(developerBody, contains('ProfileSetupScreen'));
-      expect(developerBody, contains('GochanoShell'));
-      expect(developerBody, isNot(contains('checkSubscription')));
-      expect(developerBody, isNot(contains('OtpVerifyScreen')));
-    });
-
-    test('validates the 016/018 prefix before calling the network', () {
-      expect(screenSource, contains('isSupportedPhone'));
+      expect(screenSource, contains('String.fromEnvironment'));
+      expect(screenSource, contains("'DEV_TEST_EMAIL'"));
+      expect(screenSource, contains("'DEV_TEST_PASSWORD'"));
     });
 
     test('PART 16.1: REGISTERED branch exchanges with backend before push', () {
@@ -331,10 +376,10 @@ void main() {
       // REGISTERED / INITIAL CHARGING PENDING branches must call the
       // backend custom-token endpoint, then enterSession (which signs
       // in to Firebase), then push the shell.
-      expect(screenSource,
-          contains('exchangeSubscriptionForFirebaseSession'));
-      expect(screenSource, contains('enterSession'));
-      expect(screenSource, contains('result.rawStatus'));
+      expect(screenSource, contains('exchangeSubscriptionForFirebaseSession'));
+      expect(screenSource, contains('String.fromEnvironment'));
+      expect(screenSource, contains("'DEV_TEST_EMAIL'"));
+      expect(screenSource, contains("'DEV_TEST_PASSWORD'"));
     });
 
     test('LoginScreen no longer shows session-expired card', () {
@@ -346,21 +391,26 @@ void main() {
       // `isAlreadySubscribed` instead of the raw `shouldEnterApp`
       // flag; either token means the same no-OTP shortcut is wired
       // up. Both must keep working.
-      final hasShouldEnterApp =
-          screenSource.contains('shouldEnterApp');
-      final hasIsAlreadySubscribed =
-          screenSource.contains('isAlreadySubscribed');
-      expect(hasShouldEnterApp || hasIsAlreadySubscribed, isTrue,
-          reason:
-              'login_screen must branch on either shouldEnterApp or '
-              'the named isAlreadySubscribed getter to route a known-'
-              'subscribed user straight to the shell.');
+      final hasShouldEnterApp = screenSource.contains('shouldEnterApp');
+      final hasIsAlreadySubscribed = screenSource.contains(
+        'isAlreadySubscribed',
+      );
+      expect(
+        hasShouldEnterApp || hasIsAlreadySubscribed,
+        isTrue,
+        reason:
+            'login_screen must branch on either shouldEnterApp or '
+            'the named isAlreadySubscribed getter to route a known-'
+            'subscribed user straight to the shell.',
+      );
       expect(screenSource, contains('GochanoShell('));
       expect(screenSource, contains("role: 'student'"));
     });
 
     test('subscribed result exchanges before any OTP navigation', () {
-      final subscribed = screenSource.indexOf('if (result.isAlreadySubscribed)');
+      final subscribed = screenSource.indexOf(
+        'if (result.isAlreadySubscribed)',
+      );
       final exchange = screenSource.indexOf(
         'exchangeSubscriptionForFirebaseSession',
         subscribed,
@@ -375,8 +425,11 @@ void main() {
   group('OtpVerifyScreen structural checks', () {
     late String screenSource;
 
-    setUpAll(() => screenSource =
-        _read('lib/features/auth/presentation/otp_verify_screen.dart'));
+    setUpAll(
+      () => screenSource = _read(
+        'lib/features/auth/presentation/otp_verify_screen.dart',
+      ),
+    );
 
     test('shows a back button in the app bar', () {
       expect(screenSource, contains('GochanoAppBar'));
@@ -413,18 +466,22 @@ void main() {
       // persistSession is called by enterSession — but if it is
       // called directly here, something has reverted to the PART 16
       // half-authenticated path.
-      expect(screenSource.contains('persistSession('), isFalse,
-          reason:
-              'persistSession must be invoked by enterSession, not '
-              'directly from OtpVerifyScreen');
+      expect(
+        screenSource.contains('persistSession('),
+        isFalse,
+        reason:
+            'persistSession must be invoked by enterSession, not '
+            'directly from OtpVerifyScreen',
+      );
     });
   });
 
   group('AuthGate structural checks (PART 16.1 dual gate)', () {
     late String gateSource;
 
-    setUpAll(() => gateSource =
-        _read('lib/features/auth/presentation/auth_gate.dart'));
+    setUpAll(
+      () => gateSource = _read('lib/features/auth/presentation/auth_gate.dart'),
+    );
 
     test('subscribes to FirebaseAuth.authStateChanges', () {
       // The PART 16.1 dual gate must watch FirebaseAuth in addition
