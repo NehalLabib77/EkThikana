@@ -1408,12 +1408,13 @@ class _CommuteCard extends StatelessWidget {
                       ),
                     IconButton(
                       icon: const Icon(Icons.edit_calendar_outlined, size: 18),
-                      tooltip: GochanoLanguage.text('Edit trip', 'যাত্রা সম্পাদনা'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => showPlanTripSheet(
-                        context,
-                        existingTrip: trip,
+                      tooltip: GochanoLanguage.text(
+                        'Edit trip',
+                        'যাত্রা সম্পাদনা',
                       ),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () =>
+                          showPlanTripSheet(context, existingTrip: trip),
                     ),
                   ],
                 ),

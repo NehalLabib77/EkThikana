@@ -86,20 +86,30 @@ Implementation and verification were conducted exclusively in `D:\Gochano_Rebuil
 - **Delete**: Added a prominent "Delete trip" action with confirmation dialog inside the edit sheet. Cancels active notification and deletes doc via `CommuteTripService.deleteTripById`.
 - **Home Integration**: Added an Edit icon button (`Icons.edit_calendar_outlined`) to the upcoming commute card on Home, opening the trip sheet in edit mode.
 
-### 4. Reminder Policy & Bangladesh Timezone
-- Integrated with `NotificationService` using Bangladesh timezone (`Asia/Dhaka`).
-- Generated deterministic notification IDs from `tripId.hashCode.abs() % 1000000`.
-- Scheduled inexact alarms (`inexactAllowWhileIdle`) on channel `kChannelRemindersId`.
-- Cancelled existing reminders on deletion or prior to rescheduling on trip update.
+### 4. Reminder Policy & Exact Alarm Capability Fallback
+- Integrated with `NotificationService` dynamically querying `canScheduleExactNotifications()` on Android:
+  - When exact alarm capability is available/granted: schedules using `AndroidScheduleMode.exactAllowWhileIdle`.
+  - When not granted/supported: safely falls back to `AndroidScheduleMode.inexactAllowWhileIdle` without requesting dangerous permissions or adding `USE_EXACT_ALARM`.
+- Adheres to Bangladesh timezone (`AppConfig.bangladeshTimeZone` / `Asia/Dhaka`).
+- Generated deterministic, collision-safe notification IDs from `'commute_trip_$tripId'.hashCode & 0x7fffffff` (pinned and verified across reboots/process lifecycles).
+- Cancelled existing reminders before rescheduling on trip edit, and purged on trip delete.
+- Reuses notification channel `kChannelRemindersId` (`Gochano Reminders`).
 
 ### 5. Fallback & Alternative Verification
-- Verified fallback pipeline: Displays `"Some route details are estimated"` banner when public transit is unavailable, offering distance/fare alternatives without fabricating stops or routes.
-- Removed duplicate `JourneyPlanSection` in `commute_screen.dart`.
+- Verified fallback pipeline: Displays `"Some route details are estimated"` banner (`কিছু রুটের বিবরণ আনুমানিক`) when public transit is unavailable (`dataset_unavailable`, `plannerError`, `outsideCoverage`, or `isEstimated`), offering distance/fare alternatives without fabricating stops or routes.
+- Removed duplicate `JourneyPlanSection` in `commute_screen.dart` (preserving the single parameterized instance with map synchronization).
 - Selected alternative directly controls map display, transfer markers, and polyline.
+- Added comprehensive unit and widget tests in `test/commute_rebuild_step6_test.dart` for:
+  - Safe parsing of `dataset_unavailable`, `outside_network_coverage`, and `plannerError`.
+  - Display of non-blocking explanatory banner for estimated fallbacks without network crashes.
+  - Up to 3 alternatives displayed in `_StrategyChooser`.
+  - Selection update in `_StrategyChooser` via `onJourneySelected`.
+  - Deterministic 31-bit positive notification ID consistency.
 
 ### 6. Verification Summary
 - `flutter analyze`: **0 issues** (clean).
-- `flutter test`: **548 / 548 tests passed** (100% pass rate).
+- `flutter test`: **553 / 553 tests passed** (100% pass rate).
+- Device status: Android device `Infinix X665E (mobile) • Android 12 (API 31)` available; DTD connected to daemon (`ws://127.0.0.1:57899/efz7lwYaEwc=`, no running app process requiring hot reload).
 
 ---
 

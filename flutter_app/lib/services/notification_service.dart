@@ -436,6 +436,23 @@ class NotificationService {
     );
   }
 
+  /// Resolves the safe scheduling mode on Android.
+  /// Uses exactAllowWhileIdle when exact-alarm capability is granted/supported,
+  /// otherwise falls back to inexactAllowWhileIdle without requesting dangerous
+  /// permissions or crashing.
+  static Future<AndroidScheduleMode> _resolveScheduleMode() async {
+    try {
+      final android = plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final canExact = await android?.canScheduleExactNotifications() ?? false;
+      return canExact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+    } catch (_) {
+      return AndroidScheduleMode.inexactAllowWhileIdle;
+    }
+  }
+
   static int _commuteTripReminderId(String tripId) {
     return 'commute_trip_$tripId'.hashCode & 0x7fffffff;
   }
@@ -447,6 +464,7 @@ class NotificationService {
   }) async {
     await init();
     if (!when.isAfter(DateTime.now())) return;
+    final scheduleMode = await _resolveScheduleMode();
     await plugin.zonedSchedule(
       id: _commuteTripReminderId(tripId),
       title: 'Commute reminder',
@@ -459,7 +477,7 @@ class NotificationService {
           channelDescription: kChannelRemindersDesc,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       payload: 'commute_trip:$tripId',
     );
   }
@@ -472,6 +490,7 @@ class NotificationService {
     await init();
     await plugin.cancel(id: _commuteTripReminderId(tripId));
     if (when == null || !when.isAfter(DateTime.now())) return;
+    final scheduleMode = await _resolveScheduleMode();
     await plugin.zonedSchedule(
       id: _commuteTripReminderId(tripId),
       title: 'Commute reminder',
@@ -484,7 +503,7 @@ class NotificationService {
           channelDescription: kChannelRemindersDesc,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       payload: 'commute_trip:$tripId',
     );
   }

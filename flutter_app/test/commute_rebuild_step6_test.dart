@@ -184,4 +184,159 @@ void main() {
       }
     });
   });
+
+  group('Commute fallback behavior and alternatives', () {
+    test('dataset_unavailable or plannerError yields non-null fallback plan without crash', () {
+      final response = {
+        'journeyPlanning': {
+          'available': false,
+          'reason': 'dataset_unavailable',
+        },
+        'journeys': [],
+      };
+      final plan = JourneyPlan.fromResponse(response);
+      expect(plan.status, equals(JourneyPlanningStatus.datasetUnavailable));
+      expect(plan.hasJourneys, isFalse);
+    });
+
+    test('outside_network_coverage correctly captures off-network endpoints', () {
+      final response = {
+        'journeyPlanning': {
+          'available': false,
+          'reason': 'outside_network_coverage',
+          'outsideCoverage': ['origin', 'destination'],
+          'coverageRadiusKm': 5.0,
+        },
+        'journeys': [],
+      };
+      final plan = JourneyPlan.fromResponse(response);
+      expect(plan.status, equals(JourneyPlanningStatus.outsideCoverage));
+      expect(plan.outsideCoverage, contains('origin'));
+      expect(plan.outsideCoverage, contains('destination'));
+      expect(plan.coverageRadiusKm, equals(5.0));
+    });
+
+    testWidgets('renders unavailable explanation banner instead of blocking network crash', (tester) async {
+      final plan = JourneyPlan.fromResponse({
+        'journeyPlanning': {
+          'available': false,
+          'reason': 'dataset_unavailable',
+        },
+        'journeys': [],
+      });
+      await tester.pumpWidget(_wrap(JourneyPlanSection(plan: plan, hideMap: true)));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Transport network is temporarily unavailable'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('displays up to 3 alternatives in StrategyChooser and updates selection on tap', (tester) async {
+      int selectedIdx = 0;
+      final plan = JourneyPlan.fromResponse({
+        'journeyPlanning': {'available': true},
+        'journeys': [
+          {
+            'objectives': ['recommended'],
+            'category': 'recommended',
+            'origin': 'Mirpur 10',
+            'destination': 'Motijheel',
+            'totalFareTk': 50.0,
+            'totalDurationMinutes': 35,
+            'totalDistanceKm': 12.0,
+            'totalWalkKm': 0.4,
+            'transfers': 1,
+            'modeSummary': ['Metro'],
+            'fareCertainty': 'official',
+            'fareCertaintyLabel': 'Official',
+            'fareDeltaTk': 0,
+            'durationDeltaMinutes': 0,
+            'legs': [],
+          },
+          {
+            'objectives': ['cheapest'],
+            'category': 'cheapest',
+            'origin': 'Mirpur 10',
+            'destination': 'Motijheel',
+            'totalFareTk': 30.0,
+            'totalDurationMinutes': 60,
+            'totalDistanceKm': 13.0,
+            'totalWalkKm': 0.8,
+            'transfers': 0,
+            'modeSummary': ['Bus'],
+            'fareCertainty': 'official',
+            'fareCertaintyLabel': 'Official',
+            'fareDeltaTk': -20,
+            'durationDeltaMinutes': 25,
+            'legs': [],
+          },
+          {
+            'objectives': ['fastest'],
+            'category': 'fastest',
+            'origin': 'Mirpur 10',
+            'destination': 'Motijheel',
+            'totalFareTk': 60.0,
+            'totalDurationMinutes': 30,
+            'totalDistanceKm': 11.5,
+            'totalWalkKm': 0.3,
+            'transfers': 1,
+            'modeSummary': ['Metro', 'Rickshaw'],
+            'fareCertainty': 'calculated',
+            'fareCertaintyLabel': 'Calculated',
+            'fareDeltaTk': 10,
+            'durationDeltaMinutes': -5,
+            'legs': [],
+          },
+        ],
+      });
+
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            return _wrap(
+              JourneyPlanSection(
+                plan: plan,
+                selectedIndex: selectedIdx,
+                onJourneySelected: (index) {
+                  setState(() => selectedIdx = index);
+                },
+                hideMap: true,
+              ),
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Ensure all 3 options exist
+      expect(find.textContaining('Recommended'), findsWidgets);
+      expect(find.textContaining('Cheapest'), findsWidgets);
+      expect(find.textContaining('Fastest'), findsWidgets);
+
+      // Tap on the 'Cheapest' strategy option
+      await tester.tap(find.textContaining('Cheapest').first);
+      await tester.pumpAndSettle();
+
+      expect(selectedIdx, equals(1));
+    });
+
+    test('deterministic notification ID remains consistent and within 31-bit positive range', () {
+      const sampleIds = [
+        'trip_test_1',
+        'trip_mirpur_dhanmondi_2026',
+        'trip_uuid_abc_123_456_789',
+        '',
+      ];
+      for (final id in sampleIds) {
+        final nid1 = NotificationService.debugCommuteTripNotificationId(id);
+        final nid2 = NotificationService.debugCommuteTripNotificationId(id);
+        expect(nid1, equals(nid2));
+        expect(nid1, greaterThanOrEqualTo(0));
+        expect(nid1, lessThanOrEqualTo(0x7fffffff));
+      }
+    });
+  });
 }
