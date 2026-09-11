@@ -371,5 +371,51 @@ void main() {
       expect(source, isNot(contains('class _CashFlowCard')));
       expect(source, isNot(contains('class _DayDetail')));
     });
+
+    test('Category bar uses responsive layout without clipping', () {
+      expect(source, contains('ConstrainedBox('));
+      expect(source, contains('FittedBox('));
+      expect(source, contains('TextOverflow.ellipsis'));
+    });
+  });
+
+  group('Money / Expense screen contract (Step 5)', () {
+    late String expenseScreenSource;
+
+    setUpAll(() {
+      expenseScreenSource =
+          File('lib/features/life/presentation/expense/expense_screen.dart')
+              .readAsStringSync()
+              .replaceAll('\r\n', '\n');
+    });
+
+    test('ExpenseScreen exposes exactly 4 tabs: Daily, Grocery, Dena/Pawna, Overview', () {
+      expect(expenseScreenSource, contains('TabController(length: 4'));
+      expect(expenseScreenSource, contains("'Daily'"));
+      expect(expenseScreenSource, contains("'Grocery'"));
+      expect(expenseScreenSource, contains("'Dena/Pawna'"));
+      expect(expenseScreenSource, contains("'Overview'"));
+
+      expect(expenseScreenSource, isNot(contains('TabController(length: 5')));
+      expect(expenseScreenSource, isNot(contains("'History'")));
+      expect(expenseScreenSource, isNot(contains('HistoryTab')));
+    });
+
+    test('TabBarView children match exactly Daily, Grocery, DenaPawna, Overview', () {
+      expect(expenseScreenSource, contains('_DailyTab()'));
+      expect(expenseScreenSource, contains('GroceryTab()'));
+      expect(expenseScreenSource, contains('DenaPawnaTab(onChanged: _onExpenseAdded)'));
+      expect(expenseScreenSource, contains('OverviewTab(key: _overviewKey)'));
+    });
+
+    test('FAB returns null on Overview tab (index 3)', () {
+      expect(expenseScreenSource, contains('if (_tabs.index == 3) return null;'));
+    });
+
+    test('FAB provides distinct actions for other tabs', () {
+      expect(expenseScreenSource, contains('showDenaPawnaSheet'));
+      expect(expenseScreenSource, contains('showGroceryItemSheet'));
+      expect(expenseScreenSource, contains('showAddExpenseSheet'));
+    });
   });
 }

@@ -1,9 +1,64 @@
 # IMPLEMENTATION REPORT — Final UI Fixes
 
-**Branch:** `final-cleanup-release-v2`
-**Date:** 2026-09-06
+**Branch:** `gochano-ui-rebuild-v1`
+**Date:** 2026-09-11
 **API:** `https://ekthikana-api-x473.onrender.com`
-**Status:** Automated validation PASSED — backend deployed to Render (`dfd268a`)
+**Status:** Automated validation PASSED — Step 5 (Money / Expense) Complete
+
+---
+
+## STEP 5 — MONEY / EXPENSE REBUILD
+
+### Canonical target
+
+Implementation and validation were completed exclusively in `D:\Gochano_Rebuild\flutter_app`.
+
+### Scope & Structure
+
+- **Locked Bottom Navigation**: Student navigation continues to be `Today | Study | Commute | Money | Community`.
+- **Money Root**: Money root continues using the existing `ExpenseScreen` (`flutter_app/lib/features/life/presentation/expense/expense_screen.dart`).
+- **Final 4 Tabs**:
+  1. `Daily` (`_DailyTab`): Real-time stream of today's expenses from Firestore `daily_expenses`.
+  2. `Grocery` (`GroceryTab`): Bazar session checklist and items.
+  3. `Dena/Pawna` (`DenaPawnaTab`): Debt/receivable tracking with settlements and audit history.
+  4. `Overview` (`OverviewTab`): Month selector, monthly summary cards, responsive category breakdown, and daily spending bar chart.
+- **Strictly Removed / Excluded**:
+  - No `History` tab (was previously eliminated; confirmed absent).
+  - No 5th tab.
+  - No `Cash Flow` card or `Day Details` list in Overview (removed in Part 5; confirmed absent).
+
+### Financial Formulas & Ledger Invariants (Preserved Unconditionally)
+
+- All financial calculations, remaining budget formulas, and ledger sync mechanisms were kept intact and authoritative without speculative changes:
+  - `Remaining = Monthly Money - Total Spent` (adjusted with `pawnaReceived - denaPaid`).
+  - Dena/Pawna settlement and grocery transactions write single, deterministic ledger entries via `FinancialService.addDailyExpense` / `settle()`.
+  - Overview listens to `FinancialService.budgetRefreshKey` to ensure immediate updates upon any transaction, budget change, or tab switch.
+
+### UI & Layout Polishing
+
+- **Overview Category Bars**: Refactored `_CategoryBar` to be responsive using `ConstrainedBox` (`minWidth: 64, maxWidth: 104` for label, `minWidth: 56, maxWidth: 96` for value) and `FittedBox(fit: BoxFit.scaleDown)` to guarantee that Bengali labels (ক্যাটাগরি, দৈনিক, বাজার, ওষুধ, দেনা, পাওনা) and large amounts never clip on narrow screens or under font scaling.
+- **Daily Spending Chart**: Clean and visible across all screen sizes with adaptive bar heights and date ticks.
+- **Floating Action Button Behavior**:
+  - `Daily` tab -> `Add expense` FAB (`showAddExpenseSheet`).
+  - `Grocery` tab -> `Add expense` / grocery item FAB (`showGroceryItemSheet`).
+  - `Dena/Pawna` tab -> `Add record` FAB (`showDenaPawnaSheet`).
+  - `Overview` tab -> Returns `null` (no FAB floating over dashboard cards or chart).
+  - Scroll padding across all list tabs uses `GochanoSpacing.scrollBody` (`EdgeInsets.fromLTRB(md, xs, md, xxxl + xxl)`), ensuring content and FAB never overlap.
+
+### Files Modified
+
+- `flutter_app/lib/features/life/presentation/expense/expense_screen.dart`:
+  - `_buildFab()` returns `null` when `_tabs.index == 3` (Overview tab).
+- `flutter_app/lib/features/life/presentation/expense/overview_tab.dart`:
+  - `_CategoryBar` updated with responsive constraints and `FittedBox` scaling.
+- `flutter_app/test/overview_dashboard_test.dart`:
+  - Added Step 5 contract tests: 4 tabs assertion, no History/5th tab, tab-to-widget mapping, Overview null FAB assertion, distinct action triggers, and responsive layout guards.
+
+### Verification Results
+
+- `flutter analyze`: **0 issues** (clean).
+- `flutter test`: **540 / 540 tests passed** (100% pass rate).
+- Hot reload pushed to active device (`Infinix X665E`).
 
 ---
 

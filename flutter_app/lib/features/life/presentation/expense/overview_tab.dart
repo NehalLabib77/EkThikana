@@ -612,10 +612,16 @@ class _CategoryBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xxs),
       child: Row(
         children: [
-          SizedBox(
-            width: 90,
-            child: Text(label, style: type.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 64, maxWidth: 104),
+            child: Text(
+              label,
+              style: type.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          const SizedBox(width: GochanoSpacing.xs),
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
@@ -635,12 +641,16 @@ class _CategoryBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: GochanoSpacing.sm),
-          SizedBox(
-            width: 72,
-            child: Text(
-              formatTaka(value),
-              style: type.body.copyWith(fontWeight: FontWeight.w600),
-              textAlign: TextAlign.end,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 56, maxWidth: 96),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatTaka(value),
+                style: type.body.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.end,
+              ),
             ),
           ),
         ],
