@@ -289,9 +289,36 @@ void main() {
       expect(screenSource.contains('TextInputType.phone'), isTrue);
     });
 
-    test('does NOT call signInWithEmailAndPassword / EmailAuthProvider', () {
-      expect(screenSource.contains('signInWithEmailAndPassword'), isFalse);
+    test('email/password auth is confined to Developer Login', () {
+      expect(screenSource, contains('signInWithEmailAndPassword'));
+      final developerStart = screenSource.indexOf('Future<void> _developerLogin');
+      expect(developerStart, greaterThanOrEqualTo(0));
+      final developerEnd = screenSource.indexOf('\n  }', developerStart);
+      final developerBody = screenSource.substring(developerStart, developerEnd);
+      expect(developerBody, contains('signInWithEmailAndPassword'));
+      expect(developerBody, isNot(contains('checkSubscription')));
+      expect(developerBody, isNot(contains('sendOtp')));
       expect(screenSource.contains('EmailAuthProvider'), isFalse);
+    });
+
+    test('Developer Login has both release-safe debug gates', () {
+      expect(screenSource, contains('kDebugMode'));
+      expect(screenSource, contains("bool.fromEnvironment('DEV_AUTH_BYPASS'"));
+      expect(screenSource, contains("String.fromEnvironment('DEV_TEST_EMAIL')"));
+      expect(screenSource, contains("String.fromEnvironment('DEV_TEST_PASSWORD')"));
+      expect(screenSource, contains("if (_developerLoginEnabled)"));
+    });
+
+    test('Developer Login refreshes Firebase and uses profile routing', () {
+      final developerStart = screenSource.indexOf('Future<void> _developerLogin');
+      final developerEnd = screenSource.indexOf('\n  }', developerStart);
+      final developerBody = screenSource.substring(developerStart, developerEnd);
+      expect(developerBody, contains('getIdToken(true)'));
+      expect(developerBody, contains('FirestoreService.hasProfile()'));
+      expect(developerBody, contains('ProfileSetupScreen'));
+      expect(developerBody, contains('GochanoShell'));
+      expect(developerBody, isNot(contains('checkSubscription')));
+      expect(developerBody, isNot(contains('OtpVerifyScreen')));
     });
 
     test('validates the 016/018 prefix before calling the network', () {
@@ -330,6 +357,18 @@ void main() {
               'subscribed user straight to the shell.');
       expect(screenSource, contains('GochanoShell('));
       expect(screenSource, contains("role: 'student'"));
+    });
+
+    test('subscribed result exchanges before any OTP navigation', () {
+      final subscribed = screenSource.indexOf('if (result.isAlreadySubscribed)');
+      final exchange = screenSource.indexOf(
+        'exchangeSubscriptionForFirebaseSession',
+        subscribed,
+      );
+      final otp = screenSource.indexOf('OtpVerifyScreen', subscribed);
+      expect(subscribed, greaterThanOrEqualTo(0));
+      expect(exchange, greaterThan(subscribed));
+      expect(otp, greaterThan(exchange));
     });
   });
 

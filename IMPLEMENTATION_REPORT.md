@@ -7,6 +7,75 @@
 
 ---
 
+## STEP 1.5 — DEVELOPER LOGIN + AUTH ROUTING CORRECTION
+
+### Canonical target
+
+Implementation was completed only in `D:\Gochano_Rebuild\flutter_app`. The
+nested Flutter tree was not used as the active app and its auth files were not
+copied over the canonical telecom implementation.
+
+### Step 1 shell files ported
+
+- `flutter_app/lib/features/shell/presentation/gochano_shell.dart`
+- `flutter_app/lib/features/home/presentation/home_screen.dart`
+- `flutter_app/test/shell_navigation_test.dart`
+
+Student navigation is now `Today | Study | Commute | Money | Community`.
+Profile is removed from student bottom navigation and opened from Today’s
+avatar with a normal pushed route. Money reuses `ExpenseScreen`; Commute reuses
+`CommuteScreen`. The general-account shell remains unchanged.
+
+### Step 1.5 files changed
+
+- `flutter_app/lib/features/auth/presentation/login_screen.dart`
+  - Added the debug-only Developer Login path.
+  - Restored the existing `authErrorMessage` compatibility helper required by
+    the existing registration screen.
+  - Added an accessibility label to the existing login brand asset and renamed
+    its private presentation widget to satisfy the existing accessibility audit.
+- `flutter_app/test/telecom_login_test.dart`
+  - Added guards for Developer Login gating, credential isolation, Firebase
+    refresh/profile routing, and subscribed-before-OTP ordering.
+- `flutter_app/test/post_verification_auth_test.dart`
+  - Aligned assertions with the canonical telecom AuthGate token-refresh and
+    profile-resolution behavior.
+- `flutter_app/test/shell_navigation_test.dart`
+  - Added shell order, profile-entry, reused-screen, and general-shell guards.
+
+### Developer Login
+
+Developer Login is displayed only when both `kDebugMode` and
+`DEV_AUTH_BYPASS` are true. Credentials are read exclusively from
+`DEV_TEST_EMAIL` and `DEV_TEST_PASSWORD` dart-defines. It uses real
+`FirebaseAuth.signInWithEmailAndPassword`, forces `getIdToken(true)`, resolves
+the existing Firestore profile, and routes to the existing ProfileSetup or
+authenticated shell path. It does not call telecom subscription, OTP, or
+carrier exchange APIs. Credentials are not stored in this report or logs.
+
+### Subscribed-user routing correction
+
+The bug was the risk of treating a carrier subscription result as a UI shortcut
+instead of an authenticated session. The corrected path preserves the existing
+canonical branch: `REGISTERED` and `INITIAL CHARGING PENDING` skip only OTP,
+then call `exchangeSubscriptionForFirebaseSession`, sign in with the Firebase
+custom token through `enterSession`, refresh/authenticate through the existing
+profile routing, and reach Home only after secure authentication succeeds.
+OTP-required statuses continue through the existing OTP screen and exchange.
+
+### Validation
+
+- `flutter pub get`: completed previously for the canonical project.
+- `flutter analyze`: **0 issues**.
+- `flutter test`: **521 passed, 0 failed**.
+- Focused auth/shell/accessibility suite: **116 passed, 0 failed**.
+- Physical-device verification: **not performed in this environment**.
+
+No auth endpoints, OTP contracts, Firebase custom-token exchange, Logout,
+Unsubscribe, backend security, or Firestore rules were redesigned.
+
+---
+
 ## PART 17 — Monthly Money Immediate Refresh Fix
 
 **Date:** 2026-09-06

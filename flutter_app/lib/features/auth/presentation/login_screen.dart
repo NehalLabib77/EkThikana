@@ -26,6 +26,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
@@ -33,6 +35,7 @@ import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
+import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
@@ -54,6 +57,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const bool _developerLoginEnabled = kDebugMode &&
+    bool.fromEnvironment('DEV_AUTH_BYPASS', defaultValue: false);
+  static const String _developerEmail =
+    String.fromEnvironment('DEV_TEST_EMAIL');
+  static const String _developerPassword =
+    String.fromEnvironment('DEV_TEST_PASSWORD');
+
   final TextEditingController _phoneController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -196,6 +206,77 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _developerLogin() async {
+    if (!_developerLoginEnabled || _busy) return;
+    if (_developerEmail.trim().isEmpty || _developerPassword.isEmpty) {
+      _showError(
+        'Developer Login is enabled, but DEV_TEST_EMAIL or '
+        'DEV_TEST_PASSWORD is missing.',
+      );
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _busyMessage = 'Signing in as developer…';
+    });
+
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _developerEmail.trim(),
+        password: _developerPassword,
+      );
+      final user = credential.user ?? FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(code: 'missing-user');
+      }
+      await user.getIdToken(true);
+
+      final hasProfile = await FirestoreService.hasProfile();
+      if (!mounted) return;
+      if (!hasProfile) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => ProfileSetupScreen(
+              phone: user.email ?? _developerEmail.trim(),
+            ),
+          ),
+          (_) => false,
+        );
+        return;
+      }
+
+      final profile = await FirestoreService.profile();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => GochanoShell(
+            role: profile['role']?.toString() ?? 'student',
+            displayName: profile['displayName']?.toString() ??
+                user.displayName ??
+                user.email ??
+                '',
+          ),
+        ),
+        (_) => false,
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _busyMessage = null;
+      });
+      _showError(_developerAuthMessage(error.code));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _busyMessage = null;
+      });
+      _showError('Developer Login could not complete.');
+    }
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -289,7 +370,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // vertical centre: the Spacer pushes the form
                         // down so the eye lands on the logo first,
                         // then falls naturally into the phone field.
-                        _LoginHero(colors: colors, type: type),
+                        _LoginBrand(colors: colors, type: type),
                         const Spacer(),
                         AppCard(
                           child: Column(
@@ -369,6 +450,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _busy ? null : _continue,
                           icon: Icons.arrow_forward_rounded,
                         ),
+                        if (_developerLoginEnabled) ...[
+                          const SizedBox(height: GochanoSpacing.md),
+                          const Divider(),
+                          const SizedBox(height: GochanoSpacing.sm),
+                          SecondaryButton(
+                            label: 'Developer Login',
+                            onPressed: _busy ? null : _developerLogin,
+                            icon: Icons.developer_mode_outlined,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -382,12 +473,29 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+String _developerAuthMessage(String code) {
+  switch (code) {
+    case 'invalid-credential':
+    case 'wrong-password':
+    case 'user-not-found':
+      return 'Developer credentials were rejected.';
+    case 'too-many-requests':
+      return 'Too many developer sign-in attempts. Try again later.';
+    case 'user-disabled':
+      return 'The developer account is disabled.';
+    default:
+      return 'Developer Login could not complete.';
+  }
+}
+
+String authErrorMessage(Object error) => friendlyErrorMessage(error);
+
 /// Brand plate at the top of the sign-in form: rounded-square badge
 /// holding the product artwork, the product name, and a tagline. Kept
 /// as its own widget so this header can be reused by any "first-run"
 /// or "logged-out" experience that wants the same hero block.
-class _LoginHero extends StatelessWidget {
-  const _LoginHero({required this.colors, required this.type});
+class _LoginBrand extends StatelessWidget {
+  const _LoginBrand({required this.colors, required this.type});
 
   final GochanoColors colors;
   final GochanoTypography type;
@@ -410,6 +518,7 @@ class _LoginHero extends StatelessWidget {
             width: 72,
             height: 72,
             fit: BoxFit.contain,
+            semanticLabel: 'Gochano logo',
             errorBuilder: (_, _, _) => Icon(
               Icons.apps_rounded,
               size: 48,

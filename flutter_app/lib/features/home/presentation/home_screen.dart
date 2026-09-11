@@ -42,11 +42,13 @@ class HomeScreen extends StatelessWidget {
     required this.role,
     required this.displayName,
     required this.onOpenDestination,
+    required this.onOpenProfile,
   });
 
   final String role;
   final String displayName;
   final ValueChanged<int> onOpenDestination;
+  final VoidCallback onOpenProfile;
 
   bool get _isStudent => role == 'student';
 
@@ -55,9 +57,15 @@ class HomeScreen extends StatelessWidget {
     return GochanoScaffold(
       padBody: false,
       appBar: _HomeAppBar(
-        actions: const [
-          LanguageToggle(),
-          SizedBox(width: GochanoSpacing.xs),
+        onOpenProfile: onOpenProfile,
+        actions: [
+          const LanguageToggle(),
+          IconButton(
+            onPressed: onOpenProfile,
+            tooltip: GochanoLanguage.text('Profile', 'প্রোফাইল'),
+            icon: const Icon(Icons.account_circle_outlined),
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
         ],
       ),
       body: ListView(
@@ -90,9 +98,10 @@ class HomeScreen extends StatelessWidget {
 
 /// Custom AppBar for Home screen showing [circular avatar] DisplayName.
 class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _HomeAppBar({this.actions});
+  const _HomeAppBar({this.actions, required this.onOpenProfile});
 
   final List<Widget>? actions;
+  final VoidCallback onOpenProfile;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);

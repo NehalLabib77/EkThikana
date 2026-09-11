@@ -213,24 +213,25 @@ void main() {
               'force-refresh and avoid re-firing on every stream tick.');
     });
 
-    test('calls forceRefreshIdToken before mounting GochanoShell', () {
-      expect(source, contains('AuthService.forceRefreshIdToken()'),
-          reason: 'AuthGate must invalidate the cached JWT exactly on the '
-              'verification-flip transition, before any Firestore rules '
-              'check from Home.');
+        test('refreshes the Firebase token before profile routing', () {
+            expect(source, contains('current.getIdToken(true)'),
+                    reason: 'AuthGate must refresh the telecom custom-token claims '
+                            'before checking the profile or mounting GochanoShell.');
       final gochanoIndex = source.indexOf('GochanoShell(');
       expect(gochanoIndex, greaterThanOrEqualTo(0));
-      final refreshIndex = source.indexOf('forceRefreshIdToken()');
+            final refreshIndex = source.indexOf('current.getIdToken(true)');
       expect(refreshIndex, lessThan(gochanoIndex),
           reason: 'The force-refresh must run before GochanoShell is '
               'returned, so the very first Home Firestore read sees a '
               'fresh token.');
     });
 
-    test('uses ensureProfile in the missing-profile retry path', () {
-      expect(source, contains('AuthService.ensureProfile()'),
-          reason: 'When users/{uid} is missing, AuthGate must try to '
-              'repair it before asking the user to re-register.');
+    test('uses the existing profile-resolution path', () {
+      expect(source, contains('FirestoreService.hasProfile()'),
+          reason: 'AuthGate must resolve the existing profile before '
+              'mounting GochanoShell or ProfileSetup.');
+      expect(source, contains('ProfileSetupScreen'),
+          reason: 'Missing profiles must preserve the existing setup flow.');
     });
   });
 }

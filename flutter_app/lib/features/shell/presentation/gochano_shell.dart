@@ -20,9 +20,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../../core/page_route.dart';
 import '../../community/presentation/community_screen.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../life/presentation/life_screen.dart';
+import '../../life/presentation/commute/commute_screen.dart';
+import '../../life/presentation/expense/expense_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../study/presentation/study_screen.dart';
 import '../../tasks/presentation/tasks_screen.dart';
@@ -69,11 +72,14 @@ class _GochanoShellState extends State<GochanoShell> {
           role: widget.role,
           displayName: widget.displayName,
           onOpenDestination: _select,
+          onOpenProfile: () => Navigator.of(context).push(
+            GochanoRoute.to(builder: (_) => ProfileScreen(role: widget.role)),
+          ),
         ),
-        StudyScreen(),
-        LifeScreen(),
-        CommunityScreen(),
-        ProfileScreen(role: widget.role),
+        const StudyScreen(),
+        const CommuteScreen(),
+        const ExpenseScreen(),
+        const CommunityScreen(),
       ];
     }
 
@@ -82,9 +88,12 @@ class _GochanoShellState extends State<GochanoShell> {
         role: widget.role,
         displayName: widget.displayName,
         onOpenDestination: _select,
+        onOpenProfile: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => ProfileScreen(role: widget.role)),
+        ),
       ),
-      LifeScreen(),
-      TasksScreen(),
+      const LifeScreen(),
+      const TasksScreen(),
       ProfileScreen(role: widget.role),
     ];
   }
@@ -95,7 +104,7 @@ class _GochanoShellState extends State<GochanoShell> {
     if (_isStudent) {
       return [
         _Destination(
-          label: GochanoLanguage.text('Home', 'হোম'),
+          label: GochanoLanguage.text('Today', 'আজ'),
           icon: Icons.home_outlined,
           selectedIcon: Icons.home_rounded,
         ),
@@ -105,19 +114,19 @@ class _GochanoShellState extends State<GochanoShell> {
           selectedIcon: Icons.menu_book_rounded,
         ),
         _Destination(
-          label: GochanoLanguage.text('Life', 'জীবন'),
-          icon: Icons.favorite_outline_rounded,
-          selectedIcon: Icons.favorite_rounded,
+          label: GochanoLanguage.text('Commute', 'যাতায়াত'),
+          icon: Icons.directions_transit_outlined,
+          selectedIcon: Icons.directions_transit_rounded,
+        ),
+        _Destination(
+          label: GochanoLanguage.text('Money', 'টাকা'),
+          icon: Icons.account_balance_wallet_outlined,
+          selectedIcon: Icons.account_balance_wallet_rounded,
         ),
         _Destination(
           label: GochanoLanguage.text('Community', 'কমিউনিটি'),
           icon: Icons.groups_outlined,
           selectedIcon: Icons.groups_rounded,
-        ),
-        _Destination(
-          label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-          icon: Icons.person_outline_rounded,
-          selectedIcon: Icons.person_rounded,
         ),
       ];
     }
