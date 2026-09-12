@@ -7,6 +7,74 @@
 
 ---
 
+## Profile Setup Simplification — Name + Student Only
+
+**Date:** 2026-09-12
+**Branch:** `gochano-ui-rebuild-v1`
+**Starting Checkpoint:** `10a8c05`
+
+### Summary
+
+Simplified the Profile Setup screen to contain only:
+1. **Full Name** — editable, required, the only input field
+2. **Account type** — fixed as "Student", display-only, not editable
+
+The verified phone number is no longer displayed as a visible input field or form row, but remains internally persisted to Firestore.
+
+### Changes Made
+
+| File | Change |
+|---|---|
+| `flutter_app/lib/features/auth/presentation/profile_setup_screen.dart` | Removed phone AppCard (was read-only TextFormField with phone number); replaced Role AppCard with Account type fixed display (Row with Icon + Text, no TextFormField); updated BN translations (`পূর্ণ নাম`, `অ্যাকাউন্টের ধরন`, `শিক্ষার্থী`) |
+| `flutter_app/test/profile_setup_test.dart` | **NEW** — 28 tests across 4 groups covering UI shape, Firestore write semantics, bilingual support, and error/loading behavior |
+
+### Data Invariants Preserved
+
+- `widget.phone` constructor parameter retained — passed internally for Firestore write
+- `users/{uid}` document still receives:
+  - `displayName`: user-entered name
+  - `phone`: verified telecom phone (from `widget.phone`)
+  - `role`: `"student"`
+- `SetOptions(merge: true)` preserved — idempotent write
+- `FirestoreService.profile()` called after save to refresh state
+- `GochanoShell(role: 'student', displayName: name)` navigation preserved
+
+### What Was NOT Changed
+
+- Login flow
+- OTP flow
+- AuthGate routing
+- Telecom subscription checking
+- TEMPORARY BLOCKED handling
+- Firebase custom-token exchange
+- Logout / Unsubscribe
+- Carrier endpoints
+- Robi/Cirkle mapping
+- Firestore rules
+- All other app features
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **No issues found!** (ran in 4.4s) |
+| Focused tests (`flutter test test/profile_setup_test.dart`) | **28/28 passed** |
+| Full `flutter test` suite | **608/608 passed** (was 580 baseline) |
+| `git diff --check` | **No output** (clean) |
+
+### UI Change Summary
+
+**Before:**
+- Full Name (editable TextFormField)
+- Phone number (read-only TextFormField showing verified number)
+- Role (read-only TextFormField showing "Student")
+
+**After:**
+- Full Name (editable TextFormField)
+- Account type: Student (display-only Row with school icon + text label)
+
+---
+
 ## Physical Device Auth Bug — TEMPORARY BLOCKED Routing Fix
 
 ### 1. Observed Real-Device Log
@@ -3321,3 +3389,17 @@ On real-device testing, toggling language between English and বাংলা pr
 6. `flutter analyze lib/ test/language_reactivity_test.dart` -> **No issues found! (0 warnings, 0 errors)**
 7. Runtime error audit via DTD -> **0 runtime errors**
 8. Real device hot reload (`Infinix X665E`) -> **Success**
+### Real-Device TEMPORARY BLOCKED Verification
+
+Tested on Infinix X665E.
+
+Observed after the fix:
+- Carrier status parsed as `TelecomSubscriptionStatus.temporaryBlocked`
+- `shouldEnterApp=false`
+- `rawStatus="TEMPORARY BLOCKED"`
+- Login remained on the Login screen
+- OTP screen was not opened
+- `sendOtp` was not invoked
+- User was not admitted into the app
+
+Result: PASS

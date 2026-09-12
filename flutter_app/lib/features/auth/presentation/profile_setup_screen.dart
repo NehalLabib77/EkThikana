@@ -169,7 +169,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               Text(
                                 GochanoLanguage.text(
                                   'Full name',
-                                  'পুরো নাম',
+                                  'পূর্ণ নাম',
                                 ),
                                 style: type.cardHeading.copyWith(
                                   color: colors.textPrimary,
@@ -207,62 +207,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             children: [
                               Text(
                                 GochanoLanguage.text(
-                                  'Phone number',
-                                  'ফোন নম্বর',
+                                  'Account type',
+                                  'অ্যাকাউন্টের ধরন',
                                 ),
                                 style: type.cardHeading.copyWith(
                                   color: colors.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: GochanoSpacing.sm),
-                              TextFormField(
-                                initialValue: widget.phone,
-                                readOnly: true,
-                                style: const TextStyle(
-                                  fontFamily: '.SF Pro Text',
-                                  fontFamilyFallback: ['Roboto', 'sans-serif'],
-                                  letterSpacing: 1.2,
-                                  fontSize: 16,
-                                ),
-                                decoration: InputDecoration(
-                                  prefixIcon: Icon(
-                                    Icons.phone_outlined,
-                                    color: colors.textSecondary,
-                                    size: GochanoSizes.iconSm,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: GochanoSpacing.md),
-                        AppCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                GochanoLanguage.text(
-                                  'Role',
-                                  'ভূমিকা',
-                                ),
-                                style: type.cardHeading.copyWith(
-                                  color: colors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: GochanoSpacing.sm),
-                              TextFormField(
-                                initialValue: GochanoLanguage.text(
-                                  'Student',
-                                  'ছাত্র',
-                                ),
-                                readOnly: true,
-                                decoration: InputDecoration(
-                                  prefixIcon: Icon(
+                              Row(
+                                children: [
+                                  Icon(
                                     Icons.school_outlined,
                                     color: colors.textSecondary,
                                     size: GochanoSizes.iconSm,
                                   ),
-                                ),
+                                  const SizedBox(width: GochanoSpacing.sm),
+                                  Text(
+                                    GochanoLanguage.text(
+                                      'Student',
+                                      'শিক্ষার্থী',
+                                    ),
+                                    style: type.body.copyWith(
+                                      color: colors.textPrimary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
