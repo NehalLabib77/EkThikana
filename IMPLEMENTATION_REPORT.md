@@ -3,8 +3,116 @@
 **Branch:** `gochano-ui-rebuild-v1`
 **Date:** 2026-09-12
 **API:** `https://ekthikana-api-x473.onrender.com`
-**Status:** Automated validation PASSED — Step 7 (Community + Chat) Complete
-**Status:** Automated validation PASSED — Step 8 (Final Stabilization / Full Regression) Complete
+**Status:** Automated release audit PASSED — Manual Android regression pending
+
+---
+
+## FINAL RELEASE CLOSURE AUDIT
+
+### 1. Canonical Audit Baseline
+- **Project Root**: `D:\Gochano_Rebuild`
+- **Flutter App**: `D:\Gochano_Rebuild\flutter_app`
+- **Backend**: `D:\Gochano_Rebuild\backend`
+- **Branch**: `gochano-ui-rebuild-v1`
+- **Starting Checkpoint**: `938fd9b` (`fix: stabilize database settings cache for test isolation`)
+- **Repository State at Audit Start**: Source working tree was clean at checkpoint 938fd9b. IMPLEMENTATION_REPORT.md became modified only by this release-closure audit documentation.
+
+### 2. Repository & Working Tree State
+- **Branch**: `gochano-ui-rebuild-v1`
+- **HEAD Commit**: `938fd9b`
+- **Nested Repositories**: None (`.git` tracked files audited; zero nested `.git` repositories).
+- **Tracked `.venv` / Build Artifacts**: None. Build folders (`build/`, `.gradle/`, `.dart_tool/`, `backend/.venv/`) are properly ignored in `.gitignore`.
+- **Untracked Archives & Temp Dumps**: Checked `git status --ignored`; zip files and local cache folders remain strictly gitignored.
+
+### 3. Secret & Environment Audit
+- **Tracked Code Search**: Audited tracked files across repo for `BEGIN PRIVATE KEY`, raw RSA/EC private keys, service account JSON secrets, or hardcoded passwords.
+- **Tracked Findings**: Zero exposed credentials or secrets committed in tracked files.
+- **Firebase Service Account Status**:
+  - The previously exposed service account credential is treated as compromised.
+  - Release runtime strictly consumes `FIREBASE_SERVICE_ACCOUNT_B64` via environment variable at startup (`app.core.firebase`), which must be configured with the freshly rotated credential. No service account keys are stored in repo code.
+- **Client Defines**: Flutter only references `DEV_TEST_PASSWORD` as a `--dart-define` key name in `login_screen.dart` (and its verification tests), never hardcoding values.
+
+### 4. Production Configuration & Services Audit
+- **Intended Services**:
+  - Backend API: `https://ekthikana-api-x473.onrender.com`
+  - AI Provider: Groq primary (`qwen/qwen3.8-27b`), Gemini fallback (`gemini-2.5-flash`)
+  - Storage: Backblaze B2 (S3-compatible API) via `b2_bucket_name`, `b2_endpoint_url`, `b2_region`, `b2_key_id`, `b2_application_key`
+  - Database: Neon PostgreSQL + PostGIS via `database_url`
+  - Auth/DB/Push: Firebase Auth, Firestore, FCM
+- **Active Environment References Required**:
+  - `APP_ENV=production`
+  - `FIREBASE_PROJECT_ID`
+  - `FIREBASE_SERVICE_ACCOUNT_B64` (rotated credential)
+  - `DATABASE_URL` (Neon PostgreSQL connection string)
+  - `GROQ_API_KEY`, `GROQ_MODEL`
+  - `GEMINI_API_KEY`, `GEMINI_MODEL`
+  - `B2_BUCKET_NAME`, `B2_ENDPOINT_URL`, `B2_REGION`, `B2_KEY_ID`, `B2_APPLICATION_KEY`
+  - `MAX_UPLOAD_MB` (15), `USER_STORAGE_LIMIT_MB` (100), `UPLOAD_DAILY_LIMIT` (10), `AI_DAILY_LIMIT` (30), `SIGNED_URL_TTL_SECONDS` (900)
+- **Obsolete Config Residue**:
+  - `OPENCODE_*` and `CLOUDINARY_*`: 0 references in backend code.
+  - `SUPABASE_*`: No active imports or dependencies in `app/`. Only appears in historical migration scripts (`import_commutebd_to_supabase.py`) and optional fields in `Settings` for backward compatibility.
+
+### 5. Firestore Rules & Indexes Audit
+- **Local Rules (`firebase/firestore.rules`)**:
+  - Fully implements role verification (`isStudent`), user document isolation (`users/{uid}`), and owner isolation (`ownedCreate`, `ownedReadDelete`, `ownedUpdate`) for `tasks`, `medicines`, `medicine_doses`, `bazar_items`, `daily_expenses`, `commute_trips`, `planned_commute_trips`, `financial_transactions`, and `dena_pawna_items`.
+  - Group and project subcollections enforce strict `isGroupMember` and `isGroupAdmin` checks.
+  - Group messages enforce student authentication, active group membership, and `groupHasChatEnabled`.
+  - Backend-only collections (`materials`, `ai_usage`, `upload_usage`, `reports`) strictly deny client writes (`allow create, update, delete: if false`).
+- **Indexes (`firebase/firestore.indexes.json`)**:
+  - Defines compound query indexes for `materials`, `notes`, `groups`, `financial_transactions`, `bazar_items`, `medicine_doses`, `group_messages`, and `dena_pawna_items`.
+- **Pre-Release Deployment Requirement**:
+  - Production requires deploying updated rules and indexes when authorized:
+    - `firebase deploy --only firestore:rules`
+    - `firebase deploy --only firestore:indexes`
+
+### 6. Backend Production Audit
+- **FastAPI Routers**: Cleanly registered in `app/main.py` with proper prefixes (`/api/auth`, `/api/profile`, `/api/materials`, `/api/notes`, `/api/study`, `/api/ai`, `/api/groups`, `/api/commute`, `/api/storage`, `/api/health`).
+- **Community Chat & Reactions**:
+  - Endpoint: `POST /api/groups/{group_id}/chat/{message_id}/react` with body `{"emoji": "..."}`.
+  - Transactional update on message `reactions` map prevents lost updates.
+  - Strict emoji allow-list (`👍`, `❤️`, `💡`, `🔥`, `👏`, `🤔`).
+- **Commute Routing**: OSRM polyline and routing fallback with PostgreSQL repository.
+- **Production DB Safety**: In `connection.py`, `_build_engine()` explicitly raises `DatabaseConfigError` if `APP_ENV=production` and `DATABASE_URL` is empty. Engine reset cache clear protects test isolation without affecting production runtime.
+- **Auth Hard Lock**: Zero modifications to telecom authentication, OTP, token exchange, or profile resolution endpoints.
+
+### 7. Flutter Release Config Audit
+- **Package / Application ID**: `com.ekthikana.ekthikana` (retained for Firebase project compatibility).
+- **SDK Compatibility**: `compileSdk = 36`, `minSdk = 24`, `targetSdk = flutter.targetSdkVersion` (API 34/35 compatible).
+- **Icons & Branding**: Standard `@mipmap/ic_launcher` and `@mipmap/ic_launcher_round` configured in Android manifest.
+- **Notification Permissions & Receivers**:
+  - `POST_NOTIFICATIONS` declared.
+  - `RECEIVE_BOOT_COMPLETED`, `ScheduledNotificationReceiver`, and `ScheduledNotificationBootReceiver` declared for reboot recovery.
+  - `SCHEDULE_EXACT_ALARM`: Handled dynamically; safe capability check (`canScheduleExactNotifications()`) falls back to `inexactAllowWhileIdle` without crashing.
+  - Dangerous permission `USE_EXACT_ALARM` is NOT declared.
+- **Build / Signing**: `app/build.gradle.kts` enforces release signing verification against `key.properties`.
+- **Gradle Warning**: Kotlin Gradle Plugin deprecation warning for `usage_stats` plugin is a non-blocking build-time warning and not a release blocker.
+
+### 8. Reminder System Audit
+- **Single Engine**: All reminders routed strictly through centralized `NotificationService`.
+- **Audited Notification Flows**:
+  - Medicine: `scheduleDailyMedicine` with `kChannelMedicineId` (`ekthikana_medicine`), `Taken` and `Skip` actions, daily recurring time component.
+  - Tasks & Community Tasks: `scheduleTask`, `rescheduleTask`, `scheduleCommunityTaskReminder`.
+  - Commute Planned Trips: `scheduleCommuteTripReminder`, `rescheduleCommuteTripReminder` using stable 31-bit FNV-1a hash of trip ID.
+- **Channels**: Categorized as `reminder` with vibration and sound.
+- **Resilience**: Zero reliance on in-memory Dart Timers for persistence.
+
+### 9. Automated Release Validation Metrics
+- **`flutter analyze`**:
+  - Result: `No issues found! (ran in 11.6s)` (0 errors, 0 warnings, 0 lints).
+- **`flutter test`**:
+  - Result: `All tests passed! (574 / 574 passed)`.
+- **Backend `pytest`**:
+  - Result: `442 passed, 1 warning in 21.80s` (100% pass across 442 tests).
+
+### 10. Physical Device Regression
+- **Device Status**: `Infinix X665E` (Android 11) is offline/disconnected (`adb devices` reports empty device list).
+- **Verification Note**: Desktop (`windows-x64`) and Web targets available; automated unit and widget test suites (574 tests) run cleanly under simulated Android platform conditions. No simulated or manual hardware sign-off is falsely reported.
+
+### 11. Remaining Deployment Actions (When Authorized)
+1. Deploy Firestore Security Rules: `firebase deploy --only firestore:rules`
+2. Deploy Firestore Compound Indexes: `firebase deploy --only firestore:indexes`
+3. Configure Backend Environment in Render dashboard: Ensure rotated `FIREBASE_SERVICE_ACCOUNT_B64`, `DATABASE_URL`, `GROQ_API_KEY`, `B2_*`, and `APP_ENV=production` are populated.
+4. When authorized, build signed release APK: `flutter build apk --release --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com`.
 
 ---
 
