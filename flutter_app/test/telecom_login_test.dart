@@ -98,6 +98,15 @@ void main() {
       expect(r.shouldEnterApp, isFalse);
       expect(r.status, TelecomSubscriptionStatus.notSubscribed);
     });
+
+    test('temporaryBlocked result does not enter app and flags blocked', () {
+      const r = TelecomSubscriptionResult.temporaryBlocked;
+      expect(r.shouldEnterApp, isFalse);
+      expect(r.isAlreadySubscribed, isFalse);
+      expect(r.isTemporarilyBlocked, isTrue);
+      expect(r.status, TelecomSubscriptionStatus.temporaryBlocked);
+      expect(r.rawStatus, 'TEMPORARY BLOCKED');
+    });
   });
 
   group('Subscription-status parser handles every reasonable alias', () {
@@ -160,10 +169,41 @@ void main() {
       },
     );
     test('"NOT SUBSCRIBED" still requires OTP', () {
-      expect(
-        r('{"subscriptionStatus":"NOT SUBSCRIBED"}').shouldEnterApp,
-        isFalse,
-      );
+      final res = r('{"subscriptionStatus":"NOT SUBSCRIBED"}');
+      expect(res.shouldEnterApp, isFalse);
+      expect(res.status, TelecomSubscriptionStatus.notSubscribed);
+    });
+    test('"UNREGISTERED" requires OTP', () {
+      final res = r('{"subscriptionStatus":"UNREGISTERED"}');
+      expect(res.shouldEnterApp, isFalse);
+      expect(res.status, TelecomSubscriptionStatus.notSubscribed);
+    });
+    test(
+      '"TEMPORARY BLOCKED" parses as temporaryBlocked without app entry',
+      () {
+        final res = r('{"subscriptionStatus":"TEMPORARY BLOCKED"}');
+        expect(res.shouldEnterApp, isFalse);
+        expect(res.isAlreadySubscribed, isFalse);
+        expect(res.isTemporarilyBlocked, isTrue);
+        expect(res.status, TelecomSubscriptionStatus.temporaryBlocked);
+        expect(res.rawStatus, 'TEMPORARY BLOCKED');
+      },
+    );
+    test(
+      '"Temporary_Blocked" (underscored/case) parses as temporaryBlocked',
+      () {
+        final res = r('{"subscriptionStatus":"Temporary_Blocked"}');
+        expect(res.shouldEnterApp, isFalse);
+        expect(res.isTemporarilyBlocked, isTrue);
+        expect(res.status, TelecomSubscriptionStatus.temporaryBlocked);
+        expect(res.rawStatus, 'TEMPORARY BLOCKED');
+      },
+    );
+    test('unknown status remains fail-safe and does not enter app', () {
+      final res = r('{"subscriptionStatus":"SOME_RANDOM_UNKNOWN_STATUS"}');
+      expect(res.shouldEnterApp, isFalse);
+      expect(res.isAlreadySubscribed, isFalse);
+      expect(res.isTemporarilyBlocked, isFalse);
     });
     test('empty body still requires OTP (safe default)', () {
       expect(r('').shouldEnterApp, isFalse);
@@ -420,6 +460,18 @@ void main() {
       expect(exchange, greaterThan(subscribed));
       expect(otp, greaterThan(exchange));
     });
+
+    test(
+      'TEMPORARY BLOCKED branches before OTP navigation without calling sendOtp',
+      () {
+        final blocked = screenSource.indexOf('result.isTemporarilyBlocked');
+        final otp = screenSource.indexOf('OtpVerifyScreen', blocked);
+        expect(blocked, greaterThanOrEqualTo(0));
+        expect(otp, greaterThan(blocked));
+        expect(screenSource, contains('temporarily blocked'));
+        expect(screenSource, contains('সাময়িকভাবে বন্ধ'));
+      },
+    );
   });
 
   group('OtpVerifyScreen structural checks', () {

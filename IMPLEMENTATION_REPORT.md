@@ -7,6 +7,44 @@
 
 ---
 
+## Physical Device Auth Bug — TEMPORARY BLOCKED Routing Fix
+
+### 1. Observed Real-Device Log
+During real-device regression on Infinix X665E, checking subscription for a registered carrier number returned:
+```text
+[TelecomAuth] checkSubscription: phone="..."
+[TelecomAuth] checkSubscription: subscriptionStatus="TEMPORARY BLOCKED"
+[TelecomAuth] branch: "TEMPORARY BLOCKED" → OTP required
+[TelecomAuth] checkSubscription result: status=TelecomSubscriptionStatus.notSubscribed, shouldEnterApp=false, rawStatus=""
+[LoginScreen] branch: SEND_OTP → navigate to OTP screen
+```
+On the OTP path, `send_otp.php` reported that the user is already registered (E1351).
+
+### 2. Root Cause
+`_parseSubscriptionResponse()` in `TelecomAuthService` only checked for `REGISTERED` and `INITIAL CHARGING PENDING`, collapsing every other carrier status (including `TEMPORARY BLOCKED`) into `TelecomSubscriptionResult.notSubscribed` with an empty `rawStatus`. Consequently, `LoginScreen` routed this account into the new-user OTP enrollment flow, which failed on `send_otp.php` because the user is already registered with the carrier.
+
+### 3. Exact Behavior Change
+- Added `TelecomSubscriptionStatus.temporaryBlocked` to enum.
+- Added `isTemporarilyBlocked` semantic getter and `temporaryBlocked` result preset with `shouldEnterApp: false` and `rawStatus: 'TEMPORARY BLOCKED'`.
+- Updated `_parseSubscriptionResponse()` to recognize `TEMPORARY BLOCKED`, returning `TelecomSubscriptionResult.temporaryBlocked` with preserved `rawStatus: 'TEMPORARY BLOCKED'`.
+- Updated `LoginScreen._continue()`: When `result.isTemporarilyBlocked` is true, the app stops progress, remains on Login, does NOT navigate to `OtpVerifyScreen`, does NOT call `send_otp.php`, and shows a localized error message:
+  - **EN**: `"Your subscription is temporarily blocked. Please restore or reactivate your subscription, then try again."`
+  - **BN**: `"আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে। সাবস্ক্রিপশন পুনরায় সক্রিয় করে আবার চেষ্টা করুন।"`
+- Carrier verification and Firebase exchange are NOT bypassed: `shouldEnterApp` remains strictly `false`.
+
+### 4. Files Changed
+- `flutter_app/lib/core/services/telecom_auth_service.dart`
+- `flutter_app/lib/features/auth/presentation/login_screen.dart`
+- `flutter_app/test/telecom_login_test.dart`
+- `IMPLEMENTATION_REPORT.md`
+
+### 5. Test Results
+- Focused tests (`flutter test test/telecom_login_test.dart`): 67 / 67 passed (including 6 new regression tests).
+- Full Flutter test suite (`flutter test`): 580 / 580 passed (was 574).
+- Static analysis (`flutter analyze`): 0 issues found.
+
+---
+
 ## FINAL RELEASE CLOSURE AUDIT
 
 ### 1. Canonical Audit Baseline

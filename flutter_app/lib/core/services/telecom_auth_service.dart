@@ -74,6 +74,7 @@ enum TelecomSubscriptionStatus {
   initialChargingPending,
   notSubscribed,
   alreadyRegistered,
+  temporaryBlocked,
   unknown,
 }
 
@@ -102,6 +103,11 @@ class TelecomSubscriptionResult {
   /// step, per spec §3. Equivalent to [shouldEnterApp] today but named
   /// so call sites read as their intent rather than as a flag.
   bool get isAlreadySubscribed => shouldEnterApp;
+
+  /// True when the user's subscription is in a TEMPORARY BLOCKED state.
+  /// The user must not enter the app and must not be routed to OTP enrollment.
+  bool get isTemporarilyBlocked =>
+      status == TelecomSubscriptionStatus.temporaryBlocked;
 
   /// The raw subscriptionStatus field as the backend returned it,
   /// normalised with trim() + toUpperCase(). Empty when no field was
@@ -140,6 +146,14 @@ class TelecomSubscriptionResult {
     status: TelecomSubscriptionStatus.alreadyRegistered,
     shouldEnterApp: false,
     rawStatus: 'ALREADY REGISTERED',
+  );
+
+  /// The carrier reports TEMPORARY BLOCKED. The account is registered with the
+  /// carrier but suspended/blocked. Must NOT route to OTP or enter app.
+  static const temporaryBlocked = TelecomSubscriptionResult(
+    status: TelecomSubscriptionStatus.temporaryBlocked,
+    shouldEnterApp: false,
+    rawStatus: 'TEMPORARY BLOCKED',
   );
 }
 
@@ -379,6 +393,13 @@ class TelecomAuthService {
         '[TelecomAuth] branch: INITIAL_CHARGING_PENDING → skip OTP, enter app',
       );
       return TelecomSubscriptionResult.initialChargingPending;
+    }
+    if (normalized == 'TEMPORARY BLOCKED' ||
+        normalized.contains('TEMPORARY BLOCKED')) {
+      debugPrint(
+        '[TelecomAuth] branch: TEMPORARY_BLOCKED → block login, no OTP, no app entry',
+      );
+      return TelecomSubscriptionResult.temporaryBlocked;
     }
 
     // NOT SUBSCRIBED / UNREGISTERED / any other state → OTP required.
@@ -951,13 +972,17 @@ class TelecomAuthService {
     }
 
     final uri = Uri.parse('$backendBaseUrl/v1/auth/telecom/exchange');
-    debugPrint('[TelecomAuth] exchangeSubscription: url=$uri, phone=$cleanPhone');
+    debugPrint(
+      '[TelecomAuth] exchangeSubscription: url=$uri, phone=$cleanPhone',
+    );
     final response = await _safeJsonPost(uri, {
       'phone': cleanPhone,
       'already_subscribed': true,
       'subscription_status': subscriptionStatus,
     }, exchangeTimeout);
-    debugPrint('[TelecomAuth] exchangeSubscription: status=${response.statusCode}');
+    debugPrint(
+      '[TelecomAuth] exchangeSubscription: status=${response.statusCode}',
+    );
 
     return _parseExchangeResponse(response.body, phone: cleanPhone);
   }
@@ -966,7 +991,9 @@ class TelecomAuthService {
     String body, {
     required String phone,
   }) {
-    debugPrint('[TelecomAuth] _parseExchangeResponse: body length=${body.length}');
+    debugPrint(
+      '[TelecomAuth] _parseExchangeResponse: body length=${body.length}',
+    );
     Map<String, dynamic> decoded;
     try {
       final value = json.decode(body);
@@ -1124,8 +1151,9 @@ class TelecomAuthService {
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       debugPrint(
-          '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri '
-          'body=${response.body.length > 200 ? "${response.body.substring(0, 200)}..." : response.body}');
+        '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri '
+        'body=${response.body.length > 200 ? "${response.body.substring(0, 200)}..." : response.body}',
+      );
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Server is not responding. Please try again in a moment.',

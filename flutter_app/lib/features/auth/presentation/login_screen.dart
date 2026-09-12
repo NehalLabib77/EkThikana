@@ -199,6 +199,22 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    if (result.isTemporarilyBlocked) {
+      debugPrint(
+        '[LoginScreen] branch: TEMPORARY_BLOCKED → show error, remain on Login',
+      );
+      if (mounted) {
+        setState(() => _busy = false);
+        _showError(
+          GochanoLanguage.text(
+            'Your subscription is temporarily blocked. Please restore or reactivate your subscription, then try again.',
+            'আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে। সাবস্ক্রিপশন পুনরায় সক্রিয় করে আবার চেষ্টা করুন।',
+          ),
+        );
+      }
+      return;
+    }
+
     // Not subscribed yet — drop into the OTP screen.
     debugPrint('[LoginScreen] branch: SEND_OTP → navigate to OTP screen');
     if (mounted) setState(() => _busy = false);
