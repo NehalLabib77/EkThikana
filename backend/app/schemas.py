@@ -109,6 +109,10 @@ class GroupChatMessageRequest(_CamelModel):
     attachment_size: int | None = Field(default=None, ge=0, le=50_000_000)
 
 
+class GroupChatReactionRequest(_CamelModel):
+    emoji: str = Field(min_length=1, max_length=16)
+
+
 class OfflineRegisterRequest(_CamelModel):
     material_id: str = Field(min_length=1, max_length=120)
     title: str = Field(default="", max_length=200)

@@ -27,6 +27,66 @@ import '../../../services/firestore_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 
+/// Community study sticker definition.
+class CommunitySticker {
+  const CommunitySticker({
+    required this.id,
+    required this.titleEn,
+    required this.titleBn,
+    required this.artId,
+  });
+
+  final String id;
+  final String titleEn;
+  final String titleBn;
+  final String artId;
+
+  String get title => GochanoLanguage.text(titleEn, titleBn);
+}
+
+/// Curated catalogue of academic stickers with zero gamification dependencies.
+const List<CommunitySticker> kCommunityStickers = [
+  CommunitySticker(
+    id: 'study_time',
+    titleEn: 'Study Time',
+    titleBn: 'পড়ার সময়',
+    artId: GochanoArt.featureStudy,
+  ),
+  CommunitySticker(
+    id: 'exam_prep',
+    titleEn: 'Exam Ready',
+    titleBn: 'পরীক্ষার প্রস্তুতি',
+    artId: GochanoArt.subjectSoftwareEngineering,
+  ),
+  CommunitySticker(
+    id: 'group_work',
+    titleEn: 'Group Work',
+    titleBn: 'দলগত কাজ',
+    artId: GochanoArt.featureGroups,
+  ),
+  CommunitySticker(
+    id: 'notes_ready',
+    titleEn: 'Notes Ready',
+    titleBn: 'নোট প্রস্তুত',
+    artId: GochanoArt.featureCalendar,
+  ),
+  CommunitySticker(
+    id: 'ai_help',
+    titleEn: 'Need Help',
+    titleBn: 'সাহায্য দরকার',
+    artId: GochanoArt.featureAi,
+  ),
+  CommunitySticker(
+    id: 'celebrate',
+    titleEn: 'Well Done!',
+    titleBn: 'দারুণ কাজ!',
+    artId: GochanoArt.featureFocus,
+  ),
+];
+
+/// Curated standard reaction emojis supported in chat.
+const List<String> kCommunityReactions = ['👍', '❤️', '💡', '🔥', '👏', '🤔'];
+
 class GroupChatView extends StatefulWidget {
   const GroupChatView({
     super.key,
@@ -51,6 +111,7 @@ class _GroupChatViewState extends State<GroupChatView> {
   bool _loading = true;
   bool _sending = false;
   String _error = '';
+  bool _showStickerDrawer = false;
 
   @override
   void initState() {
@@ -61,8 +122,17 @@ class _GroupChatViewState extends State<GroupChatView> {
   @override
   void didUpdateWidget(covariant GroupChatView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // An admin turning chat on should not require leaving and re-entering.
-    if (!oldWidget.chatEnabled && widget.chatEnabled) _load();
+    if (widget.chatEnabled != oldWidget.chatEnabled) {
+      if (widget.chatEnabled) {
+        _load();
+      } else {
+        setState(() {
+          _messages = const [];
+          _loading = false;
+          _showStickerDrawer = false;
+        });
+      }
+    }
   }
 
   @override
@@ -73,9 +143,6 @@ class _GroupChatViewState extends State<GroupChatView> {
   }
 
   Future<void> _load() async {
-    // Only show the full-screen loading spinner on the very first load.
-    // Subsequent refreshes (pull-to-refresh, after send) keep the existing
-    // message list visible so the chat never feels like it is reloading.
     if (_messages.isEmpty) {
       setState(() {
         _loading = true;
@@ -89,7 +156,6 @@ class _GroupChatViewState extends State<GroupChatView> {
           .whereType<Map>()
           .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
           .toList()
-          // The API returns newest first; a conversation reads oldest first.
           .reversed
           .toList();
       setState(() {
@@ -110,8 +176,6 @@ class _GroupChatViewState extends State<GroupChatView> {
     final text = _message.text.trim();
     if (text.isEmpty || _sending) return;
 
-    // Optimistic UI: add the message to the list immediately so the user
-    // sees their message appear without waiting for the server round-trip.
     final optimistic = <String, dynamic>{
       'senderId': FirestoreService.uid,
       'senderName': '',
@@ -127,13 +191,10 @@ class _GroupChatViewState extends State<GroupChatView> {
 
     try {
       await ApiService.postGroupMessage(groupId: widget.groupId, text: text);
-      // Background refresh to get the server-assigned fields (senderName,
-      // server timestamp, etc.) without showing a loading state.
       if (!mounted) return;
       await _load();
     } catch (error) {
       if (!mounted) return;
-      // Remove the optimistic message on failure and show the error.
       setState(() {
         _sending = false;
         _messages = _messages.where((m) => m != optimistic).toList();
@@ -142,6 +203,171 @@ class _GroupChatViewState extends State<GroupChatView> {
       return;
     }
     if (mounted) setState(() => _sending = false);
+  }
+
+  Future<void> _sendSticker(CommunitySticker sticker) async {
+    if (_sending) return;
+
+    final optimistic = <String, dynamic>{
+      'senderId': FirestoreService.uid,
+      'senderName': '',
+      'text': '[sticker:${sticker.id}]',
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    setState(() {
+      _sending = true;
+      _messages = [..._messages, optimistic];
+      _showStickerDrawer = false;
+    });
+    _scrollToEnd();
+
+    try {
+      await ApiService.postGroupMessage(
+        groupId: widget.groupId,
+        text: '[sticker:${sticker.id}]',
+      );
+      if (!mounted) return;
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _messages = _messages.where((m) => m != optimistic).toList();
+      });
+      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
+      return;
+    }
+    if (mounted) setState(() => _sending = false);
+  }
+
+  Future<void> _toggleReaction(String messageId, String emoji) async {
+    final myUid = FirestoreService.uid;
+    if (myUid == null || myUid.isEmpty) {
+      showGochanoMessage(
+        context,
+        GochanoLanguage.text(
+          'Sign in to react to messages',
+          'প্রতিক্রিয়া জানাতে সাইন ইন করুন',
+        ),
+        isError: true,
+      );
+      return;
+    }
+
+    final index = _messages.indexWhere((m) => m['id'] == messageId);
+    if (index == -1) return;
+
+    final targetMsg = Map<String, dynamic>.from(_messages[index]);
+    final rawReactions = (targetMsg['reactions'] as Map?) ?? const {};
+    final reactions = <String, List<String>>{};
+
+    for (final entry in rawReactions.entries) {
+      final uids = ((entry.value as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
+      if (uids.isNotEmpty) {
+        reactions[entry.key.toString()] = uids;
+      }
+    }
+
+    final currentUids = List<String>.from(reactions[emoji] ?? const []);
+    if (currentUids.contains(myUid)) {
+      currentUids.remove(myUid);
+    } else {
+      currentUids.add(myUid);
+    }
+
+    if (currentUids.isEmpty) {
+      reactions.remove(emoji);
+    } else {
+      reactions[emoji] = currentUids;
+    }
+
+    final previousMsg = _messages[index];
+    setState(() {
+      final updatedList = List<Map<String, dynamic>>.from(_messages);
+      targetMsg['reactions'] = reactions;
+      updatedList[index] = targetMsg;
+      _messages = updatedList;
+    });
+
+    try {
+      final updatedReactions = await ApiService.postGroupMessageReaction(
+        groupId: widget.groupId,
+        messageId: messageId,
+        emoji: emoji,
+      );
+      if (!mounted) return;
+      setState(() {
+        final updatedList = List<Map<String, dynamic>>.from(_messages);
+        final currentMsg = Map<String, dynamic>.from(updatedList[index]);
+        currentMsg['reactions'] = updatedReactions;
+        updatedList[index] = currentMsg;
+        _messages = updatedList;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        final updatedList = List<Map<String, dynamic>>.from(_messages);
+        updatedList[index] = previousMsg;
+        _messages = updatedList;
+      });
+      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
+    }
+  }
+
+  void _openReactionSheet(String messageId) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(GochanoRadius.lg),
+        ),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: GochanoSpacing.md,
+              vertical: GochanoSpacing.md,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  GochanoLanguage.text(
+                    'React to message',
+                    'বার্তায় প্রতিক্রিয়া দিন',
+                  ),
+                  style: context.type.cardHeading,
+                ),
+                const SizedBox(height: GochanoSpacing.md),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: kCommunityReactions.map((emoji) {
+                    return InkWell(
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _toggleReaction(messageId, emoji);
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      child: Padding(
+                        padding: const EdgeInsets.all(GochanoSpacing.xs),
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _scrollToEnd() {
@@ -174,9 +400,20 @@ class _GroupChatViewState extends State<GroupChatView> {
       body: Column(
         children: [
           Expanded(child: _buildThread(context)),
+          if (_showStickerDrawer)
+            _StickerDrawer(
+              onSelectSticker: _sendSticker,
+              onClose: () => setState(() => _showStickerDrawer = false),
+            ),
           _Composer(
             controller: _message,
             sending: _sending,
+            showStickerDrawer: _showStickerDrawer,
+            onToggleStickerDrawer: () {
+              setState(() {
+                _showStickerDrawer = !_showStickerDrawer;
+              });
+            },
             onSend: _send,
           ),
         ],
@@ -204,6 +441,8 @@ class _GroupChatViewState extends State<GroupChatView> {
       );
     }
 
+    final myUid = FirestoreService.uid ?? '';
+
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
@@ -215,33 +454,171 @@ class _GroupChatViewState extends State<GroupChatView> {
           GochanoSpacing.sm,
         ),
         itemCount: _messages.length,
-        itemBuilder: (context, i) => _MessageBubble(message: _messages[i]),
+        itemBuilder: (context, i) {
+          final msg = _messages[i];
+          final msgId = msg['id']?.toString() ?? '';
+          return _MessageBubble(
+            message: msg,
+            myUid: myUid,
+            onToggleReaction: (emoji) {
+              if (msgId.isNotEmpty) {
+                _toggleReaction(msgId, emoji);
+              }
+            },
+            onLongPress: () {
+              if (msgId.isNotEmpty) {
+                _openReactionSheet(msgId);
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StickerDrawer extends StatelessWidget {
+  const _StickerDrawer({required this.onSelectSticker, required this.onClose});
+
+  final void Function(CommunitySticker sticker) onSelectSticker;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.md,
+        vertical: GochanoSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surfaceVariant,
+        border: Border(top: BorderSide(color: colors.border)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                GochanoLanguage.text(
+                  'Send a study sticker',
+                  'স্টাডি স্টিকার পাঠান',
+                ),
+                style: context.type.cardHeading,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: onClose,
+                tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন'),
+              ),
+            ],
+          ),
+          const SizedBox(height: GochanoSpacing.xs),
+          Wrap(
+            spacing: GochanoSpacing.sm,
+            runSpacing: GochanoSpacing.sm,
+            children: kCommunityStickers.map((sticker) {
+              return InkWell(
+                onTap: () => onSelectSticker(sticker),
+                borderRadius: GochanoRadius.mdAll,
+                child: Container(
+                  width: 96,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: GochanoSpacing.xs,
+                    horizontal: GochanoSpacing.xxs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: GochanoRadius.mdAll,
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GochanoIllustration(
+                        sticker.artId,
+                        size: 32,
+                        accent: colors.brand,
+                      ),
+                      const SizedBox(height: GochanoSpacing.xxs),
+                      Text(
+                        sticker.title,
+                        style: context.type.caption,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.myUid,
+    required this.onToggleReaction,
+    required this.onLongPress,
+  });
 
   final Map<String, dynamic> message;
+  final String myUid;
+  final void Function(String emoji) onToggleReaction;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final senderId = message['senderId']?.toString() ?? '';
-    final isMine = senderId == FirestoreService.uid;
+    final isMine = senderId == myUid;
     final senderName = message['senderName']?.toString() ?? '';
     final text = message['text']?.toString() ?? '';
     final attachmentName = message['attachmentFilename']?.toString() ?? '';
     final attachmentMime = message['attachmentMime']?.toString() ?? '';
     final createdAt = DateTime.tryParse(message['createdAt']?.toString() ?? '');
+    final rawReactions = (message['reactions'] as Map?) ?? const {};
+
+    final isSticker = text.startsWith('[sticker:') && text.endsWith(']');
+    String? stickerId;
+    if (isSticker) {
+      stickerId = text.substring(9, text.length - 1);
+    }
+
+    CommunitySticker? sticker;
+    if (stickerId != null) {
+      try {
+        sticker = kCommunityStickers.firstWhere((s) => s.id == stickerId);
+      } catch (_) {
+        sticker = null;
+      }
+    }
+
+    final reactionsMap = <String, List<String>>{};
+    for (final entry in rawReactions.entries) {
+      final uids = ((entry.value as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
+      if (uids.isNotEmpty) {
+        reactionsMap[entry.key.toString()] = uids;
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
       child: Column(
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           if (!isMine && senderName.isNotEmpty)
             Padding(
@@ -251,55 +628,129 @@ class _MessageBubble extends StatelessWidget {
               ),
               child: Text(senderName, style: context.type.caption),
             ),
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.78,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: GochanoSpacing.sm,
-              vertical: GochanoSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: isMine ? colors.brandSoft : colors.surface,
-              borderRadius: GochanoRadius.mdAll,
-              border: Border.all(color: colors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (attachmentName.isNotEmpty) ...[
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GochanoIllustration(
-                        GochanoArt.fileIdFor(
-                          fileName: attachmentName,
-                          mimeType: attachmentMime,
+          GestureDetector(
+            onLongPress: onLongPress,
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.78,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: GochanoSpacing.sm,
+                vertical: GochanoSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: isMine ? colors.brandSoft : colors.surface,
+                borderRadius: GochanoRadius.mdAll,
+                border: Border.all(color: colors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (attachmentName.isNotEmpty) ...[
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GochanoIllustration(
+                          GochanoArt.fileIdFor(
+                            fileName: attachmentName,
+                            mimeType: attachmentMime,
+                          ),
+                          size: 20,
+                          accent: colors.community,
                         ),
-                        size: 20,
-                        accent: colors.community,
-                      ),
-                      const SizedBox(width: GochanoSpacing.xxs),
-                      Flexible(
-                        child: Text(
-                          attachmentName,
-                          style: context.type.bodySecondary,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: GochanoSpacing.xxs),
+                        Flexible(
+                          child: Text(
+                            attachmentName,
+                            style: context.type.bodySecondary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                      ],
+                    ),
+                    if (text.isNotEmpty)
+                      const SizedBox(height: GochanoSpacing.xxs),
+                  ],
+                  if (sticker != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: GochanoSpacing.xxs,
                       ),
-                    ],
-                  ),
-                  if (text.isNotEmpty) const SizedBox(height: GochanoSpacing.xxs),
+                      child: Column(
+                        children: [
+                          GochanoIllustration(
+                            sticker.artId,
+                            size: 40,
+                            accent: colors.brand,
+                          ),
+                          const SizedBox(height: GochanoSpacing.xxs),
+                          Text(
+                            sticker.title,
+                            style: context.type.caption.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (text.isNotEmpty)
+                    Text(text, style: context.type.body),
+                  if (createdAt != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _clock(createdAt.toLocal()),
+                      style: context.type.caption,
+                    ),
+                  ],
+                  if (reactionsMap.isNotEmpty) ...[
+                    const SizedBox(height: GochanoSpacing.xxs),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: reactionsMap.entries.map((entry) {
+                        final emoji = entry.key;
+                        final count = entry.value.length;
+                        final hasReacted =
+                            myUid.isNotEmpty && entry.value.contains(myUid);
+                        return InkWell(
+                          onTap: () => onToggleReaction(emoji),
+                          borderRadius: GochanoRadius.smAll,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: hasReacted
+                                  ? colors.brand.withValues(alpha: 0.12)
+                                  : colors.surfaceVariant,
+                              borderRadius: GochanoRadius.smAll,
+                              border: Border.all(
+                                color: hasReacted
+                                    ? colors.brand
+                                    : colors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              '$emoji $count',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colors.textPrimary,
+                                fontWeight: hasReacted
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ],
-                if (text.isNotEmpty)
-                  Text(text, style: context.type.body),
-                if (createdAt != null) ...[
-                  const SizedBox(height: 2),
-                  Text(_clock(createdAt.toLocal()), style: context.type.caption),
-                ],
-              ],
+              ),
             ),
           ),
         ],
@@ -312,11 +763,15 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.sending,
+    required this.showStickerDrawer,
+    required this.onToggleStickerDrawer,
     required this.onSend,
   });
 
   final TextEditingController controller;
   final bool sending;
+  final bool showStickerDrawer;
+  final VoidCallback onToggleStickerDrawer;
   final VoidCallback onSend;
 
   @override
@@ -335,6 +790,19 @@ class _Composer extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              IconButton(
+                icon: Icon(
+                  showStickerDrawer
+                      ? Icons.keyboard_alt_outlined
+                      : Icons.sticky_note_2_outlined,
+                  color: showStickerDrawer
+                      ? colors.brand
+                      : colors.textSecondary,
+                ),
+                tooltip: GochanoLanguage.text('Stickers', 'স্টিকার'),
+                onPressed: onToggleStickerDrawer,
+              ),
+              const SizedBox(width: GochanoSpacing.xxs),
               Expanded(
                 child: TextField(
                   controller: controller,

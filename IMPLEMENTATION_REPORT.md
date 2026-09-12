@@ -3,7 +3,102 @@
 **Branch:** `gochano-ui-rebuild-v1`
 **Date:** 2026-09-12
 **API:** `https://ekthikana-api-x473.onrender.com`
-**Status:** Automated validation PASSED — Step 6 (CommuteBD + Multimodal) Complete
+**Status:** Automated validation PASSED — Step 7 (Community + Chat) Complete
+
+---
+
+## STEP 7 — COMMUNITY / CHAT REBUILD (STICKERS + PERSISTENT REACTIONS)
+
+### Canonical Target
+
+Implementation and verification were conducted across:
+- `D:\Gochano_Rebuild\flutter_app`
+- `D:\Gochano_Rebuild\backend`
+
+### Scope & Structure
+
+1. **Community Root & Group Discovery**:
+   - Preserved existing study-group workspace architecture (spec §70, §71): no public feed or engagement tricks; content and academic collaboration dominant.
+   - Streamed member groups from `FirestoreService.myGroups()`.
+   - Joined with invite code or created group via `ApiService.joinGroup` / `ApiService.createGroup`.
+   - Clear empty states (`GochanoArt.featureGroups`) and loading states.
+   - Preserved group details screen: Overview, Projects, Resources, and Chat tabs with role-gated admin operations (`Turn chat on/off`, `Reset invite code`, `Leave group`).
+
+2. **Chat Experience & Usability**:
+   - Rebuilt `GroupChatView` (`group_chat_view.dart`) with clean sender differentiation (right/brandSoft for current user, left/surface for others with sender name).
+   - Bottom composer docked with safe keyboard insets (`SafeArea(top: false)`), avoiding navigation bar collision.
+   - Safe scrolling with auto-scroll to end on new messages and optimistic updates.
+   - Preserved the existing message storage schema (`/group_messages/{msgId}` via backend `/api/groups/{id}/chat`), guaranteeing 100% backward and forward compatibility.
+   - Chat composer interface contains: text input field, stickers action button, and send action button.
+
+3. **Dedicated Emoji Feature Removal & Natural Unicode Support**:
+   - Dedicated emoji picker deferred; keyboard Unicode emoji remains supported.
+   - Removed the dedicated in-app emoji picker/drawer/button and related state/tests from Step 7.
+   - Preserved complete support for device keyboard Unicode emojis typed into normal text messages (e.g. `📚✨ Good luck! 🎯`).
+
+4. **Academic Stickers Support**:
+   - Kept student academic sticker drawer toggled by sticker icon button (`Icons.sticky_note_2_outlined`).
+   - Included 6 core academic stickers:
+     - `study_time` (Study Time / পড়ার সময়, `GochanoArt.featureStudy`)
+     - `exam_prep` (Exam Ready / পরীক্ষার প্রস্তুতি, `GochanoArt.featureTasks`)
+     - `group_work` (Group Work / গ্রুপ স্টাডি, `GochanoArt.featureGroups`)
+     - `notes_ready` (Notes Ready / নোট প্রস্তুত, `GochanoArt.fileNote`)
+     - `ai_help` (Brain Power / চিন্তাশক্তি, `GochanoArt.subjectAi`)
+     - `celebrate` (Great Job / চমৎকার কাজ, `GochanoArt.featureHome`)
+   - Backward-compatible `[sticker:<id>]` token stored in standard message `text`.
+   - Renders cleanly in `_MessageBubble` using Gochano vector illustrations (`GochanoIllustration`).
+   - **Zero Reward/XP/Gems/Level gating**: Stickers are completely free and academic for all students.
+
+5. **Persistent Server-Backed Message Reactions**:
+   - Backed by persistent backend endpoint `POST /api/groups/{group_id}/chat/{message_id}/react` with request body `{"emoji": "..."}`.
+   - Reaction mutation uses Firestore transaction to prevent lost updates.
+   - Supported server-side allow-list catalogue: `👍`, `❤️`, `💡`, `🔥`, `👏`, `🤔`. Any unsupported or empty emoji is strictly rejected with HTTP 400.
+   - Persisted in message document under `reactions` field (`Map<String, List<String>>` mapping emoji to list of student Firebase UIDs).
+   - Server-side transaction validation behavior:
+     - Authenticated student required (`get_current_student`).
+     - Group exists and student is an active member.
+     - Inside transaction: message document is fetched and verified to exist.
+     - Inside transaction: verified `message.groupId == requested group_id`.
+     - Inside transaction: reads current `reactions` map.
+     - Inside transaction: toggles ONLY authenticated user's UID (removes if present, adds if absent, no duplicates, no fake identities).
+     - If UID list becomes empty, removes the emoji key from map.
+     - Inside transaction: writes committed `reactions` map.
+   - Client-side persistence:
+     - Strictly checks `FirestoreService.uid` (no fake `'local_user'` fallback).
+     - Prompts user to sign in if unauthenticated.
+     - Performs optimistic update with rollback on failure.
+     - Displays reactive count pills (`👍 2`, `❤️ 1`); highlights current user's reaction with `brandSoft` and `brand` border.
+     - Tapping a pill or picking from long-press bottom sheet toggles the reaction.
+     - Handles missing or empty `reactions` field gracefully.
+   - No gamification, rewards, or payments.
+
+6. **Responsive Layout & Runtime Safety**:
+   - No `IntrinsicHeight` in chat or community views.
+   - No unbounded vertical `Expanded` or `CrossAxisAlignment.stretch`.
+   - Chat bubbles bounded to max 78% screen width with flexible text wrapping.
+   - Validated on narrow screens (320px width) without overflow.
+
+7. **Bilingual Localization**:
+   - All UI labels (`Community` / `কমিউনিটি`, `Chat` / `চ্যাট`, `Send` / `পাঠান`, `Stickers` / `স্টিকার`, `React to message` / `বার্তায় প্রতিক্রিয়া দিন`) react cleanly via `GochanoLanguage.text`.
+
+### Files Added / Modified
+
+- `backend/app/schemas.py`: Added `GroupChatReactionRequest`.
+- `backend/app/routers/groups.py`: Added transactional `post_chat_reaction` (`POST /api/groups/{group_id}/chat/{message_id}/react`) with server allow-list validation and returned `reactions` map in `get_group_chat`.
+- `backend/tests/conftest.py`: Added transaction support (`get`, `set`, `update`) to `FakeTransaction`.
+- `backend/tests/test_part3.py`: Added comprehensive unit tests for persistent reactions (react, toggle off, multi-user concurrency survival, allow-list rejection, membership security, missing message/reactions handling).
+- `flutter_app/lib/services/api_service.dart`: Added `postGroupMessageReaction`.
+- `flutter_app/lib/features/community/presentation/group_chat_view.dart`: Removed dedicated emoji drawer/button, integrated server-backed reactions with Firebase UID validation, maintained academic stickers, and preserved responsive layout.
+- `flutter_app/test/community_rebuild_step7_test.dart`: Updated tests to verify dedicated emoji removal, unicode text input support, sticker catalogue, persistent reaction parsing, toggle logic, no fake local_user fallback, and narrow-screen layout safety.
+
+### Verification Results
+
+- `pytest backend/tests/test_part3.py`: **64 / 64 passed** (100%).
+- `flutter analyze`: **0 issues** (clean).
+- `flutter test test/api_contract_test.dart`: **Passed** (all API endpoints match backend routers).
+- `flutter test test/community_rebuild_step7_test.dart`: **Passed** (19 / 19 tests passed).
+- `flutter test`: **574 / 574 tests passed** (100% pass rate).
+- Device status: Android device `Infinix X665E (mobile) • Android 12 (API 31)` available; manual Step-7 interaction verification not performed.
 
 ---
 

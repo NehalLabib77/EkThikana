@@ -532,6 +532,13 @@ class ApiService {
     return _decode(await _post('/api/groups/$groupId/chat', body: body));
   }
 
+  static Future<Map<String, dynamic>> postGroupMessageReaction({
+    required String groupId,
+    required String messageId,
+    required String emoji,
+  }) async =>
+      _decode(await _post('/api/groups/$groupId/chat/$messageId/react', body: {'emoji': emoji}));
+
   // ---------------- Monthly money (reads central ledger) ----------------
   static String _monthKey(DateTime when) {
     final m = when.month.toString().padLeft(2, '0');

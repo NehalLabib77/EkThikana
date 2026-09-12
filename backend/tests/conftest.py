@@ -441,6 +441,15 @@ class FakeTransaction:
     def __init__(self, db: FakeFirestore):
         self.db = db
 
+    def get(self, ref: _FakeDocRef):
+        return ref.get(transaction=self)
+
+    def set(self, ref: _FakeDocRef, data: dict, merge: bool = False):
+        ref.set(data, merge=merge)
+
+    def update(self, ref: _FakeDocRef, data: dict):
+        ref.update(data)
+
     @staticmethod
     def transactional(func: Callable) -> Callable:
         return func
