@@ -4,6 +4,63 @@
 **Date:** 2026-09-12
 **API:** `https://ekthikana-api-x473.onrender.com`
 **Status:** Automated validation PASSED — Step 7 (Community + Chat) Complete
+**Status:** Automated validation PASSED — Step 8 (Final Stabilization / Full Regression) Complete
+
+---
+
+## STEP 8 — FINAL STABILIZATION / FULL REGRESSION
+
+### Canonical Target
+
+Implementation and verification conducted across:
+- `D:\Gochano_Rebuild\flutter_app`
+- `D:\Gochano_Rebuild\backend`
+- Target Branch: `gochano-ui-rebuild-v1`
+- Baseline Checkpoint: `daa7297`
+
+### 1. Verification Results & Regression Metrics
+
+- **Flutter Static Analysis**:
+  - Command: `flutter analyze`
+  - Result: `No issues found! (ran in 13.9s)` (0 errors, 0 warnings, 0 lints).
+- **Flutter Test Suite**:
+  - Command: `flutter test`
+  - Result: `All tests passed! (574 / 574 passed)`.
+- **Backend Test Suite**:
+  - Command: `python -m pytest tests`
+  - Result: `442 passed, 1 warning in 14.39s` (100% pass across all 442 tests).
+
+### 2. Root Cause Analysis & Fix: Commute Postgres Test Suite
+
+- **Failure Symptom**:
+  When running the full backend test suite, 7 tests in `backend/tests/test_commute_postgres.py` failed with:
+  `psycopg2.errors.ForeignKeyViolation: insert or update on table "metro_fares" violates foreign key constraint "metro_fares_from_station_id_fkey"`.
+- **Root Cause**:
+  `test_commute_postgres.py` defines `_seed_tables()` which sets `os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"` and invokes `reset_engine_cache()`. However, `_build_engine()` retrieves settings via `get_settings()` from `app.core.config`, which is cached via `@lru_cache()`. When the full suite ran earlier tests that loaded environment configuration (`backend/.env` pointing to the Neon PostgreSQL database), `get_settings()` returned the cached PostgreSQL DSN instead of the updated in-memory SQLite URL. Thus, `_seed_tables()` attempted to run DDL and inserts against the live PostgreSQL database rather than SQLite.
+- **Architectural Solution**:
+  Updated `reset_engine_cache()` in `backend/app/database/connection.py` to invoke `get_settings.cache_clear()`. This ensures that when the test fixture requests an engine reset to honor an updated `DATABASE_URL`, cached application settings are invalidated. No foreign key constraints, schemas, or production models were weakened.
+- **Verification**:
+  `test_commute_postgres.py` passed 8/8 isolated and 8/8 in the full 442-test backend suite.
+
+### 3. Safety Audits
+
+1. **Runtime & Layout Safety**:
+   - `IntrinsicHeight` / unbounded layout hazards: Audited across all life, workspace, community, and commute views. No unbounded flex overflows or crash loops.
+   - Bounded width layouts with scrollable fallbacks prevent `RenderFlex` overflow on narrow viewports.
+2. **Reminder & Notification Architecture**:
+   - Centralized single-engine reminder architecture in `NotificationService`.
+   - Explicit 31-bit stable hashing for commute reminders based purely on trip ID code units.
+   - No secondary background timers or orphaned alarm managers.
+3. **Data Isolation & Security**:
+   - User document isolation verified: all personal materials, tasks, notes, habits, routines, and commute routes are scoped strictly by `ownerId` / `FirestoreService.uid`.
+   - Community isolation: message endpoints, reaction mutations, and group memberships check student authentication and active membership before granting read/write access.
+   - Transactional integrity on reactions prevents lost updates during concurrent client updates.
+4. **API Contract Integrity**:
+   - `test/api_contract_test.dart` passes completely, ensuring 100% method and route parity between Flutter's `ApiService` and backend FastAPI routers.
+5. **Language & Localization**:
+   - `GochanoLanguage` bilingual coverage (EN/BN) verified across all screens and user-facing notifications. Text strings resolve dynamically without hardcoded display text.
+6. **Physical Device Regression Status**:
+   - `Infinix X665E` (Android 11) is currently disconnected (`List of devices attached` is empty). Desktop and web engines verified; full automated suite green.
 
 ---
 

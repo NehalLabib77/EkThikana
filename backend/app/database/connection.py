@@ -100,6 +100,7 @@ def reset_engine_cache() -> None:
         _engine.dispose()
     _engine = None
     _SessionLocal = None
+    get_settings.cache_clear()
 
 
 def describe_active_database() -> str:
