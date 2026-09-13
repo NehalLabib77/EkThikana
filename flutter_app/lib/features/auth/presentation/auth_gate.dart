@@ -32,6 +32,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/telecom_auth_service.dart';
@@ -49,6 +50,10 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
+  static const bool _developerAuthBypass =
+      kDebugMode &&
+      bool.fromEnvironment('DEV_AUTH_BYPASS', defaultValue: false);
+
   bool _checked = false;
   bool _loggedIn = false;
   bool _hasProfile = false;
@@ -68,10 +73,14 @@ class _AuthGateState extends State<AuthGate> {
     _firebaseAuthSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
       setState(() {
-        _loggedIn = user != null;
-        if (user == null) {
-          // Wipe the local flag so the user is routed to LoginScreen.
-          TelecomAuthService.clearSession();
+        if (_developerAuthBypass) {
+          _loggedIn = user != null;
+        } else {
+          _loggedIn = user != null;
+          if (user == null) {
+            // Wipe the local flag so the user is routed to LoginScreen.
+            TelecomAuthService.clearSession();
+          }
         }
       });
     });
@@ -92,10 +101,12 @@ class _AuthGateState extends State<AuthGate> {
     if (!mounted) return;
 
     // _loggedIn is determined by the combination of the local flag
-    // AND FirebaseAuth.currentUser. Only set _loggedIn here if Firebase
-    // already has a currentUser (cold start path); the authState
-    // listener owns the rest.
+    // AND FirebaseAuth.currentUser (or Developer Login bypass if enabled
+    // in debug mode).
     final current = FirebaseAuth.instance.currentUser;
+    final isDeveloperSession = _developerAuthBypass && current != null;
+    final isTelecomSession = isLoggedIn && current != null;
+
     final staleFlag = isLoggedIn && current == null;
     if (staleFlag) {
       // Flag set but Firebase did not restore the user. Refuse entry;
@@ -107,7 +118,7 @@ class _AuthGateState extends State<AuthGate> {
     // the ID token carries fresh custom claims (telecom_verified,
     // email_verified).  Without this the Firestore rules' verified()
     // helper may see stale/missing claims and deny reads.
-    if (isLoggedIn && current != null) {
+    if (isDeveloperSession || isTelecomSession) {
       try {
         await current.getIdToken(true);
       } catch (_) {
@@ -120,7 +131,7 @@ class _AuthGateState extends State<AuthGate> {
     // New telecom users (first login on this device) will not have one
     // yet and must complete the profile setup screen.
     bool hasProfile = false;
-    if (isLoggedIn && current != null) {
+    if (isDeveloperSession || isTelecomSession) {
       hasProfile = await FirestoreService.hasProfile();
     }
 
@@ -129,10 +140,8 @@ class _AuthGateState extends State<AuthGate> {
       _phone = phone;
       _hasProfile = hasProfile;
       _checked = true;
-      if (isLoggedIn && current != null) {
+      if (isDeveloperSession || isTelecomSession) {
         _loggedIn = true;
-      } else if (staleFlag) {
-        _loggedIn = false;
       } else {
         _loggedIn = false;
       }
@@ -148,16 +157,19 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     if (_loggedIn && FirebaseAuth.instance.currentUser != null) {
+      final current = FirebaseAuth.instance.currentUser;
       final displayName = _phone.isNotEmpty
           ? _phone
-          : (FirebaseAuth.instance.currentUser?.phoneNumber ?? '');
+          : (current?.phoneNumber?.isNotEmpty == true
+                ? current!.phoneNumber!
+                : (current?.displayName?.isNotEmpty == true
+                      ? current!.displayName!
+                      : (current?.email ?? '')));
+
       if (!_hasProfile) {
         return ProfileSetupScreen(phone: displayName);
       }
-      return GochanoShell(
-        role: 'student',
-        displayName: displayName,
-      );
+      return GochanoShell(role: 'student', displayName: displayName);
     }
     return LoginScreen();
   }

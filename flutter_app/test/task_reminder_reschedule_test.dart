@@ -52,5 +52,15 @@ void main() {
       // names we ship.
       expect(task, isNot(equals(med)));
     });
+
+    test('task reminder slots [90, 60, 30, 10, 0, -30] produce 6 distinct non-negative IDs', () {
+      const offsets = [90, 60, 30, 10, 0, -30];
+      final ids = offsets.map((o) => NotificationService.debugTaskNotificationId('taskA', o)).toList();
+      for (final id in ids) {
+        expect(id, isNonNegative);
+        expect(id, lessThan(0x80000000));
+      }
+      expect(ids.toSet().length, equals(6));
+    });
   });
 }

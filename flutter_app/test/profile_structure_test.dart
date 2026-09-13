@@ -160,36 +160,24 @@ void main() {
     });
   });
 
-  group('Home quick actions', () {
+  group('Home Quick Access absent', () {
     late String source;
 
     setUpAll(
       () => source = _read('lib/features/home/presentation/home_screen.dart'),
     );
 
-    test('shows exactly four compact Step 2 shortcuts', () {
-      expect(source, contains("GochanoLanguage.text('Medicine'"));
-      expect(source, contains("GochanoLanguage.text('CommuteBD'"));
-      expect(source, isNot(contains('Add task')));
-      expect(source, isNot(contains('Scan prescription')));
-      expect(source, isNot(contains('_expanded')));
+    test('does not contain _QuickActions class', () {
+      expect(source, isNot(contains('class _QuickActions')));
     });
 
-    test('every existing destination is still reachable', () {
-      // A redesign that quietly drops a shortcut is a regression, not a
-      // tidy-up.
-      for (final destination in const [
-        'AiAssistantScreen',
-        'showAddExpenseSheet',
-        "GochanoLanguage.text('Medicine'",
-        'CommuteScreen',
-      ]) {
-        expect(
-          source,
-          contains(destination),
-          reason: '$destination must stay one tap from Home',
-        );
-      }
+    test('does not reference AiAssistantScreen or showAddExpenseSheet', () {
+      expect(source, isNot(contains('AiAssistantScreen')));
+      expect(source, isNot(contains('showAddExpenseSheet')));
+    });
+
+    test('does not mount _QuickActions in build', () {
+      expect(source, isNot(contains('_QuickActions(')));
     });
   });
 
@@ -217,10 +205,7 @@ void main() {
       expect(source, contains('_QuickAccess'));
       expect(source, contains('_QuickAccessCell'));
       expect(source, contains('SliverGridDelegateWithFixedCrossAxisCount'));
-      expect(
-        source,
-        contains('crossAxisCount: constraints.maxWidth < 360 ? 3 : 4'),
-      );
+      expect(source, contains('crossAxisCount: 4'));
       expect(source, contains('AiAssistantScreen'));
       expect(source, contains('NotesScreen'));
       expect(source, contains('SemesterListScreen'));
@@ -229,25 +214,22 @@ void main() {
       expect(source, contains('_RecentMaterials()'));
     });
 
-    test('shows all Workspace destinations without an expander', () {
+    test('shows primary Workspace destinations with expandable panel', () {
       final source = _read(
         'lib/features/study/presentation/workspace/workspace_view.dart',
       );
       expect(source, contains("GochanoLanguage.text('Docs'"));
       expect(source, contains('SavedMaterialsScreen'));
-      expect(source, isNot(contains('_collapsedCount')));
-      expect(source, isNot(contains('_expanded')));
+      expect(source, contains('_expanded'));
+      expect(source, contains('AnimatedSize'));
     });
 
-    test('uses a responsive grid with fixed mainAxisExtent', () {
+    test('uses a grid with fixed mainAxisExtent', () {
       final source = _read(
         'lib/features/study/presentation/workspace/workspace_view.dart',
       );
       expect(source, contains('GridView.builder'));
-      expect(
-        source,
-        contains('crossAxisCount: constraints.maxWidth < 360 ? 3 : 4'),
-      );
+      expect(source, contains('crossAxisCount: 4'));
       final match = RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(source);
       expect(
         match,
@@ -303,6 +285,36 @@ void main() {
         reason: 'Must not use childAspectRatio which caused the overflow',
       );
     });
+
+    test(
+      'supports vertical drag down/up gestures on the expand/collapse handle',
+      () {
+        final source = _read(
+          'lib/features/study/presentation/workspace/workspace_view.dart',
+        );
+        expect(source, contains('onVerticalDragEnd'));
+        expect(source, contains('onVerticalDragUpdate'));
+        expect(source, contains('vy > 100'));
+        expect(source, contains('vy < -100'));
+        expect(source, contains('details.primaryDelta! > 8'));
+        expect(source, contains('details.primaryDelta! < -8'));
+        expect(source, contains("'See more'"));
+        expect(source, contains("'See less'"));
+      },
+    );
+
+    test(
+      'renders prominent 24px icons in 44px circular container with centered labels',
+      () {
+        final source = _read(
+          'lib/features/study/presentation/workspace/workspace_view.dart',
+        );
+        expect(source, contains('width: 44'));
+        expect(source, contains('height: 44'));
+        expect(source, contains('size: 24'));
+        expect(source, contains('TextAlign.center'));
+      },
+    );
   });
 
   group('Home bento layout', () {
@@ -317,7 +329,6 @@ void main() {
       expect(source, contains('_MedicineScheduleCard'));
       expect(source, contains('_CommuteCard'));
       expect(source, contains('_MoneyCard'));
-      expect(source, contains('Quick Access'));
     });
 
     test('uses accent-rail cards with colored left border', () {
@@ -335,11 +346,12 @@ void main() {
       expect(build, isNot(contains('_BentoRow')));
     });
 
-    test('quick actions use Material Design icons, not illustrations', () {
-      expect(source, contains('Icons.auto_awesome_rounded'));
-      expect(source, contains('Icons.receipt_long_rounded'));
-      expect(source, contains('Icons.medication_outlined'));
-      expect(source, contains('Icons.directions_bus_rounded'));
+    test('Home does not contain removed Quick Actions icons', () {
+      // Quick Actions was removed from Home; these icons should not appear
+      // in the context of a Quick Actions grid.
+      expect(source, isNot(contains('Icons.auto_awesome_rounded')));
+      expect(source, isNot(contains('Icons.medication_outlined')));
+      expect(source, isNot(contains('Icons.directions_bus_rounded')));
     });
 
     test('Money card shows spent and remaining labels', () {

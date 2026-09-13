@@ -39,6 +39,7 @@ class PlannedCommuteTrip {
   }
 
   bool get isUpcoming => departureTime.isAfter(DateTime.now());
+  bool get isMissed => departureTime.isBefore(DateTime.now());
 
   Map<String, dynamic> toMap() {
     return {

@@ -7,6 +7,7 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../core/app_config.dart';
+import '../core/localization/gochano_language.dart';
 
 class MedicineNotificationAction {
   const MedicineNotificationAction({
@@ -101,8 +102,10 @@ class NotificationService {
   /// at the OS level (older Android versions).
   static Future<bool?> areNotificationsEnabled() async {
     if (!_ready) return null;
-    final android = plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     return android?.areNotificationsEnabled();
   }
 
@@ -189,81 +192,128 @@ class NotificationService {
     }
   }
 
-  static int _taskNotificationId(String taskId) =>
-      taskId.hashCode & 0x7fffffff;
+  static const List<int> _taskReminderOffsets = [90, 60, 30, 10, 0, -30];
+
+  static int _taskNotificationId(String taskId, [int offsetMinutes = 0]) =>
+      _stableStringId('task_${taskId}_$offsetMinutes');
 
   /// Exposed for tests so we can pin the deterministic id policy without
   /// having to spin up the platform channel. Schedule and cancel MUST use
   /// the same id for a given taskId or notifications leak.
   @visibleForTesting
-  static int debugTaskNotificationId(String taskId) =>
-      _taskNotificationId(taskId);
+  static int debugTaskNotificationId(String taskId, [int offsetMinutes = 0]) =>
+      _taskNotificationId(taskId, offsetMinutes);
 
   static Future<void> scheduleTask({
     required String taskId,
     required String title,
     required DateTime when,
+    String type = 'task',
   }) async {
     await init();
     if (!when.isAfter(DateTime.now())) return;
+    final now = DateTime.now();
+    // Items >= 30m past due are already missed; do not schedule past reminders.
+    final missedAt = when.add(const Duration(minutes: 30));
+    if (!missedAt.isAfter(now)) return;
 
-    await plugin.zonedSchedule(
-      id: _taskNotificationId(taskId),
-      title: 'Gochano reminder',
-      body: title,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
-      notificationDetails: NotificationDetails(
-        android: _details(
-          channelId: kChannelRemindersId,
-          channelName: kChannelRemindersName,
-          channelDescription: kChannelRemindersDesc,
+    final scheduleMode = await _resolveScheduleMode();
+    final isAssignment = type == 'assignment';
+
+    for (final offset in _taskReminderOffsets) {
+      final notifyAt = when.subtract(Duration(minutes: offset));
+      if (!notifyAt.isAfter(now)) continue;
+
+      final String bodyText;
+      if (offset == -30) {
+        bodyText = isAssignment
+            ? GochanoLanguage.text(
+                'Assignment incomplete',
+                'অ্যাসাইনমেন্টটি এখনো সম্পন্ন হয়নি',
+              )
+            : GochanoLanguage.text(
+                'Task incomplete',
+                'কাজটি এখনো সম্পন্ন হয়নি',
+              );
+      } else if (offset == 0) {
+        bodyText = isAssignment
+            ? GochanoLanguage.text(
+                'Assignment due now: $title',
+                'অ্যাসাইনমেন্টের সময় হয়েছে: $title',
+              )
+            : GochanoLanguage.text(
+                'Task due now: $title',
+                'কাজের সময় হয়েছে: $title',
+              );
+      } else {
+        bodyText = '$title (in $offset mins)';
+      }
+
+      await plugin.zonedSchedule(
+        id: _taskNotificationId(taskId, offset),
+        title: 'Gochano reminder',
+        body: bodyText,
+        scheduledDate: tz.TZDateTime.from(notifyAt, tz.local),
+        notificationDetails: NotificationDetails(
+          android: _details(
+            channelId: kChannelRemindersId,
+            channelName: kChannelRemindersName,
+            channelDescription: kChannelRemindersDesc,
+          ),
         ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: taskId,
-    );
+        androidScheduleMode: scheduleMode,
+        payload: taskId,
+      );
+    }
   }
 
   /// Cancel an existing reminder and (if [when] is still in the future) schedule
-  /// a new one with the same id. This is the single safe primitive for an edit
-  /// flow because it guarantees the notification id is recycled — a manual
-  /// cancel+schedule pair would risk id drift if the two helpers ever diverged.
+  /// a new one across all offsets [90, 60, 30, 0].
+  /// Cancel an existing reminder and (if [when] + 30m is still in the future) schedule
+  /// a new one across all offsets [90, 60, 30, 10, 0, -30].
   ///
   /// When [when] is null or not in the future the task is treated as cleared and
   /// only the cancel side runs.
+  /// When [when] is null or [when] + 30m is not in the future, the task is treated as
+  /// cleared/missed and only the cancel side runs.
   static Future<void> rescheduleTask({
     required String taskId,
     required String title,
     DateTime? when,
+    String type = 'task',
   }) async {
     await init();
-    await plugin.cancel(id: _taskNotificationId(taskId));
-    if (when == null || !when.isAfter(DateTime.now())) return;
-    await plugin.zonedSchedule(
-      id: _taskNotificationId(taskId),
-      title: 'Gochano reminder',
-      body: title,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
-      notificationDetails: NotificationDetails(
-        android: _details(
-          channelId: kChannelRemindersId,
-          channelName: kChannelRemindersName,
-          channelDescription: kChannelRemindersDesc,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: taskId,
-    );
+    for (final offset in _taskReminderOffsets) {
+      await plugin.cancel(id: _taskNotificationId(taskId, offset));
+    }
+    if (when == null) return;
+    final missedAt = when.add(const Duration(minutes: 30));
+    if (!missedAt.isAfter(DateTime.now())) return;
+    await scheduleTask(taskId: taskId, title: title, when: when, type: type);
   }
 
-  static int _medicineNotificationId(String medicineId, String hhmm) =>
-      '$medicineId|$hhmm'.hashCode & 0x7fffffff;
+  static const List<int> _medicineFollowUpOffsets = [0, 30, 60, 90, 120];
+  static Future<void> cancelTask(String taskId) async {
+    await init();
+    for (final offset in _taskReminderOffsets) {
+      await plugin.cancel(id: _taskNotificationId(taskId, offset));
+    }
+  }
+
+  static int _medicineNotificationId(
+    String medicineId,
+    String hhmm, [
+    int offsetMinutes = 0,
+  ]) => _stableStringId('medicine_${medicineId}_${hhmm}_$offsetMinutes');
 
   /// Exposed for tests so we can pin the deterministic id policy without
   /// having to spin up the platform channel.
   @visibleForTesting
-  static int debugMedicineNotificationId(String medicineId, String hhmm) =>
-      _medicineNotificationId(medicineId, hhmm);
+  static int debugMedicineNotificationId(
+    String medicineId,
+    String hhmm, [
+    int offsetMinutes = 0,
+  ]) => _medicineNotificationId(medicineId, hhmm, offsetMinutes);
 
   static Future<void> scheduleDailyMedicine({
     required String medicineId,
@@ -302,8 +352,11 @@ class NotificationService {
       'unit': unit,
     });
 
+    final scheduleMode = await _resolveScheduleMode();
+
+    // Base dose at scheduled time (offset 0), repeats daily
     await plugin.zonedSchedule(
-      id: _medicineNotificationId(medicineId, hhmm),
+      id: _medicineNotificationId(medicineId, hhmm, 0),
       title: 'Gochano • Medicine reminder',
       body: instruction.trim().isEmpty
           ? '$medicineName • $quantityPerDose $unit'
@@ -330,10 +383,61 @@ class NotificationService {
           ],
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: payload,
     );
+
+    // Follow-ups at 30, 60, 90, 120 minutes
+    for (final offset in _medicineFollowUpOffsets.skip(1)) {
+      final followUpTime = next.add(Duration(minutes: offset));
+      await plugin.zonedSchedule(
+        id: _medicineNotificationId(medicineId, hhmm, offset),
+        title: 'Gochano • Medicine reminder (follow-up)',
+        body: '$medicineName • Overdue ($offset min) — please take or skip',
+        scheduledDate: followUpTime,
+        notificationDetails: NotificationDetails(
+          android: _details(
+            channelId: kChannelMedicineId,
+            channelName: kChannelMedicineName,
+            channelDescription: kChannelMedicineDesc,
+            actions: const [
+              AndroidNotificationAction(
+                'taken',
+                'Taken',
+                showsUserInterface: true,
+                cancelNotification: true,
+              ),
+              AndroidNotificationAction(
+                'skip',
+                'Skip',
+                showsUserInterface: true,
+                cancelNotification: true,
+              ),
+            ],
+          ),
+        ),
+        androidScheduleMode: scheduleMode,
+        payload: payload,
+      );
+    }
+  }
+
+  /// Cancels follow-ups for a dose that was resolved today (Taken/Skipped),
+  /// while keeping the repeating base schedule intact for future days.
+  static Future<void> cancelSameDayMedicineDose(
+    String medicineId,
+    String hhmm,
+  ) async {
+    await init();
+    // Only cancel follow-ups (30, 60, 90, 120) for today.
+    // Offset 0 is scheduled with matchDateTimeComponents: DateTimeComponents.time
+    // to repeat daily; cancelling offset 0 would cancel future days' daily alarms.
+    for (final offset in _medicineFollowUpOffsets.where((o) => o > 0)) {
+      await plugin.cancel(
+        id: _medicineNotificationId(medicineId, hhmm, offset),
+      );
+    }
   }
 
   static Future<void> cancelMedicineTimes(
@@ -342,13 +446,12 @@ class NotificationService {
   ) async {
     await init();
     for (final time in times) {
-      await plugin.cancel(id: _medicineNotificationId(medicineId, time));
+      for (final offset in _medicineFollowUpOffsets) {
+        await plugin.cancel(
+          id: _medicineNotificationId(medicineId, time, offset),
+        );
+      }
     }
-  }
-
-  static Future<void> cancelTask(String taskId) async {
-    await init();
-    await plugin.cancel(id: _taskNotificationId(taskId));
   }
 
   // ---------------------------------------------------------------------------
@@ -363,8 +466,7 @@ class NotificationService {
     String projectId,
     String taskId,
     String userId,
-  ) =>
-      '$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff;
+  ) => '$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff;
 
   static Future<void> scheduleCommunityTaskReminder({
     required String groupId,
@@ -442,8 +544,10 @@ class NotificationService {
   /// permissions or crashing.
   static Future<AndroidScheduleMode> _resolveScheduleMode() async {
     try {
-      final android = plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final android = plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       final canExact = await android?.canScheduleExactNotifications() ?? false;
       return canExact
           ? AndroidScheduleMode.exactAllowWhileIdle

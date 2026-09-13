@@ -64,9 +64,7 @@ class _PlanTripFormState extends State<PlanTripForm> {
   late DateTime _date = widget.existingTrip?.departureTime ?? DateTime.now();
   late TimeOfDay _time = widget.existingTrip != null
       ? TimeOfDay.fromDateTime(widget.existingTrip!.departureTime)
-      : TimeOfDay.fromDateTime(
-          DateTime.now().add(const Duration(minutes: 30)),
-        );
+      : TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 30)));
   late int _reminderMinutes = widget.existingTrip?.reminderMinutes ?? 30;
   bool _saving = false;
   bool _deleting = false;
@@ -372,8 +370,158 @@ class _PlanTripFormState extends State<PlanTripForm> {
                 style: type.label.copyWith(color: colors.error),
               ),
             ),
+          ] else ...[
+            const SizedBox(height: GochanoSpacing.lg),
+            const Divider(),
+            const SizedBox(height: GochanoSpacing.xs),
+            _PlannedTripsListSection(
+              onSelectTrip: (trip) {
+                Navigator.of(context).pop();
+                showPlanTripSheet(context, existingTrip: trip);
+              },
+            ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _PlannedTripsListSection extends StatelessWidget {
+  const _PlannedTripsListSection({required this.onSelectTrip});
+
+  final void Function(PlannedCommuteTrip trip) onSelectTrip;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    return StreamBuilder<List<PlannedCommuteTrip>>(
+      stream: CommuteTripService.streamPlannedTrips(),
+      builder: (context, snapshot) {
+        final trips = snapshot.data ?? const [];
+        if (trips.isEmpty) return const SizedBox.shrink();
+
+        final now = DateTime.now();
+        final upcoming = trips
+            .where((t) => t.departureTime.isAfter(now))
+            .toList();
+        final missed = trips
+            .where((t) => t.departureTime.isBefore(now))
+            .toList()
+            .reversed
+            .toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              GochanoLanguage.text(
+                'Your Planned Trips',
+                'আপনার পরিকল্পিত যাত্রা',
+              ),
+              style: type.sectionHeading,
+            ),
+            const SizedBox(height: GochanoSpacing.xs),
+            if (upcoming.isNotEmpty) ...[
+              for (final trip in upcoming)
+                _PlannedTripTile(
+                  trip: trip,
+                  isMissed: false,
+                  onTap: () => onSelectTrip(trip),
+                ),
+            ],
+            if (missed.isNotEmpty) ...[
+              const SizedBox(height: GochanoSpacing.xs),
+              Text(
+                GochanoLanguage.text('History', 'ইতিহাস'),
+                style: type.label.copyWith(color: colors.textSecondary),
+              ),
+              const SizedBox(height: GochanoSpacing.xxs),
+              for (final trip in missed)
+                _PlannedTripTile(
+                  trip: trip,
+                  isMissed: true,
+                  onTap: () => onSelectTrip(trip),
+                ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PlannedTripTile extends StatelessWidget {
+  const _PlannedTripTile({
+    required this.trip,
+    required this.isMissed,
+    required this.onTap,
+  });
+
+  final PlannedCommuteTrip trip;
+  final bool isMissed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+    final timeStr =
+        '${trip.departureTime.hour.toString().padLeft(2, '0')}:${trip.departureTime.minute.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${trip.departureTime.day}/${trip.departureTime.month}/${trip.departureTime.year}';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xs),
+        child: Row(
+          children: [
+            Icon(
+              isMissed
+                  ? Icons.history_rounded
+                  : Icons.directions_transit_rounded,
+              size: 20,
+              color: isMissed ? colors.textTertiary : colors.commute,
+            ),
+            const SizedBox(width: GochanoSpacing.xs),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${trip.originName} → ${trip.destinationName}',
+                    style: type.body.copyWith(
+                      color: isMissed
+                          ? colors.textSecondary
+                          : colors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '$dateStr $timeStr',
+                    style: type.caption.copyWith(color: colors.textTertiary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: GochanoSpacing.xs),
+            if (isMissed)
+              GochanoBadge(
+                label: GochanoLanguage.text('Missed', 'মিসড'),
+                tone: GochanoBadgeTone.warning,
+              )
+            else
+              GochanoBadge(
+                label: GochanoLanguage.text('Upcoming', 'আসন্ন'),
+                tone: GochanoBadgeTone.neutral,
+              ),
+          ],
+        ),
       ),
     );
   }

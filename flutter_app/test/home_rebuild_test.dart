@@ -16,14 +16,12 @@ void main() {
     build = source.substring(buildStart, buildEnd);
   });
 
-  test('Home order is Quick Access, Today, Medicine, Commute, Money', () {
-    final quick = build.indexOf('Quick Access');
+  test('Home order is Today, Medicine, Commute, Money', () {
     final today = build.indexOf('_TodaysTasksCard');
     final medicine = build.indexOf('_MedicineScheduleCard');
     final commute = build.indexOf('_CommuteCard');
     final money = build.indexOf('_MoneyCard');
-    expect(quick, greaterThanOrEqualTo(0));
-    expect(today, greaterThan(quick));
+    expect(today, greaterThanOrEqualTo(0));
     expect(medicine, greaterThan(today));
     expect(commute, greaterThan(medicine));
     expect(money, greaterThan(commute));
@@ -56,8 +54,7 @@ void main() {
     'profile avatar route remains wired through the existing shell callback',
     () {
       expect(source, contains('onOpenProfile'));
-      expect(source, contains('Icons.account_circle_outlined'));
-      expect(source, contains('tooltip: GochanoLanguage.text(\'Profile\''));
+      expect(source, contains('CircleAvatar'));
     },
   );
 }

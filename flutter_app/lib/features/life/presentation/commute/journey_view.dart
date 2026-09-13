@@ -101,10 +101,10 @@ class _JourneyPlanSectionState extends State<JourneyPlanSection> {
               'কোনো সম্পূর্ণ যাত্রাপথ পাওয়া যায়নি',
             ),
             message: GochanoLanguage.text(
-              'CommuteBD could not connect these two places with the transport '
+              'Commute could not connect these two places with the transport '
               'it currently knows about. The fare estimates below are still '
               'based on the distance between them.',
-              'কমিউটবিডি এখন যে যানবাহনের তথ্য জানে তা দিয়ে এই দুই স্থান যুক্ত করা '
+              'কমিউট এখন যে যানবাহনের তথ্য জানে তা দিয়ে এই দুই স্থান যুক্ত করা '
               'যায়নি। নিচের ভাড়ার হিসাব এখনো দূরত্বের ভিত্তিতে দেওয়া।',
             ),
           ),

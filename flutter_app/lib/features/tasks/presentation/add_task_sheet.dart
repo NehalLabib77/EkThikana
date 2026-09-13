@@ -207,14 +207,14 @@ class _TaskFormState extends State<_TaskForm> {
         taskId = ref.id;
       }
 
-      // `rescheduleTask` is the single safe primitive for an edit flow: it
-      // recycles the same deterministic notification id, so editing a task
-      // cannot leave a stale reminder queued alongside the new one. Passing
-      // a null/cleared `when` cancels without rescheduling.
+      // `rescheduleTask` recycles the same deterministic notification ids across
+      // all reminder slots, so editing a task cannot leave stale reminders queued
+      // alongside the new one. Passing a null/cleared `when` cancels without rescheduling.
       await NotificationService.rescheduleTask(
         taskId: taskId,
         title: title,
-        when: _remindAt,
+        when: _dueAt,
+        type: widget.type,
       );
 
       if (mounted) Navigator.of(context).pop(true);

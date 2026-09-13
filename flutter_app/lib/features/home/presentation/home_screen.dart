@@ -15,25 +15,23 @@ import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../models/financial_transaction.dart';
 import '../../../services/api_service.dart';
 import '../../../services/financial_service.dart';
 import '../../../services/firestore_service.dart';
-import '../../../shared/widgets/gochano_controls.dart';
-import '../../../shared/widgets/gochano_surfaces.dart';
-import '../../life/presentation/expense/add_expense_sheet.dart';
-import '../../life/presentation/commute/commute_screen.dart';
-import '../../life/presentation/commute/commute_place_picker.dart';
-import '../../life/presentation/commute/plan_trip_sheet.dart';
-import '../../life/presentation/commute/planned_trip_models.dart';
-import '../../../core/localization/gochano_dates.dart';
 import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
+import '../../../shared/widgets/gochano_controls.dart';
+import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../life/domain/medicine_schedule.dart';
+import '../../life/presentation/commute/commute_place_picker.dart';
+import '../../life/presentation/commute/commute_screen.dart';
+import '../../life/presentation/commute/planned_trip_models.dart';
+import '../../life/presentation/commute/plan_trip_sheet.dart';
 import '../../life/presentation/medicine/medicine_screen.dart';
-import '../../study/presentation/ai/ai_assistant_screen.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
 import '../../../widgets/language_toggle.dart';
 
@@ -73,11 +71,6 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
-          SectionHeader(
-            title: GochanoLanguage.text('Quick Access', 'দ্রুত প্রবেশ'),
-          ),
-          _QuickActions(isStudent: _isStudent),
-          const SizedBox(height: GochanoSpacing.md),
           _TodaysTasksCard(
             onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
           ),
@@ -131,36 +124,40 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           final photoURL = data?['photoURL'] as String?;
           final displayName = (data?['displayName'] as String?)?.trim() ?? '';
 
-          return Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: colors.brand,
-                backgroundImage: photoURL != null && photoURL.isNotEmpty
-                    ? NetworkImage(photoURL)
-                    : null,
-                child: photoURL == null || photoURL.isEmpty
-                    ? Text(
-                        displayName.isNotEmpty
-                            ? displayName[0].toUpperCase()
-                            : '?',
-                        style: type.pageTitle.copyWith(
-                          color: colors.onBrand,
-                          fontSize: 14,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: Text(
-                  _greeting(displayName),
-                  style: type.pageTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          return InkWell(
+            onTap: onOpenProfile,
+            borderRadius: GochanoRadius.smAll,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: colors.brand,
+                  backgroundImage: photoURL != null && photoURL.isNotEmpty
+                      ? NetworkImage(photoURL)
+                      : null,
+                  child: photoURL == null || photoURL.isEmpty
+                      ? Text(
+                          displayName.isNotEmpty
+                              ? displayName[0].toUpperCase()
+                              : '?',
+                          style: type.pageTitle.copyWith(
+                            color: colors.onBrand,
+                            fontSize: 14,
+                          ),
+                        )
+                      : null,
                 ),
-              ),
-            ],
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Text(
+                    _greeting(displayName),
+                    style: type.pageTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -555,7 +552,14 @@ class _TodaysTasksCard extends StatelessWidget {
           if (data['done'] == true) continue;
           final due = (data['dueAt'] as Timestamp?)?.toDate();
           if (due == null) continue;
-          if (due.isBefore(now)) overdue++;
+          if (due.isBefore(now)) {
+            overdue++;
+            continue;
+          }
+          final missedAt = due.add(const Duration(minutes: 30));
+          // Once 30-minute grace period expires, item is Missed and leaves Home.
+          if (!missedAt.isAfter(now)) continue;
+
           if (due.isBefore(endOfToday)) open.add(doc);
         }
         open.sort(_byDueAtAsc);
@@ -659,10 +663,13 @@ class _TaskLine extends StatelessWidget {
             height: 28,
             child: Checkbox(
               value: false,
-              onChanged: (_) => doc.reference.update({
-                'done': true,
-                'updatedAt': FieldValue.serverTimestamp(),
-              }),
+              onChanged: (_) {
+                NotificationService.cancelTask(doc.id);
+                doc.reference.update({
+                  'done': true,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+              },
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
@@ -907,6 +914,10 @@ class _MedicineScheduleCardState extends State<_MedicineScheduleCard> {
         actualQuantityTaken: quantity,
         unitPriceSnapshot: dose.unitPrice,
         unit: dose.unit,
+      );
+      await NotificationService.cancelSameDayMedicineDose(
+        dose.medicineId,
+        dose.time,
       );
     } catch (error) {
       if (mounted) {
@@ -1865,152 +1876,6 @@ class _RecentRow extends StatelessWidget {
               color: context.colors.textTertiary,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Quick actions
-// ---------------------------------------------------------------------------
-
-class _QuickActions extends StatefulWidget {
-  const _QuickActions({required this.isStudent});
-
-  final bool isStudent;
-
-  @override
-  State<_QuickActions> createState() => _QuickActionsState();
-}
-
-class _QuickActionsState extends State<_QuickActions> {
-  List<_QuickAction> _actions(BuildContext context) {
-    final colors = context.colors;
-    return <_QuickAction>[
-      if (widget.isStudent)
-        _QuickAction(
-          label: GochanoLanguage.text('Ask AI', 'AI-কে জিজ্ঞাসা'),
-          icon: Icons.auto_awesome_rounded,
-          accent: colors.ai,
-          onTap: () => Navigator.of(
-            context,
-          ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
-        ),
-      _QuickAction(
-        label: GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
-        icon: Icons.receipt_long_rounded,
-        accent: colors.expense,
-        onTap: () => showAddExpenseSheet(context),
-      ),
-      _QuickAction(
-        label: GochanoLanguage.text('Medicine', 'ওষুধ'),
-        icon: Icons.medication_outlined,
-        accent: colors.medicine,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
-      ),
-      _QuickAction(
-        label: GochanoLanguage.text('CommuteBD', 'কমিউটবিডি'),
-        icon: Icons.directions_bus_rounded,
-        accent: colors.commute,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const CommuteScreen())),
-      ),
-    ];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = _actions(context);
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final columns = screenWidth >= 380 ? 4 : 3;
-
-    return _AccentRailCard(
-      accent: context.colors.brand,
-      padding: const EdgeInsets.symmetric(
-        horizontal: GochanoSpacing.xs,
-        vertical: GochanoSpacing.sm,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: actions.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisExtent: 88,
-              crossAxisSpacing: GochanoSpacing.xxs,
-              mainAxisSpacing: GochanoSpacing.xs,
-            ),
-            itemBuilder: (context, i) => actions[i],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.label,
-    required this.icon,
-    required this.accent,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: GochanoRadius.mdAll,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 2,
-            vertical: GochanoSpacing.xxs,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 22, color: accent),
-              ),
-              const SizedBox(height: GochanoSpacing.xxs),
-              Flexible(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: context.type.caption.copyWith(
-                    color: context.colors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

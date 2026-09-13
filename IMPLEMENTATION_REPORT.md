@@ -1,9 +1,87 @@
 # IMPLEMENTATION REPORT — Final UI Fixes
 
 **Branch:** `gochano-ui-rebuild-v1`
-**Date:** 2026-09-12
+**Date:** 2026-09-13
 **API:** `https://ekthikana-api-x473.onrender.com`
-**Status:** Automated release audit PASSED — Manual Android regression pending
+**Status:** Build/install/startup/runtime smoke PASS — full interactive Android regression pending
+
+---
+
+## Task/Assignment Reminder Cadence + 30-Minute Grace/Missed Lifecycle
+
+**Date:** 2026-09-13
+**Branch:** `gochano-ui-rebuild-v1`
+
+### Physical Root Cause & Goal
+Tasks and assignments previously scheduled notifications across 4 offsets `[90, 60, 30, 0]` minutes without an exact due notification or a 10-minute warning, lacked an incomplete reminder after due time, and immediately dropped items from the active Home card as soon as `dueAt < now` without a grace period. Furthermore, History classified uncompleted items as Missed immediately at `dueAt < now`.
+
+### Solution
+1. **NotificationService Cadence (`flutter_app/lib/services/notification_service.dart`)**:
+   - Updated task reminder offsets to the canonical 6 slots: `[90, 60, 30, 10, 0, -30]` minutes relative to `dueAt = T` (`T - 90m`, `T - 60m`, `T - 30m`, `T - 10m`, `T (0m)`, `T + 30m`).
+   - Retained deterministic 31-bit FNV-1a IDs: `_taskNotificationId(String taskId, [int offsetMinutes = 0]) => _stableStringId('task_${taskId}_$offsetMinutes')`.
+   - Added type-aware incomplete body copy at `T + 30`:
+     - Task: EN: `"Task incomplete"` / BN: `"কাজটি এখনো সম্পন্ন হয়নি"`
+     - Assignment: EN: `"Assignment incomplete"` / BN: `"অ্যাসাইনমেন্টটি এখনো সম্পন্ন হয়নি"`
+   - Added exact due-time body copy at `T (0)`:
+     - Task: `"Task due now: $title"` / `"কাজের সময় হয়েছে: $title"`
+     - Assignment: `"Assignment due now: $title"` / `"অ্যাসাইনমেন্টের সময় হয়েছে: $title"`
+   - Updated `rescheduleTask` and `cancelTask` to cancel across all 6 slots and skip past reminders.
+2. **Home Screen Grace Period (`flutter_app/lib/features/home/presentation/home_screen.dart`)**:
+   - In `_TodaysTasksCard`, items remain in `open` and actionable during the 30-minute grace period (`T <= now < T + 30m`).
+   - Only when `missedAt = due.add(Duration(minutes: 30))` is expired (`!missedAt.isAfter(now)`) does the item leave the Home active list.
+   - Items in `due < now` are styled with overdue warning cues and increment the overdue count badge.
+   - Checking a task complete in `_TaskLine` explicitly invokes `NotificationService.cancelTask(doc.id)` to cancel pending reminder slots.
+3. **Plan View & Tasks View (`plan_view.dart` & `tasks_view.dart`)**:
+   - In `_PlanHistoryScreen`, an uncompleted item is classified as Missed **only after** `dueAt + 30m` has passed (`now >= dueAt + 30m`).
+   - History items render task/assignment badge, Completed / Missed status badge, and original due date & time formatted (`formatShortDate(due)} ${formatClock12(due)}`).
+   - Completing a task cancels notifications via `NotificationService.cancelTask(doc.id)`. Unchecking reschedules valid future slots.
+4. **Add Task Sheet (`add_task_sheet.dart`)**:
+   - Passes `when: _dueAt` and `type: widget.type` to `NotificationService.rescheduleTask` so all 6 reminder slots are aligned with the task's due deadline.
+
+### Verification
+- Static Analysis: `flutter analyze` -> **0 issues** across entire repository.
+- Unit Tests:
+  - `test/task_reminder_reschedule_test.dart`: Verified deterministic 6-slot IDs without collisions.
+  - `test/notification_policy_test.dart`: Verified 6 distinct slots, determinism, and 30-minute grace period boundary lifecycle (`T-10`, `T`, `T+15`, `T+29`, `T+30`, `T+45`).
+  - Full suite: `flutter test` -> **615/615 passed**.
+
+---
+
+## Developer Login Cold-Start Session Restore Fix (Debug Only)
+
+**Date:** 2026-09-13
+**Branch:** `gochano-ui-rebuild-v1`
+
+### Physical Root Cause
+When testing with Developer Login (`DEV_AUTH_BYPASS=true`), signing in succeeded and reached `GochanoShell`. However, closing and reopening the app returned the user to `LoginScreen`.
+In `AuthGate._restore()`, restoration strictly required `isLoggedIn = await TelecomAuthService.readIsLoggedIn()`. Because Developer Login signs in directly via `FirebaseAuth.signInWithEmailAndPassword` without setting telecom storage flags (keeping telecom state pristine), `isLoggedIn` was false on cold start, causing `_restore()` to set `_loggedIn = false` despite a valid `FirebaseAuth.instance.currentUser`.
+
+### Solution
+Updated `AuthGate` in `flutter_app/lib/features/auth/presentation/auth_gate.dart`:
+1. Introduced a strictly debug-only bypass guard:
+   ```dart
+   static const bool _developerAuthBypass =
+       kDebugMode &&
+       bool.fromEnvironment('DEV_AUTH_BYPASS', defaultValue: false);
+   ```
+2. In `_restore()`:
+   - Evaluated `isDeveloperSession = _developerAuthBypass && current != null;` alongside `isTelecomSession = isLoggedIn && current != null;`.
+   - Performed token refresh (`current.getIdToken(true)`) and profile check (`FirestoreService.hasProfile()`) if either `isDeveloperSession` or `isTelecomSession` is true.
+   - Set `_loggedIn = true` on cold restart if `isDeveloperSession` is active.
+3. In `build()`:
+   - Evaluated `displayName` with fallbacks for email/developer users when `_phone` is empty:
+     `current?.phoneNumber ?? current?.displayName ?? current?.email ?? ''`.
+4. In `authStateChanges()` listener:
+   - Maintained Developer Login session state when `_developerAuthBypass` is true, while preserving `TelecomAuthService.clearSession()` when in telecom mode.
+5. In production/release builds (`kReleaseMode` or without `DEV_AUTH_BYPASS`):
+   - `_developerAuthBypass` evaluates to constant `false`, preserving the strict dual-gate requirement (`isLoggedIn && current != null`).
+   - Normal telecom login, carrier endpoints, OTP, subscription checking, and Firestore security rules remain completely untouched.
+
+### Verification
+- Static analysis: `flutter analyze lib/features/auth/presentation/auth_gate.dart test/telecom_login_test.dart` -> **0 errors/warnings**.
+- Focused tests: `flutter test test/telecom_login_test.dart test/post_verification_auth_test.dart` -> **84/84 passed**.
+- Full test suite: `flutter test` -> **617/617 passed**.
+- Formatting & git check: Clean.
 
 ---
 
@@ -3403,3 +3481,316 @@ Observed after the fix:
 - User was not admitted into the app
 
 Result: PASS
+
+---
+
+## Final Physical-Device Regression
+
+**Date:** 2026-09-12
+**Product Target:** Supported Android devices
+**Physical test device used:** Infinix X665E, Android 12 (API 31)
+**Build:** `flutter build apk --debug` — installed via `adb install -r`
+**Run:** `flutter run` via package manager launch
+**Branch:** `gochano-ui-rebuild-v1`
+**Commit:** `0cdf5da`
+
+### 1. Device & Build Verification
+
+| Check | Result |
+|---|---|
+| Physical test device used | Infinix X665E, Android 12 (API 31) |
+| Debug APK build | PASS |
+| APK install | PASS |
+| App launch | PASS |
+| No crash on startup | PASS |
+
+### 2. A. Auth / Profile Regression
+
+| Check | Result |
+|---|---|
+| Login screen renders normally | PASS |
+| TEMPORARY BLOCKED on physical test device | **PASS** — `checkSubscription: phone="01873486882"` → `subscriptionStatus="TEMPORARY BLOCKED"` → `branch: TEMPORARY_BLOCKED → block login, no OTP, no app entry` → Login remained visible with localized error banner |
+| Profile Setup (Full Name editable, Student fixed, no visible phone input) | AUTOMATED PASS / PHYSICAL NOT TESTED |
+| Stored verified phone in Profile | AUTOMATED PASS / PHYSICAL NOT TESTED |
+| `users/{uid}.phone` populated from verified telecom | AUTOMATED PASS / PHYSICAL NOT TESTED |
+| `role = "student"` persisted | AUTOMATED PASS / PHYSICAL NOT TESTED |
+| Logout test | NOT TESTED |
+
+### 3. K. Runtime Log Audit (Startup/Auth Smoke)
+
+| Check | Result |
+|---|---|
+| `adb logcat` (startup/auth smoke) | **PASS** |
+| Flutter/Dart runtime errors | **0** |
+| RenderFlex overflow | **0** |
+| ListTile Material/Ink warnings | **0** |
+| `permission-denied` | **0** |
+| FATAL EXCEPTION | **0** |
+| TelecomAuth errors | **0** — only correct TEMPORARY BLOCKED branch logged |
+| OS-level noise | Only harmless system logs |
+
+### 4. Automated Reconfirmation
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **PASS** — No issues found! |
+| `flutter test` (full suite) | **PASS** — 608/608 passed |
+
+### 5. Repository State
+
+| Check | Result |
+|---|---|
+| `git status --short` | M IMPLEMENTATION_REPORT.md (only report documentation updated) |
+| `git diff --check` | Clean |
+| Production code modifications | NONE (Strictly 0 changes to production source code) |
+| HEAD commit | `0cdf5da feat(auth): simplify profile setup to name and student type` |
+
+### 6. Physical Regression Coverage Matrix
+
+| Area | Status | Notes |
+|---|---|---|
+| **Auth: Login screen** | PASS | Renders normally, no crash |
+| **Auth: TEMPORARY BLOCKED** | **PASS** | Confirmed on physical test device: blocked on Login, no OTP, no app entry |
+| **Auth: Profile Setup** | AUTOMATED PASS / PHYSICAL NOT TESTED | Name + Student fixed verified by 28 automated tests; physical walkthrough pending |
+| **Auth: Logout/Unsubscribe** | NOT TESTED | Live paid carrier subscription must not be repeatedly unsubscribed |
+| **Global Shell / UI** | STARTUP SMOKE PASS / INTERACTIVE NOT TESTED | No overflow, no crash, no layout exceptions on startup |
+| **Today / Home** | NOT TESTED | Requires interactive physical test device walkthrough |
+| **Study (Workspace + Plan)** | NOT TESTED | Notes/PDF/Images/Docs/AI, task/assignment creation, complete/restore pending |
+| **Medicine** | NOT TESTED | CRUD, Taken/Skip, reminder foreground/background pending |
+| **Money (Daily / Grocery / Dena-Pawna / Overview)** | NOT TESTED | Settlement, immediate refresh, duplicate ledger check pending |
+| **Commute** | NOT TESTED | Routes, alternatives, fares, planned trip CRUD, reminders pending |
+| **Community / Chat** | NOT TESTED | Text, Bangla, Unicode emoji, stickers, reactions persistence pending |
+| **Language (EN ↔ BN)** | NOT TESTED | Live dynamic language toggle pending |
+| **Appearance (System / Light / Dark)** | NOT TESTED | Live appearance theme switching pending |
+| **Runtime logs** | **PASS** | 0 Flutter errors, 0 RenderFlex, 0 ListTile warnings (startup/auth smoke) |
+| **flutter analyze** | **PASS** | 0 issues |
+| **flutter test** | **PASS** | 608/608 |
+
+### 7. Remaining Actions Before Production Release
+
+1. **Interactive manual regression walkthrough** on physical test device for areas marked NOT TESTED.
+2. **Firestore rules deployment**: `firebase deploy --only firestore:rules`.
+3. **Firestore indexes deployment**: `firebase deploy --only firestore:indexes`.
+4. **Backend Render deployment confirmation**: verify `/v1/auth/telecom/exchange` is live.
+5. **Release APK**: `flutter build apk --release --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com`.
+
+### 8. Summary
+
+The application build installs and boots cleanly. The TEMPORARY BLOCKED carrier auth state was verified on physical test device hardware. Runtime logs show zero exceptions, zero RenderFlex overflows, and zero ListTile warnings. Automated tests maintain the 608/608 passing baseline. Build/install/startup/runtime smoke PASS — full interactive Android regression pending.
+
+---
+
+## Critical Physical Bugfix Sprint — CommuteBD Journey + Planned Trip + Reminder Reliability
+
+**Date:** 2026-09-12
+**Branch:** `gochano-ui-rebuild-v1`
+**Target Hardware:** Supported Android devices generally (OEM-independent, standard Android APIs only)
+
+### Summary of Addressed Failures
+
+1. **CommuteBD Journey Fallback ("Transport network is temporarily unavailable")**:
+   - **Problem**: When public transit graph data was not available on server or points fell outside graph coverage, "Your journey" collapsed into an unhelpful error box (`_PlanningUnavailable`) even though road routing and OSRM distance/duration (~9.5 km, ~11 min) succeeded.
+   - **Fix**: In `flutter_app/lib/features/life/presentation/commute/journey_models.dart`, `JourneyPlan.fromResponse` now synthesizes a clean, honest estimated fallback `Journey` using the measured road distance, driving duration, and available mode fare recommendations (CNG / Car / Bus / Rickshaw) when multimodal journeys are empty and road distance > 0. Clearly labeled as estimated with provenance `Road distance estimate`.
+2. **De-duplication in CommuteBD Results**:
+   - **Problem**: In `flutter_app/lib/features/life/presentation/commute/commute_screen.dart`, `JourneyPlanSection` was rendered twice consecutively in `_Results` (lines 629 and 630). Additionally, an extra redundant `CommuteRouteMap` was mounted inside `_Results` despite the interactive route map already being placed prominently above the "Find routes" CTA.
+   - **Fix**: Removed the duplicate `JourneyPlanSection` and redundant `CommuteRouteMap` from `_Results`. The screen now renders exactly one map and exactly one journey section.
+3. **Medicine Background Reminder Delivery**:
+   - **Problem**: Background medicine reminders failed on device. Investigation revealed `_medicineNotificationId` used `String.hashCode & 0x7fffffff`. Dart's `String.hashCode` is explicitly not stable across process restarts, device reboots, or Dart VM sessions, causing cancel/reschedule ID drift. Furthermore, `scheduleDailyMedicine` used `AndroidScheduleMode.inexactAllowWhileIdle` unconditionally.
+   - **Fix**: In `flutter_app/lib/services/notification_service.dart`, updated `_medicineNotificationId` to use deterministic FNV-1a 32-bit hash (`_stableStringId('medicine_${medicineId}_$hhmm')`), resolved `_resolveScheduleMode()` dynamically (allowing `exactAllowWhileIdle` when permitted), and exposed `getPendingNotifications()` for diagnostics and verification.
+4. **Planned Trip Flow**:
+   - Verified `PlannedCommuteTrip` and `CommuteTripService` scheduling and rescheduling with 10m, 30m, and 60m offsets. Added unit and policy tests verifying deterministic ID generation and time calculations.
+
+### Verification Matrix
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | **PASS** — No issues found! (ran in 4.7s) |
+| `flutter test test/notification_policy_test.dart` | **PASS** — 9/9 passed |
+| `flutter test test/commute_journey_test.dart` | **PASS** — 24/24 passed |
+| `flutter test` (full suite) | **PASS** — 611/611 passed (clean 100% pass rate) |
+| `git status --short` | Clean, only targeted files modified |
+| Production code modifications | Strictly device-independent, standard Android APIs only |
+
+---
+
+## Home / Reminder Lifecycle / Workspace / Commute UX Rebuild
+
+**Date:** 2026-09-13
+**Branch:** `gochano-ui-rebuild-v1`
+**Scope:** Home header & bento cleanup, Task & Medicine reminder lifecycle & missed state, Planned trip missed state, Study Workspace quick access redesign, Commute 5-section UX & renaming.
+
+### 1. Summary of Changes
+
+1. **Home Screen Header Simplification**:
+   - Replaced greeting text and duplicate profile action icon with a single canonical `_HomeAppBar`.
+   - Displays user profile avatar (`CircleAvatar`) on the left alongside display name, wrapped in `InkWell(onTap: onOpenProfile)`.
+   - Header right actions retain only `LanguageToggle()`.
+   - Visually removed "Quick Access" from Home list while keeping all sub-features reachable via primary navigation and shell tabs.
+
+2. **Task / Assignment Reminder Cadence & Missed Lifecycle**:
+   - Scheduled task notifications at four deterministic intervals: 90 minutes before, 60 minutes before, 30 minutes before, and at due time.
+   - IDs are generated via deterministic FNV-1a hash (`_taskNotificationId(taskId, offsetMinutes)`).
+   - Cancelling a task or marking it complete clears all 4 notification offsets.
+   - Past-due tasks (`due.isBefore(now)`) are excluded from Home's active Today list.
+   - Plan history explicitly captures both completed and missed items, presenting them with distinct badges (`Completed / সম্পন্ন` vs `Missed / মিসড`).
+
+3. **Medicine Follow-up Reminders & Missed Lifecycle**:
+   - Medicine doses now schedule an initial dose reminder at scheduled time $T$, plus 4 follow-up reminders at $T+30\text{m}$, $T+60\text{m}$, $T+90\text{m}$, and $T+120\text{m}$ (5 deterministic notifications per scheduled dose).
+   - Marking a dose Taken or Skipped immediately invokes `NotificationService.cancelSameDayMedicineDose(medicineId, hhmm)` to cancel all 5 offset notifications.
+   - `MedicineSchedule.missedAfter` updated to 120 minutes. Home screen excludes missed doses (`status == DoseStatus.pending` only shown).
+
+4. **Planned Trip Missed State**:
+   - Added `isMissed` getter (`departureTime.isBefore(DateTime.now())`) to `PlannedCommuteTrip`.
+   - Planned trip list in `PlanTripSheet` dynamically groups trips into "Upcoming" and "Missed / মিসড", allowing review or editing while past trips disappear from the Home commute card.
+
+5. **Study Workspace Quick Access Redesign & Gestures**:
+   - Redesigned `_QuickAccess` in `WorkspaceView` to feature exactly 4 primary shortcuts in a responsive 4-column row (AI Assistant, Notes, PDFs, Saved Images) with 44px circular containers, 24px icons, and centered labels.
+   - Secondary shortcuts (Docs, Semester, Shared Box) are housed in an expandable panel animated with a 450ms `AnimatedSize`.
+   - Supports both Tap and vertical Drag gestures (`onVerticalDragEnd` and `onVerticalDragUpdate` on `GestureDetector`) for smooth expansion (drag down) and collapse (drag up).
+   - Clean bilingual "See more / আরও দেখুন" / "See less / কম দেখুন" toggle with animated chevron.
+
+6. **Commute UX & Renaming**:
+   - Replaced all user-facing instances of "CommuteBD" with "Commute / যাতায়াত".
+   - Enforced 5 structured sections: (1) Where are you going?, (2) Route summary (single route map, distance, road time, honest estimated banner when transit data is unavailable), (3) Exactly ONE "Your journey" section (deduplicated), (4) Compare transport (mode chooser & fare cards), and (5) "Plan this trip" CTA button.
+
+7. **Medicine Recurrence Safety & Cancellation Isolation**:
+   - Fixed `cancelSameDayMedicineDose` in `NotificationService` to cancel only follow-up reminder offsets (`> 0`: 30, 60, 90, 120 min) upon dose resolution (Taken/Skipped), ensuring the repeating daily base alarm (offset 0) remains scheduled for tomorrow and future days.
+
+### 2. Post-Rebuild Compile Blocker Repair
+
+- **Root Cause 1 (Duplicate `FirestoreService.db`)**: `FirestoreService` declared both a static field `static final db = FirebaseFirestore.instance;` and a getter `static FirebaseFirestore get db { ... }`. Removed the duplicate getter to preserve the single canonical field; safe `uid` and fallback streams preserved.
+- **Root Cause 2 (Home Header Syntax Error)**: In `HomeScreen`'s `_HomeAppBar`, a nested conditional expression for `CircleAvatar.child` had duplicate and misplaced branches resulting in `'Text' can't be assigned to a variable of type 'bool'`. Cleaned the child assignment to cleanly render the first letter initial or default icon when photoURL is absent.
+- **Exact Files Changed**:
+  - `flutter_app/lib/services/firestore_service.dart`
+  - `flutter_app/lib/features/home/presentation/home_screen.dart`
+
+### 3. Full Verification Matrix (Post-Repair)
+
+| Check | Result |
+|---|---|
+| `dart format` | **PASS** — Formatted both files cleanly (0 issues) |
+| `flutter analyze` | **PASS** — No issues found! (ran in 7.3s, 0 errors, 0 warnings) |
+| Full Flutter test suite (`flutter test`) | **PASS** — 615/615 passed (clean 100% pass rate) |
+| `flutter run` launch test | **PASS** — Successfully assembled debug APK (47.2s), installed on Infinix X665E (18.4s), attached engine, Dart VM Service active |
+| `git diff --check` | **PASS** — Clean, 0 trailing whitespace or formatting warnings |
+| Protected systems check | **PASS** — Zero changes to carrier auth, billing, or telecom endpoints |
+| Commit / Push / Release Guard | **PASS** — Zero commits, zero pushes, no release APK built |
+
+---
+
+## Physical Profile Setup Save Failure Diagnosis
+
+### 1. Observed Physical Failure & Evidence
+- **Visible Symptom**: Profile Setup screen renders correctly (Full Name editable, Account type display-only "Student", no visible phone field), but tapping Continue displayed:
+  `"Could not save your profile. Please try again."`
+- **Payload Inspected**:
+  ```dart
+  await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+    {
+      'displayName': name,
+      'phone': widget.phone,
+      'role': 'student',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    },
+    SetOptions(merge: true),
+  );
+  ```
+  The payload strictly writes to `users/{user.uid}` with `role: 'student'` and preserves `widget.phone`.
+
+### 2. Local Firestore Rules & Backend Custom Claims Audit
+- **Local Rule** (`firebase/firestore.rules`):
+  ```text
+  match /users/{uid} {
+    allow create: if signedIn()
+      && request.auth.uid == uid
+      && request.resource.data.role in ['student', 'general'];
+    allow read: if verified() && request.auth.uid == uid;
+    allow update: if verified()
+      && request.auth.uid == uid
+      && request.resource.data.role == resource.data.role;
+  ```
+  `create` requires only `signedIn() && request.auth.uid == uid && request.resource.data.role in ['student', 'general']`.
+  However, `SetOptions(merge: true)` or updating an existing stub document evaluates the `update` rule which requires `verified()`:
+  ```text
+  function verified() {
+    return signedIn() && (
+      request.auth.token.email_verified == true
+      || request.auth.token.telecom_verified == true
+    );
+  }
+  ```
+- **Backend Custom Claim Generation** (`backend/app/routers/telecom.py`):
+  ```python
+  firebase_auth.update_user(uid, email_verified=True)
+  firebase_auth.set_custom_user_claims(uid, {"telecom_verified": True})
+  custom_token = firebase_auth.create_custom_token(uid)
+  ```
+  The backend code properly sets both `email_verified=True` and custom claim `telecom_verified: True`.
+- **Client Token Refresh**:
+  `TelecomAuthService.signInToFirebaseWithCustomToken` calls `await cred.user?.getIdToken(true)` to guarantee that fresh claims flow into `request.auth.token`.
+
+### 3. Root Cause Classification: Category A & B (Production Deployment Gap)
+- **Classification**:
+  - The local Flutter client codebase correctly signs in, retrieves claims, and writes the canonical payload.
+  - The local Firestore rule requires `verified()`, which accepts `telecom_verified == true` or `email_verified == true`.
+  - As documented in the Release Closure Audit (Section 7, item 2): production Firestore rules and Render backend updates require deployment. If the live production Firestore rules are stale (i.e. rules still expecting legacy claims or denying writes prior to role initialization) or the Render backend exchange deployment is pending, Firestore rejects the write with `permission-denied`.
+- **Diagnostic Enhancement**:
+  - Added safe debug logging to `ProfileSetupScreen._save()`:
+    - Logs token claim booleans (`email_verified`, `telecom_verified`) and target `users/{uid}` path in debug mode.
+    - Logs `FirebaseException` plugin, code, and message without leaking tokens or credentials.
+    - Routes user-visible errors through `friendlyErrorMessage` to present clear guidance (e.g. session expiration) rather than a generic silent failure.
+
+### 4. Required Production Deployment Actions
+1. **Firestore Rules**:
+   - Command: `firebase deploy --only firestore:rules`
+   - Target project: `gochano-a30c8`
+   - *Status*: Pending explicit user authorization (not executed automatically per plan lock).
+2. **Backend API**:
+   - Render deployment verification of `backend/app/routers/telecom.py` with custom claims set prior to custom token minting.
+
+### 5. Automated Validation
+- Focused test suite (`flutter test test/profile_setup_test.dart`): **29 / 29 passed** (added test for controlled error handling via `friendlyErrorMessage`).
+- Profile setup UI & Firestore write contracts verified.
+
+---
+
+## Dart Frontend Compiler Crash Repair
+
+**Date:** 2026-09-13
+**Branch:** `gochano-ui-rebuild-v1`
+**Trigger:** `flutter run` compiler crash (`Null check operator used on a null value` in `package:kernel/transformations/track_widget_constructor_locations.dart`)
+
+### 1. Root Cause Analysis & Resolution
+- **Failure Symptom**:
+  `flutter run` crashed during Dart compilation with:
+  ```text
+  Null check operator used on a null value
+  package:kernel/transformations/track_widget_constructor_locations.dart
+  ```
+  The crash occurred inside kernel transformation passes that track widget constructor call-site locations for DevTools/debugging.
+- **Root Cause**:
+  The AST contained invalid expression / spread map entry nodes resulting from the recent diagnostic additions in `profile_setup_screen.dart` and the previously edited ternary conditionals in `home_screen.dart`. When `track_widget_constructor_locations.dart` traversed the AST nodes during kernel compilation to inject constructor location metadata, a null assertion failed on an unreduced invalid AST node.
+- **Resolution**:
+  1. Cleaned and normalized `lib/features/auth/presentation/profile_setup_screen.dart`:
+     - Cleaned up imports (`flutter/foundation.dart`, `shared/states/gochano_states.dart`).
+     - Replaced raw inline spread expressions and unbracketed debug log blocks with clean, guarded statements.
+     - Preserved all token claim checks, safe debug logging, error mapping (`friendlyErrorMessage`), and Firestore write contracts.
+  2. Verified `lib/features/home/presentation/home_screen.dart` header conditional formatting.
+  3. Validated with Dart analyzer and focused test suite (`test/profile_setup_test.dart`: 29/29 passed).
+
+### 2. Diagnostic Flag Assessment
+- **`--no-track-widget-creation`**:
+  Tested normal `flutter run` directly on the physical target device (`Infinix X665E`). The compiler crash resolved completely; **`--no-track-widget-creation` was NOT required**. The standard compiler and widget location tracking assembled, packaged, and launched cleanly.
+
+### 3. Verification Matrix
+
+| Check | Command | Result |
+|---|---|---|
+| Focused Static Analysis | `flutter analyze lib/features/auth/presentation/profile_setup_screen.dart test/profile_setup_test.dart` | **PASS** — 0 issues (ran in 18.9s) |
+| Full Static Analysis | `flutter analyze` | **PASS** — No issues found! (ran in 12.1s) |
+| Focused Profile Setup Tests | `flutter test test/profile_setup_test.dart` | **PASS** — 29 / 29 passed |
+| Full Flutter Test Suite | `flutter test` | **PASS** — 616 / 616 passed (clean 100% pass rate) |
+| Target Device Compilation & Boot | `flutter run` (Infinix X665E) | **PASS** — Assembled APK in 56.2s, installed in 15.5s, Impeller initialized, Dart VM active |
+| Trailing Whitespace / Format | `git diff --check` | **PASS** — Clean, 0 issues |
+| Repository Guard | — | **PASS** — Zero commits, zero pushes, no release build, no rules deployed |

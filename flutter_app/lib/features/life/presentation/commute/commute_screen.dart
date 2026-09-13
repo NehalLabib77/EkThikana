@@ -309,10 +309,10 @@ class _CommuteScreenState extends State<CommuteScreen> {
     return GochanoScaffold(
       padBody: false,
       appBar: GochanoAppBar(
-        title: 'CommuteBD',
+        title: GochanoLanguage.text('Commute', 'যাতায়াত'),
         subtitle: GochanoLanguage.text(
-          'Routes and fares across Bangladesh',
-          'বাংলাদেশ জুড়ে রুট ও ভাড়া',
+          'Plan your route and compare fares',
+          'আপনার রুট পরিকল্পনা করুন এবং ভাড়া তুলনা করুন',
         ),
         actions: [
           IconButton(
@@ -421,6 +421,11 @@ class _CommuteScreenState extends State<CommuteScreen> {
               onModeSelected: _onModeSelected,
               selectedJourneyIndex: _selectedJourneyIndex,
               onJourneySelected: (idx) => setState(() => _selectedJourneyIndex = idx),
+              onPlanTrip: () => showPlanTripSheet(
+                context,
+                initialOrigin: _origin,
+                initialDestination: _destination,
+              ),
             ),
         ],
       ),
@@ -552,6 +557,7 @@ class _Results extends StatelessWidget {
     this.onModeSelected,
     this.selectedJourneyIndex = 0,
     this.onJourneySelected,
+    this.onPlanTrip,
   });
 
   final Map<String, dynamic> result;
@@ -562,6 +568,7 @@ class _Results extends StatelessWidget {
   final ValueChanged<String>? onModeSelected;
   final int selectedJourneyIndex;
   final ValueChanged<int>? onJourneySelected;
+  final VoidCallback? onPlanTrip;
 
   @override
   Widget build(BuildContext context) {
@@ -580,30 +587,10 @@ class _Results extends StatelessWidget {
     final originName = originMap?['name']?.toString() ?? '';
     final destinationName = destinationMap?['name']?.toString() ?? '';
 
-    LatLng? point(Map? place) {
-      final lat = (place?['lat'] as num?)?.toDouble();
-      final lon = (place?['lon'] as num?)?.toDouble();
-      return (lat == null || lon == null) ? null : LatLng(lat, lon);
-    }
-
-    final geometry = ((result['polyline'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-        .toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          title: GochanoLanguage.text('Your trip', 'আপনার যাত্রা'),
-        ),
-        CommuteRouteMap(
-          polyline: geometry,
-          origin: point(originMap),
-          destination: point(destinationMap),
-        ),
-        const SizedBox(height: GochanoSpacing.sm),
-        const SizedBox(height: GochanoSpacing.md),
+
         Row(
           children: [
             Expanded(
@@ -626,7 +613,6 @@ class _Results extends StatelessWidget {
         ),
 
         // The multimodal planner: the actual journey, step by step.
-        JourneyPlanSection(plan: JourneyPlan.fromResponse(result)),
         JourneyPlanSection(
           plan: JourneyPlan.fromResponse(result),
           selectedIndex: selectedJourneyIndex,
@@ -682,8 +668,8 @@ class _Results extends StatelessWidget {
           SectionHeader(
             title: GochanoLanguage.text('Buses on this route', 'এই রুটের বাস'),
             subtitle: GochanoLanguage.text(
-              'From the CommuteBD service dataset',
-              'কমিউটবিডি সার্ভিস ডেটাসেট থেকে',
+              'From the Commute service dataset',
+              'কমিউট সার্ভিস ডেটাসেট থেকে',
             ),
           ),
           CardGroup(
@@ -696,6 +682,15 @@ class _Results extends StatelessWidget {
         if (disclaimer.isNotEmpty) ...[
           const SizedBox(height: GochanoSpacing.md),
           _Disclaimer(text: disclaimer),
+        ],
+
+        if (onPlanTrip != null) ...[
+          const SizedBox(height: GochanoSpacing.lg),
+          SecondaryButton(
+            label: GochanoLanguage.text('Plan this trip', 'এই যাত্রা পরিকল্পনা করুন'),
+            icon: Icons.calendar_month_outlined,
+            onPressed: onPlanTrip,
+          ),
         ],
       ],
     );

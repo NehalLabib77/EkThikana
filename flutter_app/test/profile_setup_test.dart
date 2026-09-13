@@ -159,7 +159,8 @@ void main() {
       expect(
         matches.length,
         greaterThanOrEqualTo(5),
-        reason: 'At least 5 bilingual text calls expected (heading, '
+        reason:
+            'At least 5 bilingual text calls expected (heading, '
             'subtitle, name label, name hint, name error, account type, '
             'account type value, continue button)',
       );
@@ -200,10 +201,7 @@ void main() {
 
     test('session-expired error is shown when no Firebase user', () {
       expect(source, contains("'Session expired. Please sign in again.'"));
-      expect(
-        source,
-        contains("'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।'"),
-      );
+      expect(source, contains("'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।'"));
     });
 
     test('catch block shows save-failure error', () {
@@ -216,6 +214,15 @@ void main() {
         contains("'আপনার প্রোফাইল সেভ করা যায়নি। আবার চেষ্টা করুন।'"),
       );
     });
+
+    test(
+      'permission-denied shows controlled error via friendlyErrorMessage',
+      () {
+        expect(source, contains('friendlyErrorMessage('));
+        expect(source, contains('kDebugMode'));
+        expect(source, contains('[ProfileSetup] save failed:'));
+      },
+    );
 
     test('PrimaryButton shows busy indicator while saving', () {
       expect(source, contains('busy: _saving'));

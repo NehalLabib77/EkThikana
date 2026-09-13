@@ -567,5 +567,12 @@ void main() {
     test('does NOT mention Airtel', () {
       expect(gateSource.toLowerCase().contains('airtel'), isFalse);
     });
+
+    test('supports debug-only DEV_AUTH_BYPASS cold-start restoration', () {
+      expect(gateSource, contains('kDebugMode'));
+      expect(gateSource, contains("bool.fromEnvironment('DEV_AUTH_BYPASS'"));
+      expect(gateSource, contains('_developerAuthBypass'));
+      expect(gateSource, contains('isDeveloperSession || isTelecomSession'));
+    });
   });
 }

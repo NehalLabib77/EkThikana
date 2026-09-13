@@ -556,6 +556,14 @@ class _HistoryEntry extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('tasks', limit: 300),
       builder: (context, snapshot) {
+        final now = DateTime.now();
+        final relevant = [...?snapshot.data?.docs].where((doc) {
+          final d = doc.data();
+          if (d['done'] == true) return true;
+          final due = (d['dueAt'] as Timestamp?)?.toDate();
+          return due != null && due.isBefore(now);
+        }).length;
+        if (relevant == 0) return const SizedBox.shrink();
         final completed = (snapshot.data?.docs ?? const [])
             .where((doc) => doc.data()['done'] == true)
             .length;
@@ -582,8 +590,17 @@ class _PlanHistoryScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirestoreService.ownerStream('tasks', limit: 300),
         builder: (context, snapshot) {
+          final now = DateTime.now();
           final docs = [...?snapshot.data?.docs]
-            ..removeWhere((doc) => doc.data()['done'] != true)
+            ..removeWhere((doc) {
+              final d = doc.data();
+              if (d['done'] == true) return false;
+              final due = (d['dueAt'] as Timestamp?)?.toDate();
+              if (due == null) return true;
+              final missedAt = due.add(const Duration(minutes: 30));
+              // Items only become Missed once dueAt + 30m has passed.
+              return missedAt.isAfter(now);
+            })
             ..sort((a, b) {
               final at = (a.data()['dueAt'] as Timestamp?)?.toDate();
               final bt = (b.data()['dueAt'] as Timestamp?)?.toDate();
@@ -594,8 +611,8 @@ class _PlanHistoryScreen extends StatelessWidget {
             return Center(
               child: Text(
                 GochanoLanguage.text(
-                  'No completed tasks or assignments.',
-                  'কোনো সম্পন্ন কাজ বা অ্যাসাইনমেন্ট নেই।',
+                  'No completed or missed items.',
+                  'কোনো সম্পন্ন বা মিসড আইটেম নেই।',
                 ),
                 style: context.type.bodySecondary,
               ),
@@ -609,24 +626,59 @@ class _PlanHistoryScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final doc = docs[index];
               final data = doc.data();
+              final isDone = data['done'] == true;
               final assignment = data['type']?.toString() == 'assignment';
+              final due = (data['dueAt'] as Timestamp?)?.toDate();
               return AppCard(
                 child: Row(
                   children: [
                     Checkbox(
-                      value: true,
-                      onChanged: (_) => _setDone(context, doc, false),
+                      value: isDone,
+                      onChanged: (val) => _setDone(context, doc, val ?? false),
                     ),
                     Expanded(
-                      child: Text(
-                        data['title']?.toString() ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.type.body.copyWith(
-                          decoration: TextDecoration.lineThrough,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            data['title']?.toString() ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.type.body.copyWith(
+                              decoration: isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: isDone
+                                  ? context.colors.textSecondary
+                                  : null,
+                            ),
+                          ),
+                          if (due != null)
+                            Text(
+                              '${formatShortDate(due)} ${formatClock12(due)}',
+                              style: context.type.caption.copyWith(
+                                fontSize: 10,
+                                color: isDone
+                                    ? context.colors.textTertiary
+                                    : context.colors.warning,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    if (isDone)
+                      GochanoBadge(
+                        label: GochanoLanguage.text('Completed', 'সম্পন্ন'),
+                        tone: GochanoBadgeTone.success,
+                      )
+                    else
+                      GochanoBadge(
+                        label: GochanoLanguage.text('Missed', 'মিসড'),
+                        tone: GochanoBadgeTone.error,
+                      ),
+                    const SizedBox(width: GochanoSpacing.xs),
                     GochanoBadge(
                       label: assignment
                           ? GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')
@@ -634,6 +686,35 @@ class _PlanHistoryScreen extends StatelessWidget {
                       tone: assignment
                           ? GochanoBadgeTone.info
                           : GochanoBadgeTone.brand,
+                    ),
+                    GochanoOverflowMenu(
+                      items: [
+                        GochanoMenuAction(
+                          label: doc.data()['done'] == true
+                              ? GochanoLanguage.text(
+                                  'Mark not done',
+                                  'অসম্পন্ন করুন',
+                                )
+                              : GochanoLanguage.text(
+                                  'Mark done',
+                                  'সম্পন্ন করুন',
+                                ),
+                          icon: isDone
+                              ? Icons.undo_rounded
+                              : Icons.check_rounded,
+                          onSelected: () => _setDone(context, doc, !isDone),
+                        ),
+                        GochanoMenuAction(
+                          label: GochanoLanguage.text('Delete', 'মুছুন'),
+                          icon: Icons.delete_outline_rounded,
+                          destructive: true,
+                          onSelected: () => _delete(
+                            context,
+                            doc,
+                            data['title']?.toString() ?? '',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1153,6 +1234,8 @@ Future<void> _setDone(
   final data = doc.data();
   final title = data['title']?.toString() ?? '';
   final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
+  final dueAt = (data['dueAt'] as Timestamp?)?.toDate();
+  final type = data['type']?.toString() ?? 'task';
 
   try {
     await doc.reference.update({
@@ -1164,6 +1247,16 @@ Future<void> _setDone(
       title: title,
       when: done ? null : remindAt,
     );
+    if (done) {
+      await NotificationService.cancelTask(doc.id);
+    } else {
+      await NotificationService.rescheduleTask(
+        taskId: doc.id,
+        title: title,
+        when: dueAt,
+        type: type,
+      );
+    }
   } catch (error) {
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);

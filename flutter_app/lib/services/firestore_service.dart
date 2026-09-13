@@ -7,7 +7,11 @@ class FirestoreService {
   static final db = FirebaseFirestore.instance;
 
   static String? get uid {
-    return FirebaseAuth.instance.currentUser?.uid;
+    try {
+      return FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
   }
 
   static List<String> keywords(String text, {int limit = 100}) {
@@ -59,10 +63,10 @@ class FirestoreService {
     if (patch.isEmpty) return;
     final currentUid = uid;
     if (currentUid == null) return;
-    await db.collection('users').doc(currentUid).set(
-          patch,
-          SetOptions(merge: true),
-        );
+    await db
+        .collection('users')
+        .doc(currentUid)
+        .set(patch, SetOptions(merge: true));
   }
 
   static Future<Map<String, dynamic>> profile() async {
@@ -97,15 +101,17 @@ class FirestoreService {
   }) {
     final currentUid = uid;
     if (currentUid == null) {
-      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
-        db.collection(collection).limit(0).get(),
-      );
+      return const Stream.empty();
     }
-    return db
-        .collection(collection)
-        .where('ownerId', isEqualTo: currentUid)
-        .limit(limit)
-        .snapshots();
+    try {
+      return db
+          .collection(collection)
+          .where('ownerId', isEqualTo: currentUid)
+          .limit(limit)
+          .snapshots();
+    } catch (_) {
+      return const Stream.empty();
+    }
   }
 
   static Future<DocumentReference<Map<String, dynamic>>> addOwnerRecord(
@@ -138,7 +144,9 @@ class FirestoreService {
         .snapshots();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMaterials(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMaterials(
+    String groupId,
+  ) {
     return db
         .collection('materials')
         .where('groupId', isEqualTo: groupId)
@@ -147,7 +155,9 @@ class FirestoreService {
         .snapshots();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupNotes(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupNotes(
+    String groupId,
+  ) {
     return db
         .collection('notes')
         .where('groupId', isEqualTo: groupId)
@@ -156,7 +166,9 @@ class FirestoreService {
         .snapshots();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMessages(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMessages(
+    String groupId,
+  ) {
     return db
         .collection('group_messages')
         .where('groupId', isEqualTo: groupId)
@@ -169,7 +181,9 @@ class FirestoreService {
   // Group Projects
   // ---------------------------------------------------------------------------
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupProjects(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupProjects(
+    String groupId,
+  ) {
     return db
         .collection('groups')
         .doc(groupId)
@@ -198,11 +212,7 @@ class FirestoreService {
     String? description,
   }) async {
     final userProfile = await profile();
-    return db
-        .collection('groups')
-        .doc(groupId)
-        .collection('projects')
-        .add({
+    return db.collection('groups').doc(groupId).collection('projects').add({
       'name': name.trim(),
       'description': description?.trim() ?? '',
       'createdBy': uid,
@@ -222,10 +232,7 @@ class FirestoreService {
         .doc(groupId)
         .collection('projects')
         .doc(projectId)
-        .update({
-      ...fields,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+        .update({...fields, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteProject({
@@ -267,17 +274,17 @@ class FirestoreService {
         .doc(projectId)
         .collection('tasks')
         .add({
-      'title': title.trim(),
-      'description': description?.trim() ?? '',
-      'assigneeId': assigneeId,
-      'completed': false,
-      'createdBy': uid,
-      'createdByName': userProfile['displayName']?.toString() ?? '',
-      'deadline': deadline,
-      'reminderByUser': <String, dynamic>{},
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+          'title': title.trim(),
+          'description': description?.trim() ?? '',
+          'assigneeId': assigneeId,
+          'completed': false,
+          'createdBy': uid,
+          'createdByName': userProfile['displayName']?.toString() ?? '',
+          'deadline': deadline,
+          'reminderByUser': <String, dynamic>{},
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
   }
 
   static Future<void> updateTask({
@@ -293,10 +300,7 @@ class FirestoreService {
         .doc(projectId)
         .collection('tasks')
         .doc(taskId)
-        .update({
-      ...fields,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+        .update({...fields, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteTask({
@@ -334,10 +338,7 @@ class FirestoreService {
         .doc(projectId)
         .collection('tasks')
         .doc(taskId)
-        .update({
-      field: reminderAt,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+        .update({field: reminderAt, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   static Future<void> saveNote({
@@ -399,13 +400,10 @@ class FirestoreService {
     required int dailyGoalMinutes,
     required int weeklyGoalMinutes,
   }) async {
-    await db.collection('users').doc(uid).set(
-      {
-        'dailyGoalMinutes': dailyGoalMinutes,
-        'weeklyGoalMinutes': weeklyGoalMinutes,
-      },
-      SetOptions(merge: true),
-    );
+    await db.collection('users').doc(uid).set({
+      'dailyGoalMinutes': dailyGoalMinutes,
+      'weeklyGoalMinutes': weeklyGoalMinutes,
+    }, SetOptions(merge: true));
   }
 
   static Future<void> deleteOwnerDocument(String collection, String id) {

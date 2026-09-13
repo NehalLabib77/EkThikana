@@ -87,8 +87,8 @@ class ScheduledDose {
 /// Builds today's dose list from the student's medicines and dose records.
 abstract final class MedicineSchedule {
   /// A dose still showing `pending` this long after its time is treated as
-  /// missed. One hour matches the reminder grace period.
-  static const Duration missedAfter = Duration(hours: 1);
+  /// missed. 120 minutes matches the 5th follow-up reminder grace period.
+  static const Duration missedAfter = Duration(minutes: 120);
 
   /// Expands [medicines] into the doses scheduled for [now]'s calendar day.
   ///

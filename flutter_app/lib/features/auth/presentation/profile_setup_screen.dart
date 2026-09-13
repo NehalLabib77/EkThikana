@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
@@ -7,6 +8,7 @@ import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../services/firestore_service.dart';
+import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
@@ -49,10 +51,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() => _errorText = GochanoLanguage.text(
-            'Session expired. Please sign in again.',
-            'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
-          ));
+      setState(
+        () => _errorText = GochanoLanguage.text(
+          'Session expired. Please sign in again.',
+          'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
+        ),
+      );
       return;
     }
 
@@ -62,21 +66,37 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     });
 
     try {
+      // In DEBUG only, check and log token claims safely
+      if (kDebugMode) {
+        try {
+          final idTokenResult = await user.getIdTokenResult(true);
+          final claims = idTokenResult.claims ?? {};
+          final emailVerified =
+              claims['email_verified'] == true || user.emailVerified;
+          final telecomVerified = claims['telecom_verified'] == true;
+          debugPrint(
+            '[ProfileSetup] token claims: '
+            'uid=${user.uid} '
+            'email_verified=$emailVerified '
+            'telecom_verified=$telecomVerified',
+          );
+        } catch (claimErr) {
+          debugPrint('[ProfileSetup] claim check failed: $claimErr');
+        }
+      }
+
       final name = _nameController.text.trim();
 
       // Idempotent write using merge: never overwrites existing non-empty
       // fields. Matches the canonical users/{uid} schema used by
       // AuthService.register() and FirestoreService.updateProfile().
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        {
-          'displayName': name,
-          'phone': widget.phone,
-          'role': 'student',
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'displayName': name,
+        'phone': widget.phone,
+        'role': 'student',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       // Refresh profile state so the rest of the app picks up the new doc.
       await FirestoreService.profile();
@@ -85,19 +105,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => GochanoShell(
-            role: 'student',
-            displayName: name,
-          ),
+          builder: (_) => GochanoShell(role: 'student', displayName: name),
         ),
         (_) => false,
       );
     } catch (e) {
+      if (kDebugMode) {
+        if (e is FirebaseException) {
+          debugPrint(
+            '[ProfileSetup] save failed: '
+            'plugin=${e.plugin} '
+            'code=${e.code} '
+            'message=${e.message} '
+            'target=users/${user.uid}',
+          );
+        } else {
+          debugPrint('[ProfileSetup] save failed: $e');
+        }
+      }
       if (!mounted) return;
       setState(() {
-        _errorText = GochanoLanguage.text(
-          'Could not save your profile. Please try again.',
-          'আপনার প্রোফাইল সেভ করা যায়নি। আবার চেষ্টা করুন।',
+        _errorText = friendlyErrorMessage(
+          e,
+          fallback: GochanoLanguage.text(
+            'Could not save your profile. Please try again.',
+            'আপনার প্রোফাইল সেভ করা যায়নি। আবার চেষ্টা করুন।',
+          ),
         );
         _saving = false;
       });
@@ -124,7 +157,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight -
+                    minHeight:
+                        constraints.maxHeight -
                         GochanoSpacing.md -
                         GochanoSpacing.lg,
                   ),
@@ -135,7 +169,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         Align(
                           alignment: Alignment.topRight,
                           child: Padding(
-                            padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+                            padding: const EdgeInsets.only(
+                              bottom: GochanoSpacing.xs,
+                            ),
                             child: LanguageToggle(),
                           ),
                         ),
@@ -167,10 +203,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
-                                GochanoLanguage.text(
-                                  'Full name',
-                                  'পূর্ণ নাম',
-                                ),
+                                GochanoLanguage.text('Full name', 'পূর্ণ নাম'),
                                 style: type.cardHeading.copyWith(
                                   color: colors.textPrimary,
                                 ),
@@ -244,10 +277,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  color: colors.error,
-                                ),
+                                Icon(Icons.error_outline, color: colors.error),
                                 const SizedBox(width: GochanoSpacing.sm),
                                 Expanded(
                                   child: Text(

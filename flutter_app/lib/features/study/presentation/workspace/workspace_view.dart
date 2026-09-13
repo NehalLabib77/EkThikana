@@ -51,6 +51,8 @@ class _QuickAccess extends StatefulWidget {
 }
 
 class _QuickAccessState extends State<_QuickAccess> {
+  bool _expanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -71,7 +73,7 @@ class _QuickAccessState extends State<_QuickAccess> {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    final items = <_QuickAccessItem>[
+    final primaryItems = <_QuickAccessItem>[
       _QuickAccessItem(
         icon: Icons.auto_awesome_rounded,
         label: GochanoLanguage.text('AI Assistant', 'এআই সহকারী'),
@@ -107,6 +109,9 @@ class _QuickAccessState extends State<_QuickAccess> {
           context,
         ).push(GochanoRoute.to(builder: (_) => const SavedMaterialsScreen())),
       ),
+    ];
+
+    final secondaryItems = <_QuickAccessItem>[
       _QuickAccessItem(
         icon: Icons.description_rounded,
         label: GochanoLanguage.text('Docs', 'ডকস'),
@@ -149,7 +154,7 @@ class _QuickAccessState extends State<_QuickAccess> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: EdgeInsets.zero,
-              itemCount: items.length,
+              itemCount: primaryItems.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: constraints.maxWidth < 360 ? 3 : 4,
                 mainAxisExtent: 84,
@@ -157,10 +162,94 @@ class _QuickAccessState extends State<_QuickAccess> {
                 mainAxisSpacing: GochanoSpacing.xs,
               ),
               itemBuilder: (context, i) => _QuickAccessCell(
-                icon: items[i].icon,
-                label: items[i].label,
-                accent: items[i].accent,
-                onTap: items[i].onTap,
+                icon: primaryItems[i].icon,
+                label: primaryItems[i].label,
+                accent: primaryItems[i].accent,
+                onTap: primaryItems[i].onTap,
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOutCubic,
+            child: _expanded
+                ? Column(
+                    children: [
+                      const SizedBox(height: GochanoSpacing.xs),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemCount: secondaryItems.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisExtent: 84,
+                              crossAxisSpacing: GochanoSpacing.xs,
+                              mainAxisSpacing: GochanoSpacing.xs,
+                            ),
+                        itemBuilder: (context, i) => _QuickAccessCell(
+                          icon: secondaryItems[i].icon,
+                          label: secondaryItems[i].label,
+                          accent: secondaryItems[i].accent,
+                          onTap: secondaryItems[i].onTap,
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(height: GochanoSpacing.xs),
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            onVerticalDragEnd: (details) {
+              final vy = details.primaryVelocity ?? 0;
+              if (vy > 100 && !_expanded) {
+                // Drag down to expand
+                setState(() => _expanded = true);
+              } else if (vy < -100 && _expanded) {
+                // Drag up to collapse
+                setState(() => _expanded = false);
+              }
+            },
+            onVerticalDragUpdate: (details) {
+              if (details.primaryDelta != null) {
+                if (details.primaryDelta! > 8 && !_expanded) {
+                  setState(() => _expanded = true);
+                } else if (details.primaryDelta! < -8 && _expanded) {
+                  setState(() => _expanded = false);
+                }
+              }
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: GochanoSpacing.xs,
+                  horizontal: GochanoSpacing.md,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _expanded
+                          ? GochanoLanguage.text('See less', 'কম দেখুন')
+                          : GochanoLanguage.text('See more', 'আরও দেখুন'),
+                      style: context.type.caption.copyWith(
+                        color: colors.brand,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: GochanoSpacing.xxs),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 16,
+                      color: colors.brand,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -214,13 +303,13 @@ class _QuickAccessCell extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 22, color: accent),
+                child: Icon(icon, size: 24, color: accent),
               ),
               const SizedBox(height: GochanoSpacing.xxs),
               Flexible(
