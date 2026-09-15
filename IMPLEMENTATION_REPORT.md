@@ -5384,3 +5384,94 @@ Bus endpoints require Firebase ID token authentication. Full response data (sear
 
 - Physical Bus Verification = **PENDING USER VERIFICATION** (Section 9 checklist)
 - Full bus data response smoke tests require Firebase-authenticated session on physical device
+
+---
+
+# PART 30 — Google Maps Foundation: Routing Provider, Canonical Resolution, Bus Match Bridge
+
+**Date:** 2026-09-15
+**Branch:** `gochano-ui-rebuild-v1`
+**Commit:** `911cae1`
+**Status:** Foundation code pushed. LIVE API key NOT yet deployed. Full integration smoke test PENDING.
+
+---
+
+## 1. Scope
+
+Google Maps Platform integration replacing/augmenting OSM/OSRM routing, fixing Possible Buses end-to-end, and hardening Smart Journey Guide AI grounding.
+
+## 2. Architecture Rules (ENFORCED)
+
+| Rule | Status |
+|---|---|
+| Google is a routing provider, NOT the Gochano database | **ENFORCED** — `GoogleRoutesProvider` is one implementation of `MapRoutingProvider` |
+| `canonical_place_id` is NEVER replaced with Google Place ID | **ENFORCED** — `resolve_canonical_place()` always returns internal `PLC*` IDs |
+| No bus/fare data from Google Transit | **ENFORDED** — bus matching uses `bus_service_stops.canonical_place_id` exclusively |
+| API key security: server key stays server-side | **ENFORCED** — `google_maps_server_api_key` is env var only, never committed |
+| DO NOT touch Auth, OTP, Money, Medicine, Community, Planner | **ENFORCED** |
+| DO NOT modify existing 156/3190 seed data | **ENFORCED** |
+
+## 3. Backend Changes
+
+| File | Change |
+|---|---|
+| `routing.py` | **GoogleRoutesProvider** added: Routes API Compute Routes with OSRM fallback, Places Autocomplete with Nominatim fallback, polyline decode, duration parsing |
+| `service.py` | **`resolve_canonical_place()`** added: 3-tier resolution (direct DB → name search via stop_aliases → nearest canonical stop within 2km) |
+| `commute.py` | **`/resolve-place`** endpoint added: bridges Google/geocoded places to canonical IDs |
+| `commute.py` | **`/bus-services/direct-match`** enhanced: auto-resolves free-text names to canonical IDs |
+| `commute.py` | **`/search`** endpoint enhanced: returns `canonicalPlaceId` for geocoded results |
+| `ai.py` | AI commute-guide: stricter grounding rules, provenance preservation, never invents data |
+| `config.py` | `google_maps_server_api_key` added (env var, not committed) |
+| `render.yaml` | `GOOGLE_MAPS_SERVER_API_KEY` added (sync: false) |
+
+## 4. Flutter Changes
+
+| File | Change |
+|---|---|
+| `commute_place_picker.dart` | Uses `canonicalPlaceId` from backend for geocoded results |
+| `commute_screen.dart` | `_resolveAndFetchBuses()` for geocoded places, calmer error handling (network-only errors) |
+| `api_service.dart` | `resolvePlace()` method added |
+
+## 5. New Endpoint: POST `/api/commute/resolve-place`
+
+```json
+Request:
+{
+  "origin": {"place_id": "ChIJ...", "name": "Farmgate", "lat": 23.75, "lon": 90.39},
+  "destination": {"name": "__self__"}
+}
+Response:
+{
+  "origin": {"placeId": "PLC0023", "name": "Farmgate"},
+  "destination": null,
+  "hasCanonicalPair": false
+}
+```
+
+## 6. Resolution Priority
+
+1. Direct DB lookup by `canonical_place_id`
+2. Exact match via `stop_aliases`
+3. Name similarity search via `stop_aliases`
+4. Nearest canonical stop within 2km
+
+## 7. Validation
+
+| Check | Result |
+|---|---|
+| Focused tests (`pytest tests/test_bus_seed_integration.py`) | **65/65 passed** |
+| Full backend suite (`pytest`) | **507/507 passed** |
+| Flutter analyze | **No issues found** |
+| Flutter tests | **686/686 passed** |
+| API total route count | 50 (unchanged from PART 23) |
+| Bus seed data | 156 services, 3190 stops — **UNTOUCHED** |
+
+## 8. Remaining
+
+- [ ] Set `GOOGLE_MAPS_SERVER_API_KEY` in Render dashboard (same key as used during local dev)
+- [ ] Render deploy triggers automatically on push to `gochano-ui-rebuild-v1`
+- [ ] Live smoke test: `/api/commute/search?q=farmgate` returns geocoded results with `canonicalPlaceId`
+- [ ] Live smoke test: `/api/commute/resolve-place` resolves Farmgate → PLC0023
+- [ ] Flutter device test: Place picker shows canonical IDs for geocoded results, Possible Buses fetches correctly
+- [ ] Flutter device test: Smart Journey Guide renders deterministic local facts, AI enhancement (if Groq/Gemini available) adds grounded explanation
+- [ ] Production DB read-only audit: 156 services, 3190 stops — unchanged
