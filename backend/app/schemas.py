@@ -92,6 +92,27 @@ class CommuteSingleFareRequest(BaseModel):
     mode: Literal["bus", "metro", "cng", "rickshaw", "auto"]
     distance_km: float = Field(gt=0, le=300)
     driving_minutes: int = Field(gt=0, le=720)
+    bus_service_id: str | None = Field(default=None, max_length=80)
+
+
+class CommuteGuideRequest(BaseModel):
+    """Structured journey facts for the Smart Journey Guide AI explanation."""
+
+    origin: str = Field(min_length=1, max_length=200)
+    destination: str = Field(min_length=1, max_length=200)
+    distance_km: str | None = Field(default=None, max_length=10)
+    duration_minutes: int | None = Field(default=None, ge=0, le=720)
+    duration_provenance: str = Field(default="osrm", max_length=40)
+    selected_mode: str | None = Field(default=None, max_length=40)
+    mode_label: str | None = Field(default=None, max_length=60)
+    fare: dict | None = Field(default=None)
+    verified_waypoints: list[str] = Field(default_factory=list)
+    is_multimodal: bool = False
+    transfers: int = Field(default=0, ge=0, le=20)
+    selected_bus_operator: str | None = Field(default=None, max_length=100)
+    selected_bus_board_stop: str | None = Field(default=None, max_length=100)
+    selected_bus_exit_stop: str | None = Field(default=None, max_length=100)
+    selected_bus_stop_count: int | None = Field(default=None, ge=0, le=200)
 
 
 # ============================================================

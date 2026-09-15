@@ -102,10 +102,10 @@ class _JourneyPlanSectionState extends State<JourneyPlanSection> {
             ),
             message: GochanoLanguage.text(
               'Commute could not connect these two places with the transport '
-              'it currently knows about. The fare estimates below are still '
-              'based on the distance between them.',
+                  'it currently knows about. The fare estimates below are still '
+                  'based on the distance between them.',
               'কমিউট এখন যে যানবাহনের তথ্য জানে তা দিয়ে এই দুই স্থান যুক্ত করা '
-              'যায়নি। নিচের ভাড়ার হিসাব এখনো দূরত্বের ভিত্তিতে দেওয়া।',
+                  'যায়নি। নিচের ভাড়ার হিসাব এখনো দূরত্বের ভিত্তিতে দেওয়া।',
             ),
           ),
         ],
@@ -243,7 +243,8 @@ class _StrategyChooser extends StatelessWidget {
 /// carries both labels rather than being listed twice (spec §8).
 String journeyStrategyLabel(Journey journey) {
   final parts = <String>[
-    if (journey.isRecommended) GochanoLanguage.text('Recommended', 'প্রস্তাবিত'),
+    if (journey.isRecommended)
+      GochanoLanguage.text('Recommended', 'প্রস্তাবিত'),
     if (journey.isCheapest) GochanoLanguage.text('Cheapest', 'সস্তা'),
     if (journey.isFastest) GochanoLanguage.text('Fastest', 'দ্রুততম'),
   ];
@@ -308,15 +309,27 @@ class JourneySummaryCard extends StatelessWidget {
               Expanded(
                 child: _Total(
                   label: GochanoLanguage.text('Fare', 'ভাড়া'),
-                  value: journey.totalFareTk <= 0
+                  value: !journey.hasFareData
+                      ? GochanoLanguage.text(
+                          'Fare unavailable',
+                          'ভাড়া তথ্য নেই',
+                        )
+                      : journey.totalFareTk <= 0
                       ? GochanoLanguage.text('Free', 'ফ্রি')
-                      : formatTaka(journey.totalFareTk),
+                      : _journeyFareDisplay(journey),
                 ),
               ),
               Expanded(
                 child: _Total(
                   label: GochanoLanguage.text('Time', 'সময়'),
-                  value: formatJourneyDuration(journey.totalDurationMinutes),
+                  value:
+                      formatJourneyDuration(journey.totalDurationMinutes) +
+                      (journey.category == 'estimated'
+                          ? GochanoLanguage.text(
+                              ' without traffic',
+                              ' ট্রাফিক ছাড়া',
+                            )
+                          : ''),
                 ),
               ),
               Expanded(
@@ -377,10 +390,7 @@ class JourneySummaryCard extends StatelessWidget {
             spacing: GochanoSpacing.xxs,
             children: [
               Text(
-                GochanoLanguage.text(
-                  'Fare certainty',
-                  'ভাড়ার নির্ভরযোগ্যতা',
-                ),
+                GochanoLanguage.text('Fare certainty', 'ভাড়ার নির্ভরযোগ্যতা'),
                 style: type.caption,
               ),
               JourneyFareBadge(fareType: journey.fareCertainty),
@@ -502,12 +512,14 @@ class JourneyTimeline extends StatelessWidget {
     final legs = journey.legs;
     if (legs.isEmpty) return const SizedBox.shrink();
 
+    final isEstimated = journey.category == 'estimated';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Stop(name: legs.first.from, isFirst: true, isLast: false),
         for (var i = 0; i < legs.length; i++) ...[
-          _LegStep(leg: legs[i]),
+          _LegStep(leg: legs[i], isEstimatedFallback: isEstimated),
           _Stop(name: legs[i].to, isFirst: false, isLast: i == legs.length - 1),
         ],
       ],
@@ -544,12 +556,16 @@ class _Stop extends StatelessWidget {
             child: Column(
               children: [
                 // The rail continues above unless this is the first stop.
-                Expanded(child: _Rail(visible: !isFirst, color: colors.border)),
+                Expanded(
+                  child: _Rail(visible: !isFirst, color: colors.border),
+                ),
                 _StopDot(
                   color: emphasised ? colors.commute : colors.borderStrong,
                   filled: emphasised,
                 ),
-                Expanded(child: _Rail(visible: !isLast, color: colors.border)),
+                Expanded(
+                  child: _Rail(visible: !isLast, color: colors.border),
+                ),
               ],
             ),
           ),
@@ -587,9 +603,10 @@ class _Stop extends StatelessWidget {
 /// One leg: what to board, how far, how long, what it costs and how sure we
 /// are of that cost.
 class _LegStep extends StatelessWidget {
-  const _LegStep({required this.leg});
+  const _LegStep({required this.leg, this.isEstimatedFallback = false});
 
   final JourneyLeg leg;
+  final bool isEstimatedFallback;
 
   @override
   Widget build(BuildContext context) {
@@ -634,9 +651,9 @@ class _LegStep extends StatelessWidget {
                             child: Text(
                               GochanoLanguage.text(
                                 'Change here — allow about '
-                                '${leg.transferMinutes} min',
+                                    '${leg.transferMinutes} min',
                                 'এখানে পরিবর্তন — প্রায় '
-                                '${leg.transferMinutes} মিনিট ধরুন',
+                                    '${leg.transferMinutes} মিনিট ধরুন',
                               ),
                               style: type.caption,
                             ),
@@ -683,9 +700,22 @@ class _LegStep extends StatelessWidget {
                         Text(
                           [
                             '${leg.distanceKm.toStringAsFixed(1)} km',
-                            formatJourneyDuration(leg.durationMinutes),
+                            formatJourneyDuration(leg.durationMinutes) +
+                                (isEstimatedFallback
+                                    ? GochanoLanguage.text(
+                                        ' without traffic',
+                                        ' ট্রাফিক ছাড়া',
+                                      )
+                                    : ''),
                             if (leg.isFree)
                               GochanoLanguage.text('Free', 'ফ্রি')
+                            else if (!leg.fareAvailable)
+                              GochanoLanguage.text(
+                                'Fare unavailable',
+                                'ভাড়া তথ্য নেই',
+                              )
+                            else if (leg.fareLow > 0 && leg.fareHigh > 0)
+                              _fareRange(leg.fareLow, leg.fareHigh)
                             else
                               formatTaka(leg.fareTk),
                           ].join(' · '),
@@ -780,9 +810,9 @@ class JourneyMap extends StatelessWidget {
       return _MapUnavailable(
         message: GochanoLanguage.text(
           'This journey cannot be drawn — CommuteBD does not have map '
-          'coordinates for these stops yet. The steps below are complete.',
+              'coordinates for these stops yet. The steps below are complete.',
           'এই যাত্রাপথ আঁকা যাচ্ছে না — এই স্টপগুলোর মানচিত্র স্থানাঙ্ক '
-          'কমিউটবিডিতে এখনো নেই। নিচের ধাপগুলো সম্পূর্ণ।',
+              'কমিউটবিডিতে এখনো নেই। নিচের ধাপগুলো সম্পূর্ণ।',
         ),
       );
     }
@@ -876,9 +906,9 @@ class JourneyMap extends StatelessWidget {
           partial
               ? GochanoLanguage.text(
                   'Straight lines between stops, not the exact road path. '
-                  'Some steps have no coordinates and are not drawn.',
+                      'Some steps have no coordinates and are not drawn.',
                   'স্টপগুলোর মধ্যে সরলরেখা, সঠিক সড়কপথ নয়। কিছু ধাপের স্থানাঙ্ক '
-                  'না থাকায় সেগুলো আঁকা হয়নি।',
+                      'না থাকায় সেগুলো আঁকা হয়নি।',
                 )
               : GochanoLanguage.text(
                   'Straight lines between stops, not the exact road path.',
@@ -968,25 +998,25 @@ class JourneyFareBadge extends StatelessWidget {
 
     final (label, tone) = switch (fareType) {
       'official' => (
-          GochanoLanguage.text('Official', 'সরকারি'),
-          GochanoBadgeTone.success,
-        ),
+        GochanoLanguage.text('Official', 'সরকারি'),
+        GochanoBadgeTone.success,
+      ),
       'calculated' => (
-          GochanoLanguage.text('Calculated', 'হিসাবকৃত'),
-          GochanoBadgeTone.info,
-        ),
+        GochanoLanguage.text('Calculated', 'হিসাবকৃত'),
+        GochanoBadgeTone.info,
+      ),
       'crowdsourced' => (
-          GochanoLanguage.text('Reported by riders', 'যাত্রীদের তথ্য'),
-          GochanoBadgeTone.info,
-        ),
+        GochanoLanguage.text('Reported by riders', 'যাত্রীদের তথ্য'),
+        GochanoBadgeTone.info,
+      ),
       'historical' => (
-          GochanoLanguage.text('Historical rule', 'পুরোনো নিয়ম'),
-          GochanoBadgeTone.warning,
-        ),
+        GochanoLanguage.text('Historical rule', 'পুরোনো নিয়ম'),
+        GochanoBadgeTone.warning,
+      ),
       _ => (
-          GochanoLanguage.text('Estimated', 'আনুমানিক'),
-          GochanoBadgeTone.neutral,
-        ),
+        GochanoLanguage.text('Estimated', 'আনুমানিক'),
+        GochanoBadgeTone.neutral,
+      ),
     };
 
     return GochanoBadge(label: label, tone: tone);
@@ -1007,24 +1037,24 @@ class _PlanningUnavailable extends StatelessWidget {
 
     final message = switch (plan.status) {
       JourneyPlanningStatus.datasetUnavailable => GochanoLanguage.text(
-          'Transport network is temporarily unavailable. '
-          'The fare estimates below still work.',
-          'যানবাহন নেটওয়ার্ক এখন অনুপলব্ধ। '
-          'নিচের ভাড়ার হিসাব এখনো কাজ করছে।',
-        ),
+        'Transport network is temporarily unavailable. '
+            'The fare estimates below still work.',
+        'যানবাহন নেটওয়ার্ক এখন অনুপলব্ধ। '
+            'নিচের ভাড়ার হিসাব এখনো কাজ করছে।',
+      ),
       JourneyPlanningStatus.plannerError => GochanoLanguage.text(
-          'Transport network is temporarily unavailable. '
-          'The fare estimates below still work.',
-          'যানবাহন নেটওয়ার্ক এখন অনুপলব্ধ। '
-          'নিচের ভাড়ার হিসাব এখনো কাজ করছে।',
-        ),
+        'Transport network is temporarily unavailable. '
+            'The fare estimates below still work.',
+        'যানবাহন নেটওয়ার্ক এখন অনুপলব্ধ। '
+            'নিচের ভাড়ার হিসাব এখনো কাজ করছে।',
+      ),
       JourneyPlanningStatus.outsideCoverage => _coverageMessage(),
       _ => GochanoLanguage.text(
-          'No supported public transport journey was found for this route. '
-          'The fare estimates below are unaffected.',
-          'এই রুটে কোনো সমর্থিত পাবলিক ট্রান্সপোর্ট যাত্রা পাওয়া যায়নি। '
-          'নিচের ভাড়ার হিসাব অপরিবর্তিত আছে।',
-        ),
+        'No supported public transport journey was found for this route. '
+            'The fare estimates below are unaffected.',
+        'এই রুটে কোনো সমর্থিত পাবলিক ট্রান্সপোর্ট যাত্রা পাওয়া যায়নি। '
+            'নিচের ভাড়ার হিসাব অপরিবর্তিত আছে।',
+      ),
     };
 
     return Container(
@@ -1057,26 +1087,26 @@ class _PlanningUnavailable extends StatelessWidget {
     if (ends.length >= 2) {
       return GochanoLanguage.text(
         'Neither place is close enough$within to transport CommuteBD knows '
-        'about, so no journey could be planned. The fare estimates below are '
-        'based on distance alone.',
+            'about, so no journey could be planned. The fare estimates below are '
+            'based on distance alone.',
         'কোনো স্থানই কমিউটবিডির জানা যানবাহনের যথেষ্ট কাছে$within নয়, তাই '
-        'যাত্রাপথ পরিকল্পনা করা যায়নি। নিচের ভাড়া শুধু দূরত্বভিত্তিক।',
+            'যাত্রাপথ পরিকল্পনা করা যায়নি। নিচের ভাড়া শুধু দূরত্বভিত্তিক।',
       );
     }
     if (ends.contains('origin')) {
       return GochanoLanguage.text(
         'Your starting point is not close enough$within to transport '
-        'CommuteBD knows about. Try a nearby landmark instead.',
+            'CommuteBD knows about. Try a nearby landmark instead.',
         'আপনার শুরুর স্থানটি কমিউটবিডির জানা যানবাহনের যথেষ্ট কাছে$within নয়। '
-        'কাছাকাছি কোনো পরিচিত স্থান বেছে দেখুন।',
+            'কাছাকাছি কোনো পরিচিত স্থান বেছে দেখুন।',
       );
     }
     if (ends.contains('destination')) {
       return GochanoLanguage.text(
         'Your destination is not close enough$within to transport CommuteBD '
-        'knows about. Try a nearby landmark instead.',
+            'knows about. Try a nearby landmark instead.',
         'আপনার গন্তব্যটি কমিউটবিডির জানা যানবাহনের যথেষ্ট কাছে$within নয়। '
-        'কাছাকাছি কোনো পরিচিত স্থান বেছে দেখুন।',
+            'কাছাকাছি কোনো পরিচিত স্থান বেছে দেখুন।',
       );
     }
     return GochanoLanguage.text(
@@ -1095,4 +1125,22 @@ String formatJourneyDuration(int minutes) {
   final rest = minutes % 60;
   if (rest == 0) return GochanoLanguage.text('$hours h', '$hours ঘণ্টা');
   return GochanoLanguage.text('$hours h $rest min', '$hours ঘণ্টা $rest মিনিট');
+}
+
+String _fareRange(double low, double high) {
+  if (low <= 0 && high <= 0) return GochanoLanguage.text('Free', 'ফ্রি');
+  if ((high - low).abs() < 0.5) return formatTaka(high);
+  return '${formatTaka(low)}–${formatTaka(high)}';
+}
+
+/// Journey-level fare display: uses the leg's fare range when available,
+/// otherwise falls back to the journey's single totalFareTk value.
+String _journeyFareDisplay(Journey journey) {
+  if (journey.legs.isNotEmpty) {
+    final leg = journey.legs.first;
+    if (leg.fareLow > 0 && leg.fareHigh > 0) {
+      return _fareRange(leg.fareLow, leg.fareHigh);
+    }
+  }
+  return formatTaka(journey.totalFareTk);
 }

@@ -149,17 +149,29 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: _backgroundResponse,
     );
 
-    // First-launch permission prompt.  On Android 12 and below the OS returns
-    // granted by default; on Android 13+ (API 33) POST_NOTIFICATIONS becomes
-    // a runtime permission and the user actually sees a dialog.  We do NOT
-    // show our own pre-prompt here — that responsibility lives in
-    // `NotificationPermissionDialog`, which screens can invoke at a context-
-    // appropriate moment (e.g. when the user adds their first reminder).
-    await plugin
+    final android = plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
+        >();
+
+    // Request POST_NOTIFICATIONS permission (Android 13+). On older Android
+    // the OS grants this by default, so the call is a no-op.
+    await android?.requestNotificationsPermission();
+
+    // Request exact-alarm access (Android 12+). The SCHEDULE_EXACT_ALARM
+    // manifest declaration alone is NOT sufficient — the user must grant
+    // the permission through the system dialog. Without this call,
+    // canScheduleExactNotifications() returns false and all task reminders
+    // fall back to inexactAllowWhileIdle, which Android Doze mode may
+    // delay or suppress when the app is backgrounded.
+    try {
+      final canExact = await android?.canScheduleExactNotifications() ?? false;
+      if (!canExact) {
+        await android?.requestExactAlarmsPermission();
+      }
+    } catch (_) {
+      // Some OEMs throw — safe to ignore; inexact fallback handles it.
+    }
 
     final launch = await plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true &&
@@ -168,6 +180,29 @@ class NotificationService {
     }
 
     _ready = true;
+
+    // DEBUG: audit pending alarms surviving from previous sessions.
+    if (kDebugMode) {
+      try {
+        final pending = await plugin.pendingNotificationRequests();
+        final taskPending = pending.where((r) => '${r.id}'.isNotEmpty).toList();
+        debugPrint(
+          '[TaskReminderRestoreAudit]'
+          ' totalPending=${pending.length}'
+          ' sampleIds=${taskPending.take(5).map((r) => r.id).toList()}',
+        );
+        final notificationsOn =
+            await android?.areNotificationsEnabled() ?? false;
+        final exactOn = await android?.canScheduleExactNotifications() ?? false;
+        debugPrint(
+          '[TaskReminderRestoreAudit]'
+          ' notificationsAllowed=$notificationsOn'
+          ' exactCapability=$exactOn',
+        );
+      } catch (e) {
+        debugPrint('[TaskReminderRestoreAudit] audit failed: $e');
+      }
+    }
   }
 
   static void _onResponse(NotificationResponse response) {
@@ -219,40 +254,45 @@ class NotificationService {
 
     final scheduleMode = await _resolveScheduleMode();
     final isAssignment = type == 'assignment';
+    final scheduledIds = <int>[];
 
     for (final offset in _taskReminderOffsets) {
       final notifyAt = when.subtract(Duration(minutes: offset));
       if (!notifyAt.isAfter(now)) continue;
 
-      final String bodyText;
-      if (offset == -30) {
-        bodyText = isAssignment
-            ? GochanoLanguage.text(
-                'Assignment incomplete',
-                'অ্যাসাইনমেন্টটি এখনো সম্পন্ন হয়নি',
-              )
-            : GochanoLanguage.text(
-                'Task incomplete',
-                'কাজটি এখনো সম্পন্ন হয়নি',
-              );
-      } else if (offset == 0) {
-        bodyText = isAssignment
-            ? GochanoLanguage.text(
-                'Assignment due now: $title',
-                'অ্যাসাইনমেন্টের সময় হয়েছে: $title',
-              )
-            : GochanoLanguage.text(
-                'Task due now: $title',
-                'কাজের সময় হয়েছে: $title',
-              );
-      } else {
-        bodyText = '$title (in $offset mins)';
-      }
+      final notifId = _taskNotificationId(taskId, offset);
+      final slotLabel = offset > 0
+          ? 'T-$offset'
+          : offset == 0
+          ? 'T'
+          : 'T+${-offset}';
 
       await plugin.zonedSchedule(
-        id: _taskNotificationId(taskId, offset),
+        id: notifId,
         title: 'Gochano reminder',
-        body: bodyText,
+        body: isAssignment
+            ? (offset == -30
+                  ? GochanoLanguage.text(
+                      'Assignment incomplete',
+                      'অ্যাসাইনমেন্টটি এখনো সম্পন্ন হয়নি',
+                    )
+                  : offset == 0
+                  ? GochanoLanguage.text(
+                      'Assignment due now: $title',
+                      'অ্যাসাইনমেন্টের সময় হয়েছে: $title',
+                    )
+                  : '$title (in $offset mins)')
+            : (offset == -30
+                  ? GochanoLanguage.text(
+                      'Task incomplete',
+                      'কাজটি এখনো সম্পন্ন হয়নি',
+                    )
+                  : offset == 0
+                  ? GochanoLanguage.text(
+                      'Task due now: $title',
+                      'কাজের সময় হয়েছে: $title',
+                    )
+                  : '$title (in $offset mins)'),
         scheduledDate: tz.TZDateTime.from(notifyAt, tz.local),
         notificationDetails: NotificationDetails(
           android: _details(
@@ -264,6 +304,35 @@ class NotificationService {
         androidScheduleMode: scheduleMode,
         payload: taskId,
       );
+
+      scheduledIds.add(notifId);
+      if (kDebugMode) {
+        debugPrint(
+          '[TaskReminderSchedule] taskId=$taskId'
+          ' slot=$slotLabel'
+          ' scheduledLocal=$notifyAt'
+          ' notificationId=$notifId'
+          ' timezone=Asia/Dhaka'
+          ' mode=$scheduleMode',
+        );
+      }
+    }
+
+    if (kDebugMode && scheduledIds.isNotEmpty) {
+      try {
+        final pending = await plugin.pendingNotificationRequests();
+        final pendingIds = pending.map((r) => r.id).toSet();
+        final expectedIds = scheduledIds.toSet();
+        final missing = expectedIds.difference(pendingIds);
+        debugPrint(
+          '[TaskReminderPending] taskId=$taskId'
+          ' expected=$expectedIds'
+          ' present=${pendingIds.intersection(expectedIds)}'
+          ' missing=$missing',
+        );
+      } catch (e) {
+        debugPrint('[TaskReminderPending] pending query failed: $e');
+      }
     }
   }
 
@@ -283,6 +352,9 @@ class NotificationService {
     String type = 'task',
   }) async {
     await init();
+    if (kDebugMode) {
+      debugPrint('[TaskReminderSchedule] reschedule taskId=$taskId when=$when');
+    }
     for (final offset in _taskReminderOffsets) {
       await plugin.cancel(id: _taskNotificationId(taskId, offset));
     }
@@ -295,6 +367,9 @@ class NotificationService {
   static const List<int> _medicineFollowUpOffsets = [0, 30, 60, 90, 120];
   static Future<void> cancelTask(String taskId) async {
     await init();
+    if (kDebugMode) {
+      debugPrint('[TaskReminderSchedule] cancelTask taskId=$taskId');
+    }
     for (final offset in _taskReminderOffsets) {
       await plugin.cancel(id: _taskNotificationId(taskId, offset));
     }
@@ -549,10 +624,22 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin
           >();
       final canExact = await android?.canScheduleExactNotifications() ?? false;
+      final notificationsAllowed =
+          await android?.areNotificationsEnabled() ?? false;
+      if (kDebugMode) {
+        debugPrint(
+          '[TaskReminderSchedule] notificationsAllowed=$notificationsAllowed'
+          ' exactCapability=$canExact'
+          ' mode=${canExact ? "exactAllowWhileIdle" : "inexactAllowWhileIdle"}',
+        );
+      }
       return canExact
           ? AndroidScheduleMode.exactAllowWhileIdle
           : AndroidScheduleMode.inexactAllowWhileIdle;
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[TaskReminderSchedule] exactCapability check failed: $e');
+      }
       return AndroidScheduleMode.inexactAllowWhileIdle;
     }
   }

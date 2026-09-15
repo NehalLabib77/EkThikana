@@ -22,7 +22,7 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import 'ai/ai_assistant_screen.dart';
-import 'planner/plan_view.dart';
+import 'planner/plan_view.dart' show PlanView, openPlanHistory;
 import 'workspace/workspace_view.dart';
 
 class StudyScreen extends StatefulWidget {
@@ -40,14 +40,20 @@ class _StudyScreenState extends State<StudyScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    _tabs.addListener(_onTabChange);
     GochanoLanguage.current.addListener(_onLanguageChange);
   }
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTabChange);
     GochanoLanguage.current.removeListener(_onLanguageChange);
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _onTabChange() {
+    if (mounted) setState(() {});
   }
 
   void _onLanguageChange() {
@@ -62,6 +68,12 @@ class _StudyScreenState extends State<StudyScreen>
         title: GochanoLanguage.text('Study', 'পড়াশোনা'),
         automaticallyImplyLeading: false,
         actions: [
+          if (_tabs.index == 1)
+            IconActionButton(
+              icon: Icons.history_rounded,
+              label: GochanoLanguage.text('History', 'ইতিহাস'),
+              onPressed: () => openPlanHistory(context),
+            ),
           IconActionButton(
             icon: Icons.search_rounded,
             label: GochanoLanguage.text('Search', 'অনুসন্ধান'),

@@ -29,10 +29,19 @@ from __future__ import annotations
 from typing import Iterator
 
 from sqlalchemy import create_engine
+import uuid
+
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
+
+
+@event.listens_for(Engine, "connect")
+def _sqlite_connect_hook(dbapi_connection, connection_record):
+    if hasattr(dbapi_connection, "create_function"):
+        dbapi_connection.create_function("gen_random_uuid", 0, lambda: str(uuid.uuid4()))
 
 
 class Base(DeclarativeBase):
@@ -60,9 +69,16 @@ def _build_engine() -> Engine:
             )
         url = "sqlite+pysqlite:///:memory:"
     connect_args: dict[str, object] = {}
+    engine_kwargs: dict[str, object] = {
+        "pool_pre_ping": True,
+        "future": True,
+    }
     if url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
-    return create_engine(url, pool_pre_ping=True, future=True, connect_args=connect_args)
+        if ":memory:" in url:
+            from sqlalchemy.pool import StaticPool
+            engine_kwargs["poolclass"] = StaticPool
+    return create_engine(url, connect_args=connect_args, **engine_kwargs)
 
 
 def get_engine() -> Engine:

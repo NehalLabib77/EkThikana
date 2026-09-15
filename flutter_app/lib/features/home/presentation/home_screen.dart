@@ -1365,10 +1365,7 @@ class _CommuteCard extends StatelessWidget {
         final trip = upcomingTrips.isNotEmpty ? upcomingTrips.first : null;
 
         if (trip != null) {
-          final timeStr =
-              '${trip.departureTime.hour.toString().padLeft(2, '0')}:${trip.departureTime.minute.toString().padLeft(2, '0')}';
-          final dateStr =
-              '${trip.departureTime.day}/${trip.departureTime.month}';
+          final tripDateTimeStr = formatPlannedTripDateTime(trip.departureTime);
 
           return _AccentRailCard(
             accent: colors.commute,
@@ -1446,7 +1443,7 @@ class _CommuteCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${GochanoLanguage.text('Leave at', 'রওনা')} $timeStr ($dateStr)',
+                      '${GochanoLanguage.text('Leave at', 'রওনা')} $tripDateTimeStr',
                       style: context.type.caption,
                     ),
                   ],

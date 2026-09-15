@@ -26,6 +26,7 @@ import '../../../../services/api_service.dart';
 import '../../../../services/financial_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
+import 'journey_models.dart';
 
 Future<bool> showFareReportSheet(
   BuildContext context, {
@@ -36,6 +37,11 @@ Future<bool> showFareReportSheet(
   required double distanceKm,
   required int tripMinutes,
   double? suggestedFare,
+  String? originPlaceId,
+  String? destinationPlaceId,
+  String? initialBusServiceId,
+  String? initialBusName,
+  List<DirectBusCandidate> busCandidates = const [],
 }) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
@@ -44,14 +50,21 @@ Future<bool> showFareReportSheet(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
       ),
-      child: _FareReportForm(
-        mode: mode,
-        modeLabel: modeLabel,
-        originName: originName,
-        destinationName: destinationName,
-        distanceKm: distanceKm,
-        tripMinutes: tripMinutes,
-        suggestedFare: suggestedFare,
+      child: SingleChildScrollView(
+        child: _FareReportForm(
+          mode: mode,
+          modeLabel: modeLabel,
+          originName: originName,
+          destinationName: destinationName,
+          distanceKm: distanceKm,
+          tripMinutes: tripMinutes,
+          suggestedFare: suggestedFare,
+          originPlaceId: originPlaceId,
+          destinationPlaceId: destinationPlaceId,
+          initialBusServiceId: initialBusServiceId,
+          initialBusName: initialBusName,
+          busCandidates: busCandidates,
+        ),
       ),
     ),
   );
@@ -67,6 +80,11 @@ class _FareReportForm extends StatefulWidget {
     required this.distanceKm,
     required this.tripMinutes,
     this.suggestedFare,
+    this.originPlaceId,
+    this.destinationPlaceId,
+    this.initialBusServiceId,
+    this.initialBusName,
+    this.busCandidates = const [],
   });
 
   final String mode;
@@ -76,6 +94,11 @@ class _FareReportForm extends StatefulWidget {
   final double distanceKm;
   final int tripMinutes;
   final double? suggestedFare;
+  final String? originPlaceId;
+  final String? destinationPlaceId;
+  final String? initialBusServiceId;
+  final String? initialBusName;
+  final List<DirectBusCandidate> busCandidates;
 
   @override
   State<_FareReportForm> createState() => _FareReportFormState();
@@ -83,6 +106,14 @@ class _FareReportForm extends StatefulWidget {
 
 class _FareReportFormState extends State<_FareReportForm> {
   late final TextEditingController _fare;
+  late final TextEditingController _unlistedBus;
+  late final TextEditingController _busSearch;
+
+  String? _selectedBusId;
+  String? _selectedBusName;
+  bool _busNotListed = false;
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _searchingBuses = false;
 
   /// Whether to also submit the figure to the shared crowd dataset.
   bool _shareWithOthers = true;
@@ -101,12 +132,42 @@ class _FareReportFormState extends State<_FareReportForm> {
           ? ''
           : suggested.toStringAsFixed(0),
     );
+    _selectedBusId = widget.initialBusServiceId;
+    _selectedBusName = widget.initialBusName;
+    _unlistedBus = TextEditingController();
+    _busSearch = TextEditingController();
   }
 
   @override
   void dispose() {
     _fare.dispose();
+    _unlistedBus.dispose();
+    _busSearch.dispose();
     super.dispose();
+  }
+
+  Future<void> _onSearchBuses(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _searchingBuses = false;
+      });
+      return;
+    }
+    setState(() => _searchingBuses = true);
+    try {
+      final res = await ApiService.searchBusServices(q, limit: 8);
+      if (!mounted) return;
+      final raw = (res['results'] as List?) ?? const [];
+      setState(() {
+        _searchingBuses = false;
+        _searchResults = raw.whereType<Map<String, dynamic>>().toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _searchingBuses = false);
+    }
   }
 
   Future<void> _save() async {
@@ -121,6 +182,18 @@ class _FareReportFormState extends State<_FareReportForm> {
       return;
     }
 
+    if (widget.mode == 'bus' && _busNotListed) {
+      if (_unlistedBus.text.trim().isEmpty) {
+        setState(() {
+          _error = GochanoLanguage.text(
+            'Enter the bus name.',
+            'বাসের নাম লিখুন।',
+          );
+        });
+        return;
+      }
+    }
+
     setState(() {
       _saving = true;
       _error = null;
@@ -130,6 +203,7 @@ class _FareReportFormState extends State<_FareReportForm> {
       // 1. The student's own expense. Deterministic id, so a retry after a
       //    flaky network overwrites rather than double-charging them
       //    (spec §69 — check deduplication).
+      // 1. The student's own expense.
       await FinancialService.recordCommuteTrip(
         mode: widget.mode,
         origin: widget.originName,
@@ -143,6 +217,7 @@ class _FareReportFormState extends State<_FareReportForm> {
       // 2. Optional contribution to the shared dataset. A failure here must
       //    not lose the expense that already succeeded, so it is caught
       //    separately and reported as a partial result.
+      // 2. Optional contribution to the shared dataset.
       var sharedOk = true;
       if (_shareWithOthers) {
         try {
@@ -153,6 +228,11 @@ class _FareReportFormState extends State<_FareReportForm> {
             farePaid: fare,
             tripMinutes: widget.tripMinutes,
             routeDistanceKm: widget.distanceKm,
+            busServiceId: _busNotListed ? null : _selectedBusId,
+            busNameUserEntered:
+                _busNotListed ? _unlistedBus.text.trim() : null,
+            originPlaceId: widget.originPlaceId,
+            destinationPlaceId: widget.destinationPlaceId,
           );
         } catch (_) {
           sharedOk = false;
@@ -214,7 +294,8 @@ class _FareReportFormState extends State<_FareReportForm> {
             TextField(
               controller: _fare,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],
@@ -222,7 +303,8 @@ class _FareReportFormState extends State<_FareReportForm> {
               decoration: InputDecoration(
                 labelText: GochanoLanguage.text('Actual fare', 'আসল ভাড়া'),
                 prefixText: '৳ ',
-                prefixStyle: type.statistic.copyWith(color: colors.textSecondary),
+                prefixStyle:
+                    type.statistic.copyWith(color: colors.textSecondary),
                 helperText: GochanoLanguage.text(
                   'This is added to your monthly spending.',
                   'এটি আপনার মাসিক খরচে যোগ হবে।',
@@ -230,6 +312,195 @@ class _FareReportFormState extends State<_FareReportForm> {
               ),
               onSubmitted: (_) => _save(),
             ),
+
+            // Bus service selector when in bus mode
+            if (widget.mode == 'bus') ...[
+              const SizedBox(height: GochanoSpacing.md),
+              Text(
+                GochanoLanguage.text('Which bus?', 'কোন বাস?'),
+                style: type.body.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              if (_busNotListed) ...[
+                TextField(
+                  controller: _unlistedBus,
+                  decoration: InputDecoration(
+                    labelText: GochanoLanguage.text(
+                      'Enter bus name',
+                      'বাসের নাম লিখুন',
+                    ),
+                    hintText: GochanoLanguage.text(
+                      'e.g. Victor Classic',
+                      'যেমন: ভিক্টর ক্লাসিক',
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: () => setState(() => _busNotListed = false),
+                    child: Text(
+                      GochanoLanguage.text(
+                        'Choose from listed buses',
+                        'তালিকাভুক্ত বাস বাছুন',
+                      ),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                if (_selectedBusName != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: GochanoSpacing.md,
+                      vertical: GochanoSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.commute.withValues(alpha: 0.08),
+                      borderRadius: GochanoRadius.smAll,
+                      border: Border.all(
+                        color: colors.commute.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.directions_bus_rounded,
+                          color: colors.commute,
+                          size: 20,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            _selectedBusName!,
+                            style: type.body
+                                .copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedBusId = null;
+                              _selectedBusName = null;
+                            });
+                          },
+                          child: Text(
+                            GochanoLanguage.text('Change', 'পরিবর্তন'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  if (widget.busCandidates.isNotEmpty) ...[
+                    Text(
+                      GochanoLanguage.text(
+                        'Direct buses on this route:',
+                        'এই রুটের সরাসরি বাস:',
+                      ),
+                      style: type.caption,
+                    ),
+                    const SizedBox(height: GochanoSpacing.xxs),
+                    Wrap(
+                      spacing: GochanoSpacing.xs,
+                      runSpacing: GochanoSpacing.xs,
+                      children: [
+                        for (final bus in widget.busCandidates)
+                          ActionChip(
+                            avatar:
+                                const Icon(Icons.directions_bus, size: 16),
+                            label: Text(bus.operatorName),
+                            onPressed: () {
+                              setState(() {
+                                _selectedBusId = bus.serviceId;
+                                _selectedBusName = bus.operatorName;
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs),
+                  ],
+                  TextField(
+                    controller: _busSearch,
+                    decoration: InputDecoration(
+                      labelText: GochanoLanguage.text(
+                        'Search bus operator',
+                        'বাস অপারেটর খুঁজুন',
+                      ),
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _searchingBuses
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: Padding(
+                                padding: EdgeInsets.all(12),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : null,
+                    ),
+                    onChanged: _onSearchBuses,
+                  ),
+                  if (_searchResults.isNotEmpty) ...[
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 160),
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: GochanoRadius.smAll,
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _searchResults.length,
+                        itemBuilder: (context, idx) {
+                          final item = _searchResults[idx];
+                          final name =
+                              item['operatorName']?.toString() ?? '';
+                          final sId = item['serviceId']?.toString() ?? '';
+                          return ListTile(
+                            dense: true,
+                            title: Text(name, style: type.body),
+                            subtitle: Text(
+                              '${item['startStop'] ?? ''} → ${item['endStop'] ?? ''}',
+                              style: type.caption,
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _selectedBusId = sId;
+                                _selectedBusName = name;
+                                _searchResults = [];
+                                _busSearch.clear();
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _busNotListed = true;
+                        _selectedBusId = null;
+                        _selectedBusName = null;
+                      });
+                    },
+                    child: Text(
+                      GochanoLanguage.text(
+                        'Bus not listed? Enter name',
+                        'বাস তালিকায় নেই? নাম লিখুন',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+
             const SizedBox(height: GochanoSpacing.xs),
             SwitchListTile.adaptive(
               value: _shareWithOthers,

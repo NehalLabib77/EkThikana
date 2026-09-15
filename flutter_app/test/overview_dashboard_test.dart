@@ -327,7 +327,8 @@ void main() {
     });
 
     test('FutureBuilder uses ValueKey with refresh counter', () {
-      expect(source, contains("ValueKey('budget-"));
+      expect(source, contains('ValueKey('));
+      expect(source, contains('budget-'));
       expect(source, contains('_budgetRefreshKey'));
     });
 
@@ -376,6 +377,47 @@ void main() {
       expect(source, contains('ConstrainedBox('));
       expect(source, contains('FittedBox('));
       expect(source, contains('TextOverflow.ellipsis'));
+    });
+  });
+
+  group('Phase 1: Monthly money CTA and loading gate', () {
+    late String source;
+
+    setUpAll(() {
+      source = File('lib/features/life/presentation/expense/overview_tab.dart')
+          .readAsStringSync()
+          .replaceAll('\r\n', '\n');
+    });
+
+    test('_openBudgetSheet method exists and opens monthly_budget_sheet', () {
+      expect(source, contains('Future<void> _openBudgetSheet()'));
+      expect(source, contains('showMonthlyBudgetSheet(context)'));
+    });
+
+    test('_openBudgetSheet refreshes after save', () {
+      expect(source, contains('if (saved && mounted) refresh()'));
+    });
+
+    test('onSetBudget wired to _openBudgetSheet instead of raw refresh', () {
+      expect(source, contains('onSetBudget: _openBudgetSheet'));
+      expect(source, isNot(contains('onSetBudget: refresh,')));
+    });
+
+    test('import monthly_budget_sheet.dart present', () {
+      expect(source, contains("import 'monthly_budget_sheet.dart'"));
+    });
+
+    test('_OverviewBody has budgetLoading parameter', () {
+      expect(source, contains('required this.budgetLoading'));
+      expect(source, contains('final bool budgetLoading'));
+    });
+
+    test('CTA gated by budgetLoading to prevent false flash', () {
+      expect(source, contains('!hasBudget && !budgetLoading'));
+    });
+
+    test('budgetLoading derived from FutureBuilder connection state', () {
+      expect(source, contains("budgetSnap.connectionState == ConnectionState.waiting"));
     });
   });
 

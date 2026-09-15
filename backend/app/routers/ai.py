@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.core.auth import CurrentUser, require_student
 from app.core.config import get_settings
-from app.schemas import AiNoteRequest, PdfQuestionRequest
+from app.schemas import AiNoteRequest, PdfQuestionRequest, CommuteGuideRequest
 from app.services.ai_service import generate, generate_multimodal
 from app.services.pdf_service import extract_pdf_text
 from app.services.ocr_service import extract_text as ocr_extract_text
@@ -57,6 +57,103 @@ async def process_note(
     prompt = f"{instructions[body.action]}\n\nNOTE:\n{body.text}"
     result = await generate(user.uid, prompt)
     return {"result": result}
+
+
+# ---------------------------------------------------------------------------
+# Commute — Smart Journey Guide explanation.
+#
+# Accepts structured verified journey facts and returns a concise,
+# human-readable explanation. AI must NOT invent any route, stop, bus,
+# fare, or time data — it only explains what the facts already contain.
+# ---------------------------------------------------------------------------
+
+_SYSTEM_INSTRUCTION = """\
+You are explaining a verified commute route for a student commute app in Dhaka, Bangladesh.
+
+Use ONLY the supplied journey facts. Be concise — 2-3 short sentences maximum.
+
+Do NOT invent:
+- road names
+- bus names, numbers, or routes
+- bus stops or stations
+- transfer points
+- fares
+- travel time
+- traffic conditions
+- route segments
+- live information
+
+If a fact is absent, omit it entirely. Never guess.
+
+Clearly distinguish estimated fare/time from official or real data.
+If duration_provenance says "osrm", describe the time as "without live traffic".
+If duration_provenance says "multimodal", describe it as the actual journey time.
+
+Keep the explanation suitable for a Bangladeshi university student. \
+Write in natural, clear English."""
+
+
+@router.post("/commute-guide")
+async def commute_guide(
+    body: CommuteGuideRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    facts_lines = [
+        f"Origin: {body.origin}",
+        f"Destination: {body.destination}",
+    ]
+    if body.distance_km:
+        facts_lines.append(f"Distance: {body.distance_km} km")
+    if body.duration_minutes is not None:
+        facts_lines.append(f"Duration: {body.duration_minutes} minutes")
+    facts_lines.append(f"Duration provenance: {body.duration_provenance}")
+    if body.selected_mode:
+        facts_lines.append(f"Selected mode: {body.mode_label or body.selected_mode}")
+    if body.fare:
+        fare = body.fare
+        if fare.get("available") and fare.get("low") and fare.get("high"):
+            facts_lines.append(
+                f"Fare: ৳{fare['low']}-{fare['high']} ({fare.get('type', 'estimated')})"
+            )
+            if fare.get("source"):
+                facts_lines.append(f"Fare source: {fare['source']}")
+        elif fare.get("available") is False:
+            fare_type = fare.get("type", "none")
+            if fare_type == "none":
+                facts_lines.append("Fare: Free (walking)")
+            else:
+                facts_lines.append("Fare: Not available for this mode")
+    if body.verified_waypoints:
+        facts_lines.append(f"Verified route points: {' → '.join(body.verified_waypoints)}")
+    if body.is_multimodal:
+        facts_lines.append(f"Type: Multimodal journey with {body.transfers} transfer(s)")
+    else:
+        facts_lines.append("Type: Direct road route")
+
+    if body.selected_bus_operator:
+        bus_info = f"Selected bus: {body.selected_bus_operator}"
+        if body.selected_bus_board_stop:
+            bus_info += f", Board at: {body.selected_bus_board_stop}"
+        if body.selected_bus_exit_stop:
+            bus_info += f", Exit at: {body.selected_bus_exit_stop}"
+        if body.selected_bus_stop_count is not None:
+            bus_info += f" ({body.selected_bus_stop_count} stops)"
+        facts_lines.append(bus_info)
+
+    facts_text = "\n".join(facts_lines)
+
+    prompt = (
+        f"{_SYSTEM_INSTRUCTION}\n\n"
+        f"JOURNEY FACTS:\n{facts_text}"
+    )
+
+    try:
+        result = await generate(user.uid, prompt)
+        return {"explanation": result}
+    except Exception:
+        # AI failure must not break the feature — return empty so the
+        # client falls back to local deterministic rendering.
+        return {"explanation": ""}
 
 
 @router.post("/pdf-question")

@@ -93,10 +93,10 @@ class ApiService {
   }
 
   static Future<Map<String, String>> _headers() async => {
-        'Authorization': 'Bearer ${await _token()}',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+    'Authorization': 'Bearer ${await _token()}',
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
 
   /// Returns a route string safe for dev-mode logs (no query parameters,
   /// since query strings can carry tokens and ids). We log the *route*
@@ -144,9 +144,7 @@ class ApiService {
     required Future<http.Request> Function() build,
   }) async {
     return _guard(() async {
-      final first = await _client
-          .send(await build())
-          .timeout(timeout);
+      final first = await _client.send(await build()).timeout(timeout);
       final response = await http.Response.fromStream(first);
       // Skip the retry path entirely for public / unauthenticated calls:
       // a 403 on those endpoints is a real verdict, not a stale token.
@@ -158,9 +156,7 @@ class ApiService {
       // the cached JWT and try the SAME logical request exactly once.
       _debugLog('auth retry: $method ${_safeRoute(uri)} after 403');
       await AuthService.forceRefreshIdToken();
-      final second = await _client
-          .send(await build())
-          .timeout(timeout);
+      final second = await _client.send(await build()).timeout(timeout);
       return http.Response.fromStream(second);
     });
   }
@@ -191,8 +187,7 @@ class ApiService {
       _debugLog('auth retry: $method ${_safeRoute(uri)} after 403');
       await AuthService.forceRefreshIdToken();
       final secondRequest = await build();
-      final secondStreamed =
-          await _client.send(secondRequest).timeout(timeout);
+      final secondStreamed = await _client.send(secondRequest).timeout(timeout);
       return http.Response.fromStream(secondStreamed);
     });
   }
@@ -224,29 +219,38 @@ class ApiService {
       if (detail == null || detail.isEmpty) {
         detail = 'API error ${response.statusCode}';
       }
-      if (response.statusCode >= 500 && detail.toLowerCase() == 'internal server error') {
-        detail = 'The Gochano backend returned an internal error. Open Render → Logs to see the server traceback.';
+      if (response.statusCode >= 500 &&
+          detail.toLowerCase() == 'internal server error') {
+        detail =
+            'The Gochano backend returned an internal error. Open Render → Logs to see the server traceback.';
       }
       throw ApiException(detail, statusCode: response.statusCode);
     }
     return body;
   }
 
-  static Future<http.Response> _get(String path, {Map<String, String>? query, bool auth = true}) {
+  static Future<http.Response> _get(
+    String path, {
+    Map<String, String>? query,
+    bool auth = true,
+  }) {
     final uri = _uri(path, query);
     return _send(
       method: 'GET',
       uri: uri,
       auth: auth,
-      build: () async => http.Request('GET', uri)..headers.addAll(
-            auth
-                ? await _headers()
-                : {'Accept': 'application/json'},
-          ),
+      build: () async => http.Request('GET', uri)
+        ..headers.addAll(
+          auth ? await _headers() : {'Accept': 'application/json'},
+        ),
     );
   }
 
-  static Future<http.Response> _post(String path, {Object? body, bool auth = true}) {
+  static Future<http.Response> _post(
+    String path, {
+    Object? body,
+    bool auth = true,
+  }) {
     final uri = _uri(path);
     final encoded = body == null ? null : jsonEncode(body);
     return _send(
@@ -273,28 +277,38 @@ class ApiService {
       method: 'DELETE',
       uri: uri,
       auth: auth,
-      build: () async => http.Request('DELETE', uri)..headers.addAll(
-            auth
-                ? await _headers()
-                : {'Accept': 'application/json'},
-          ),
+      build: () async => http.Request('DELETE', uri)
+        ..headers.addAll(
+          auth ? await _headers() : {'Accept': 'application/json'},
+        ),
     );
   }
 
-  static Future<Map<String, dynamic>> health() async => _decode(await _get('/api/health', auth: false));
+  static Future<Map<String, dynamic>> health() async =>
+      _decode(await _get('/api/health', auth: false));
 
-  static Future<Map<String, dynamic>> createGroup(String name, String description) async =>
-      _decode(await _post('/api/groups', body: {'name': name, 'description': description}));
+  static Future<Map<String, dynamic>> createGroup(
+    String name,
+    String description,
+  ) async => _decode(
+    await _post(
+      '/api/groups',
+      body: {'name': name, 'description': description},
+    ),
+  );
 
   static Future<Map<String, dynamic>> joinGroup(String inviteCode) async =>
-      _decode(await _post('/api/groups/join', body: {'invite_code': inviteCode}));
+      _decode(
+        await _post('/api/groups/join', body: {'invite_code': inviteCode}),
+      );
 
   static Future<void> leaveGroup(String groupId) async {
     _decode(await _post('/api/groups/$groupId/leave'));
   }
 
   static Future<String> resetGroupInvite(String groupId) async =>
-      _decode(await _post('/api/groups/$groupId/invite/reset'))['inviteCode'] as String;
+      _decode(await _post('/api/groups/$groupId/invite/reset'))['inviteCode']
+          as String;
 
   static Future<String> uploadMaterial({
     required Uint8List bytes,
@@ -335,16 +349,24 @@ class ApiService {
   }
 
   static Future<String> materialUrl(String id, {bool download = false}) async =>
-      _decode(await _get('/api/materials/$id/url', query: {'download': '$download'}))['url'] as String;
+      _decode(
+            await _get(
+              '/api/materials/$id/url',
+              query: {'download': '$download'},
+            ),
+          )['url']
+          as String;
 
   static Future<void> saveMaterial(String id) async {
     _decode(await _post('/api/materials/$id/save'));
   }
 
   static Future<void> deleteMaterial(String id) async {
-    final response = await _guard(() async => _client
-        .delete(_uri('/api/materials/$id'), headers: await _headers())
-        .timeout(const Duration(seconds: 100)));
+    final response = await _guard(
+      () async => _client
+          .delete(_uri('/api/materials/$id'), headers: await _headers())
+          .timeout(const Duration(seconds: 100)),
+    );
     _decode(response);
   }
 
@@ -392,7 +414,11 @@ class ApiService {
 
   static const Object _kOmit = Object();
 
-  static Future<http.Response> _patch(String path, {Object? body, bool auth = true}) {
+  static Future<http.Response> _patch(
+    String path, {
+    Object? body,
+    bool auth = true,
+  }) {
     final uri = _uri(path);
     final encoded = body == null ? null : jsonEncode(body);
     return _send(
@@ -414,14 +440,40 @@ class ApiService {
   }
 
   static Future<String> aiNote(String action, String text) async =>
-      _decode(await _post('/api/ai/note', body: {'action': action, 'text': text}))['result'] as String;
+      _decode(
+            await _post('/api/ai/note', body: {'action': action, 'text': text}),
+          )['result']
+          as String;
 
-  static Future<String> askPdf({required String materialId, required String question, int? page}) async =>
-      _decode(await _post('/api/ai/pdf-question', body: {
-        'material_id': materialId,
-        'question': question,
-        'page': page,
-      }))['answer'] as String;
+  /// Smart Journey Guide: returns an AI-generated human-readable explanation
+  /// of verified commute facts. On any failure, returns an empty string so
+  /// the client can render the local deterministic guide instead.
+  static Future<String> commuteGuide(Map<String, dynamic> facts) async {
+    try {
+      final body = await _post('/api/ai/commute-guide', body: facts);
+      final decoded = _decode(body);
+      return (decoded['explanation'] as String?) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static Future<String> askPdf({
+    required String materialId,
+    required String question,
+    int? page,
+  }) async =>
+      _decode(
+            await _post(
+              '/api/ai/pdf-question',
+              body: {
+                'material_id': materialId,
+                'question': question,
+                'page': page,
+              },
+            ),
+          )['answer']
+          as String;
 
   static Future<Map<String, dynamic>> prescriptionOcr({
     required Uint8List bytes,
@@ -459,8 +511,10 @@ class ApiService {
     return const [];
   }
 
-  static Future<List<dynamic>> studyPlan() async =>
-      _listField(_decode(await _post('/api/study/plan', body: {'max_items': 8})), 'items');
+  static Future<List<dynamic>> studyPlan() async => _listField(
+    _decode(await _post('/api/study/plan', body: {'max_items': 8})),
+    'items',
+  );
 
   static Future<void> reportContent({
     required String targetType,
@@ -468,31 +522,48 @@ class ApiService {
     required String reason,
     String details = '',
   }) async {
-    _decode(await _post('/api/reports', body: {
-      'target_type': targetType,
-      'target_id': targetId,
-      'reason': reason,
-      'details': details,
-    }));
+    _decode(
+      await _post(
+        '/api/reports',
+        body: {
+          'target_type': targetType,
+          'target_id': targetId,
+          'reason': reason,
+          'details': details,
+        },
+      ),
+    );
   }
 
   static Future<void> deleteAccount() async {
-    final response = await _guard(() async => http
-        .delete(_uri('/api/account'), headers: await _headers())
-        .timeout(const Duration(seconds: 150)));
+    final response = await _guard(
+      () async => http
+          .delete(_uri('/api/account'), headers: await _headers())
+          .timeout(const Duration(seconds: 150)),
+    );
     _decode(response);
   }
 
   static Future<Map<String, dynamic>> exportAccount() async =>
       _decode(await _get('/api/account/export'));
 
-
   // ---------------- Group chat (member-only, chatEnabled gate) ----------------
-  static Future<Map<String, dynamic>> getGroupChat(String groupId, {int limit = 100}) async =>
-      _decode(await _get('/api/groups/$groupId/chat', query: {'limit': '$limit'}));
+  static Future<Map<String, dynamic>> getGroupChat(
+    String groupId, {
+    int limit = 100,
+  }) async => _decode(
+    await _get('/api/groups/$groupId/chat', query: {'limit': '$limit'}),
+  );
 
-  static Future<Map<String, dynamic>> setGroupChatEnabled(String groupId, bool enabled) async =>
-      _decode(await _post('/api/groups/$groupId/chat/toggle', body: {'chatEnabled': enabled}));
+  static Future<Map<String, dynamic>> setGroupChatEnabled(
+    String groupId,
+    bool enabled,
+  ) async => _decode(
+    await _post(
+      '/api/groups/$groupId/chat/toggle',
+      body: {'chatEnabled': enabled},
+    ),
+  );
 
   static Future<Map<String, dynamic>> postGroupMessage({
     required String groupId,
@@ -536,8 +607,12 @@ class ApiService {
     required String groupId,
     required String messageId,
     required String emoji,
-  }) async =>
-      _decode(await _post('/api/groups/$groupId/chat/$messageId/react', body: {'emoji': emoji}));
+  }) async => _decode(
+    await _post(
+      '/api/groups/$groupId/chat/$messageId/react',
+      body: {'emoji': emoji},
+    ),
+  );
 
   // ---------------- Monthly money (reads central ledger) ----------------
   static String _monthKey(DateTime when) {
@@ -545,37 +620,53 @@ class ApiService {
     return '${when.year}-$m';
   }
 
-  static Future<Map<String, dynamic>> setMonthlyBudget(DateTime month, double amount) async =>
-      _decode(await _post('/api/budget/monthly', body: {
-        'month_key': _monthKey(month),
-        'available_amount': amount,
-      }));
+  static Future<Map<String, dynamic>> setMonthlyBudget(
+    DateTime month,
+    double amount,
+  ) async => _decode(
+    await _post(
+      '/api/budget/monthly',
+      body: {'month_key': _monthKey(month), 'available_amount': amount},
+    ),
+  );
 
   static Future<Map<String, dynamic>> getMonthlyBudget(DateTime month) async =>
-      _deduplicatedGet('/api/budget/monthly', query: {'month_key': _monthKey(month)});
+      _deduplicatedGet(
+        '/api/budget/monthly',
+        query: {'month_key': _monthKey(month)},
+      );
 
   static Future<Map<String, dynamic>> getRemaining(DateTime month) async =>
-      _decode(await _get('/api/budget/remaining', query: {'month_key': _monthKey(month)}));
+      _decode(
+        await _get(
+          '/api/budget/remaining',
+          query: {'month_key': _monthKey(month)},
+        ),
+      );
 
   // ---------------- Focus / study stats ----------------
   static Future<Map<String, dynamic>> startFocus({
     String label = '',
     int plannedMinutes = 25,
     String note = '',
-  }) async =>
-      _decode(await _post('/api/study/focus/start', body: {
-        'label': label,
-        'planned_minutes': plannedMinutes,
-        'note': note,
-      }));
+  }) async => _decode(
+    await _post(
+      '/api/study/focus/start',
+      body: {'label': label, 'planned_minutes': plannedMinutes, 'note': note},
+    ),
+  );
 
   /// Pause / resume / complete / cancel a focus session.
   ///
   /// The backend route is `PATCH /api/study/focus/{focus_id}`. This used to
   /// send POST, which FastAPI answered with 405 Method Not Allowed — so
   /// pause, resume and finish never reached the server.
-  static Future<Map<String, dynamic>> patchFocus(String focusId, String action) async =>
-      _decode(await _patch('/api/study/focus/$focusId', body: {'action': action}));
+  static Future<Map<String, dynamic>> patchFocus(
+    String focusId,
+    String action,
+  ) async => _decode(
+    await _patch('/api/study/focus/$focusId', body: {'action': action}),
+  );
 
   /// Recent focus sessions within the last [days] (backend accepts 1..365).
   ///
@@ -604,15 +695,19 @@ class ApiService {
     required String localPath,
     required String fileType,
     String originalFilename = '',
-  }) async =>
-      _decode(await _post('/api/offline/register', body: {
+  }) async => _decode(
+    await _post(
+      '/api/offline/register',
+      body: {
         'material_id': materialId,
         'title': title,
         'size': size,
         'local_path': localPath,
         'file_type': fileType,
         'original_filename': originalFilename,
-      }));
+      },
+    ),
+  );
 
   static Future<List<dynamic>> listOffline() async =>
       _listField(_decode(await _get('/api/offline/list')), 'items');
@@ -621,13 +716,14 @@ class ApiService {
     _decode(await _delete('/api/offline/remove/$materialId'));
   }
 
-
   static Future<Map<String, dynamic>> commuteSearch(String query) async {
     return _guard(() async {
-      final response = await _client.get(
-        _uri('/api/commute/search', {'q': query}),
-        headers: await _headers(),
-      ).timeout(const Duration(seconds: 45));
+      final response = await _client
+          .get(
+            _uri('/api/commute/search', {'q': query}),
+            headers: await _headers(),
+          )
+          .timeout(const Duration(seconds: 45));
       return _decode(response);
     });
   }
@@ -641,18 +737,20 @@ class ApiService {
     required double destinationLon,
   }) async {
     return _guard(() async {
-      final response = await _client.post(
-        _uri('/api/commute/route'),
-        headers: await _headers(),
-        body: jsonEncode({
-          'origin_name': originName,
-          'origin_lat': originLat,
-          'origin_lon': originLon,
-          'destination_name': destinationName,
-          'destination_lat': destinationLat,
-          'destination_lon': destinationLon,
-        }),
-      ).timeout(const Duration(seconds: 90));
+      final response = await _client
+          .post(
+            _uri('/api/commute/route'),
+            headers: await _headers(),
+            body: jsonEncode({
+              'origin_name': originName,
+              'origin_lat': originLat,
+              'origin_lon': originLon,
+              'destination_name': destinationName,
+              'destination_lat': destinationLat,
+              'destination_lon': destinationLon,
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
       return _decode(response);
     });
   }
@@ -712,22 +810,24 @@ class ApiService {
   static Future<Map<String, dynamic>> commutePlaceSearch(
     String query, {
     int limit = 15,
-  }) async =>
-      _decode(await _get(
-        '/api/commute/places/search',
-        query: {'q': query, 'limit': '$limit'},
-      ));
+  }) async => _decode(
+    await _get(
+      '/api/commute/places/search',
+      query: {'q': query, 'limit': '$limit'},
+    ),
+  );
 
   /// CommuteBD stops within [radiusM] of a coordinate.
   static Future<Map<String, dynamic>> commuteNearbyStops({
     required double lat,
     required double lng,
     int radiusM = 1500,
-  }) async =>
-      _decode(await _get(
-        '/api/commute/nearby-stops',
-        query: {'lat': '$lat', 'lng': '$lng', 'radius_m': '$radiusM'},
-      ));
+  }) async => _decode(
+    await _get(
+      '/api/commute/nearby-stops',
+      query: {'lat': '$lat', 'lng': '$lng', 'radius_m': '$radiusM'},
+    ),
+  );
 
   /// All CommuteBD places with mappable coordinates.
   ///
@@ -737,6 +837,40 @@ class ApiService {
   /// server — the picker treats that as a non-error.
   static Future<Map<String, dynamic>> commuteMapPlaces() async =>
       _decode(await _get('/api/commute/places/map'));
+
+  /// Direct bus service match between two CommuteBD places.
+  ///
+  /// Returns verified direct bus services connecting the stop pair in order,
+  /// with board/exit stops, sequence, and any crowd fare aggregate data.
+  static Future<Map<String, dynamic>> directBusMatch({
+    required String originPlaceId,
+    required String destinationPlaceId,
+    int limit = 6,
+  }) async => _decode(
+    await _get(
+      '/api/commute/bus-services/direct-match',
+      query: {
+        'origin_place_id': originPlaceId,
+        'destination_place_id': destinationPlaceId,
+        'limit': '$limit',
+      },
+    ),
+  );
+
+  /// Search bus services by operator name (English or Bengali).
+  static Future<Map<String, dynamic>> searchBusServices(
+    String query, {
+    int limit = 10,
+  }) async => _decode(
+    await _get(
+      '/api/commute/bus-services/search',
+      query: {'q': query, 'limit': '$limit'},
+    ),
+  );
+
+  /// Get details and ordered stops of a single bus service.
+  static Future<Map<String, dynamic>> getBusService(String serviceId) async =>
+      _decode(await _get('/api/commute/bus-services/$serviceId'));
 
   /// Fetch fare for a single user-selected transport mode.
   ///
@@ -757,29 +891,34 @@ class ApiService {
     required String mode,
     required double distanceKm,
     required int drivingMinutes,
+    String? busServiceId,
   }) async {
     return _guard(() async {
-      final response = await _client.post(
-        _uri('/api/commute/single-fare'),
-        headers: await _headers(),
-        body: jsonEncode({
-          'origin': {
-            'place_id': originPlaceId,
-            'name': originName,
-            'lat': originLat,
-            'lon': originLon,
-          },
-          'destination': {
-            'place_id': destinationPlaceId,
-            'name': destinationName,
-            'lat': destinationLat,
-            'lon': destinationLon,
-          },
-          'mode': mode,
-          'distance_km': distanceKm,
-          'driving_minutes': drivingMinutes,
-        }),
-      ).timeout(const Duration(seconds: 60));
+      final response = await _client
+          .post(
+            _uri('/api/commute/single-fare'),
+            headers: await _headers(),
+            body: jsonEncode({
+              'origin': {
+                'place_id': originPlaceId,
+                'name': originName,
+                'lat': originLat,
+                'lon': originLon,
+              },
+              'destination': {
+                'place_id': destinationPlaceId,
+                'name': destinationName,
+                'lat': destinationLat,
+                'lon': destinationLon,
+              },
+              'mode': mode,
+              'distance_km': distanceKm,
+              'driving_minutes': drivingMinutes,
+              if (busServiceId != null && busServiceId.isNotEmpty)
+                'bus_service_id': busServiceId,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
       return _decode(response);
     });
   }
@@ -799,36 +938,56 @@ class ApiService {
     String paymentType = 'cash',
     String? routeId,
     bool locationVerified = false,
+    String? busServiceId,
+    String? busNameUserEntered,
+    String? originPlaceId,
+    String? destinationPlaceId,
   }) async {
     return _guard(() async {
-      final response = await _client.post(
-        _uri('/api/commute/fare-report'),
-        headers: await _headers(),
-        body: jsonEncode({
-          'origin_text': originText,
-          'destination_text': destinationText,
-          'origin_lat': originLat,
-          'origin_lon': originLon,
-          'destination_lat': destinationLat,
-          'destination_lon': destinationLon,
-          'transport_mode': mode,
-          'fare_paid_tk': farePaid,
-          'trip_minutes': tripMinutes,
-          'route_distance_km': routeDistanceKm,
-          'traffic_level': trafficLevel,
-          'payment_type': paymentType,
-          'route_id_if_known': routeId,
-          'device_location_verified': locationVerified,
-        }),
-      ).timeout(const Duration(seconds: 90));
+      final response = await _client
+          .post(
+            _uri('/api/commute/fare-report'),
+            headers: await _headers(),
+            body: jsonEncode({
+              'origin_text': originText,
+              'destination_text': destinationText,
+              'origin_lat': originLat,
+              'origin_lon': originLon,
+              'destination_lat': destinationLat,
+              'destination_lon': destinationLon,
+              'transport_mode': mode,
+              'fare_paid_tk': farePaid,
+              'trip_minutes': tripMinutes,
+              'route_distance_km': routeDistanceKm,
+              'traffic_level': trafficLevel,
+              'payment_type': paymentType,
+              'route_id_if_known': routeId,
+              'device_location_verified': locationVerified,
+              if (busServiceId != null && busServiceId.isNotEmpty)
+                'bus_service_id': busServiceId,
+              if (busNameUserEntered != null && busNameUserEntered.isNotEmpty)
+                'bus_name_user_entered': busNameUserEntered,
+              if (originPlaceId != null && originPlaceId.isNotEmpty)
+                'origin_place_id': originPlaceId,
+              if (destinationPlaceId != null && destinationPlaceId.isNotEmpty)
+                'destination_place_id': destinationPlaceId,
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
       return _decode(response);
     });
   }
 
   static Future<Uint8List> downloadBytes(String url) async {
-    final response = await _guard(() async => _client.get(Uri.parse(url)).timeout(const Duration(seconds: 150)));
+    final response = await _guard(
+      () async =>
+          _client.get(Uri.parse(url)).timeout(const Duration(seconds: 150)),
+    );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException('Download failed (${response.statusCode})', statusCode: response.statusCode);
+      throw ApiException(
+        'Download failed (${response.statusCode})',
+        statusCode: response.statusCode,
+      );
     }
     return response.bodyBytes;
   }
@@ -921,8 +1080,8 @@ class ApiService {
         method: 'GET',
         uri: uri,
         auth: true,
-        build: () async => http.Request('GET', uri)
-          ..headers.addAll(await _headers()),
+        build: () async =>
+            http.Request('GET', uri)..headers.addAll(await _headers()),
       );
       final data = _decode(response);
       return data['photoURL'] as String?;

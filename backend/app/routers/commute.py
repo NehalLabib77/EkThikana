@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import CurrentUser, get_current_user
 from app.database.repositories.fare_report_repository import insert_fare_report
+from app.database.repositories.postgres_repository import CommutePostgresRepository
 from app.schemas import CommuteFareReportRequest, CommuteRouteRequest, CommuteRoutesRequest, CommuteSingleFareRequest
 from app.services.commute.data_repository import get_commute_repository
 from app.services.commute.fare_engine import FareEngine, MODE_ELIGIBILITY, SUPPORTED_MODES
@@ -138,6 +139,48 @@ def report_fare(
         when=datetime.now(timezone.utc),
     )
 
+    # Bus identity validation
+    bus_service_id: str | None = (
+        body.bus_service_id.strip() if body.bus_service_id and body.bus_service_id.strip() else None
+    )
+    bus_name_user_entered: str | None = (
+        body.bus_name_user_entered.strip()
+        if body.bus_name_user_entered and body.bus_name_user_entered.strip()
+        else None
+    )
+
+    if body.transport_mode == "bus":
+        # Reject ambiguous invalid payloads: neither supplied or both supplied
+        if not bus_service_id and not bus_name_user_entered:
+            raise HTTPException(
+                status_code=400,
+                detail="Bus fare report requires either a known bus_service_id or bus_name_user_entered for unlisted buses.",
+            )
+        if bus_service_id and bus_name_user_entered:
+            raise HTTPException(
+                status_code=400,
+                detail="Ambiguous bus identity: cannot supply both bus_service_id and bus_name_user_entered.",
+            )
+
+        if bus_service_id:
+            # Known bus submission: verify it exists in bus_services
+            repo = CommutePostgresRepository()
+            service = repo.get_bus_service(bus_service_id)
+            if not service:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown bus_service_id '{bus_service_id}' does not exist in bus_services.",
+                )
+            # bus_name_user_entered should be null/ignored
+            bus_name_user_entered = None
+        else:
+            # Bus not listed: bus_service_id is null, bus_name_user_entered is non-empty
+            bus_service_id = None
+    else:
+        # For non-bus modes: bus_service_id and bus_name_user_entered must not affect fare aggregation
+        bus_service_id = None
+        bus_name_user_entered = None
+
     row = {
         "user_id_hash": hashlib.sha256(user.uid.encode("utf-8")).hexdigest(),
         "origin_place_id": body.origin_place_id,
@@ -151,6 +194,8 @@ def report_fare(
         "transport_mode": body.transport_mode,
         "bus_service_id": body.bus_service_id,
         "bus_name_user_entered": body.bus_name_user_entered,
+        "bus_service_id": bus_service_id,
+        "bus_name_user_entered": bus_name_user_entered,
         "route_id_if_known": (body.route_id_if_known if body.route_id_if_known and " + " not in body.route_id_if_known else None),
         "fare_paid_tk": body.fare_paid_tk,
         "passenger_count": body.passenger_count,
@@ -298,6 +343,95 @@ async def routes_supabase(
         )
 
 
+@router.get("/bus-services/search")
+def search_bus_services(
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=10, ge=1, le=30),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Search bus services by operator name, service type, or stop name."""
+    try:
+        repo = get_commute_repository()
+        repo = CommutePostgresRepository()
+        return {
+            "query": q,
+            "results": repo.search_bus_services(q, limit=limit),
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Bus service search is unavailable")
+
+
+@router.get("/bus-services/{service_id}")
+def get_bus_service(
+    service_id: str,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Get a single bus service by ID with its ordered stops."""
+    try:
+        repo = get_commute_repository()
+        repo = CommutePostgresRepository()
+        result = repo.get_bus_service(service_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Bus service '{service_id}' not found")
+        return result
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Bus service lookup is unavailable")
+
+
+@router.get("/bus-services/direct-match")
+def direct_bus_match(
+    origin_place_id: str = Query(min_length=1, max_length=80),
+    destination_place_id: str = Query(min_length=1, max_length=80),
+    limit: int = Query(default=6, ge=1, le=15),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Find bus services that travel directly from origin to destination.
+
+    A direct match means the bus service has stops at both places with
+    the origin appearing before the destination in the stop sequence.
+    """
+    try:
+        repo = get_commute_repository()
+        repo = CommutePostgresRepository()
+        return {
+            "originPlaceId": origin_place_id,
+            "destinationPlaceId": destination_place_id,
+            "results": repo.direct_bus_match(
+                origin_place_id, destination_place_id, limit=limit
+            ),
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Bus direct match is unavailable")
+
+
+@router.get("/bus-services/{service_id}")
+def get_bus_service(
+    service_id: str,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Get a single bus service by ID with its ordered stops."""
+    try:
+        repo = CommutePostgresRepository()
+        result = repo.get_bus_service(service_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Bus service '{service_id}' not found")
+        return result
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Bus service lookup is unavailable")
+
+
 @router.post("/single-fare")
 async def single_fare(
     body: CommuteSingleFareRequest,
@@ -358,6 +492,29 @@ async def single_fare(
         distance_km=distance_km,
         driving_minutes=driving_minutes,
     )
+
+    if option is None and mode == "bus" and body.bus_service_id:
+        from app.services.commute.crowd import CrowdFareRepository
+        crowd_repo = CrowdFareRepository()
+        crowd_agg = crowd_repo.aggregate_for_bus_service(
+            bus_service_id=body.bus_service_id,
+            origin_place_id=body.origin.place_id,
+            destination_place_id=body.destination.place_id,
+            origin_text=origin_name,
+            destination_text=destination_name,
+        )
+        if crowd_agg:
+            option = {
+                "low": crowd_agg["p25Fare"],
+                "median": crowd_agg["medianFare"],
+                "high": crowd_agg["p75Fare"],
+                "fareType": "crowdsourced",
+                "fareLabel": "Community estimate",
+                "source": f"Community estimate ({crowd_agg['sampleCount']} reports)",
+                "confidence": crowd_agg.get("confidence", "Medium"),
+                "sampleCount": crowd_agg["sampleCount"],
+                "busServiceId": body.bus_service_id,
+            }
 
     if option is None:
         reason_parts = []

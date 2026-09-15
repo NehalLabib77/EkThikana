@@ -1,0 +1,157 @@
+﻿service_id,operator_name_en,operator_name_bn,variant_no_for_operator,start_stop_raw,end_stop_raw,declared_stop_count,parsed_stop_count,canonical_match_count,canonical_match_rate,unique_canonical_stop_count,route_signature_sha1_12,service_type,time_text,current_status,source_id
+SVC0001,Achim Paribahan,আছিম পরিবহন,1,Gabtoli,Demra Staff Quarter,27,27,18,0.6667,18,5a9afa11dfca,Semi-Sitting Service(Check System),,needs_validation,SRC_BUS_GITHUB
+SVC0002,Agradut,অগ্রদূত,1,Savar,Notun Bazar,20,20,15,0.7500,15,0dac6e3f3951,,,needs_validation,SRC_BUS_GITHUB
+SVC0003,Airport Bangabandhu Avenue,এয়ারপোর্ট বঙ্গবন্ধু এভিনিউ ট্রান্সপোর্ট,1,Fulbaria,Abdullahpur,29,29,23,0.7931,23,6254fb84cfd6,,,needs_validation,SRC_BUS_GITHUB
+SVC0004,Azmeri Glory,আজমেরী গ্লোরী,1,Sadarghat,Chandra,33,33,25,0.7576,25,3701ca924635,,,needs_validation,SRC_BUS_GITHUB
+SVC0005,Akash Enterprise,আকাশ বাস,1,Kadamtali,Tongi,32,32,24,0.7500,24,9cbe67e2567d,,,needs_validation,SRC_BUS_GITHUB
+SVC0006,Akik,আকিক বাস,1,Ansar Camp,Uttar Badda,19,19,13,0.6842,13,195a18a37367,,,needs_validation,SRC_BUS_GITHUB
+SVC0007,Al Makka,আল মক্কা বাস,1,Motijheel,Mirpur 1,20,20,16,0.8000,16,5a45b650e363,,,needs_validation,SRC_BUS_GITHUB
+SVC0008,Al Madina Plus One,আল মনিদা প্লাস ওয়ান,1,Nandan Park,Kamalapur,26,26,26,1.0000,26,10414255c899,,,needs_validation,SRC_BUS_GITHUB
+SVC0009,Alif,আলিফ বাস,1,Mirpur 14,Nandan Park,14,14,12,0.8571,12,679cd2484872,,,needs_validation,SRC_BUS_GITHUB
+SVC0010,Alif,আলিফ বাস,2,Shia Mosque,Banasree,17,17,9,0.5294,9,46ccf31cdb3a,,,needs_validation,SRC_BUS_GITHUB
+SVC0011,Alif,আলিফ বাস,3,Mirpur 1,Banasree,16,16,11,0.6875,11,cc34ac3c70b5,,,needs_validation,SRC_BUS_GITHUB
+SVC0012,Alif,আলিফ বাস,4,Japan Garden City,Abdullahpur,26,26,16,0.6154,16,cc7270c7a8ca,,,needs_validation,SRC_BUS_GITHUB
+SVC0013,Anabil Super,অনাবিল সুপার,1,Sign Board,Gazipur Chourasta,34,34,21,0.6176,21,30c780e472d9,Sitting Service(Check System),6 am-12pm,needs_validation,SRC_BUS_GITHUB
+SVC0014,Arnob,অরনব বাস,1,Hemayetpur,Demra Staff Quarter,20,20,14,0.7000,14,1068a1a8830d,,,needs_validation,SRC_BUS_GITHUB
+SVC0015,Ashirbad Pahibahan,আশীর্বাদ পরিবহন,1,Duaripara,Azimpur,21,21,18,0.8571,18,cd6b101a6c97,,,needs_validation,SRC_BUS_GITHUB
+SVC0016,Ashulia Classic,আশুলিয়া ক্লাসিক বাস,1,Nobinagar,Sat rasta,23,23,16,0.6957,16,39c5ef0ce729,,,needs_validation,SRC_BUS_GITHUB
+SVC0017,Asmani,আসমানী বাস,1,Dhour,Madanpur,24,24,15,0.6250,15,b2443bb035f2,,,needs_validation,SRC_BUS_GITHUB
+SVC0018,ATCL,এটিসিএল বাস,1,Mohammadpur Bus Stand,Arambagh Notre Dame College,15,15,12,0.8000,12,47c308be1287,,,needs_validation,SRC_BUS_GITHUB
+SVC0019,Ayat,আয়াত বাস,1,Chiriyakhana,Kamalapur,17,17,15,0.8824,15,a020cedcf78a,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0020,Bahon,বাহন বাস,1,Mirpur 14,Khilgaon,26,26,21,0.8077,21,f4710cbaa46d,Semi-Sitting Service (Check System),6 am-11pm,needs_validation,SRC_BUS_GITHUB
+SVC0021,Baishakhi,বৈশাখী বাস,1,Savar,Notun Bazar,17,17,15,0.8824,15,bea9f55c556e,,,needs_validation,SRC_BUS_GITHUB
+SVC0022,Balaka,বলাকা বাস,1,Sayedabad,Gazipur Chourasta,30,30,21,0.7000,21,fe47ced87ca0,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0023,Basumati,বাসুমতি বাস,1,Gabtoli,Maowa,22,22,20,0.9091,20,aae481a80c61,,,needs_validation,SRC_BUS_GITHUB
+SVC0024,Basumati Transport,বাসুমতি ট্রান্সপোর্ট,1,Gabtoli,Gazipur Chourasta,24,24,17,0.7083,17,022f68738fd6,,,needs_validation,SRC_BUS_GITHUB
+SVC0025,Best Satabdi AC,বেষ্ট শতাব্দী এসি বাস,1,Azimpur,Diabari,26,26,18,0.6923,18,efc41a4aa3bf,,,needs_validation,SRC_BUS_GITHUB
+SVC0026,Best Transport,বেষ্ট ট্রান্সপোর্ট বাস,1,Mirpur 10,Jatrabari,20,20,18,0.9000,18,5224054ac37c,,,needs_validation,SRC_BUS_GITHUB
+SVC0027,Bhuiyan Paribahan,ভূঁইয়া পরিবহন,1,Japan Garden City,Abdullahpur,26,26,16,0.6154,16,cc7270c7a8ca,,,needs_validation,SRC_BUS_GITHUB
+SVC0028,Bihanga,বিহাঙ্গা বাস,1,Duaripara,Sadarghat,23,23,21,0.9130,21,86a9d3cb8f60,,,needs_validation,SRC_BUS_GITHUB
+SVC0029,Bikalpa Bus Auto Service,বিকল্প বাস অটো সার্ভিস,1,Mirpur 12,Motijheel,21,21,20,0.9524,20,d59e59af56bd,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0030,Bikalpa Bus City Super Service,বিকল্প বাস সিটি সুপার সার্ভিস,1,Mirpur 12,Dhakeshwari,21,21,17,0.8095,17,67df824093da,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0031,Bikash,বিকাশ বাস,1,Azimpur,Kamarpara,19,19,15,0.7895,15,4aefcd72376b,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0032,Bikash Paribahan,বিকাশ পরিবহন বাস,1,Sign Board,Dhour,37,37,27,0.7297,27,3737ec50caa5,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0033,Bondhu Paribahan,বন্ধু পরিবহন বাস,1,Gulistan,Notun Bazar,16,16,10,0.6250,10,142da771bb54,,,needs_validation,SRC_BUS_GITHUB
+SVC0034,Borak,বোরাক বাস,1,Palashi,Meghna Ghat,2,2,2,1.0000,2,9418dea8cba5,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0035,Bashumoti,বসুমতি বাস,1,Gazipur Chourasta,Gabtoli,9,9,7,0.7778,7,3088731e0bf0,,,needs_validation,SRC_BUS_GITHUB
+SVC0036,BRTC,বি আর টিসি বাস,1,Madanpur,Savar,30,30,28,0.9333,28,cd0472406c41,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0037,BRTC,বি আর টিসি বাস,2,Motijheel,Tongi,28,28,22,0.7857,22,b98cdd6b8991,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0038,BRTC,বি আর টিসি বাস,3,Motijheel,Chandra,24,24,24,1.0000,24,98fd7cd30cec,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0039,BRTC,বি আর টিসি বাস,4,Mohammadpur,Kuril Bishwa Road,17,17,12,0.7059,12,22fa4b9d3841,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0040,BRTC,বি আর টিসি বাস,5,Kamalapur,Kuril Bishwa Road,25,25,20,0.8000,20,c0984cbfeda5,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0041,BRTC,বি আর টিসি বাস,6,Vulta,Kuril Bishwa Road,6,6,2,0.3333,2,ec54a1cea6d9,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0042,BRTC,বি আর টিসি বাস,7,Motijheel,Abdullahpur,28,28,20,0.7143,20,1772aa658718,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0043,BRTC,বি আর টিসি বাস,8,Mohammadpur,Motijheel,16,16,14,0.8750,14,e352a9642db8,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0044,BRTC,বি আর টিসি বাস,9,Gabtoli,Gazipur Chourasta,24,24,17,0.7083,17,3788629d80f6,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0045,BRTC Articulated,বি আর টিসি আরটিকুলেটেড বাস,1,Balughat,Motijheel,9,9,8,0.8889,8,841e22f6ebd3,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0046,Cantonment,ক্যান্টনমেন্ট বাস সার্ভিস,1,Mirpur 14,Savar,11,11,11,1.0000,11,770450dbfc82,,,needs_validation,SRC_BUS_GITHUB
+SVC0047,Cantonment Mini Service,ক্যান্টনমেন্ট মিনি বাস সার্ভিস,1,Mirpur 14,Mohakhali,6,6,5,0.8333,5,ede70a9b6e99,,,needs_validation,SRC_BUS_GITHUB
+SVC0048,Champion,চ্যাম্পিয়ন বাস,1,Vashantek,Gabtoli,9,9,8,0.8889,8,181265622cff,,,needs_validation,SRC_BUS_GITHUB
+SVC0049,City Link,সিটি লিংক বাস,1,Chittagong Road,Ghatar Char,24,24,20,0.8333,20,68b9619305bf,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0050,D Link,ডি লিংক বাস,1,Fulbaria,Dhamra,22,22,20,0.9091,20,c84d851c643d,,,needs_validation,SRC_BUS_GITHUB
+SVC0051,D One Transport,ডি ওয়ান বাস,1,Motijheel,Kalampur,21,21,20,0.9524,20,cd4e307e8c23,,,needs_validation,SRC_BUS_GITHUB
+SVC0052,Deepan,দিপান বাস,1,Tajmahal Road,Arambagh,12,12,11,0.9167,11,c131caa3e573,,,needs_validation,SRC_BUS_GITHUB
+SVC0053,Desh Bangla,দেশ বাংলা বাস,1,Postagola,Kamarpara,28,28,19,0.6786,19,75a64e9cf3eb,,,needs_validation,SRC_BUS_GITHUB
+SVC0054,Dewan,দেওয়ান বাস,1,Azimpur,Kuril Bishwa Road,26,26,21,0.8077,20,1e855780c7e5,,,needs_validation,SRC_BUS_GITHUB
+SVC0055,Dhakar Chaka,ঢাকার চাকা বাস,1,Police Plaza,Gulshan 2,3,3,2,0.6667,2,21eaf4d02335,Sitting Service(Ticket System),,needs_validation,SRC_BUS_GITHUB
+SVC0056,Dhakar Chaka,ঢাকার চাকা বাস,2,Banani,Notun Bazar,3,3,3,1.0000,3,a8d67eee7d62,Sitting Service(Ticket System),,needs_validation,SRC_BUS_GITHUB
+SVC0057,Dipon,দিপোন বাস,1,Tajmahal Road,Arambagh,19,19,13,0.6842,13,a64838c2b194,,,needs_validation,SRC_BUS_GITHUB
+SVC0058,Dip Paribahan,দ্বীপ পরিবহন বাস,1,Azimpur,Kuril Bissho Road,9,9,7,0.7778,7,ee034b1a5636,,,needs_validation,SRC_BUS_GITHUB
+SVC0059,Dishari,দিশারী বাস,1,Chiriyakhana,Keraniganj,23,23,22,0.9565,22,c9bd3eeaaf2c,,,needs_validation,SRC_BUS_GITHUB
+SVC0060,ETC,ইটিসি বাস,1,Golap Shah Mazar,Mirpur 12,10,10,10,1.0000,10,c18b89253bdd,,,needs_validation,SRC_BUS_GITHUB
+SVC0061,ETC Transport,ইটিসি ট্রান্সপোর্ট বাস,1,Golap Shah Mazar,Mirpur 12,20,20,19,0.9500,19,c9029c40af50,Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0062,Everest Paribahan,এভারেস্ট পরিবহন বাস,1,Rupnagar Abashik,Keraniganj,6,6,4,0.6667,4,0135f2d6bcd5,,,needs_validation,SRC_BUS_GITHUB
+SVC0063,First Ten,ফার্স্ট টেন বাস,1,Vashantek,Gabtoli,9,9,8,0.8889,8,181265622cff,,,needs_validation,SRC_BUS_GITHUB
+SVC0064,FTCL,এফটিসিএল বাস,1,Mohammadpur,Chittagong Road,22,22,17,0.7727,17,18ed7f38354d,,,needs_validation,SRC_BUS_GITHUB
+SVC0065,FTCL,এফটিসিএল বাস,2,Mohammadpur,Arambagh,12,12,12,1.0000,12,3c5150aa83f1,,,needs_validation,SRC_BUS_GITHUB
+SVC0066,Gazipur Paribahan,গাজীপুর পরিবহন বাস,1,Motijheel,Shib Bari,30,30,20,0.6667,20,b26c56e46161,Half-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0067,Grameen,গ্রামীণ বাস,1,Mirpur 14,Gabtoli,8,8,8,1.0000,8,8e2f6d3cfb06,,,needs_validation,SRC_BUS_GITHUB
+SVC0068,Green Anabil,গ্রীন অনাবিল বাস,1,Chashara,Gazipur Chourasta,39,39,22,0.5641,22,27af363eef7c,Half-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0069,Green Dhaka,গ্রীন ঢাকা বাস,1,Motijheel,Abdullahpur,29,29,21,0.7241,21,de61cfb85c49,Sitting Service(Ticket System),,needs_validation,SRC_BUS_GITHUB
+SVC0070,Gulshan Chaka,গুলশান চাকা বাস,1,Banani,Notun Bazar,3,3,3,1.0000,3,a8d67eee7d62,Sitting Service(Ticket System),,needs_validation,SRC_BUS_GITHUB
+SVC0071,Hazi Transport,হাজি ট্রান্সপোর্ট বাস,1,Mirpur 12,Motijheel,19,19,19,1.0000,19,842e59436fb2,,,needs_validation,SRC_BUS_GITHUB
+SVC0072,Himachal,হিমাচল বাস,1,Mirpur Sony Cinema Hall,Khilgaon Khidma Hospital,10,10,8,0.8000,8,3a737e88225c,,,needs_validation,SRC_BUS_GITHUB
+SVC0073,Himachal Suveccha,হিমাচল শুভেচ্ছা বাস,1,Metro Hall,Mirpur 12,28,28,19,0.6786,19,6370103941fe,,,needs_validation,SRC_BUS_GITHUB
+SVC0074,Himalay,হিমালয় বাস,1,Madanpur,Tongi,5,5,4,0.8000,4,a0ae39c09cb8,Half-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0075,Itihash,ইতিহাস বাস,1,Mirpur 14,Chandra,14,14,12,0.8571,12,ce7461b857ed,,,needs_validation,SRC_BUS_GITHUB
+SVC0076,Jabale Noor Paribahan,জাবালে নুর পরিবহন বাস,1,Agargaon,Abdullahpur,14,14,12,0.8571,12,756783ee6c26,Half-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0077,Jabale Noor Paribahan,জাবালে নুর পরিবহন বাস,2,Gabtoli,Notun Bazar,6,6,6,1.0000,6,bbf6253b5a77,Half-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0078,Kamal Plus Paribahan,কামাল প্লাস পরিবহন বাস,1,Chittagong Road,Ghatar Char,21,21,18,0.8571,18,d17855bb02e1,,,needs_validation,SRC_BUS_GITHUB
+SVC0079,kanak,কনক বাস,1,Mirpur 1,Abdulla,17,17,11,0.6471,11,d8254ea6a3b8,,,needs_validation,SRC_BUS_GITHUB
+SVC0080,Khajababa,খাজা বাবা বাস,1,Jatrabari,Mirpur 12,22,22,21,0.9545,21,f2fd4a192420,,,needs_validation,SRC_BUS_GITHUB
+SVC0081,Kironmala Paribahan,কিরণমালা বাস,1,Chiriyakhana,Konabari,12,12,6,0.5000,6,2ce3a49c17a4,Semi-Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0082,Labbayek,লাব্বাইক বাস,1,Savar,Sign Board,31,31,26,0.8387,26,a4a4db306308,Sitting Service(Check System),,needs_validation,SRC_BUS_GITHUB
+SVC0083,Lal Sabuj,AC Bus Route,1,Nandan Park,Motijheel,25,25,25,1.0000,25,9b9e3f05f332,Sitting Service,,needs_validation,SRC_BUS_GITHUB
+SVC0084,Lams Paribahan,লামস পরিবহন বাস,1,Mirpur 12,Motijheel,20,20,18,0.9000,18,7ad04d2052c4,,,needs_validation,SRC_BUS_GITHUB
+SVC0085,Malancha,মালঞ্চ বাস,1,Mohammadpur,Dhupkhola,17,17,14,0.8235,14,a53d6825e0e2,,,needs_validation,SRC_BUS_GITHUB
+SVC0086,Manjil Express,মাঞ্জিল এক্সপ্রেস বাস,1,Chittagong Road,Abdullahpur,31,31,24,0.7742,24,ef784fc56cd0,,5:30 am – 10:30 pm,needs_validation,SRC_BUS_GITHUB
+SVC0087,Meghla Transport,মেঘলা ট্রান্সপোর্ট বাস,1,Kalabagan,Vulta,17,17,15,0.8824,15,4a0aec65e97a,,,needs_validation,SRC_BUS_GITHUB
+SVC0088,Meshkat,মেসকাত বাস,1,Mohammadpur,Chittagong Road,17,17,13,0.7647,13,705fbc6fe556,,,needs_validation,SRC_BUS_GITHUB
+SVC0089,Midline,মিডলাইন বাস,1,Mohammadpur,Khilgaon,19,19,16,0.8421,16,ea34db9bc7b3,Semi-Sitting Service(Check System),6:00 am – 11:00 pm,needs_validation,SRC_BUS_GITHUB
+SVC0090,Mirpur Metro Services,মিরপুর মেট্রো সার্ভিস বাস,1,Azimpur,Mirpur 1,19,19,16,0.8421,16,070ffc05f059,,,needs_validation,SRC_BUS_GITHUB
+SVC0091,Mirpur Link,মিরপুর লিংক বাস,1,ECB Square,Azimpur,12,12,7,0.5833,7,7a0535f524cb,,,needs_validation,SRC_BUS_GITHUB
+SVC0092,Mirpur Mission,মিরপুর মিশন বাস,1,Chiriyakhana,Motijheel,6,6,5,0.8333,5,609376e8210d,,,needs_validation,SRC_BUS_GITHUB
+SVC0093,Mirpur United Service,মিরপুর ইউনাইটেড সার্ভিস বাস,1,Sadarghat,Mirpur 12,23,23,22,0.9565,22,63622505d5a7,,,needs_validation,SRC_BUS_GITHUB
+SVC0094,MM Lovely,এম এম লাভলী বাস,1,Savar,Sign Board,31,31,26,0.8387,26,a4a4db306308,Sitting Service(Check System),,needs_validation,SRC_BUS_GITHUB
+SVC0095,Modhumita,মধুমিতা বাস,1,Chiriyakhana,Demra Staff Quarter,20,20,15,0.7500,15,858d827560d6,,,needs_validation,SRC_BUS_GITHUB
+SVC0096,Mohona,মোহনা বাস,1,Mirpur 14,Fantasy Kingdom,13,13,11,0.8462,11,c65418463a0b,,,needs_validation,SRC_BUS_GITHUB
+SVC0097,Moitri,মৈত্রী বাস,1,Mohammadpur,Arambagh,17,17,15,0.8824,15,68e4b97ed5d9,,,needs_validation,SRC_BUS_GITHUB
+SVC0098,Moumita,মৌমিতা বাস,1,Chashara,Chandra,34,34,28,0.8235,28,7de36531dfb3,,,needs_validation,SRC_BUS_GITHUB
+SVC0099,MTCL-2,এমটিসিএল ২ বাস,1,Mohammadpur,Arambagh Kingdom,18,18,14,0.7778,14,bf0def9066a4,,,needs_validation,SRC_BUS_GITHUB
+SVC0100,Nur E Makka,নূর এ মক্কা বাস,1,Chiriyakhana,Malibagh Railgate,25,25,14,0.5600,14,3edd32c1ca1e,Sitting Service(Check System),5:30 am – 10:30 pm,needs_validation,SRC_BUS_GITHUB
+SVC0101,New Vision Dhaka,নিউ ভিশন বাস,1,Chiriyakhana,Motijheel,19,19,17,0.8947,17,f38d93d406bf,,,needs_validation,SRC_BUS_GITHUB
+SVC0102,Nilachol Dhaka,নিলাচল বাস,1,Chittagong Road,Paturia,31,31,27,0.8710,27,09667245a72f,,,needs_validation,SRC_BUS_GITHUB
+SVC0103,Omama International,ওমামা ইন্টারন্যাশনাল বাস,1,Motijheel,Airport,22,22,16,0.7273,16,7889e1d91b62,,5:30 am – 10:30 pm,needs_validation,SRC_BUS_GITHUB
+SVC0104,Pallabi Super,পল্লবী সুপার বাস,1,Gabtoli,Kamarpara,22,22,18,0.8182,18,e52a4b3aa97a,,,needs_validation,SRC_BUS_GITHUB
+SVC0105,Paristhan,পরিস্থান বাস,1,Bosila,Abdullahpur,27,27,22,0.8148,22,0acfb0d86be6,,,needs_validation,SRC_BUS_GITHUB
+SVC0106,Prattay,প্রত্যয় বাস,1,Gabtoli,Babubazar,10,10,4,0.4000,4,6fd6a363948c,,,needs_validation,SRC_BUS_GITHUB
+SVC0107,Prochesta,প্রচেষ্টা বাস,1,Maowa,Abdullahpur,32,32,23,0.7188,23,4e6ff4b1bf56,,,needs_validation,SRC_BUS_GITHUB
+SVC0108,Projapati,প্রজাপতি বাস,1,Bosila,Kamarpara,26,26,21,0.8077,21,1e6f57691039,,,needs_validation,SRC_BUS_GITHUB
+SVC0109,Provati Banasree,প্রভাতী বনশ্রী বাস,1,Fulbaria,Baromi,33,33,22,0.6667,22,ec79297591e8,,,needs_validation,SRC_BUS_GITHUB
+SVC0110,Purbachol Logistics and Transport,পূর্বাচল লজিস্টিকস বাস,1,Vashantek,Chandra,16,16,15,0.9375,15,0fe871ffb457,,,needs_validation,SRC_BUS_GITHUB
+SVC0111,Raida Dhaka,রাইদা বাস,1,Postagola,Dia Bari,28,28,17,0.6071,17,ce89abf49f42,Sitting Service(Check System),6:00 am – 11:00 pm,needs_validation,SRC_BUS_GITHUB
+SVC0112,Raja City Dhaka,রাজা সিটি বাস,1,Postagola,Ghatar Char,19,19,16,0.8421,16,58386374c522,,,needs_validation,SRC_BUS_GITHUB
+SVC0113,Rajanigandha Dhaka,রজনীগন্ধা বাস,1,Chittagong Road,Mohammadpur,20,20,16,0.8000,16,a400ad448b9a,,,needs_validation,SRC_BUS_GITHUB
+SVC0114,Rajdhani Super Dhaka,রাজধানী বাস,1,Hemayetpur,Demra Staff Quarter,28,28,19,0.6786,19,06e8b7af7b4d,,,needs_validation,SRC_BUS_GITHUB
+SVC0115,Ramjan Dhaka,রমযান বাস,1,Gabtoli,Demra Staff Quarter,27,27,21,0.7778,21,d863321185fc,,,needs_validation,SRC_BUS_GITHUB
+SVC0116,Robrob Dhaka,রবরব বাস,1,Gabtoli,Banasree,18,18,13,0.7222,13,2c5fc0f8c04a,,,needs_validation,SRC_BUS_GITHUB
+SVC0117,Rupa Paribahan Dhaka,রুপা পরিবহন বাস,1,Gabtoli,Vashantek,9,9,8,0.8889,8,fc58f7c2502d,,,needs_validation,SRC_BUS_GITHUB
+SVC0118,Safety Druti,সেফটি দ্রুতি বাস,1,Mirpur 12,Azimpur,17,17,14,0.8235,14,17dbef2a2423,,,needs_validation,SRC_BUS_GITHUB
+SVC0119,Sakalpa Transport,স্বকল্প ট্রান্সপোর্ট বাস,1,Chiriyakhana,Kamalapur,14,14,13,0.9286,13,97ef0359a375,,5:30 am – 10:30 pm,needs_validation,SRC_BUS_GITHUB
+SVC0120,Salsabil,ছালছাবিল বাস,1,Postagola,Gazipur Chourasta,33,33,19,0.5758,19,62dd39d6442c,,,needs_validation,SRC_BUS_GITHUB
+SVC0121,Savar Paribahan,সাভার পরিবহন বাস,1,Sadarghat,Nandan Park,26,26,24,0.9231,24,f55a62a306bf,,,needs_validation,SRC_BUS_GITHUB
+SVC0122,Shadhin,স্বাধীন বাস,1,Bosila,Demra Staff Quarter,15,15,12,0.8000,12,fa2e407d6247,,,needs_validation,SRC_BUS_GITHUB
+SVC0123,Shadhin Express,স্বাধীন এক্সপ্রেস বাস,1,Mirpur 12,Maowa,25,25,23,0.9200,23,1d2fc4c75220,,,needs_validation,SRC_BUS_GITHUB
+SVC0124,Shahria Enterprise,শাহরিয়া এন্টারপ্রাইজ বাস,1,Gabtoli,Postagola,26,26,20,0.7692,20,1b19e9bb9467,,,needs_validation,SRC_BUS_GITHUB
+SVC0125,Shatabdi,শতাব্দি বাস,1,Motijheel,Kamarpara,22,22,18,0.8182,18,0f1c78dab4e6,,,needs_validation,SRC_BUS_GITHUB
+SVC0126,Shikhor Paribahan,শিকড় পরিবহন বাস,1,Mirpur 12,Jatrabari,22,22,20,0.9091,20,5dc047b69c9f,,,needs_validation,SRC_BUS_GITHUB
+SVC0127,Shikhor Paribahan,শিকড় পরিবহন বাস,2,Jatrabari,Mirpur 12,23,23,21,0.9130,21,1d14ede35e50,,,needs_validation,SRC_BUS_GITHUB
+SVC0128,Suveccha,শুভেচ্ছা বাস,1,Chittagong Road,Chandra,34,34,29,0.8529,29,e35bb298ffa2,,,needs_validation,SRC_BUS_GITHUB
+SVC0129,Suvojatra Bus,শুভযাত্রা বাস,1,Fulbaria,Manikganj,24,24,21,0.8750,21,8cab4c6d0655,,,needs_validation,SRC_BUS_GITHUB
+SVC0130,Siam Transport,সিয়াম ট্রান্সপোর্ট বাস,1,Banasree,Nobinagar,30,30,19,0.6333,19,93883e55f86e,,,needs_validation,SRC_BUS_GITHUB
+SVC0131,Skyline,স্কাই লাইন বাস,1,Sadarghat,Gazipur Chourasta,32,32,23,0.7188,23,7e107442154e,,,needs_validation,SRC_BUS_GITHUB
+SVC0132,Super,সুপার বাস,1,Gulistan,Nobinagar,7,7,7,1.0000,7,6e047bd86d09,,,needs_validation,SRC_BUS_GITHUB
+SVC0133,Supravat,সুপ্রভাত বাস,1,Victoria Park,Tongi,31,31,23,0.7419,23,f218348743a8,,,needs_validation,SRC_BUS_GITHUB
+SVC0134,Swajan Paribahan,স্বজন পরিবহন বাস,1,Savar,Sadarghat,23,23,23,1.0000,23,00593f014f16,,,needs_validation,SRC_BUS_GITHUB
+SVC0135,Talukdar,তালুকদার বাস,1,Chiriyakhana,Chittagong Road,32,32,24,0.7500,24,9887aacda664,,,needs_validation,SRC_BUS_GITHUB
+SVC0136,Tanjil Paribahan,তানজিল পরিবহন বাস,1,Chiriyakhana,Sadarghat,22,22,21,0.9545,21,a437d64ca9c9,,5:30 am – 10:30 pm,needs_validation,SRC_BUS_GITHUB
+SVC0137,Taranga Plus,তরঙ্গ প্লাস বাস,1,Mohammadpur Bus Stand,South Banasree,20,20,13,0.6500,13,4a18460e77bd,,,needs_validation,SRC_BUS_GITHUB
+SVC0138,Tetulia,তেতুলিয়া বাস,1,Shia Mosque,Abdullahpur,23,23,15,0.6522,15,631aed4b286d,,,needs_validation,SRC_BUS_GITHUB
+SVC0139,Thikana,ঠিকানা বাস,1,Sign Board,Chandra,32,32,28,0.8750,28,7f7e7d9cd197,,,needs_validation,SRC_BUS_GITHUB
+SVC0140,Thikana Express,ঠিকানা এক্সপ্রেস বাস,1,Shonbari Sreenagar,Chandra,35,35,28,0.8000,28,9915f3d1fe89,,,needs_validation,SRC_BUS_GITHUB
+SVC0141,Titas,তিতাস বাস,1,Chiriyakhana,Nobinagar Chandra,5,5,3,0.6000,3,e716653b2214,,,needs_validation,SRC_BUS_GITHUB
+SVC0142,Transilva,ট্রান্সিল্ভা বাস,1,Mirpur 1,Jatrabari,23,23,18,0.7826,18,eb06065d6f41,,,needs_validation,SRC_BUS_GITHUB
+SVC0143,Trust Transport Services,ট্রাষ্ট ট্রান্সপোর্ট বাস,1,Mirpur 10,Banani,6,6,6,1.0000,6,672f3863f357,,,needs_validation,SRC_BUS_GITHUB
+SVC0144,Trust Transport Services,ট্রাষ্ট ট্রান্সপোর্ট বাস,2,Mirpur 10,Shahbag,11,11,9,0.8182,9,980a0a712813,,,needs_validation,SRC_BUS_GITHUB
+SVC0145,Trust Transport Services,ট্রাষ্ট ট্রান্সপোর্ট বাস,3,Mirpur DOHS,Motijheel,17,17,11,0.6471,11,0d7b3861ad0a,,,needs_validation,SRC_BUS_GITHUB
+SVC0146,Trust Transport Services,ট্রস্ট ট্রান্সপোর্ট বাস এসি,4,Mirpur DOHS,Kawran Bazar,10,10,5,0.5000,5,228b7a0d1299,,,needs_validation,SRC_BUS_GITHUB
+SVC0147,Victor Classic,ভিক্টর ক্লাসিক বাস,1,Sadarghat,Diabari,30,30,22,0.7333,22,7057a02a3772,Semi-Sitting Service(Check System),,needs_validation,SRC_BUS_GITHUB
+SVC0148,Victor Paribahan,ভিক্টর পরিবহন বাস,1,Sadarghat,Kuril Bishwa Road,23,23,16,0.6957,16,7ab66e1ac8f7,Semi-Sitting Service(Check System),6:30 am – 10:30 pm,needs_validation,SRC_BUS_GITHUB
+SVC0149,VIP 27,ভিআইপি ২৭ বাস,1,Azimpur,Gazipur Chourasta,22,22,15,0.6818,15,3b0e96f8bcc9,,,needs_validation,SRC_BUS_GITHUB
+SVC0150,Welcome,ওয়েলকাম বাস,1,Nandan Park,Motijheel,25,25,25,1.0000,25,9b9e3f05f332,,5:30 am – 10:30 pm,needs_validation,SRC_BUS_GITHUB
+SVC0151,Winner,উইনার বাস,1,Azimpur,Kuril Bishwa Road,24,24,18,0.7500,18,449a975cadd5,,,needs_validation,SRC_BUS_GITHUB
+SVC0152,4 No. Alike Dhaka,৪নং বাস,1,Balughat,Motijheel,14,14,9,0.6429,9,711d5534239c,,,needs_validation,SRC_BUS_GITHUB
+SVC0153,6 No. Dhaka,৬নং বাস,1,Kamalapur,Notun Bazar,18,18,16,0.8889,16,151951e08681,,,needs_validation,SRC_BUS_GITHUB
+SVC0154,6 No. Motijheel Banani Transport Dhaka,৬নং মতিঝিল বনানী ট্রান্সপোর্ট বাস,1,Kamalapur,Notun Bazar,18,18,16,0.8889,16,151951e08681,,,needs_validation,SRC_BUS_GITHUB
+SVC0155,7 No. Dhaka,৭নং বাস,1,Gabtoli,Sadarghat,22,22,20,0.9091,20,1ad2c3991b65,,,needs_validation,SRC_BUS_GITHUB
+SVC0156,8 No. Dhaka,৮নং বাস,1,Jatrabari,Gabtoli,21,21,19,0.9048,19,47e57da19d6c,,,needs_validation,SRC_BUS_GITHUB

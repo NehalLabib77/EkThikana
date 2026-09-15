@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import 'commute_place_picker.dart';
@@ -84,7 +85,16 @@ class _PlanTripFormState extends State<PlanTripForm> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _time);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child!,
+        );
+      },
+    );
     if (picked != null) setState(() => _time = picked);
   }
 
@@ -306,7 +316,12 @@ class _PlanTripFormState extends State<PlanTripForm> {
                 child: OutlinedButton.icon(
                   onPressed: _pickTime,
                   icon: const Icon(Icons.access_time_rounded, size: 16),
-                  label: Text(_time.format(context)),
+                  label: Text(() {
+                    final h = _time.hour;
+                    final h12 = h % 12 == 0 ? 12 : h % 12;
+                    final m = _time.minute.toString().padLeft(2, '0');
+                    return '$h12:$m ${h < 12 ? 'AM' : 'PM'}';
+                  }()),
                 ),
               ),
             ],
@@ -468,10 +483,7 @@ class _PlannedTripTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
-    final timeStr =
-        '${trip.departureTime.hour.toString().padLeft(2, '0')}:${trip.departureTime.minute.toString().padLeft(2, '0')}';
-    final dateStr =
-        '${trip.departureTime.day}/${trip.departureTime.month}/${trip.departureTime.year}';
+    final tripDateTimeStr = formatPlannedTripDateTime(trip.departureTime);
 
     return InkWell(
       onTap: onTap,
@@ -503,7 +515,7 @@ class _PlannedTripTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '$dateStr $timeStr',
+                    tripDateTimeStr,
                     style: type.caption.copyWith(color: colors.textTertiary),
                   ),
                 ],

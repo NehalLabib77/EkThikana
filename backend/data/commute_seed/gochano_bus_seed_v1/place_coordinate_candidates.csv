@@ -1,0 +1,43 @@
+﻿place_id,name_en,name_bn,current_geocode_status,candidate_osm_stop_id,candidate_osm_stop_name,candidate_latitude,candidate_longitude,name_similarity,candidate_quality,safe_to_auto_apply,review_note
+PLC0013,Ashika Morh,এশিকা মোড়,pending,2919828430,Abashik Mor,23.8166417,90.3560896,0.8182,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0032,Banani,বনানী,pending,12073098779,Banani Bus stop,23.7952569,90.4013241,1.0000,exact_normalized_name,no,Candidate only; verify route context before updating places.
+PLC0046,Basila,বসিলা,pending,5123958187,Bosila Bus Stop,23.7450945,90.3475527,0.8333,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0047,Basila Bridge,বসিলা ব্রীজ,pending,13245641794,Birulia Bridge Bus stop,23.8505948,90.3409259,0.8148,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0056,Bigatla,বিগাতলা,pending,3294901681,Jigatala Bus Station,23.7392833,90.3754038,0.8000,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0060,Bishwo Road,বিশ্বরোড,pending,12078060953,"Bishwa Road Bus Stop, Bus stop",23.8211708,90.4187413,0.9091,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0069,Chancharpul,চাঁনখারপুল,pending,4784862902,Chankharpul Bus Stop,23.7238542,90.4002639,0.9091,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0079,Daily Bangla,দৈনিক বাংলা,pending,12033126578,"Dainik Bangla, Bus stop",23.7304003,90.4149598,0.8000,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0102,Duyaripara,দুয়ারীপাড়া,pending,3711517343,Duaripara Bus Stand,23.8235731,90.3569526,0.9474,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0106,Eden College,ইডেন কলেজ,pending,4365852658,Shaheen College Bus Stop,23.8275583,90.4015705,0.8148,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0120,Ghatarchor,ঘাটেরচর,pending,6197679941,Bhaterchor Bus Station,23.5824908,90.6384218,0.8000,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0141,Jasim Uddin,জসীমউদ্দিন,pending,12082598792,Jashimuddin Bus stop,23.8592618,90.4015608,0.9091,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0142,Jasimuddin,জসমউদ্দিন,pending,12082598792,Jashimuddin Bus stop,23.8592618,90.4015608,0.9524,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0144,Jigatola,জিগাতলা,pending,12012302418,Jhigatola Bus stop,23.7389091,90.3759521,0.9412,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0147,Jirani Bazar,জিরানী বাজার,pending,2895322471,Zirani Bazar,23.9935433,90.2556357,0.9167,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0149,Jonopoth Mor,জনপথ মোড়,pending,11780032744,Jonopath Mor Bus Stop,23.712707,90.428611,0.9167,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0159,Kalashi Mor,কালাশি মোড়,pending,2919828430,Abashik Mor,23.8166417,90.3560896,0.8182,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0167,Kamar Para,কামার পাড়া,pending,12285149081,Kamarpara Bus stop,23.8916243,90.3885659,0.9474,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0168,Kamarpada,কামারপাড়া,pending,12285149081,Kamarpara Bus stop,23.8916243,90.3885659,0.8889,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0174,Karwan Bazar,কারওয়ান বাজার,pending,12012258782,Kawran Bazaar Bus stop,23.7503054,90.3930252,0.8800,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0185,Khamrai,খামরাই,pending,6900003026,Khamarbari,23.7584744,90.3832482,0.8235,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0195,Kochukshet,কচুক্ষেত,pending,13270092103,"Kachukhet Bus Stop, Bus stop",23.7928066,90.3880232,0.8421,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0204,Kuril Biswa Road,কুড়িল বিশ্বরোড,pending,12078090950,"Kuril Bishwa Road, Bus stop",23.8207235,90.417603,0.9697,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0216,Manik Mia Avenue,মানিক মিয়া এভিনিউ,pending,12009465955,Manik Mian Avenue West Bus Stop,23.7585473,90.3757037,0.8421,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0219,Manikmia Avenue,মানিকমিয়া এভিনিউ,pending,12009465955,Manik Mian Avenue West Bus Stop,23.7585473,90.3757037,0.8108,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0220,Maniknagar,মানিকনগর,pending,12057056990,Manik Nagar Bus stop,23.7224852,90.4289394,0.9524,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0222,Matsya Bhaban,মৎসভবন,pending,11953675288,Matshya Bhaban Bus stop,23.7338366,90.4035885,0.9630,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0243,Mirpur-12,মিরপুর-১২,pending,11985284809,Mirpur 2 Bus Stop,23.805394,90.3631338,0.9412,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0267,Nabinagar,নবীনগর,pending,12169756303,Nobinagar Bus Stop,23.911852,90.2605,0.8889,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0273,Narsinghpur,নরসিংহপুর,pending,12169756293,Norshinghpur,23.930424,90.308329,0.8696,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0274,Natun Bazar,নতুন বাজার,pending,2994771585,Notun Bazar Bus Stop,23.7969059,90.4237478,0.9091,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0280,Nilkhet,নীলক্ষেত,pending,12079833328,"Khilkhet Bus stop, Bus stop",23.8294051,90.4200925,0.8000,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0292,Palton,পল্টন,pending,12002685205,Paltan Bus stop,23.7303048,90.4098134,0.8333,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0323,Safipur,সফিপুর,pending,12169756258,Shafipur Bus Stop,24.0262546,90.2753019,0.9333,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0324,Sainik Club,সৈনিক ক্লাব,pending,12078101104,Shainik Club Bus stop,23.7906785,90.4002024,0.9565,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0336,Sheora,শেওড়া,pending,12078093554,Shewra Bus stop,23.8190439,90.4155151,0.8333,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0338,Sheora Para,শেওড়া পাড়া,pending,3941231699,Shewrapara,23.7904911,90.3755519,0.8571,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0339,Sheorapara,শেওড়াপাড়া,pending,3941231699,Shewrapara,23.7904911,90.3755519,0.9000,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0343,Shishumela,শিশুমেলা,pending,12500533851,"Shishu Mela Bus stop, Bus stop",23.7729437,90.3671489,0.9524,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0344,Shukrabad,শুক্রাবাদ,pending,5298932621,Shukrabad Bus Stopage,23.7524661,90.377664,0.8182,medium_similarity,no,Candidate only; verify route context before updating places.
+PLC0383,Work Shop,ওয়ার্ক সপ,pending,5879998463,Workshop Bus Stop,23.7884215,90.3912342,0.9412,high_similarity,no,Candidate only; verify route context before updating places.
+PLC0385,Zirab,জিরাব,pending,12293505365,"Zirabo Bus stop, Bus stop",23.9131721,90.3187806,0.9091,medium_similarity,no,Candidate only; verify route context before updating places.

@@ -67,8 +67,6 @@ class _PlanViewState extends State<PlanView> {
           ),
           const SizedBox(height: GochanoSpacing.md),
           _CombinedPlannerList(selectedDay: _selectedDay),
-          const SizedBox(height: GochanoSpacing.sm),
-          const _HistoryEntry(),
           const SizedBox(height: GochanoSpacing.xl),
         ],
       ),
@@ -545,39 +543,13 @@ class _PlannerItemRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// History
+// History — public entry point for AppBar action
 // ---------------------------------------------------------------------------
 
-class _HistoryEntry extends StatelessWidget {
-  const _HistoryEntry();
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 300),
-      builder: (context, snapshot) {
-        final now = DateTime.now();
-        final relevant = [...?snapshot.data?.docs].where((doc) {
-          final d = doc.data();
-          if (d['done'] == true) return true;
-          final due = (d['dueAt'] as Timestamp?)?.toDate();
-          return due != null && due.isBefore(now);
-        }).length;
-        if (relevant == 0) return const SizedBox.shrink();
-        final completed = (snapshot.data?.docs ?? const [])
-            .where((doc) => doc.data()['done'] == true)
-            .length;
-        if (completed == 0) return const SizedBox.shrink();
-        return OutlinedButton.icon(
-          onPressed: () => Navigator.of(
-            context,
-          ).push(GochanoRoute.to(builder: (_) => const _PlanHistoryScreen())),
-          icon: const Icon(Icons.history_rounded),
-          label: Text(GochanoLanguage.text('History', 'ইতিহাস')),
-        );
-      },
-    );
-  }
+void openPlanHistory(BuildContext context) {
+  Navigator.of(
+    context,
+  ).push(GochanoRoute.to(builder: (_) => const _PlanHistoryScreen()));
 }
 
 class _PlanHistoryScreen extends StatelessWidget {

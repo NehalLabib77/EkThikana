@@ -41,13 +41,10 @@ import 'fare_report_sheet.dart';
 import 'journey_models.dart';
 import 'journey_view.dart';
 import 'plan_trip_sheet.dart';
+import 'smart_journey_guide.dart';
 
 class CommuteScreen extends StatefulWidget {
-  const CommuteScreen({
-    super.key,
-    this.initialOrigin,
-    this.initialDestination,
-  });
+  const CommuteScreen({super.key, this.initialOrigin, this.initialDestination});
 
   final CommutePlace? initialOrigin;
   final CommutePlace? initialDestination;
@@ -70,8 +67,29 @@ class _CommuteScreenState extends State<CommuteScreen> {
   bool _fetchingFare = false;
   String _singleFareError = '';
 
-  bool get _canSearch =>
-      _origin != null && _destination != null && !_searching;
+  List<DirectBusCandidate> _directBuses = [];
+  bool _fetchingDirectBuses = false;
+  String _directBusesError = '';
+  String? _selectedBusServiceId;
+  String? _selectedBusName;
+  DirectBusCandidate? _selectedBusCandidate;
+
+  bool get _canSearch => _origin != null && _destination != null && !_searching;
+
+  void _clearPreviousResult() {
+    _result = null;
+    _selectedTransportMode = null;
+    _singleFareResult = null;
+    _singleFareError = '';
+    _error = '';
+    _errorTitle = '';
+    _directBuses = [];
+    _fetchingDirectBuses = false;
+    _directBusesError = '';
+    _selectedBusServiceId = null;
+    _selectedBusName = null;
+    _selectedBusCandidate = null;
+  }
 
   Future<void> _pick({required bool isOrigin}) async {
     final place = await showCommutePlacePicker(
@@ -94,6 +112,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       _singleFareError = '';
       _error = '';
       _errorTitle = '';
+      _clearPreviousResult();
     });
   }
 
@@ -108,6 +127,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       _singleFareError = '';
       _error = '';
       _errorTitle = '';
+      _clearPreviousResult();
     });
   }
 
@@ -126,6 +146,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       _singleFareError = '';
       _error = '';
       _errorTitle = '';
+      _clearPreviousResult();
     });
   }
 
@@ -139,6 +160,11 @@ class _CommuteScreenState extends State<CommuteScreen> {
       _error = '';
       _errorTitle = '';
       _result = null;
+      _directBuses = [];
+      _directBusesError = '';
+      _selectedBusServiceId = null;
+      _selectedBusName = null;
+      _selectedBusCandidate = null;
     });
 
     try {
@@ -157,6 +183,12 @@ class _CommuteScreenState extends State<CommuteScreen> {
         _searching = false;
         _result = body;
       });
+      if (origin.placeId != null &&
+          origin.placeId!.isNotEmpty &&
+          destination.placeId != null &&
+          destination.placeId!.isNotEmpty) {
+        _fetchDirectBuses(origin.placeId!, destination.placeId!);
+      }
     } catch (error) {
       if (!mounted) return;
       final msg = friendlyErrorMessage(error);
@@ -186,16 +218,71 @@ class _CommuteScreenState extends State<CommuteScreen> {
     }
   }
 
+  Future<void> _fetchDirectBuses(
+    String originPlaceId,
+    String destinationPlaceId,
+  ) async {
+    setState(() {
+      _fetchingDirectBuses = true;
+      _directBusesError = '';
+      _directBuses = [];
+    });
+
+    try {
+      final res = await ApiService.directBusMatch(
+        originPlaceId: originPlaceId,
+        destinationPlaceId: destinationPlaceId,
+      );
+      if (!mounted) return;
+      final rawList = (res['results'] as List?) ?? const [];
+      final candidates = rawList
+          .whereType<Map<String, dynamic>>()
+          .map(DirectBusCandidate.fromJson)
+          .toList();
+      setState(() {
+        _fetchingDirectBuses = false;
+        _directBuses = candidates;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _fetchingDirectBuses = false;
+        _directBusesError = GochanoLanguage.text(
+          'Could not load direct buses for this stop pair.',
+          'এই স্টপ জুটির জন্য সরাসরি বাসের তথ্য লোড করা যায়নি।',
+        );
+      });
+    }
+  }
+
+  void _onBusSelected(DirectBusCandidate bus) {
+    setState(() {
+      _selectedBusServiceId = bus.serviceId;
+      _selectedBusName = bus.operatorName;
+      _selectedBusCandidate = bus;
+    });
+    _fetchModeFare('bus', busServiceId: bus.serviceId);
+  }
+
   void _onModeSelected(String mode) {
     setState(() {
       _selectedTransportMode = mode;
+      if (mode != 'bus') {
+        _selectedBusServiceId = null;
+        _selectedBusName = null;
+        _selectedBusCandidate = null;
+      }
       _singleFareResult = null;
       _singleFareError = '';
     });
     _fetchModeFare(mode);
+    _fetchModeFare(
+      mode,
+      busServiceId: mode == 'bus' ? _selectedBusServiceId : null,
+    );
   }
 
-  Future<void> _fetchModeFare(String mode) async {
+  Future<void> _fetchModeFare(String mode, {String? busServiceId}) async {
     final origin = _origin;
     final destination = _destination;
     final result = _result;
@@ -222,6 +309,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
     });
 
     try {
+      final sId = busServiceId ?? _selectedBusServiceId;
       final body = await ApiService.commuteSingleFare(
         originPlaceId: origin.placeId ?? '',
         originName: origin.name,
@@ -234,6 +322,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
         mode: mode,
         distanceKm: distanceKm,
         drivingMinutes: drivingMinutes,
+        busServiceId: sId,
       );
       if (!mounted) return;
       setState(() {
@@ -247,6 +336,71 @@ class _CommuteScreenState extends State<CommuteScreen> {
         _singleFareError = _fareErrorLabel(error);
       });
     }
+  }
+
+  void _openAskTrip(BuildContext context, JourneyGuideFacts facts) {
+    // Build a context message summarising the trip for the AI assistant.
+    final buffer = StringBuffer('Trip context:\n');
+    buffer.writeln('${facts.originName} to ${facts.destinationName}');
+    if (facts.hasDistance) {
+      buffer.writeln('Distance: ${facts.distanceKm!.toStringAsFixed(1)} km');
+    }
+    if (facts.hasDuration) {
+      buffer.writeln('Duration: ${facts.durationMinutes} min');
+    }
+    if (facts.modeLabel != null) buffer.writeln('Mode: ${facts.modeLabel}');
+    if (facts.hasFare) {
+      buffer.writeln(
+        'Fare: ৳${facts.fareLow!.toInt()}-${facts.fareHigh!.toInt()}',
+      );
+    }
+    buffer.writeln(
+      '\nUse this trip context as authoritative. '
+      'If the user asks about route facts not present here, '
+      'say that information is not available.',
+    );
+
+    // Navigate to the AI assistant with the trip context pre-loaded.
+    // For now, show a bottom sheet with the trip context as a starting point.
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(GochanoSpacing.md),
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.colors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: GochanoSpacing.md),
+            Text(
+              GochanoLanguage.text(
+                'Ask about this trip',
+                'এই যাত্রা সম্পর্কে জিজ্ঞাসা করুন',
+              ),
+              style: context.type.sectionHeading,
+            ),
+            const SizedBox(height: GochanoSpacing.sm),
+            Text(buffer.toString(), style: context.type.bodySecondary),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -276,7 +430,9 @@ class _CommuteScreenState extends State<CommuteScreen> {
     final List<Map<String, dynamic>> displayPolyline;
     final List<LatLng> transferPoints = [];
     if (selectedJourney != null) {
-      final mappableLegs = selectedJourney.legs.where((l) => l.isMappable).toList();
+      final mappableLegs = selectedJourney.legs
+          .where((l) => l.isMappable)
+          .toList();
       if (mappableLegs.isNotEmpty) {
         displayPolyline = [
           for (final leg in mappableLegs) ...[
@@ -297,14 +453,22 @@ class _CommuteScreenState extends State<CommuteScreen> {
       displayPolyline = rawPolyline;
     }
 
-    // Check if estimated fallback applies
-    final isEstimatedFallback = result != null &&
+    // Check if estimated fallback applies — either the backend flagged it,
+    // or the transit planner produced no journeys but road data was available
+    // (fallback was built from road data).
+    final roadDataAvailable =
+        ((result?['distanceKm'] as num?)?.toDouble() ?? 0) > 0 ||
+        ((result?['estimatedDurationMin'] as num?)?.toInt() ?? 0) > 0;
+    final isEstimatedFallback =
+        result != null &&
         (result['isEstimated'] == true ||
             result['routingProvider'] == 'osrm_fallback' ||
             result['routingProvider'] == 'haversine' ||
             (plan != null &&
                 (plan.status == JourneyPlanningStatus.datasetUnavailable ||
-                    plan.status == JourneyPlanningStatus.plannerError)));
+                    plan.status == JourneyPlanningStatus.outsideCoverage ||
+                    plan.status == JourneyPlanningStatus.plannerError)) ||
+            (plan != null && !plan.hasJourneys && roadDataAvailable));
 
     return GochanoScaffold(
       padBody: false,
@@ -316,7 +480,10 @@ class _CommuteScreenState extends State<CommuteScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: GochanoLanguage.text('Plan a trip', 'ভবিষ্যৎ যাত্রা পরিকল্পনা'),
+            tooltip: GochanoLanguage.text(
+              'Plan a trip',
+              'ভবিষ্যৎ যাত্রা পরিকল্পনা',
+            ),
             icon: const Icon(Icons.calendar_month_outlined),
             onPressed: () => showPlanTripSheet(
               context,
@@ -349,8 +516,16 @@ class _CommuteScreenState extends State<CommuteScreen> {
           else ...[
             CommuteRouteMap(
               polyline: displayPolyline,
-              origin: point(originMap) ?? (_origin?.lat != null && _origin?.lon != null ? LatLng(_origin!.lat!, _origin!.lon!) : null),
-              destination: point(destinationMap) ?? (_destination?.lat != null && _destination?.lon != null ? LatLng(_destination!.lat!, _destination!.lon!) : null),
+              origin:
+                  point(originMap) ??
+                  (_origin?.lat != null && _origin?.lon != null
+                      ? LatLng(_origin!.lat!, _origin!.lon!)
+                      : null),
+              destination:
+                  point(destinationMap) ??
+                  (_destination?.lat != null && _destination?.lon != null
+                      ? LatLng(_destination!.lat!, _destination!.lon!)
+                      : null),
               transfers: transferPoints,
             ),
           ],
@@ -411,25 +586,114 @@ class _CommuteScreenState extends State<CommuteScreen> {
           ],
 
           // 5-8. Results section (Distance / By road -> Your journey -> Multimodal alternatives -> Choose transport / fare)
-          if (result != null)
-            _Results(
+          if (result != null) ...[
+            // Build Smart Journey Guide facts from the authoritative data
+            _SmartGuideFactsBuilder(
               result: result,
               selectedMode: _selectedTransportMode,
               singleFareResult: _singleFareResult,
-              fetchingFare: _fetchingFare,
-              singleFareError: _singleFareError,
-              onModeSelected: _onModeSelected,
               selectedJourneyIndex: _selectedJourneyIndex,
-              onJourneySelected: (idx) => setState(() => _selectedJourneyIndex = idx),
-              onPlanTrip: () => showPlanTripSheet(
-                context,
-                initialOrigin: _origin,
-                initialDestination: _destination,
+              selectedBusCandidate: _selectedBusCandidate,
+              builder: (context, guideFacts) => _Results(
+                result: result,
+                selectedMode: _selectedTransportMode,
+                singleFareResult: _singleFareResult,
+                fetchingFare: _fetchingFare,
+                singleFareError: _singleFareError,
+                onModeSelected: _onModeSelected,
+                selectedJourneyIndex: _selectedJourneyIndex,
+                onJourneySelected: (idx) =>
+                    setState(() => _selectedJourneyIndex = idx),
+                onPlanTrip: () => showPlanTripSheet(
+                  context,
+                  initialOrigin: _origin,
+                  initialDestination: _destination,
+                ),
+                guideFacts: guideFacts,
+                onAskTrip: guideFacts != null
+                    ? () => _openAskTrip(context, guideFacts)
+                    : null,
+                directBuses: _directBuses,
+                fetchingDirectBuses: _fetchingDirectBuses,
+                directBusesError: _directBusesError,
+                selectedBusServiceId: _selectedBusServiceId,
+                selectedBusName: _selectedBusName,
+                onBusSelected: _onBusSelected,
+                onRetryDirectBuses: (_origin?.placeId != null &&
+                        _destination?.placeId != null)
+                    ? () => _fetchDirectBuses(
+                          _origin!.placeId!,
+                          _destination!.placeId!,
+                        )
+                    : null,
+                originPlaceId: _origin?.placeId,
+                destinationPlaceId: _destination?.placeId,
               ),
             ),
+          ],
         ],
       ),
     );
+  }
+}
+
+/// Builds JourneyGuideFacts from the route result and passes them to the
+/// builder. This is a pure derivation — no network calls, no AI.
+class _SmartGuideFactsBuilder extends StatelessWidget {
+  const _SmartGuideFactsBuilder({
+    required this.result,
+    required this.builder,
+    this.selectedMode,
+    this.singleFareResult,
+    this.selectedJourneyIndex = 0,
+    this.selectedBusCandidate,
+  });
+
+  final Map<String, dynamic> result;
+  final Widget Function(BuildContext, JourneyGuideFacts?) builder;
+  final String? selectedMode;
+  final Map<String, dynamic>? singleFareResult;
+  final int selectedJourneyIndex;
+  final DirectBusCandidate? selectedBusCandidate;
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = JourneyPlan.fromResponse(result);
+    final journeys = plan.journeys;
+
+    JourneyGuideFacts? facts;
+
+    if (journeys.isNotEmpty) {
+      final journey =
+          journeys[selectedJourneyIndex.clamp(0, journeys.length - 1)];
+      facts = JourneyGuideFacts.fromJourney(
+        journey,
+        selectedMode: selectedMode,
+        singleFareResult: singleFareResult,
+        selectedBusOperator: selectedBusCandidate?.operatorName,
+        selectedBusBoardStop: selectedBusCandidate?.originStopName,
+        selectedBusExitStop: selectedBusCandidate?.destinationStopName,
+        selectedBusStopCount: selectedBusCandidate?.stopCount,
+      );
+    } else {
+      // Road-only fallback — no real multimodal journey
+      facts = JourneyGuideFacts.fromRoadRoute(
+        result: result,
+        selectedMode: selectedMode,
+        singleFareResult: singleFareResult,
+        selectedBusOperator: selectedBusCandidate?.operatorName,
+        selectedBusBoardStop: selectedBusCandidate?.originStopName,
+        selectedBusExitStop: selectedBusCandidate?.destinationStopName,
+        selectedBusStopCount: selectedBusCandidate?.stopCount,
+      );
+    }
+
+    // Only render if we have minimum viable facts
+    if (facts.originName.isEmpty && facts.destinationName.isEmpty) {
+      facts = null;
+    }
+
+    return builder(context, facts);
   }
 }
 
@@ -526,7 +790,10 @@ class _PlaceField extends StatelessWidget {
                   Text(
                     filled
                         ? value!
-                        : GochanoLanguage.text('Choose a place', 'একটি স্থান বাছুন'),
+                        : GochanoLanguage.text(
+                            'Choose a place',
+                            'একটি স্থান বাছুন',
+                          ),
                     style: context.type.cardHeading.copyWith(
                       color: filled ? null : colors.textTertiary,
                     ),
@@ -558,6 +825,17 @@ class _Results extends StatelessWidget {
     this.selectedJourneyIndex = 0,
     this.onJourneySelected,
     this.onPlanTrip,
+    this.guideFacts,
+    this.onAskTrip,
+    this.directBuses = const [],
+    this.fetchingDirectBuses = false,
+    this.directBusesError = '',
+    this.selectedBusServiceId,
+    this.selectedBusName,
+    this.onBusSelected,
+    this.onRetryDirectBuses,
+    this.originPlaceId,
+    this.destinationPlaceId,
   });
 
   final Map<String, dynamic> result;
@@ -569,6 +847,17 @@ class _Results extends StatelessWidget {
   final int selectedJourneyIndex;
   final ValueChanged<int>? onJourneySelected;
   final VoidCallback? onPlanTrip;
+  final JourneyGuideFacts? guideFacts;
+  final VoidCallback? onAskTrip;
+  final List<DirectBusCandidate> directBuses;
+  final bool fetchingDirectBuses;
+  final String directBusesError;
+  final String? selectedBusServiceId;
+  final String? selectedBusName;
+  final ValueChanged<DirectBusCandidate>? onBusSelected;
+  final VoidCallback? onRetryDirectBuses;
+  final String? originPlaceId;
+  final String? destinationPlaceId;
 
   @override
   Widget build(BuildContext context) {
@@ -587,10 +876,21 @@ class _Results extends StatelessWidget {
     final originName = originMap?['name']?.toString() ?? '';
     final destinationName = destinationMap?['name']?.toString() ?? '';
 
+    // Build the journey plan, falling back to road-route estimation when
+    // the public-transit planner is unavailable but road data exists.
+    var plan = JourneyPlan.fromResponse(result);
+    if (!plan.hasJourneys) {
+      final fallback = JourneyPlan.roadFallback(
+        result,
+        selectedMode: selectedMode,
+        singleFareResult: singleFareResult,
+      );
+      if (fallback != null) plan = fallback;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         Row(
           children: [
             Expanded(
@@ -614,23 +914,37 @@ class _Results extends StatelessWidget {
 
         // The multimodal planner: the actual journey, step by step.
         JourneyPlanSection(
-          plan: JourneyPlan.fromResponse(result),
+          plan: plan,
           selectedIndex: selectedJourneyIndex,
           onJourneySelected: onJourneySelected,
           hideMap: true,
         ),
 
+        // Smart Journey Guide — verified facts + optional AI explanation
+        if (guideFacts != null) ...[
+          SmartJourneyGuide(facts: guideFacts!, onAskTrip: onAskTrip),
+        ],
+
         // Transport mode selector
         SectionHeader(
-          title: GochanoLanguage.text(
-            'Choose transport',
-            'যানবাহন বাছুন',
-          ),
+          title: GochanoLanguage.text('Choose transport', 'যানবাহন বাছুন'),
         ),
         _TransportModeSelector(
           selectedMode: selectedMode,
           onModeSelected: onModeSelected,
         ),
+
+        // Possible buses section when bus mode is active
+        if (selectedMode == 'bus') ...[
+          _PossibleBusesSection(
+            buses: directBuses,
+            loading: fetchingDirectBuses,
+            error: directBusesError,
+            selectedBusServiceId: selectedBusServiceId,
+            onBusSelected: onBusSelected ?? (_) {},
+            onRetry: onRetryDirectBuses,
+          ),
+        ],
 
         // Single fare result area
         if (selectedMode != null) ...[
@@ -661,10 +975,53 @@ class _Results extends StatelessWidget {
               originName: originName,
               destinationName: destinationName,
               distanceKm: distanceKm,
+              originPlaceId: originPlaceId,
+              destinationPlaceId: destinationPlaceId,
+              selectedBusServiceId: selectedBusServiceId,
+              selectedBusName: selectedBusName,
+              directBuses: directBuses,
             ),
         ],
 
-        if (transit.isNotEmpty) ...[
+        // Action to report fare when in bus mode if fare is not loaded yet
+        if (selectedMode == 'bus' &&
+            singleFareResult == null &&
+            !fetchingFare &&
+            singleFareError.isEmpty) ...[
+          const SizedBox(height: GochanoSpacing.sm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => showFareReportSheet(
+                context,
+                mode: 'bus',
+                modeLabel: GochanoLanguage.text('Bus', 'বাস'),
+                originName: originName,
+                destinationName: destinationName,
+                distanceKm: distanceKm,
+                tripMinutes: minutes,
+                suggestedFare: null,
+                originPlaceId: originPlaceId,
+                destinationPlaceId: destinationPlaceId,
+                initialBusServiceId: selectedBusServiceId,
+                initialBusName: selectedBusName,
+                busCandidates: directBuses,
+              ),
+              icon: const Icon(
+                Icons.receipt_long_outlined,
+                size: GochanoSizes.iconSm,
+              ),
+              label: Text(
+                GochanoLanguage.text(
+                  'Report bus fare',
+                  'বাসের ভাড়া জানান',
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        if (transit.isNotEmpty && selectedMode != 'bus') ...[
           SectionHeader(
             title: GochanoLanguage.text('Buses on this route', 'এই রুটের বাস'),
             subtitle: GochanoLanguage.text(
@@ -687,7 +1044,10 @@ class _Results extends StatelessWidget {
         if (onPlanTrip != null) ...[
           const SizedBox(height: GochanoSpacing.lg),
           SecondaryButton(
-            label: GochanoLanguage.text('Plan this trip', 'এই যাত্রা পরিকল্পনা করুন'),
+            label: GochanoLanguage.text(
+              'Plan this trip',
+              'এই যাত্রা পরিকল্পনা করুন',
+            ),
             icon: Icons.calendar_month_outlined,
             onPressed: onPlanTrip,
           ),
@@ -702,10 +1062,7 @@ class _Results extends StatelessWidget {
 /// Renders a horizontal row of mode chips. Only one can be active at a time.
 /// Modes are not automatically labeled Recommended / Cheapest / Fastest.
 class _TransportModeSelector extends StatelessWidget {
-  const _TransportModeSelector({
-    this.selectedMode,
-    this.onModeSelected,
-  });
+  const _TransportModeSelector({this.selectedMode, this.onModeSelected});
 
   final String? selectedMode;
   final ValueChanged<String>? onModeSelected;
@@ -739,9 +1096,7 @@ class _TransportModeSelector extends StatelessWidget {
                     : colors.surface,
                 borderRadius: GochanoRadius.smAll,
                 border: Border.all(
-                  color: selectedMode == mode
-                      ? colors.commute
-                      : colors.divider,
+                  color: selectedMode == mode ? colors.commute : colors.divider,
                   width: selectedMode == mode ? 2 : 1,
                 ),
               ),
@@ -763,6 +1118,232 @@ class _TransportModeSelector extends StatelessWidget {
   }
 }
 
+/// Possible buses section showing verified direct bus services on the route.
+class _PossibleBusesSection extends StatelessWidget {
+  const _PossibleBusesSection({
+    required this.buses,
+    required this.loading,
+    required this.error,
+    this.selectedBusServiceId,
+    required this.onBusSelected,
+    this.onRetry,
+  });
+
+  final List<DirectBusCandidate> buses;
+  final bool loading;
+  final String error;
+  final String? selectedBusServiceId;
+  final ValueChanged<DirectBusCandidate> onBusSelected;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: GochanoSpacing.md),
+        SectionHeader(
+          title: GochanoLanguage.text('Possible buses', 'সম্ভাব্য বাস'),
+          subtitle: GochanoLanguage.text(
+            'Direct bus services on this route',
+            'এই রুটের সরাসরি বাস সেবা',
+          ),
+        ),
+        if (loading) ...[
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(GochanoSpacing.md),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+        ] else if (error.isNotEmpty) ...[
+          AppCard(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    error,
+                    style: type.bodySecondary.copyWith(color: colors.warning),
+                  ),
+                ),
+                if (onRetry != null)
+                  TextButton(
+                    onPressed: onRetry,
+                    child:
+                        Text(GochanoLanguage.text('Retry', 'পুনরায় চেষ্টা')),
+                  ),
+              ],
+            ),
+          ),
+        ] else if (buses.isEmpty) ...[
+          AppCard(
+            child: Text(
+              GochanoLanguage.text(
+                'No direct bus services found for this stop pair.',
+                'এই স্টপ জুটির জন্য কোনো সরাসরি বাস সেবা পাওয়া যায়নি।',
+              ),
+              style: type.bodySecondary,
+            ),
+          ),
+        ] else ...[
+          CardGroup(
+            children: [
+              for (final bus in buses)
+                _DirectBusRow(
+                  bus: bus,
+                  isSelected: bus.serviceId == selectedBusServiceId,
+                  onTap: () => onBusSelected(bus),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Single row representing a direct bus service option.
+class _DirectBusRow extends StatelessWidget {
+  const _DirectBusRow({
+    required this.bus,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final DirectBusCandidate bus;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    final displayName = GochanoLanguage.text(
+      bus.operatorName,
+      bus.operatorNameBn ?? bus.operatorName,
+    );
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(GochanoSpacing.sm),
+        decoration: isSelected
+            ? BoxDecoration(
+                color: colors.commute.withValues(alpha: 0.08),
+                borderRadius: GochanoRadius.smAll,
+              )
+            : null,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? colors.commute
+                    : colors.commute.withValues(alpha: 0.12),
+              ),
+              child: Icon(
+                Icons.directions_bus_rounded,
+                size: 18,
+                color: isSelected ? colors.surface : colors.commute,
+              ),
+            ),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          displayName,
+                          style: type.body.copyWith(
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: isSelected
+                                ? colors.commute
+                                : colors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (bus.serviceType.isNotEmpty &&
+                          bus.serviceType != 'regular') ...[
+                        const SizedBox(width: GochanoSpacing.xxs),
+                        GochanoBadge(
+                          label: bus.serviceType,
+                          tone: GochanoBadgeTone.neutral,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${bus.originStopName} → ${bus.destinationStopName} · ${bus.stopCount} ${GochanoLanguage.text('stops', 'টি স্টপ')}',
+                    style: type.caption,
+                  ),
+                  if (bus.hasQualifiedCrowdFare) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          bus.crowdFareLow != null && bus.crowdFareHigh != null
+                              ? (bus.crowdFareLow == bus.crowdFareHigh
+                                  ? formatTaka(bus.crowdFareLow!)
+                                  : '${formatTaka(bus.crowdFareLow!)}–${formatTaka(bus.crowdFareHigh!)}')
+                              : (bus.crowdFareRecommended != null
+                                  ? formatTaka(bus.crowdFareRecommended!)
+                                  : ''),
+                          style: type.caption.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: colors.commute,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              bus.crowdFareLabel ?? 'Community estimate',
+                              bus.crowdFareLabelBn ?? 'কমিউনিটি হিসাব',
+                            ),
+                            style: type.caption.copyWith(
+                              color: colors.textSecondary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle_rounded,
+                size: 20,
+                color: colors.commute,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Single fare result card for the user-selected transport mode.
 ///
 /// Shows fare estimate, source, and warning. No badges (no Recommended /
@@ -773,12 +1354,22 @@ class _SingleFareResultCard extends StatelessWidget {
     required this.originName,
     required this.destinationName,
     required this.distanceKm,
+    this.originPlaceId,
+    this.destinationPlaceId,
+    this.selectedBusServiceId,
+    this.selectedBusName,
+    this.directBuses = const [],
   });
 
   final Map<String, dynamic> result;
   final String originName;
   final String destinationName;
   final double distanceKm;
+  final String? originPlaceId;
+  final String? destinationPlaceId;
+  final String? selectedBusServiceId;
+  final String? selectedBusName;
+  final List<DirectBusCandidate> directBuses;
 
   @override
   Widget build(BuildContext context) {
@@ -803,10 +1394,7 @@ class _SingleFareResultCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    GochanoLanguage.text(
-                      'Not available',
-                      'অনুপলব্ধ',
-                    ),
+                    GochanoLanguage.text('Not available', 'অনুপলব্ধ'),
                     style: context.type.sectionHeading,
                   ),
                   const SizedBox(height: 2),
@@ -830,7 +1418,8 @@ class _SingleFareResultCard extends StatelessWidget {
     final fare = result['fare'] as Map<String, dynamic>? ?? {};
     final mode = fare['mode']?.toString() ?? result['mode']?.toString() ?? '';
     final label = fare['label']?.toString() ?? mode;
-    final minutes = (fare['minutes'] as num?)?.toInt() ??
+    final minutes =
+        (fare['minutes'] as num?)?.toInt() ??
         (result['drivingMinutes'] as num?)?.toInt() ??
         0;
     final fareLow = (fare['fareLow'] as num?)?.toDouble() ?? 0;
@@ -861,10 +1450,7 @@ class _SingleFareResultCard extends StatelessWidget {
                   children: [
                     Text(label, style: context.type.sectionHeading),
                     const SizedBox(height: 2),
-                    Text(
-                      _duration(minutes),
-                      style: context.type.bodySecondary,
-                    ),
+                    Text(_duration(minutes), style: context.type.bodySecondary),
                   ],
                 ),
               ),
@@ -872,7 +1458,7 @@ class _SingleFareResultCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _fareRange(fareLow, fareHigh),
+                    _fareRange(fareLow, fareHigh, mode: mode),
                     style: context.type.statisticSmall,
                   ),
                   JourneyFareBadge(fareType: fareType),
@@ -919,7 +1505,12 @@ class _SingleFareResultCard extends StatelessWidget {
                 destinationName: destinationName,
                 distanceKm: distanceKm,
                 tripMinutes: minutes,
-                suggestedFare: fareHigh,
+                suggestedFare: fareHigh > 0 ? fareHigh : null,
+                originPlaceId: originPlaceId,
+                destinationPlaceId: destinationPlaceId,
+                initialBusServiceId: selectedBusServiceId,
+                initialBusName: selectedBusName,
+                busCandidates: directBuses,
               ),
               icon: const Icon(
                 Icons.receipt_long_outlined,
@@ -946,7 +1537,8 @@ class _TransitRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = service['serviceName']?.toString() ??
+    final name =
+        service['serviceName']?.toString() ??
         service['name']?.toString() ??
         service['busName']?.toString() ??
         '';
@@ -963,7 +1555,10 @@ class _TransitRow extends StatelessWidget {
       subtitle: from.isEmpty && to.isEmpty ? null : '$from → $to',
       metadata: [
         if (stops is num)
-          GochanoLanguage.text('${stops.toInt()} stops', '${stops.toInt()} স্টপ'),
+          GochanoLanguage.text(
+            '${stops.toInt()} stops',
+            '${stops.toInt()} স্টপ',
+          ),
       ],
     );
   }
@@ -1009,8 +1604,11 @@ String _duration(int minutes) {
   return GochanoLanguage.text('$hours h $rest min', '$hours ঘণ্টা $rest মিনিট');
 }
 
-String _fareRange(double low, double high) {
-  if (low <= 0 && high <= 0) return GochanoLanguage.text('Free', 'ফ্রি');
+String _fareRange(double low, double high, {String mode = ''}) {
+  if (low <= 0 && high <= 0) {
+    if (mode == 'walk') return GochanoLanguage.text('Free', 'ফ্রি');
+    return GochanoLanguage.text('Fare unavailable', 'ভাড়া তথ্য নেই');
+  }
   if ((high - low).abs() < 0.5) return formatTaka(high);
   return '${formatTaka(low)}–${formatTaka(high)}';
 }

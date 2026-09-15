@@ -1,0 +1,131 @@
+﻿raw_stop_name,normalized_stop_name,existing_canonical_place_id,existing_canonical_name_en,existing_match_score,existing_match_method,candidate_place_id,candidate_place_name_en,candidate_place_similarity,candidate_osm_stop_id,candidate_osm_stop_name,candidate_osm_latitude,candidate_osm_longitude,candidate_osm_similarity,proposal_status,safe_to_auto_verify,source_id
+300 Feet,300 feet,,,0.3636,unmatched,PLC0223,Mawa Ferryghat,0.3636,5185942351,DC Office New Court Bus Stop,23.6329569,90.4959266,0.3704,manual_review,no,SRC_BUS_GITHUB
+Abdulla,abdulla,,,0.7778,unmatched,PLC0001,Abdullahpur,0.7778,3739984012,Taltola,23.7832966,90.3785274,0.5714,manual_review,no,SRC_BUS_GITHUB
+Adabor,adabor,,,0.6667,unmatched,PLC0044,Basabo,0.6667,6797150706,Chandra Moor,24.0476042,90.2389996,0.5556,manual_review,no,SRC_BUS_GITHUB
+Adabor Shyamoli,adabor shyamoli,,,0.6957,unmatched,PLC0346,Shyamoli,0.6957,3803653181,Shyamoli Bus Station,23.8088054,90.4214847,0.6957,manual_review,no,SRC_BUS_GITHUB
+Adamjee College,adamjee college,,,0.7407,unmatched,PLC0106,Eden College,0.7407,4365852658,Shaheen College Bus Stop,23.8275583,90.4015705,0.7333,manual_review,no,SRC_BUS_GITHUB
+Adamjee School,adamjee school,,,0.5217,unmatched,PLC0151,Kadamtoli,0.5217,2847739318,Adamjee Bus Stop,23.7951081,90.3929531,0.6667,manual_review,no,SRC_BUS_GITHUB
+Airport Jashimuddin (Uttara),airport jashimuddin,,,0.6897,unmatched,PLC0142,Jasimuddin,0.5556,4737734589,"Jashimuddin Bus Stopage, Uttara",23.8608599,90.4000486,0.7500,manual_review,no,SRC_BUS_GITHUB
+Arambagh Kingdom,arambagh kingdom,,,0.6667,unmatched,PLC0010,Arambagh,0.6667,12002685206,Arambagh Bus stop,23.7308424,90.4212047,0.6667,manual_review,no,SRC_BUS_GITHUB
+Arambagh Notre Dame College,arambagh notre dame college,,,0.8,unmatched,PLC0283,Notre Dame College,0.8000,12169756253,Konabari Degree College,24.013862,90.308735,0.5600,manual_review,no,SRC_BUS_GITHUB
+Ashulia Bazar,ashulia bazar,,,0.7826,unmatched,PLC0009,Apla Bazar,0.7826,12169756238,Ashulia Bazaar Bus stop,23.8975797,90.3309306,0.9630,review_high_osm_similarity,no,SRC_BUS_GITHUB
+Baitul Mukarram,baitul mukarram,,,0.5455,unmatched,PLC0027,Bagmara,0.5455,130022522,Baroipara,24.0284732,90.2424305,0.5000,manual_review,no,SRC_BUS_GITHUB
+Banasree,banasree,,,0.8,unmatched,PLC0064,Bonsree,0.8000,12073098779,Banani Bus stop,23.7952569,90.4013241,0.5714,manual_review,no,SRC_BUS_GITHUB
+Bangla Motor Shahbag,bangla motor shahbag,,,0.75,unmatched,PLC0037,Bangla Motor,0.7500,13251912785,"Bot Tola Mor Diabari, Bus stop",23.7988834,90.3434516,0.5500,manual_review,no,SRC_BUS_GITHUB
+Baromi,baromi,,,0.8,unmatched,PLC0062,Bomi,0.8000,130022522,Baroipara,24.0284732,90.2424305,0.6667,manual_review,no,SRC_BUS_GITHUB
+Bashtola,bashtola,,,0.7143,unmatched,PLC0046,Basila,0.7143,2994114617,Bashtola Bus Stand,23.7943849,90.4240761,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Bashtola -,bashtola,,,0.7143,unmatched,PLC0046,Basila,0.7143,2994114617,Bashtola Bus Stand,23.7943849,90.4240761,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Bata Signal,bata signal,,,0.5882,unmatched,PLC0046,Basila,0.5882,3345602131,Bata Signal Bus Stop,23.7389887,90.388255,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Beribadh Tin Rastar Moor,beribadh tin rastar,,,0.5926,unmatched,PLC0037,Bangla Motor,0.5000,12497979607,"Beribadh Tin Rastar Mor Bus Stop, Bus stop",23.7566448,90.3562044,0.9787,review_high_osm_similarity,no,SRC_BUS_GITHUB
+Birulia,birulia,,,0.6154,unmatched,PLC0046,Basila,0.6154,13270088630,"Birulia Bus Stop, Bus stop",23.8541895,90.3324214,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Bot tola,bot tola,,,0.625,unmatched,PLC0295,Postgola,0.6250,3739984012,Taltola,23.7832966,90.3785274,0.6667,manual_review,no,SRC_BUS_GITHUB
+CMH,cmh,,,0.4,unmatched,PLC0105,ECB Morh,0.5455,12169756230,CMB Bus Stop,23.8724121,90.2731938,0.6667,manual_review,no,SRC_BUS_GITHUB
+Cantonment,cantonment,,,0.625,unmatched,PLC0068,Cantonment Signal Gate,0.6250,12169756307,Savar Cantonment,23.917256,90.2603874,0.7692,manual_review,no,SRC_BUS_GITHUB
+Chairman Bari,chairman bari,,,0.6957,unmatched,PLC0184,Khamarbari,0.6957,12073083676,Chairman Bari Bus Stop,23.78786,90.400098,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Chashara,chashara,,,0.6667,unmatched,PLC0072,Chasara Bus Stand,0.9333,5187631138,Chashara Bus Stand,23.6251284,90.4984039,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Chiriyakhana,chiriyakhana,,,0.5833,unmatched,PLC0211,Majhir Kanda,0.5833,5187631138,Chashara Bus Stand,23.6251284,90.4984039,0.6000,manual_review,no,SRC_BUS_GITHUB
+Chittagong Road,chittagong road,,,0.5833,unmatched,PLC0207,Link Road,0.5833,12104116680,Station Road Bus Stand,23.8929115,90.4019846,0.6667,manual_review,no,SRC_BUS_GITHUB
+Dainik Bangla Moor,dainik bangla,,,0.8,unmatched,PLC0037,Bangla Motor,0.7333,6139734069,Dainik Bangla Mor Bus Stop,23.7301345,90.4152482,0.9714,review_high_osm_similarity,no,SRC_BUS_GITHUB
+Dayaganj,dayaganj,,,0.7619,unmatched,PLC0081,Dayaganj Road,0.7619,6139144367,Doyagonj Bus Stop,23.7102679,90.4241209,0.7500,manual_review,no,SRC_BUS_GITHUB
+Dhakeshwari,dhakeshwari,,,0.8,unmatched,PLC0089,Dhaleswar,0.8000,5187631138,Chashara Bus Stand,23.6251284,90.4984039,0.6316,manual_review,no,SRC_BUS_GITHUB
+Dhanmondi 27,dhanmondi 27,,,0.8571,unmatched,PLC0091,Dhanmondi,0.8571,12009447484,Dhanmondi 27 Bus stop,23.7560325,90.3757211,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Dhanmondi 32,dhanmondi 32,,,0.8571,unmatched,PLC0091,Dhanmondi,0.8571,12009447484,Dhanmondi 27 Bus stop,23.7560325,90.3757211,0.9167,manual_review,no,SRC_BUS_GITHUB
+Dhanmondi 32 Kalabagan,dhanmondi 32 kalabagan,,,0.5882,unmatched,PLC0092,Dhanmondi-15,0.5882,5298917423,Dhanmondi 32 No. Bus Stopage,23.7517296,90.3778703,0.6829,manual_review,no,SRC_BUS_GITHUB
+Dholairpar,dholairpar,,,0.6316,unmatched,PLC0134,Hota Para,0.6316,5185127957,Dholairpar Bus Stop,23.702791,90.4351668,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Dhour,dhour,,,0.8,unmatched,PLC0093,Dhaur,0.8000,2895200402,Dhour Bus Stopage,23.8933082,90.3666085,0.7143,manual_review,no,SRC_BUS_GITHUB
+ECB Square,ecb square,,,0.6667,unmatched,PLC0320,Russell Square,0.6667,12169756229,C & B Savar,23.872558,90.273176,0.5714,manual_review,no,SRC_BUS_GITHUB
+Fakirapul,fakirapul,,,0.8421,unmatched,PLC0109,Fakirapool,0.8421,12028981747,Kakrail Bus stop,23.7376473,90.4083108,0.6250,manual_review,no,SRC_BUS_GITHUB
+Farmgate Bijoy Sarani,farmgate bijoy sarani,,,0.6857,unmatched,PLC0300,Progati Sarani,0.6857,11934785542,Bijoy Shoroni Bus stop,23.7649404,90.3891718,0.5882,manual_review,no,SRC_BUS_GITHUB
+Gandaria,gandaria,,,0.6316,unmatched,PLC0045,Bashundhara,0.6316,3518348924,sanarpar bus stop,23.6949106,90.4902493,0.6250,manual_review,no,SRC_BUS_GITHUB
+Garrison (Cantonment),garrison,,,0.625,unmatched,PLC0068,Cantonment Signal Gate,0.4878,12169756307,Savar Cantonment,23.917256,90.2603874,0.7429,manual_review,no,SRC_BUS_GITHUB
+Gazipur Bypass,gazipur bypass,,,0.6667,unmatched,PLC0117,Gazipur,0.6667,12112161224,"Gazipura Bus stop, Bus stop",23.921525,90.3923968,0.7273,manual_review,no,SRC_BUS_GITHUB
+Gazipur Chourasta,gazipur chourasta,,,0.7059,unmatched,PLC0051,Bezgaon Chourasta,0.7059,5209549334,Gazipur Chowrasta Bus Stand,23.9897895,90.3817038,0.9412,review_high_osm_similarity,no,SRC_BUS_GITHUB
+Golapbag Chourasta,golapbag chourasta,,,0.7429,unmatched,PLC0100,Diabari Chourasta,0.7429,12057002356,Golapbagh Chowrasta Bus stop,23.7176698,90.4293125,0.9189,manual_review,no,SRC_BUS_GITHUB
+Gulshan Link Road,gulshan link road,,,0.6923,unmatched,PLC0207,Link Road,0.6923,819615524,Khanpur Main Road,23.6252157,90.5052659,0.6471,manual_review,no,SRC_BUS_GITHUB
+Hasnabad,hasnabad,,,0.5882,unmatched,PLC0072,Chasara Bus Stand,0.6667,12440860422,Hasnabad Bus Stop,23.6831264,90.4226066,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Hazaribag,hazaribag,,,0.6667,unmatched,PLC0305,Rajarbagh,0.6667,12025574279,Hazaribagh Bus stop,23.7323936,90.3628446,0.9474,review_high_osm_similarity,no,SRC_BUS_GITHUB
+IDB,idb,,,0.5,unmatched,PLC0385,Zirab,0.5000,12281556056,IUBAT Bus stop,23.8876512,90.389599,0.5000,manual_review,no,SRC_BUS_GITHUB
+Ittefaq Moor,ittefaq,,,0.7143,unmatched,PLC0128,Gulistan Morh,0.5600,12043426106,"Ittefaq Bus Stand, Bus stop",23.7214958,90.4212054,0.7368,manual_review,no,SRC_BUS_GITHUB
+Ittefaq Moor Sayedabad,ittefaq sayedabad,,,0.6923,unmatched,PLC0327,Sayedabad,0.5806,13251912785,"Bot Tola Mor Diabari, Bus stop",23.7988834,90.3434516,0.5714,manual_review,no,SRC_BUS_GITHUB
+Jahangir Gate,jahangir gate,,,0.6364,unmatched,PLC0012,Asad Gate,0.6364,12009429417,Jahangir Gate Bus stop,23.7752606,90.3897653,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Jakir Hossen Road,jakir hossen road,,,0.6471,unmatched,PLC0118,Gazipur Crossroad,0.6471,12104116680,Station Road Bus Stand,23.8929115,90.4019846,0.6207,manual_review,no,SRC_BUS_GITHUB
+Jalkuri,jalkuri,,,0.6667,unmatched,PLC0202,Kuril,0.6667,12169756314,Taksur Bus Stop,23.9151784,90.241718,0.6154,manual_review,no,SRC_BUS_GITHUB
+Jamgora,jamgora,,,0.5714,unmatched,PLC0027,Bagmara,0.5714,12169756298,Jamgara,23.936853,90.290481,0.8571,manual_review,no,SRC_BUS_GITHUB
+Janapath Moor,janapath,,,0.625,unmatched,PLC0149,Jonopoth Mor,0.7200,11780032744,Jonopath Mor Bus Stop,23.712707,90.428611,0.8000,manual_review,no,SRC_BUS_GITHUB
+Jarun,jarun,,,0.5455,unmatched,PLC0150,Jurain,0.5455,12169756206,Jorpul,23.801719,90.262507,0.5455,manual_review,no,SRC_BUS_GITHUB
+Joydebpur,joydebpur,,,0.5882,unmatched,PLC0328,Sayedpur,0.5882,12169756138,Joypura Bus Stand,23.911518,90.18591,0.7500,manual_review,no,SRC_BUS_GITHUB
+Kakali,kakali,,,0.8333,unmatched,PLC0154,Kakoli,0.8333,12078090908,Kakoli Bus station,23.7952338,90.4009018,0.8333,manual_review,no,SRC_BUS_GITHUB
+Kalabagan City College,kalabagan city college,,,0.75,unmatched,PLC0085,Dhaka City College,0.7500,12012266045,Kalabagan West Bus Stop,23.7489662,90.3795211,0.6111,manual_review,no,SRC_BUS_GITHUB
+Kalshi Pallabi,kalshi pallabi,,,0.6667,unmatched,PLC0342,Shialbari,0.6087,12169756107,Kaliakair Bus Stand,24.077079,90.210269,0.6087,manual_review,no,SRC_BUS_GITHUB
+Kanchan Bridge,kanchan bridge,,,0.8276,unmatched,PLC0172,Kanchpur Bridge,0.8276,12006324895,Gulshan Bridge Bus Stop,23.780372,90.4129214,0.7143,manual_review,no,SRC_BUS_GITHUB
+Kashimpur,kashimpur,,,0.8235,unmatched,PLC0175,Kasempur,0.8235,9796814637,Kharshur Bus Stand,23.6375728,90.2480927,0.7059,manual_review,no,SRC_BUS_GITHUB
+Kazipara Shewrapara,kazipara shewrapara,,,0.6897,unmatched,PLC0340,Shewrapara,0.6897,3941231699,Shewrapara,23.7904911,90.3755519,0.6897,manual_review,no,SRC_BUS_GITHUB
+Kazla,kazla,,,0.8333,unmatched,PLC0180,Kazlail,0.8333,3640919287,Kazibari Bus Stand,23.6793023,90.482303,0.6154,manual_review,no,SRC_BUS_GITHUB
+Khamar Bari Farmgate,khamar bari farmgate,,,0.6667,unmatched,PLC0184,Khamarbari,0.6667,11928193364,Khamar Bari Bus stop,23.7591274,90.383882,0.7097,manual_review,no,SRC_BUS_GITHUB
+Khilgaon,khilgaon,,,0.6667,unmatched,PLC0189,Khilgaon Flyover,0.6667,12045859740,Khilgaon Bus Stop,23.7481057,90.4236954,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Kuchimura,kuchimura,,,0.625,unmatched,PLC0185,Khamrai,0.6250,12440460826,Ekuria Bus stop,23.6829248,90.4195396,0.5333,manual_review,no,SRC_BUS_GITHUB
+Kuril Chourasta,kuril chourasta,,,0.75,unmatched,PLC0074,Chourasta,0.7500,5209549334,Gazipur Chowrasta Bus Stand,23.9897895,90.3817038,0.6875,manual_review,no,SRC_BUS_GITHUB
+MES,mes,,,0.4,unmatched,PLC0112,Farmgate,0.3636,12078082748,MES Bus Stop,23.8161374,90.4054005,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Madhya Badda,madhya badda,,,0.6667,unmatched,PLC0232,Middle Badda,0.6667,11953675288,Matshya Bhaban Bus stop,23.7338366,90.4035885,0.6923,manual_review,no,SRC_BUS_GITHUB
+Malibagh Railgate,malibagh railgate,,,0.64,unmatched,PLC0212,Malibagh,0.6400,6796984913,Malibagh Rail Gate,23.7499107,90.4132552,0.9714,review_high_osm_similarity,no,SRC_BUS_GITHUB
+Maowa,maowa,,,0.5714,unmatched,PLC0224,Mawa Ghat,0.5714,3739984012,Taltola,23.7832966,90.3785274,0.5000,manual_review,no,SRC_BUS_GITHUB
+Matuail,matuail,,,0.5714,unmatched,PLC0029,Baipail,0.5714,12169756211,Ulail,23.825691,90.258034,0.6667,manual_review,no,SRC_BUS_GITHUB
+Merul,merul,,,0.5455,unmatched,PLC0373,UBL,0.5000,3653698097,Merul Badda Bus Stand,23.7716566,90.4253879,0.6250,manual_review,no,SRC_BUS_GITHUB
+Metro Hall,metro hall,,,0.7368,unmatched,PLC0371,Town Hall,0.7368,12014830074,Mohammadpur Town Hall Bus stop,23.7596689,90.3662806,0.5161,manual_review,no,SRC_BUS_GITHUB
+Mill Gate,mill gate,,,0.6667,unmatched,PLC0078,College Gate,0.6667,12105939363,"College Gate Bus Stop, Bus stop",23.9089131,90.3978068,0.6667,manual_review,no,SRC_BUS_GITHUB
+Mirpur 2 Mirpur 10,mirpur 2 mirpur 10,,,0.6667,unmatched,PLC0240,Mirpur-10,0.6667,11985284809,Mirpur 2 Bus Stop,23.805394,90.3631338,0.6154,manual_review,no,SRC_BUS_GITHUB
+Mirpur Sony Cinema Hall,mirpur sony cinema hall,,,0.7692,unmatched,PLC0352,Soni Cinema Hall,0.7692,13264864140,"Mirpur Police Line, Bus stop",23.8002012,90.3822983,0.5854,manual_review,no,SRC_BUS_GITHUB
+Mitford Ghat,mitford ghat,,,0.5714,unmatched,PLC0224,Mawa Ghat,0.5714,11765581097,"Babu Bazaar Bus stop, Mitford Rd, Dhaka",23.7117545,90.4030837,0.5000,manual_review,no,SRC_BUS_GITHUB
+Mogbazar Mohakhali,mogbazar mohakhali,,,0.6667,unmatched,PLC0250,Mohakhali,0.6667,13252006190,"Mazar Road Konabari, Bus stop",23.7950254,90.3486124,0.5946,manual_review,no,SRC_BUS_GITHUB
+Motsho Bhaban,motsho bhaban,,,0.7692,unmatched,PLC0222,Matsya Bhaban,0.7692,11953675288,Matshya Bhaban Bus stop,23.7338366,90.4035885,0.8148,manual_review,no,SRC_BUS_GITHUB
+Mugdapara,mugdapara,,,0.7143,unmatched,PLC0266,Mugda,0.7143,12052350731,Mugdapara Bus stop,23.7311981,90.4285295,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Nadda,nadda,,,0.8,unmatched,PLC0023,Badda,0.8000,12169756214,Genda,23.834194,90.259156,0.6000,manual_review,no,SRC_BUS_GITHUB
+New Market Nilkhet,new market nilkhet,,,0.7143,unmatched,PLC0279,New Market,0.7143,11821919116,"New Market Bus stop, Mirpur Rd, Dhaka",23.7342234,90.3844723,0.5909,manual_review,no,SRC_BUS_GITHUB
+Nila Market,nila market,,,0.7619,unmatched,PLC0279,New Market,0.7619,5185571790,Sibu Market Bus Stop,23.6441317,90.493558,0.7273,manual_review,no,SRC_BUS_GITHUB
+Nimtola,nimtola,,,0.6667,unmatched,PLC0144,Jigatola,0.6667,616135294,Amtola bus stop,23.9772331,90.1923978,0.7692,manual_review,no,SRC_BUS_GITHUB
+Nobinagar Baipayl,nobinagar baipail,,,0.6923,unmatched,PLC0281,Nobinagar (Savar),0.7500,12169756315,Nobinagar Bazaar,23.912734,90.259575,0.7879,manual_review,no,SRC_BUS_GITHUB
+Nobinagar Chandra,nobinagar chandra,,,0.6923,unmatched,PLC0281,Nobinagar (Savar),0.7500,12169756315,Nobinagar Bazaar,23.912734,90.259575,0.7273,manual_review,no,SRC_BUS_GITHUB
+Old Airport,old airport,,,0.7778,unmatched,PLC0005,Airport,0.7778,5185127957,Dholairpar Bus Stop,23.702791,90.4351668,0.6667,manual_review,no,SRC_BUS_GITHUB
+Palli Bidyut,palli bidyut,,,0.6316,unmatched,PLC0290,Pallabi (Mirpur-12),0.5517,12169756302,Palli Bidyut,23.924306,90.263235,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Panthapath,panthapath,,,0.5,unmatched,PLC0299,Priyangan Gate,0.5000,13245689965,"Panchaboti Bus stop, Bus stop",23.860199,90.348691,0.6000,manual_review,no,SRC_BUS_GITHUB
+Panthopoth,panthopoth,,,0.6667,unmatched,PLC0148,Jonopoth,0.6667,13245689965,"Panchaboti Bus stop, Bus stop",23.860199,90.348691,0.6000,manual_review,no,SRC_BUS_GITHUB
+Police Plaza,police plaza,,,0.5455,unmatched,PLC0221,Mast Plaza,0.5455,12500494396,"Gabtoli / Parbat Bus stop, Bus stop",23.7824951,90.3393413,0.5385,manual_review,no,SRC_BUS_GITHUB
+Press Club Paltan,press club paltan,,,0.7407,unmatched,PLC0298,Press Club,0.7407,12002689142,Press Club Bus stop,23.7301359,90.4073461,0.7407,manual_review,no,SRC_BUS_GITHUB
+Purobi Pallabi,purobi pallabi,,,0.6667,unmatched,PLC0301,Purabi,0.6000,130022522,Baroipara,24.0284732,90.2424305,0.5217,manual_review,no,SRC_BUS_GITHUB
+Rajlakshmi,rajlakshmi,,,0.7778,unmatched,PLC0309,Rajlaxmi,0.7778,4737734028,"Rajlakshmi Bus Stopage, Uttara",23.8643282,90.3999441,0.6452,manual_review,no,SRC_BUS_GITHUB
+Rajlakshmi House Building,rajlakshmi house building,,,0.7179,unmatched,PLC0135,House Building,0.7179,12086925189,Uttara House Building Bus stop,23.8742893,90.4004176,0.7391,manual_review,no,SRC_BUS_GITHUB
+Rampura Bazar,rampura bazar,,,0.7826,unmatched,PLC0009,Apla Bazar,0.7826,4317851290,Shyampur Bazar,23.6840321,90.4360088,0.8148,manual_review,no,SRC_BUS_GITHUB
+Rayer Bazar,rayer bazar,,,0.8,unmatched,PLC0317,Raysaheb Bazar,0.8000,12022673962,Rayer Bazaar Bus stop,23.7446311,90.359631,0.9565,review_high_osm_similarity,no,SRC_BUS_GITHUB
+Ring Road,ring road,,,0.7778,unmatched,PLC0207,Link Road,0.7778,12009432532,Indira Road Bus Stop,23.7582937,90.38946,0.7000,manual_review,no,SRC_BUS_GITHUB
+Ring road,ring road,,,0.7778,unmatched,PLC0207,Link Road,0.7778,12009432532,Indira Road Bus Stop,23.7582937,90.38946,0.7000,manual_review,no,SRC_BUS_GITHUB
+Rupnagar,rupnagar,,,0.6957,unmatched,PLC0236,Mirpur Rupnagar,0.6957,13245710257,"Rupnagar Bus Stop, Bus stop",23.827317,90.3453653,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Rupnagar Abashik,rupnagar abashik,,,0.5455,unmatched,PLC0319,Rupshi,0.5455,13245710257,"Rupnagar Bus Stop, Bus stop",23.827317,90.3453653,0.6667,manual_review,no,SRC_BUS_GITHUB
+Salimullah Road,salimullah road,,,0.5833,unmatched,PLC0207,Link Road,0.5833,13257991792,"Salimuddin Market Road, Bus stop",23.794582,90.353556,0.6486,manual_review,no,SRC_BUS_GITHUB
+Sanarpar,sanarpar,,,0.7059,unmatched,PLC0169,Kamarpara,0.7059,3518348924,sanarpar bus stop,23.6949106,90.4902493,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Saudi Colony,saudi colony,,,0.5217,unmatched,PLC0324,Sainik Club,0.5217,5880031445,Saudi Colony Bus Stop,23.7783443,90.3893653,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Savar Cantonment,savar cantonment,,,0.5385,unmatched,PLC0008,Ansar Camp,0.5385,12169756307,Savar Cantonment,23.917256,90.2603874,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Shahjadpur,shahjadpur,,,0.6667,unmatched,PLC0253,Mohammadpur,0.6667,5449694922,Shahjadpur Bus Stop,23.7920887,90.4245009,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Shantinagar,shantinagar,,,0.7619,unmatched,PLC0220,Maniknagar,0.7619,12033283446,Shanti Nogor Bus stop,23.7415284,90.4116636,0.7826,manual_review,no,SRC_BUS_GITHUB
+Shewra,shewra,,,0.8333,unmatched,PLC0336,Sheora,0.8333,12078093554,Shewra Bus stop,23.8190439,90.4155151,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Shia Mosque,shia mosque,,,0.6471,unmatched,PLC0258,Mohammadpur Shia Mosque,0.6471,3016703130,Proshika More Bus Stop,23.8096296,90.36101,0.6667,manual_review,no,SRC_BUS_GITHUB
+Shib Bari,shib bari,,,0.7778,unmatched,PLC0342,Shialbari,0.7778,12169756301,Polash Bari,23.932063,90.266786,0.7000,manual_review,no,SRC_BUS_GITHUB
+Shibu Market,shibu market,,,0.6364,unmatched,PLC0279,New Market,0.6364,5185571790,Sibu Market Bus Stop,23.6441317,90.493558,0.9565,review_high_osm_similarity,no,SRC_BUS_GITHUB
+Shimultola,shimultola,,,0.625,unmatched,PLC0054,Bhulta,0.6250,12169756319,Shimultola Bus Stand,23.9374033,90.2857143,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Shonbari Sreenagar,shonbari sreenagar,,,0.5926,unmatched,PLC0267,Nabinagar,0.5926,12169756303,Nobinagar Bus Stop,23.911852,90.2605,0.5926,manual_review,no,SRC_BUS_GITHUB
+Showari Ghat,showari ghat,,,0.6667,unmatched,PLC0224,Mawa Ghat,0.6667,12028983349,Showari Ghat Bus stop,23.7114366,90.3943348,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Signal,signal,,,0.6667,unmatched,PLC0348,Signboard,0.6667,3345602131,Bata Signal Bus Stop,23.7389887,90.388255,0.7059,manual_review,no,SRC_BUS_GITHUB
+Sikder Medical College,sikder medical college,,,0.5882,unmatched,PLC0106,Eden College,0.5882,12022700718,Sikder Medical Bus Stand,23.7412154,90.3605143,0.7778,manual_review,no,SRC_BUS_GITHUB
+Sony Cinema Hall Mirpur 1,sony cinema hall mirpur 1,,,0.7317,unmatched,PLC0352,Soni Cinema Hall,0.7317,13266827014,"Sony Hall / Mirpur 1, Bus stop",23.7997041,90.3548493,0.8372,manual_review,no,SRC_BUS_GITHUB
+South Banasree,south banasree,,,0.5714,unmatched,PLC0064,Bonsree,0.5714,2994771585,Notun Bazar Bus Stop,23.7969059,90.4237478,0.5600,manual_review,no,SRC_BUS_GITHUB
+Star Kabab,star kabab,,,0.5833,unmatched,PLC0379,Uttara Diabari,0.5833,12012251129,Star Kabab Bus Stop,23.7474471,90.3707129,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Station Road,road,,,0.6154,unmatched,PLC0356,Staff Road,0.7273,12104116680,Station Road Bus Stand,23.8929115,90.4019846,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Sura Bari,sura bari,,,0.7059,unmatched,PLC0304,Rajabari,0.7059,5767693150,Sura Bari,23.9628511,90.3168561,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Tajmahal Road,tajmahal road,,,0.6957,unmatched,PLC0226,Mazar Road,0.6957,12110053608,Bonomala Road Bus Stop,23.9104811,90.3973328,0.6154,manual_review,no,SRC_BUS_GITHUB
+Taltola,taltola,,,0.6667,unmatched,PLC0144,Jigatola,0.6667,3739984012,Taltola,23.7832966,90.3785274,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Tarabo,tarabo,,,0.6667,unmatched,PLC0044,Basabo,0.6667,12293505365,"Zirabo Bus stop, Bus stop",23.9131721,90.3187806,0.6667,manual_review,no,SRC_BUS_GITHUB
+Tolarbag,tolarbag,,,0.625,unmatched,PLC0010,Arambagh,0.6250,13257966516,"Tolarbag Bus Stop, Bus stop",23.7871935,90.353776,1.0000,review_exact_osm_name,no,SRC_BUS_GITHUB
+Vashantek,vashantek,,,0.6667,unmatched,PLC0052,Bhabantek,0.6667,4527767781,Asad Gate Stopage,23.7605337,90.3726271,0.5556,manual_review,no,SRC_BUS_GITHUB
+Vulta,vulta,,,0.7273,unmatched,PLC0054,Bhulta,0.7273,11818535608,Gulistan Bus Stop,23.7245952,90.4119248,0.6154,manual_review,no,SRC_BUS_GITHUB
+Wireless,wireless,,,0.4444,unmatched,PLC0298,Press Club,0.4444,12006314403,Wireless Mor Bus stop,23.7807869,90.4054338,0.8000,manual_review,no,SRC_BUS_GITHUB
+Zia Uddyan,zia uddyan,,,0.5714,unmatched,PLC0141,Jasim Uddin,0.5714,12498015908,"Dhaka Uddan Bus stop, Bus stop",23.7643684,90.3478272,0.6667,manual_review,no,SRC_BUS_GITHUB
+kakali,kakali,,,0.8333,unmatched,PLC0154,Kakoli,0.8333,12078090908,Kakoli Bus station,23.7952338,90.4009018,0.8333,manual_review,no,SRC_BUS_GITHUB

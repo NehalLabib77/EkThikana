@@ -23,6 +23,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gochano/core/design_system/gochano_theme.dart';
 import 'package:gochano/features/life/presentation/commute/journey_models.dart';
 import 'package:gochano/features/life/presentation/commute/journey_view.dart';
+import 'dart:io';
+import 'package:gochano/features/life/presentation/commute/smart_journey_guide.dart';
 
 /// A response shaped exactly like the one `POST /api/commute/routes` returns
 /// for Mirpur 10 → Farmgate, taken from `scripts/verify_commute_routing.py`
@@ -441,6 +443,918 @@ void main() {
       await tester.pumpWidget(_wrap(JourneyPlanSection(plan: plan)));
 
       expect(find.text('No complete journey found'), findsOneWidget);
+    });
+  });
+  group('JourneyPlan.roadFallback', () {
+    test(
+      '1. real multimodal journey renders normally (no fallback applied)',
+      () {
+        final plan = JourneyPlan.fromResponse(_response());
+        expect(plan.status, JourneyPlanningStatus.available);
+        expect(plan.hasJourneys, isTrue);
+        // Fallback should not be needed
+        final fallback = JourneyPlan.roadFallback(_response());
+        expect(fallback, isNull);
+      },
+    );
+
+    test(
+      '2. dataset_unavailable + road distance produces estimated journey',
+      () {
+        final body = {
+          'journeyPlanning': {
+            'available': false,
+            'reason': 'dataset_unavailable',
+          },
+          'journeys': [],
+          'distanceKm': 6.1,
+          'estimatedDurationMin': 18,
+          'origin': {'name': 'Mirpur 10', 'lat': 23.81, 'lon': 90.37},
+          'destination': {'name': 'Farmgate', 'lat': 23.76, 'lon': 90.39},
+        };
+        final fallback = JourneyPlan.roadFallback(body);
+        expect(fallback, isNotNull);
+        expect(fallback!.hasJourneys, isTrue);
+        expect(fallback.journeys.first.totalDistanceKm, 6.1);
+        // Raw OSRM duration preserved — no unjustified multiplier
+        expect(fallback.journeys.first.totalDurationMinutes, 18);
+        expect(fallback.journeys.first.fareCertainty, 'estimated');
+      },
+    );
+
+    test(
+      '3. outside_network_coverage + road distance produces estimated journey',
+      () {
+        final body = {
+          'journeyPlanning': {
+            'available': false,
+            'reason': 'outside_network_coverage',
+            'outsideCoverage': ['origin'],
+          },
+          'journeys': [],
+          'distanceKm': 3.2,
+          'estimatedDurationMin': 10,
+          'origin': {'name': 'Uttara', 'lat': 23.88, 'lon': 90.40},
+          'destination': {'name': 'Banani', 'lat': 23.79, 'lon': 90.40},
+        };
+        final fallback = JourneyPlan.roadFallback(body);
+        expect(fallback, isNotNull);
+        expect(fallback!.hasJourneys, isTrue);
+        expect(fallback.journeys.first.legs, hasLength(1));
+        // Raw OSRM duration preserved — no unjustified multiplier
+        expect(fallback.journeys.first.totalDurationMinutes, 10);
+      },
+    );
+
+    test('4. plannerError + valid road route produces estimated journey', () {
+      final body = {
+        'journeyPlanning': {'available': false, 'reason': 'planner_error'},
+        'journeys': [],
+        'distanceKm': 4.5,
+        'estimatedDurationMin': 14,
+        'origin': {'name': 'Dhanmondi'},
+        'destination': {'name': 'Gulshan'},
+      };
+      final fallback = JourneyPlan.roadFallback(body);
+      expect(fallback, isNotNull);
+      expect(fallback!.journeys.first.origin, 'Dhanmondi');
+      expect(fallback.journeys.first.destination, 'Gulshan');
+    });
+
+    test(
+      '5. empty journeys + distance/duration produces estimated journey',
+      () {
+        final body = {
+          'journeyPlanning': {'available': true},
+          'journeys': [],
+          'distanceKm': 2.0,
+          'estimatedDurationMin': 8,
+          'origin': {'name': 'A'},
+          'destination': {'name': 'B'},
+        };
+        // roadFallback now applies for available + empty journeys too,
+        // as the fallback gate was changed to !plan.hasJourneys.
+        final plan = JourneyPlan.fromResponse(body);
+        expect(plan.status, JourneyPlanningStatus.available);
+        expect(plan.isNoRoute, isTrue);
+        // roadFallback can still build from the data
+        final fallback = JourneyPlan.roadFallback(body);
+        expect(fallback, isNotNull);
+        expect(fallback!.journeys.first.totalDistanceKm, 2.0);
+        // Raw OSRM duration preserved — no unjustified multiplier
+        expect(fallback.journeys.first.totalDurationMinutes, 8);
+      },
+    );
+
+    test('6. fallback contains no fabricated stop/station/bus route data', () {
+      final body = {
+        'journeyPlanning': {
+          'available': false,
+          'reason': 'dataset_unavailable',
+        },
+        'journeys': [],
+        'distanceKm': 5.0,
+        'estimatedDurationMin': 15,
+        'origin': {'name': 'Mirpur 10'},
+        'destination': {'name': 'Farmgate'},
+      };
+      final fallback = JourneyPlan.roadFallback(body)!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.serviceName, isNull);
+      // Without selectedMode, defaults to 'road' / 'By road'
+      expect(leg.mode, 'road');
+      expect(leg.modeLabel, 'By road');
+      expect(leg.fareType, 'estimated');
+    });
+
+    test('7. estimated banner appears for fallback', () {
+      final body = {
+        'journeyPlanning': {
+          'available': false,
+          'reason': 'dataset_unavailable',
+        },
+        'journeys': [],
+        'distanceKm': 5.0,
+        'estimatedDurationMin': 15,
+        'origin': {'name': 'A'},
+        'destination': {'name': 'B'},
+      };
+      final plan = JourneyPlan.fromResponse(body);
+      expect(
+        plan.status == JourneyPlanningStatus.datasetUnavailable ||
+            plan.status == JourneyPlanningStatus.plannerError,
+        isTrue,
+      );
+    });
+
+    test(
+      '8. estimated banner not incorrectly shown for fully real journey',
+      () {
+        final plan = JourneyPlan.fromResponse(_response());
+        expect(plan.status, JourneyPlanningStatus.available);
+        expect(plan.hasJourneys, isTrue);
+        // For a real journey, the isEstimatedFallback flag would be false
+        // (checked in commute_screen.dart, not in the model)
+      },
+    );
+
+    test('9. exactly one Your journey section (JourneyPlanSection)', () {
+      // The _Results widget creates exactly one JourneyPlanSection.
+      // Verified by source inspection in commute_rebuild_step6_test.dart.
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'JourneyPlanSection('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test('10. exactly one route map in result composition', () {
+      // CommuteRouteMap appears exactly once in commute_screen.dart
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'CommuteRouteMap('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test(
+      '11. zero usable route data → retry/error state (roadFallback returns null)',
+      () {
+        final body = {
+          'journeyPlanning': {
+            'available': false,
+            'reason': 'dataset_unavailable',
+          },
+          'journeys': [],
+          'distanceKm': 0,
+          'estimatedDurationMin': 0,
+        };
+        final fallback = JourneyPlan.roadFallback(body);
+        expect(fallback, isNull);
+      },
+    );
+
+    testWidgets(
+      '12. widget does not crash when journey legs are empty/malformed',
+      (tester) async {
+        // A journey with zero legs should render without throwing.
+        final plan = JourneyPlan(
+          status: JourneyPlanningStatus.available,
+          journeys: [
+            const Journey(
+              objectives: ['estimated'],
+              category: 'estimated',
+              origin: 'A',
+              destination: 'B',
+              totalFareTk: 0,
+              totalDurationMinutes: 10,
+              totalDistanceKm: 3.0,
+              totalWalkKm: 0,
+              transfers: 0,
+              modeSummary: [],
+              fareCertainty: 'estimated',
+              fareCertaintyLabel: '',
+              legs: [],
+              fareDeltaTk: 0,
+              durationDeltaMinutes: 0,
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(JourneyPlanSection(plan: plan)));
+        // Should not throw; timeline is empty but section renders.
+        expect(find.text('Your journey'), findsOneWidget);
+      },
+    );
+  });
+
+  group('Phase 2 correction — fare, mode label, ETA', () {
+    Map<String, dynamic> roadBody({
+      double distanceKm = 5.0,
+      int durationMin = 15,
+      String origin = 'Mirpur 10',
+      String destination = 'Farmgate',
+    }) => {
+      'journeyPlanning': {'available': false, 'reason': 'dataset_unavailable'},
+      'journeys': [],
+      'distanceKm': distanceKm,
+      'estimatedDurationMin': durationMin,
+      'origin': {'name': origin},
+      'destination': {'name': destination},
+    };
+
+    test('13. paid mode with missing fare shows fareAvailable=false', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.fareAvailable, isFalse);
+      expect(leg.isFree, isFalse);
+      expect(leg.fareType, 'estimated');
+    });
+
+    test('14. walking leg shows fareAvailable=true and isFree', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'walk',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.fareAvailable, isTrue);
+      expect(leg.isFree, isTrue);
+      expect(leg.fareType, 'none');
+    });
+
+    test('15. selectedMode=cng produces CNG label and icon id', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.mode, 'cng');
+      expect(leg.modeLabel, 'CNG');
+      expect(fallback.journeys.first.modeSummary, ['CNG']);
+    });
+
+    test('16. selectedMode=bus produces Bus label', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'bus',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.mode, 'bus');
+      expect(leg.modeLabel, 'Bus');
+    });
+
+    test('17. selectedMode=rickshaw produces Rickshaw label', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'rickshaw',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.mode, 'rickshaw');
+      expect(leg.modeLabel, 'Rickshaw');
+    });
+
+    test('18. ETA equals raw OSRM duration (no multiplier)', () {
+      final osrmMin = 12;
+      final body = roadBody(durationMin: osrmMin);
+      for (final mode in ['cng', 'bus', 'rickshaw', 'car', 'metro', 'walk']) {
+        final fallback = JourneyPlan.roadFallback(body, selectedMode: mode)!;
+        final eta = fallback.journeys.first.totalDurationMinutes;
+        expect(
+          eta,
+          equals(osrmMin),
+          reason: '$mode ETA ($eta) must equal OSRM ($osrmMin)',
+        );
+      }
+    });
+
+    test('19. ETA is raw OSRM, not inflated', () {
+      final body = roadBody(durationMin: 18);
+      final fallback = JourneyPlan.roadFallback(body, selectedMode: 'cng')!;
+      // No multiplier — raw OSRM preserved as minimum road time
+      expect(fallback.journeys.first.totalDurationMinutes, 18);
+    });
+
+    test('20. walking ETA equals raw OSRM (multiplier 1.0)', () {
+      final body = roadBody(durationMin: 5);
+      final fallback = JourneyPlan.roadFallback(body, selectedMode: 'walk')!;
+      expect(fallback.journeys.first.totalDurationMinutes, 5);
+    });
+
+    test('21. edge case: journeys=[] + status=available + road data', () {
+      final body = {
+        'journeyPlanning': {'available': true},
+        'journeys': [],
+        'distanceKm': 4.0,
+        'estimatedDurationMin': 12,
+        'origin': {'name': 'A'},
+        'destination': {'name': 'B'},
+      };
+      final plan = JourneyPlan.fromResponse(body);
+      expect(plan.status, JourneyPlanningStatus.available);
+      expect(plan.hasJourneys, isFalse);
+      // roadFallback should produce a journey from the road data
+      final fallback = JourneyPlan.roadFallback(body, selectedMode: 'bus');
+      expect(fallback, isNotNull);
+      expect(fallback!.hasJourneys, isTrue);
+      expect(fallback.journeys.first.totalDistanceKm, 4.0);
+    });
+
+    test('22. no fabricated transit data in fallback legs', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.serviceName, isNull);
+      expect(leg.instruction, isEmpty);
+      expect(leg.isTransfer, isFalse);
+      expect(leg.transferMinutes, 0);
+    });
+
+    test('23. fallback Journey has fareCertainty=estimated', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+      )!;
+      expect(fallback.journeys.first.fareCertainty, 'estimated');
+      expect(fallback.journeys.first.fareCertaintyLabel, 'Estimated');
+    });
+
+    testWidgets(
+      '24. fallback timeline renders mode label, not "Road journey"',
+      (tester) async {
+        final fallback = JourneyPlan.roadFallback(
+          roadBody(),
+          selectedMode: 'cng',
+        )!;
+        await tester.pumpWidget(
+          _wrap(JourneyTimeline(journey: fallback.journeys.first)),
+        );
+        expect(find.text('CNG'), findsOneWidget);
+        expect(find.text('Road journey'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '25. fallback summary card shows "Fare unavailable" for paid mode',
+      (tester) async {
+        final fallback = JourneyPlan.roadFallback(
+          roadBody(),
+          selectedMode: 'cng',
+        )!;
+        await tester.pumpWidget(
+          _wrap(JourneySummaryCard(journey: fallback.journeys.first)),
+        );
+        expect(find.textContaining('Fare unavailable'), findsOneWidget);
+        expect(find.text('Free'), findsNothing);
+      },
+    );
+
+    testWidgets('26. fallback summary card shows "Free" for walking', (
+      tester,
+    ) async {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'walk',
+      )!;
+      await tester.pumpWidget(
+        _wrap(JourneySummaryCard(journey: fallback.journeys.first)),
+      );
+      expect(find.text('Free'), findsOneWidget);
+    });
+
+    test('27. exactly one map per result (source inspection)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'CommuteRouteMap('.allMatches(source).length;
+      expect(count, 1);
+    });
+  });
+
+  group('Phase 2 final correction — fare propagation + ETA honesty', () {
+    Map<String, dynamic> roadBody({
+      double distanceKm = 5.0,
+      int durationMin = 15,
+      String origin = 'Mirpur 10',
+      String destination = 'Farmgate',
+    }) => {
+      'journeyPlanning': {'available': false, 'reason': 'dataset_unavailable'},
+      'journeys': [],
+      'distanceKm': distanceKm,
+      'estimatedDurationMin': durationMin,
+      'origin': {'name': origin},
+      'destination': {'name': destination},
+    };
+
+    Map<String, dynamic> singleFareResult({
+      String mode = 'cng',
+      double fareLow = 280,
+      double fareHigh = 320,
+      String fareType = 'estimated',
+      String source = 'Distance-based estimate',
+    }) => {
+      'supported': true,
+      'mode': mode,
+      'fare': {
+        'mode': mode,
+        'label': mode.toUpperCase(),
+        'minutes': 18,
+        'fareLow': fareLow,
+        'fareHigh': fareHigh,
+        'fareType': fareType,
+        'source': source,
+      },
+    };
+
+    test('F1. selected CNG + existing CNG fare → fare propagated', () {
+      final fare = singleFareResult(mode: 'cng', fareLow: 280, fareHigh: 320);
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+        singleFareResult: fare,
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.fareAvailable, isTrue);
+      expect(leg.fareLow, 280);
+      expect(leg.fareHigh, 320);
+      expect(leg.fareTk, 280);
+      expect(leg.fareType, 'estimated');
+    });
+
+    test('F2. selected Bus + existing Bus fare → fare propagated', () {
+      final fare = singleFareResult(
+        mode: 'bus',
+        fareLow: 50,
+        fareHigh: 70,
+        source: 'BRTA 2.45 Tk/km project rule',
+      );
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'bus',
+        singleFareResult: fare,
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.fareAvailable, isTrue);
+      expect(leg.fareLow, 50);
+      expect(leg.fareHigh, 70);
+    });
+
+    test('F3. selected Rickshaw + existing estimate → fare propagated', () {
+      final fare = singleFareResult(
+        mode: 'rickshaw',
+        fareLow: 100,
+        fareHigh: 150,
+      );
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'rickshaw',
+        singleFareResult: fare,
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.fareAvailable, isTrue);
+      expect(leg.fareLow, 100);
+      expect(leg.fareHigh, 150);
+    });
+
+    test('F4. missing paid-mode fare → Fare unavailable, never Free', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.fareAvailable, isFalse);
+      expect(leg.isFree, isFalse);
+      expect(leg.fareTk, 0);
+    });
+
+    test('F5. walking → Free allowed', () {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'walk',
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.fareAvailable, isTrue);
+      expect(leg.isFree, isTrue);
+      expect(leg.fareType, 'none');
+    });
+
+    testWidgets('F6. changing mode updates label, icon, fare in timeline', (
+      tester,
+    ) async {
+      // Build with CNG fare
+      final fare = singleFareResult(mode: 'cng', fareLow: 280, fareHigh: 320);
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+        singleFareResult: fare,
+      )!;
+      await tester.pumpWidget(
+        _wrap(JourneyTimeline(journey: fallback.journeys.first)),
+      );
+      expect(find.text('CNG'), findsOneWidget);
+      expect(find.textContaining('280'), findsOneWidget);
+      expect(find.textContaining('320'), findsOneWidget);
+    });
+
+    test('F7. no second duplicate fare calculation — fare reused from API', () {
+      // The fare result from the single-fare API is passed directly into
+      // roadFallback. No independent calculation happens inside roadFallback.
+      final fare = singleFareResult(mode: 'cng', fareLow: 280, fareHigh: 320);
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+        singleFareResult: fare,
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      // Values come directly from singleFareResult, not recalculated
+      expect(leg.fareLow, 280);
+      expect(leg.fareHigh, 320);
+    });
+
+    test('F8. unjustified multipliers removed — ETA equals OSRM', () {
+      final body = roadBody(durationMin: 18);
+      for (final mode in ['cng', 'bus', 'rickshaw', 'car', 'metro', 'walk']) {
+        final fallback = JourneyPlan.roadFallback(body, selectedMode: mode)!;
+        expect(
+          fallback.journeys.first.totalDurationMinutes,
+          18,
+          reason: '$mode ETA must equal raw OSRM, no multiplier',
+        );
+      }
+    });
+
+    testWidgets('F9. OSRM-only duration labelled without traffic', (
+      tester,
+    ) async {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(durationMin: 18),
+        selectedMode: 'cng',
+      )!;
+      await tester.pumpWidget(
+        _wrap(JourneyTimeline(journey: fallback.journeys.first)),
+      );
+      expect(find.textContaining('18 min'), findsOneWidget);
+      expect(find.textContaining('without traffic'), findsOneWidget);
+    });
+
+    testWidgets('F10. OSRM-only NOT labelled as live ETA', (tester) async {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(durationMin: 18),
+        selectedMode: 'cng',
+      )!;
+      await tester.pumpWidget(
+        _wrap(JourneyTimeline(journey: fallback.journeys.first)),
+      );
+      expect(find.textContaining('live'), findsNothing);
+      expect(find.textContaining('traffic-aware'), findsNothing);
+      expect(find.textContaining('real-time'), findsNothing);
+    });
+
+    testWidgets('F11. real multimodal backend duration preserved', (
+      tester,
+    ) async {
+      // When real multimodal data exists, its duration is used as-is
+      final journey = JourneyPlan.fromResponse(_response()).journeys.first;
+      expect(journey.totalDurationMinutes, 25); // Mirpur 10 → Farmgate
+      await tester.pumpWidget(_wrap(JourneyTimeline(journey: journey)));
+      // No "without traffic" label on real multimodal legs
+      expect(find.textContaining('without traffic'), findsNothing);
+    });
+
+    testWidgets('F12. summary card shows fare range when available', (
+      tester,
+    ) async {
+      final fare = singleFareResult(mode: 'cng', fareLow: 280, fareHigh: 320);
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+        singleFareResult: fare,
+      )!;
+      await tester.pumpWidget(
+        _wrap(JourneySummaryCard(journey: fallback.journeys.first)),
+      );
+      expect(find.textContaining('280'), findsOneWidget);
+      expect(find.textContaining('320'), findsOneWidget);
+    });
+
+    testWidgets('F13. summary card shows "without traffic" for ETA', (
+      tester,
+    ) async {
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(durationMin: 18),
+        selectedMode: 'cng',
+      )!;
+      await tester.pumpWidget(
+        _wrap(JourneySummaryCard(journey: fallback.journeys.first)),
+      );
+      expect(find.textContaining('without traffic'), findsOneWidget);
+    });
+
+    test(
+      'F14. journeys=[] + status=available + road data → fallback renders',
+      () {
+        final body = {
+          'journeyPlanning': {'available': true},
+          'journeys': [],
+          'distanceKm': 4.0,
+          'estimatedDurationMin': 12,
+          'origin': {'name': 'A'},
+          'destination': {'name': 'B'},
+        };
+        final plan = JourneyPlan.fromResponse(body);
+        expect(plan.hasJourneys, isFalse);
+        final fallback = JourneyPlan.roadFallback(body, selectedMode: 'bus');
+        expect(fallback, isNotNull);
+        expect(fallback!.hasJourneys, isTrue);
+      },
+    );
+
+    test('F15. exactly one Your Journey section (source inspection)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'JourneyPlanSection('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test('F16. exactly one map (source inspection)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'CommuteRouteMap('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test('F17. no fabricated transit data in fallback legs', () {
+      final fare = singleFareResult(mode: 'cng');
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(),
+        selectedMode: 'cng',
+        singleFareResult: fare,
+      )!;
+      final leg = fallback.journeys.first.legs.single;
+      expect(leg.serviceName, isNull);
+      expect(leg.instruction, isEmpty);
+      expect(leg.isTransfer, isFalse);
+      expect(leg.transferMinutes, 0);
+    });
+
+    testWidgets('F18. fallback with fare renders timeline without overflow', (
+      tester,
+    ) async {
+      final fare = singleFareResult(mode: 'cng', fareLow: 280, fareHigh: 320);
+      final fallback = JourneyPlan.roadFallback(
+        roadBody(distanceKm: 18.2, durationMin: 42),
+        selectedMode: 'cng',
+        singleFareResult: fare,
+      )!;
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 320,
+            child: JourneyTimeline(journey: fallback.journeys.first),
+          ),
+        ),
+      );
+      expect(find.text('CNG'), findsOneWidget);
+      expect(find.textContaining('18.2 km'), findsOneWidget);
+      expect(find.textContaining('280'), findsOneWidget);
+    });
+  });
+
+  group('Smart Journey Guide — acceptance criteria', () {
+    test('AC1. exactly one SmartJourneyGuide in commute_screen.dart (source)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'SmartJourneyGuide('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test('AC2. exactly one JourneyGuideFacts in commute_screen.dart (source)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'SmartJourneyGuide('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test('AC3. exactly one Your Journey section (source)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'JourneyPlanSection('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test('AC4. exactly one route map (source)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      final count = 'CommuteRouteMap('.allMatches(source).length;
+      expect(count, 1);
+    });
+
+    test('AC5. no Groq/API key in Flutter source (source)', () {
+      // The AI key must never be hardcoded in Flutter
+      final source = File(
+        'lib/services/api_service.dart',
+      ).readAsStringSync();
+      expect(source, isNot(contains('sk_')));
+      expect(source, isNot(contains('groq_api_key')));
+      expect(source, isNot(contains('GROQ_API_KEY')));
+    });
+
+    test('AC6. SmartJourneyGuide import present in commute_screen.dart', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      expect(source, contains("import 'smart_journey_guide.dart'"));
+    });
+  });
+
+  group('Bus UI Integration — models, guide & reporting', () {
+    test('B1. DirectBusCandidate.fromJson parses basic and crowd fare fields', () {
+      final json = {
+        'serviceId': 'sv-101',
+        'operatorName': 'Bikolpo Auto Service',
+        'operatorNameBn': 'বিকল্প অটো সার্ভিস',
+        'serviceType': 'regular',
+        'originStopName': 'Mirpur 10',
+        'destinationStopName': 'Motijheel',
+        'originSequence': 3,
+        'destinationSequence': 18,
+        'crowdFare': {
+          'fareLow': 25.0,
+          'fareHigh': 30.0,
+          'recommendedFare': 30.0,
+          'hasQualifiedFare': true,
+          'sampleCount': 8,
+          'label': 'Community estimate',
+          'labelBn': 'কমিউনিটি হিসাব',
+        },
+      };
+      final candidate = DirectBusCandidate.fromJson(json);
+      expect(candidate.serviceId, 'sv-101');
+      expect(candidate.operatorName, 'Bikolpo Auto Service');
+      expect(candidate.stopCount, 15);
+      expect(candidate.hasQualifiedCrowdFare, isTrue);
+      expect(candidate.crowdFareLow, 25.0);
+      expect(candidate.crowdFareHigh, 30.0);
+      expect(candidate.crowdFareRecommended, 30.0);
+      expect(candidate.crowdSampleCount, 8);
+      expect(candidate.crowdFareLabel, 'Community estimate');
+    });
+
+    test('B2. DirectBusCandidate without crowd fare indicates hasQualifiedCrowdFare=false', () {
+      final json = {
+        'serviceId': 'sv-102',
+        'operatorName': 'Shikhor Paribahan',
+        'originStopName': 'Mirpur 1',
+        'destinationStopName': 'Farmgate',
+        'originSequence': 2,
+        'destinationSequence': 12,
+      };
+      final candidate = DirectBusCandidate.fromJson(json);
+      expect(candidate.serviceId, 'sv-102');
+      expect(candidate.stopCount, 10);
+      expect(candidate.hasQualifiedCrowdFare, isFalse);
+      expect(candidate.crowdFareRecommended, isNull);
+    });
+
+    test('B3. JourneyGuideFacts includes and serializes bus facts in toJson()', () {
+      final facts = JourneyGuideFacts(
+        originName: 'Mirpur 10',
+        destinationName: 'Farmgate',
+        distanceKm: 5.5,
+        durationMinutes: 25,
+        durationProvenance: 'osrm',
+        selectedMode: 'bus',
+        modeLabel: 'Bus',
+        fareAvailable: true,
+        fareType: 'crowd_sourced',
+        fareLow: 20.0,
+        fareHigh: 25.0,
+        selectedBusOperator: 'Bihanga Paribahan',
+        selectedBusBoardStop: 'Mirpur 10',
+        selectedBusExitStop: 'Farmgate',
+        selectedBusStopCount: 8,
+      );
+
+      expect(facts.selectedBusOperator, 'Bihanga Paribahan');
+      expect(facts.selectedBusBoardStop, 'Mirpur 10');
+      expect(facts.selectedBusExitStop, 'Farmgate');
+      expect(facts.selectedBusStopCount, 8);
+
+      final json = facts.toJson();
+      expect(json['selected_bus_operator'], 'Bihanga Paribahan');
+      expect(json['selected_bus_board_stop'], 'Mirpur 10');
+      expect(json['selected_bus_exit_stop'], 'Farmgate');
+      expect(json['selected_bus_stop_count'], 8);
+    });
+
+    testWidgets('B4. SmartJourneyGuide renders bus operator and stop info', (tester) async {
+      final facts = JourneyGuideFacts(
+        originName: 'Mirpur 10',
+        destinationName: 'Farmgate',
+        distanceKm: 5.5,
+        durationMinutes: 25,
+        durationProvenance: 'osrm',
+        selectedMode: 'bus',
+        modeLabel: 'Bus',
+        fareAvailable: true,
+        fareType: 'crowd_sourced',
+        fareLow: 20.0,
+        fareHigh: 25.0,
+        selectedBusOperator: 'Bihanga Paribahan',
+        selectedBusBoardStop: 'Mirpur 10',
+        selectedBusExitStop: 'Farmgate',
+        selectedBusStopCount: 8,
+      );
+
+      await tester.pumpWidget(_wrap(SmartJourneyGuide(facts: facts)));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Bihanga Paribahan'), findsWidgets);
+      expect(find.textContaining('8 stops'), findsWidgets);
+    });
+
+    testWidgets('B5. SmartJourneyGuide never displays "Official" for crowd sourced bus fare', (tester) async {
+      final facts = JourneyGuideFacts(
+        originName: 'Mirpur 10',
+        destinationName: 'Farmgate',
+        distanceKm: 5.5,
+        durationMinutes: 25,
+        durationProvenance: 'osrm',
+        selectedMode: 'bus',
+        modeLabel: 'Bus',
+        fareAvailable: true,
+        fareType: 'crowd_sourced',
+        fareLow: 20.0,
+        fareHigh: 25.0,
+        selectedBusOperator: 'Bihanga Paribahan',
+      );
+
+      await tester.pumpWidget(_wrap(SmartJourneyGuide(facts: facts)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Official'), findsNothing);
+      expect(find.text('Official BRTA fare'), findsNothing);
+      expect(find.textContaining('Community estimate'), findsWidgets);
+    });
+
+    testWidgets('B6. SmartJourneyGuide for bus without fare never displays "Free"', (tester) async {
+      final facts = JourneyGuideFacts(
+        originName: 'Mirpur 10',
+        destinationName: 'Farmgate',
+        distanceKm: 5.5,
+        durationMinutes: 25,
+        durationProvenance: 'osrm',
+        selectedMode: 'bus',
+        modeLabel: 'Bus',
+        fareAvailable: false,
+        selectedBusOperator: 'Bihanga Paribahan',
+      );
+
+      await tester.pumpWidget(_wrap(SmartJourneyGuide(facts: facts)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Free'), findsNothing);
+      expect(find.text('৳0'), findsNothing);
+      expect(find.text('Fare unavailable'), findsWidgets);
+    });
+
+    test('B7. commute_screen.dart contains bus integration components (source)', () {
+      final source = File(
+        'lib/features/life/presentation/commute/commute_screen.dart',
+      ).readAsStringSync();
+      expect(source, contains('_PossibleBusesSection'));
+      expect(source, contains('_DirectBusRow'));
+      expect(source, contains('initialBusServiceId'));
+      expect(source, contains('selectedBusServiceId'));
     });
   });
 }

@@ -996,6 +996,255 @@ class CommutePostgresRepository:
         return self._legacy_fallback.rickshaw_distance_fallback(distance_km)
 
     # ------------------------------------------------------------------
+    # Bus services (seed data)
+    # ------------------------------------------------------------------
+    def search_bus_services(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Search bus services by operator name, service type, or stop name.
+
+        Returns matching services with their stop count and current status.
+        """
+        q = (query or "").strip()
+        if len(q) < 2:
+            return []
+
+        with self._session() as session:
+            # Search by operator name.
+            stmt = (
+                select(BusService)
+                .where(
+                    or_(
+                        BusService.operator_name_en.ilike(f"%{q}%"),
+                        BusService.operator_name_bn.ilike(f"%{q}%"),
+                        BusService.service_type.ilike(f"%{q}%"),
+                    )
+                )
+                .limit(limit)
+            )
+            services = list(session.execute(stmt).scalars())
+
+            # Also search by stop name if we have fewer results.
+            if len(services) < limit:
+                stop_stmt = (
+                    select(BusServiceStop.service_id)
+                    .where(
+                        or_(
+                            BusServiceStop.stop_name_raw.ilike(f"%{q}%"),
+                            BusServiceStop.canonical_name_en.ilike(f"%{q}%"),
+                        )
+                    )
+                    .distinct()
+                    .limit(limit)
+                )
+                stop_service_ids = {row[0] for row in session.execute(stop_stmt).all()}
+                if stop_service_ids:
+                    existing_ids = {s.service_id for s in services}
+                    missing = stop_service_ids - existing_ids
+                    if missing:
+                        extra_stmt = select(BusService).where(
+                            BusService.service_id.in_(missing)
+                        ).limit(limit - len(services))
+                        services.extend(list(session.execute(extra_stmt).scalars()))
+
+            results = []
+            for svc in services[:limit]:
+                results.append({
+                    "serviceId": svc.service_id,
+                    "operatorName": svc.operator_name_en,
+                    "operatorNameBn": svc.operator_name_bn,
+                    "serviceType": svc.service_type,
+                    "startStop": svc.start_stop_raw,
+                    "endStop": svc.end_stop_raw,
+                    "stopCount": svc.stop_count,
+                    "currentStatus": svc.current_status,
+                    "source": svc.source_id,
+                })
+            return results
+
+    def direct_bus_match(
+        self,
+        origin_place_id: str,
+        destination_place_id: str,
+        *,
+        limit: int = 6,
+    ) -> list[dict[str, Any]]:
+        """Find bus services that travel directly from origin to destination.
+
+        A direct match means the bus service has stops at both places with
+        the origin appearing before the destination in the stop sequence.
+        """
+        with self._session() as session:
+            origin_rows = list(
+                session.execute(
+                    select(BusServiceStop).where(
+                        BusServiceStop.canonical_place_id == origin_place_id
+                    )
+                ).scalars()
+            )
+            destination_rows = list(
+                session.execute(
+                    select(BusServiceStop).where(
+                        BusServiceStop.canonical_place_id == destination_place_id
+                    )
+                ).scalars()
+            )
+
+            origin_seq: dict[str, int] = {
+                str(r.service_id): int(r.stop_sequence or 0)
+                for r in origin_rows
+                if r.service_id
+            }
+            destination_seq: dict[str, int] = {
+                str(r.service_id): int(r.stop_sequence or 0)
+                for r in destination_rows
+                if r.service_id
+            }
+            origin_stops_by_svc: dict[str, list[BusServiceStop]] = {}
+            for r in origin_rows:
+                if r.service_id:
+                    origin_stops_by_svc.setdefault(str(r.service_id), []).append(r)
+
+            direct_ids = [
+                sid
+                for sid in origin_seq.keys() & destination_seq.keys()
+                if origin_seq[sid] < destination_seq[sid]
+            ]
+            dest_stops_by_svc: dict[str, list[BusServiceStop]] = {}
+            for r in destination_rows:
+                if r.service_id:
+                    dest_stops_by_svc.setdefault(str(r.service_id), []).append(r)
+
+            direct_pairs: dict[str, tuple[int, int]] = {}
+            for sid in origin_stops_by_svc.keys() & dest_stops_by_svc.keys():
+                valid_pairs = [
+                    (int(o.stop_sequence), int(d.stop_sequence))
+                    for o in origin_stops_by_svc[sid]
+                    for d in dest_stops_by_svc[sid]
+                    if o.stop_sequence is not None
+                    and d.stop_sequence is not None
+                    and int(o.stop_sequence) < int(d.stop_sequence)
+                ]
+                if valid_pairs:
+                    # Pick pair with earliest origin, then shortest sequence gap
+                    valid_pairs.sort(key=lambda p: (p[0], p[1] - p[0]))
+                    direct_pairs[sid] = valid_pairs[0]
+
+            if not direct_pairs:
+                return []
+
+            direct_ids = list(direct_pairs.keys())
+
+            service_rows = list(
+                session.execute(
+                    select(BusService).where(BusService.service_id.in_(direct_ids))
+                ).scalars()
+            )
+            match_rows = list(
+                session.execute(
+                    select(ServiceRouteMatch).where(
+                        ServiceRouteMatch.service_id.in_(direct_ids)
+                    )
+                ).scalars()
+            )
+            matches = {row.service_id: row for row in match_rows if row.service_id}
+
+            # Get stop names for origin/destination on each service.
+            all_stop_ids = set(direct_ids)
+            all_stops_stmt = select(BusServiceStop).where(
+                BusServiceStop.service_id.in_(all_stop_ids)
+            ).where(
+                BusServiceStop.canonical_place_id.in_([origin_place_id, destination_place_id])
+            )
+            stop_names: dict[tuple[str, str], str] = {}
+            for ss in session.execute(all_stops_stmt).scalars():
+                sid = str(ss.service_id or "")
+                pid = str(ss.canonical_place_id or "")
+                if sid and pid:
+                    stop_names[(sid, pid)] = str(ss.canonical_name_en or ss.stop_name_raw or pid)
+
+            from app.services.commute.crowd import CrowdFareRepository
+            crowd_repo = CrowdFareRepository()
+            crowd_aggregates = crowd_repo.aggregate_bus_fares_by_service(
+                origin_place_id=origin_place_id,
+                destination_place_id=destination_place_id,
+            )
+            crowd_map = {a["busServiceId"]: a for a in crowd_aggregates}
+
+            candidates = []
+            for service in service_rows:
+                sid = str(service.service_id or "")
+                if not sid:
+                    continue
+                match = matches.get(sid)
+                candidates.append({
+                    "type": "direct",
+                    "serviceId": sid,
+                    "operatorName": service.operator_name_en,
+                    "operatorNameBn": service.operator_name_bn,
+                    "serviceType": service.service_type,
+                    "currentStatus": service.current_status,
+                    "originStopName": stop_names.get((sid, origin_place_id)),
+                    "destinationStopName": stop_names.get((sid, destination_place_id)),
+                    "originSequence": origin_seq.get(sid),
+                    "destinationSequence": destination_seq.get(sid),
+                    "originSequence": direct_pairs[sid][0] if sid in direct_pairs else None,
+                    "destinationSequence": direct_pairs[sid][1] if sid in direct_pairs else None,
+                    "bestBrtaRouteId": match.best_brta_route_id if match else None,
+                    "verified": bool(match and _truthy(match.verified)),
+                    "matchQuality": match.match_quality if match else None,
+                    "matchScore": _to_float(match.match_score) if match else None,
+                    "warning": match.warning if match else None,
+                    "source": service.source_id,
+                    "confidence": "High" if (match and _truthy(match.verified)) else "Low",
+                    "crowdFare": crowd_map.get(sid),
+                })
+
+            candidates.sort(key=lambda c: (c["originSequence"] or 999, c["destinationSequence"] or 999))
+            return candidates[:limit]
+
+    def get_bus_service(self, service_id: str) -> dict[str, Any] | None:
+        """Get a single bus service by ID with its ordered stops."""
+        with self._session() as session:
+            svc = session.get(BusService, service_id)
+            if not svc:
+                return None
+
+            stops_stmt = (
+                select(BusServiceStop)
+                .where(BusServiceStop.service_id == service_id)
+                .order_by(BusServiceStop.stop_sequence)
+            )
+            stops = [
+                {
+                    "sequence": s.stop_sequence,
+                    "stopNameRaw": s.stop_name_raw,
+                    "normalizedStopName": s.normalized_stop_name,
+                    "canonicalPlaceId": s.canonical_place_id,
+                    "canonicalNameEn": s.canonical_name_en,
+                }
+                for s in session.execute(stops_stmt).scalars()
+            ]
+
+            return {
+                "serviceId": svc.service_id,
+                "operatorName": svc.operator_name_en,
+                "operatorNameBn": svc.operator_name_bn,
+                "variantNo": svc.variant_no_for_operator,
+                "startStop": svc.start_stop_raw,
+                "endStop": svc.end_stop_raw,
+                "stopCount": svc.stop_count,
+                "serviceType": svc.service_type,
+                "timeText": svc.time_text,
+                "imageUrl": svc.image_url,
+                "currentStatus": svc.current_status,
+                "source": svc.source_id,
+                "stops": stops,
+            }
+
+    # ------------------------------------------------------------------
     # Multimodal routing graph
     # ------------------------------------------------------------------
     def load_graph_data(self):

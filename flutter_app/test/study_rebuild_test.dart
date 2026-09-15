@@ -62,7 +62,7 @@ void main() {
   });
 
   test('History visibility is based on completed records across all dates', () {
-    expect(plan, contains('class _HistoryEntry'));
+    expect(plan, contains('openPlanHistory'));
     expect(plan, contains("data()['done'] == true"));
     expect(plan, contains('_PlanHistoryScreen'));
     expect(plan, contains('Mark not done'));
