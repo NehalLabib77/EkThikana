@@ -14,6 +14,14 @@ if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
+val secretsProperties = Properties()
+val secretsPropertiesFile = rootProject.file("secrets.properties")
+if (secretsPropertiesFile.exists()) {
+    FileInputStream(secretsPropertiesFile).use { secretsProperties.load(it) }
+}
+
+val googleMapsApiKey = secretsProperties.getProperty("GOOGLE_MAPS_ANDROID_API_KEY", "")
+
 val releaseRequested = gradle.startParameter.taskNames.any {
     it.contains("release", ignoreCase = true)
 }
@@ -43,6 +51,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Google Maps Android SDK key — resolved from secrets.properties.
+        manifestPlaceholders["GOOGLE_MAPS_ANDROID_API_KEY"] = googleMapsApiKey
     }
 
     signingConfigs {
