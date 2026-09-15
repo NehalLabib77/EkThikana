@@ -119,6 +119,73 @@ class CommuteService:
         self._geocode_cache[key] = result
         return result
 
+    async def resolve_canonical_place(
+        self,
+        place_id: str | None = None,
+        name: str | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
+    ) -> dict[str, Any] | None:
+        """Resolve user input to a canonical CommuteBD place.
+
+        Ranking:
+        1. Direct DB lookup by place_id (if it's a valid canonical ID)
+        2. DB search by name (via search_places which uses stop_aliases)
+        3. Nearest canonical place by lat/lon within conservative radius (2km)
+        4. Unresolved — returns None
+
+        Never guesses an ID from loose string similarity.
+        """
+        if place_id:
+            existing = self.repo.get_place(place_id)
+            if existing:
+                return {
+                    "placeId": str(existing.get("place_id", place_id)),
+                    "name": str(existing.get("name_en") or existing.get("name_bn") or place_id),
+                    "lat": lat if lat is not None else (
+                        float(existing["latitude"]) if existing.get("latitude") else None
+                    ),
+                    "lon": lon if lon is not None else (
+                        float(existing["longitude"]) if existing.get("longitude") else None
+                    ),
+                    "source": "canonical_direct",
+                }
+
+        if name:
+            results = self.repo.search_places(name, limit=5)
+            if results:
+                first = results[0]
+                fid = str(first["placeId"])
+                fplace = self.repo.get_place(fid)
+                if fplace:
+                    flon = lon if lon is not None else (
+                        float(fplace["longitude"]) if fplace.get("longitude") else None
+                    )
+                    flat = lat if lat is not None else (
+                        float(fplace["latitude"]) if fplace.get("latitude") else None
+                    )
+                    return {
+                        "placeId": fid,
+                        "name": str(fplace.get("name_en") or first.get("nameEn") or name),
+                        "lat": flat,
+                        "lon": flon,
+                        "source": "canonical_search",
+                    }
+
+        if lat is not None and lon is not None:
+            nearest = self.repo.nearby_stops(lat, lon, radius_m=2000)
+            for stop in nearest:
+                if stop.get("type") == "bus_stop" and stop.get("id"):
+                    return {
+                        "placeId": str(stop["id"]),
+                        "name": str(stop.get("name", "")),
+                        "lat": float(stop.get("lat", lat)),
+                        "lon": float(stop.get("lon", lon)),
+                        "source": "canonical_nearest",
+                    }
+
+        return None
+
     async def _resolve_input(self, item: CommutePlaceInput) -> dict[str, Any]:
         place: dict[str, Any] | None = None
         if item.place_id:

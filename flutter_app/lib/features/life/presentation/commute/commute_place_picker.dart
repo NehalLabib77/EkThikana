@@ -218,10 +218,16 @@ class _PlacePickerState extends State<_PlacePicker> {
             // Nominatim display names are long; the first segment is the
             // place, the rest is the address.
             final parts = display.split(',');
+            // If the backend resolved a canonical place ID, use it so
+            // direct bus matching works for geocoded results.
+            final canonicalId = e['canonicalPlaceId']?.toString();
+            final canonicalName = e['canonicalName']?.toString();
             return CommutePlace(
-              name: parts.first.trim(),
+              name: canonicalName ?? parts.first.trim(),
+              placeId: canonicalId,
               lat: (e['lat'] as num?)?.toDouble(),
               lon: (e['lon'] as num?)?.toDouble(),
+              isDatasetPlace: canonicalId != null,
               detail: parts.length > 1
                   ? parts.skip(1).take(3).join(',').trim()
                   : null,

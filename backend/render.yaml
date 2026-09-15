@@ -63,6 +63,8 @@ services:
         value: https://nominatim.openstreetmap.org
       - key: ROUTING_USER_AGENT
         sync: false
+      - key: GOOGLE_MAPS_SERVER_API_KEY
+        sync: false
       - key: COMMUTE_ML_MIN_TOTAL_REPORTS
         value: "500"
       - key: COMMUTE_ML_MIN_MODE_REPORTS

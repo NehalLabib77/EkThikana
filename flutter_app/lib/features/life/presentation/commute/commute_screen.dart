@@ -183,11 +183,19 @@ class _CommuteScreenState extends State<CommuteScreen> {
         _searching = false;
         _result = body;
       });
+      // Try to resolve canonical place IDs for bus matching.
+      // If both already have canonical IDs, use them directly.
       if (origin.placeId != null &&
           origin.placeId!.isNotEmpty &&
           destination.placeId != null &&
           destination.placeId!.isNotEmpty) {
         _fetchDirectBuses(origin.placeId!, destination.placeId!);
+      } else if (origin.lat != null &&
+          origin.lon != null &&
+          destination.lat != null &&
+          destination.lon != null) {
+        // Attempt server-side canonical resolution for geocoded places.
+        _resolveAndFetchBuses(origin, destination);
       }
     } catch (error) {
       if (!mounted) return;
@@ -218,6 +226,40 @@ class _CommuteScreenState extends State<CommuteScreen> {
     }
   }
 
+  /// For geocoded places (no canonical ID), attempt server-side resolution
+  /// before fetching direct buses. This bridges Google/Nominatim results
+  /// to the Gochano canonical place system.
+  Future<void> _resolveAndFetchBuses(
+    CommutePlace origin,
+    CommutePlace destination,
+  ) async {
+    try {
+      final body = await ApiService.commuteRoutes(
+        originPlaceId: origin.placeId,
+        originName: origin.name,
+        originLat: origin.lat,
+        originLon: origin.lon,
+        destinationPlaceId: destination.placeId,
+        destinationName: destination.name,
+        destinationLat: destination.lat,
+        destinationLon: destination.lon,
+      );
+      // The /routes response includes resolved origin/destination with placeId.
+      final resolvedOrigin = body['origin'] as Map<String, dynamic>?;
+      final resolvedDest = body['destination'] as Map<String, dynamic>?;
+      final oId = resolvedOrigin?['placeId']?.toString();
+      final dId = resolvedDest?['placeId']?.toString();
+      if (oId != null &&
+          oId.isNotEmpty &&
+          dId != null &&
+          dId.isNotEmpty) {
+        _fetchDirectBuses(oId, dId);
+      }
+    } catch (_) {
+      // Canonical resolution failed — bus section stays hidden, which is fine.
+    }
+  }
+
   Future<void> _fetchDirectBuses(
     String originPlaceId,
     String destinationPlaceId,
@@ -243,14 +285,22 @@ class _CommuteScreenState extends State<CommuteScreen> {
         _fetchingDirectBuses = false;
         _directBuses = candidates;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      // Distinguish between "no canonical IDs" (normal) and real errors.
+      final msg = e.toString();
+      final bool isNetworkError = msg.contains('SocketException') ||
+          msg.contains('TimeoutException') ||
+          msg.contains('Connection') ||
+          msg.contains('503');
       setState(() {
         _fetchingDirectBuses = false;
-        _directBusesError = GochanoLanguage.text(
-          'Could not load direct buses for this stop pair.',
-          'এই স্টপ জুটির জন্য সরাসরি বাসের তথ্য লোড করা যায়নি।',
-        );
+        _directBusesError = isNetworkError
+            ? GochanoLanguage.text(
+                'Bus lookup temporarily unavailable.',
+                'বাস তথ্য সাময়িকভাবে অনুপলব্ধ।',
+              )
+            : '';
       });
     }
   }

@@ -857,6 +857,32 @@ class ApiService {
     ),
   );
 
+  /// Resolve a user-selected place to a canonical CommuteBD place ID.
+  ///
+  /// Accepts Google Places results, geocoded coordinates, or free-text names
+  /// and maps them to canonical CommuteBD place IDs for bus matching.
+  static Future<Map<String, dynamic>> resolvePlace({
+    String? placeId,
+    String? name,
+    double? lat,
+    double? lon,
+  }) async {
+    final originBody = <String, dynamic>{};
+    if (placeId != null) originBody['place_id'] = placeId;
+    if (name != null) originBody['name'] = name;
+    if (lat != null) originBody['lat'] = lat;
+    if (lon != null) originBody['lon'] = lon;
+    return _decode(
+      await _post(
+        '/api/commute/resolve-place',
+        body: {
+          'origin': originBody,
+          'destination': {'name': '__self__'},
+        },
+      ),
+    );
+  }
+
   /// Search bus services by operator name (English or Bengali).
   static Future<Map<String, dynamic>> searchBusServices(
     String query, {

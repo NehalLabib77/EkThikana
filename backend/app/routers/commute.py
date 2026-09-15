@@ -33,9 +33,20 @@ async def search_places(
     local = repo.search_local_places(q, limit=8)
     external: list[dict[str, Any]] = []
     try:
-        external = await get_routing_provider().search(q, limit=8)
+        provider = get_routing_provider()
+        external = await provider.search(q, limit=8)
+        for item in external:
+            if item.get("googlePlaceId") and item.get("lat") and item.get("lon"):
+                service = get_commute_service()
+                canonical = await service.resolve_canonical_place(
+                    name=item.get("displayName"),
+                    lat=float(item["lat"]),
+                    lon=float(item["lon"]),
+                )
+                if canonical:
+                    item["canonicalPlaceId"] = canonical["placeId"]
+                    item["canonicalName"] = canonical["name"]
     except Exception:
-        # Local dataset search remains useful during geocoder/network outage.
         pass
     return {"local": local, "geocoded": external}
 
@@ -385,7 +396,7 @@ def get_bus_service(
 
 
 @router.get("/bus-services/direct-match")
-def direct_bus_match(
+async def direct_bus_match(
     origin_place_id: str = Query(min_length=1, max_length=80),
     destination_place_id: str = Query(min_length=1, max_length=80),
     limit: int = Query(default=6, ge=1, le=15),
@@ -395,21 +406,75 @@ def direct_bus_match(
 
     A direct match means the bus service has stops at both places with
     the origin appearing before the destination in the stop sequence.
+
+    Accepts either canonical CommuteBD place IDs (PLCxxxx) or free-text
+    place names. Free-text names are resolved to canonical IDs before matching.
     """
     try:
-        repo = get_commute_repository()
+        service = get_commute_service()
         repo = CommutePostgresRepository()
+
+        origin_resolved = await service.resolve_canonical_place(
+            place_id=origin_place_id if origin_place_id.startswith("PLC") else None,
+            name=origin_place_id if not origin_place_id.startswith("PLC") else None,
+        )
+        dest_resolved = await service.resolve_canonical_place(
+            place_id=destination_place_id if destination_place_id.startswith("PLC") else None,
+            name=destination_place_id if not destination_place_id.startswith("PLC") else None,
+        )
+
+        origin_id = origin_resolved["placeId"] if origin_resolved else origin_place_id
+        dest_id = dest_resolved["placeId"] if dest_resolved else destination_place_id
+
         return {
-            "originPlaceId": origin_place_id,
-            "destinationPlaceId": destination_place_id,
+            "originPlaceId": origin_id,
+            "destinationPlaceId": dest_id,
+            "originResolved": origin_resolved is not None,
+            "destinationResolved": dest_resolved is not None,
             "results": repo.direct_bus_match(
-                origin_place_id, destination_place_id, limit=limit
+                origin_id, dest_id, limit=limit
             ),
         }
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception:
         raise HTTPException(status_code=503, detail="Bus direct match is unavailable")
+
+
+@router.post("/resolve-place")
+async def resolve_place(
+    body: CommuteRoutesRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Resolve user-selected place input to canonical CommuteBD place IDs.
+
+    Accepts Google Places results, geocoded coordinates, or free-text names
+    and maps them to the nearest canonical CommuteBD place ID.
+
+    This is the bridge between external place providers and the internal
+    bus matching system.
+    """
+    try:
+        service = get_commute_service()
+        origin = await service.resolve_canonical_place(
+            place_id=body.origin.place_id,
+            name=body.origin.name,
+            lat=body.origin.lat,
+            lon=body.origin.lon,
+        )
+        dest = await service.resolve_canonical_place(
+            place_id=body.destination.place_id,
+            name=body.destination.name,
+            lat=body.destination.lat,
+            lon=body.destination.lon,
+        )
+        return {
+            "origin": origin,
+            "destination": dest,
+            "hasCanonicalPair": origin is not None and dest is not None,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Place resolution failed: {exc}")
 
 
 @router.get("/bus-services/{service_id}")

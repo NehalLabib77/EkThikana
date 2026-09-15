@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     osrm_base_url: str = "https://router.project-osrm.org"
     nominatim_base_url: str = "https://nominatim.openstreetmap.org"
     routing_user_agent: str = "Gochano/1.0 (configure SUPPORT_EMAIL before public release)"
+    google_maps_server_api_key: str = ""
     commute_ml_min_total_reports: int = 500
     commute_ml_min_mode_reports: int = 150
 
