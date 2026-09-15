@@ -5035,9 +5035,13 @@ All modifications to backend files during the frontend phase were audited and co
 | `backend/app/database/models.py` | Schema parity / Model integrity | Added python-level `default=uuid.uuid4` for SQLite fallback on `UserFareReport.report_id`. Added `bus_service_id` FK and composite index to `CrowdFareAggregate`. |
 | `backend/app/database/repositories/postgres_repository.py` | Route logic / Dict cleanup | Implemented direct bus matching with stop ordering (`origin_seq < dest_seq`), attached crowd fares, cleaned duplicate dictionary keys. |
 | `backend/app/services/commute/crowd.py` | Route-pair identity / Fallback fix | Canonical place IDs prioritized as PRIMARY identity. Free text strictly used as fallback only when canonical IDs are null/unavailable. Cleaned duplicate dict keys and redundant where clauses. |
-| `backend/app/services/commute/bus_seed_importer.py` | Importer syntax cleanup | Idempotent insertion logic. Strictly imports only `bus_services_seed.csv` and `bus_service_stops_seed.csv`. Candidate files completely ignored. |
-| `backend/tests/test_bus_seed_integration.py` | Test suite expansion | 49 focused integration tests verifying seed importer, direct matching, route-pair crowd fare isolation, and canonical ID precedence over text. 49/49 passing. |
+| `backend/app/services/commute/bus_seed_importer.py` | Importer cleanup & audit emit | Idempotent insertion logic. Now emits `newly_inserted_service_ids` and `newly_inserted_stop_pairs` for durable audit manifests. Candidate files completely ignored. |
+| `backend/app/services/commute/deployment_audit.py` | **NEW** Deployment audit utility | Generates durable pre/post import JSON manifests. Derives expected IDs from CSVs (not hardcoded SVC ranges). Detects conflicts via field comparison. Records verified match provenance. |
+| `backend/app/services/commute/bus_seed_rollback.py` | **NEW** Exact-ID rollback utility | Consumes post-import manifests. Deletes only exact `(service_id, stop_sequence)` pairs. Checks FK dependencies before deleting services. Never removes pre-existing rows. |
+| `backend/tests/test_bus_seed_integration.py` | Test suite expansion | 49+ focused integration tests covering seed importer, direct matching, route-pair crowd fare isolation, deployment audit, rollback safety, conflict detection, and provenance verification. |
 | `backend/app/routers/commute.py` | Critical route fix & dict cleanup | Moved `/bus-services/direct-match` ahead of `/bus-services/{service_id}` to prevent FastAPI route shadowing. Cleaned duplicate dictionary keys in `report_fare`. |
+| `flutter_app/.../commute_screen.dart` | Wording correction | Changed "verified direct bus services" to "backend-matched direct bus services" in section docstring. |
+| `flutter_app/.../journey_models.dart` | Wording correction | Changed `DirectBusCandidate` docstring to clarify provenance: seed data is community/reference, not automatically verified. |
 
 ---
 
@@ -5048,6 +5052,9 @@ Inspection of the real verified seed CSVs confirms:
 - `bus_services_seed.csv`: **`source_id = 'SRC_BUS_GITHUB'`** across all 156 rows.
 - `bus_service_stops_seed.csv`: **`source_id = 'SRC_BUS_GITHUB'`** across all 3,190 rows.
 
+### Why TEMP Table Rollback is Unsafe (§1)
+PostgreSQL TEMP tables belong to a single DB session/connection. The seed importer (`bus_seed_importer.py`) uses a separate connection/process. Therefore TEMP tables **cannot** survive across deployment steps. The deployment audit utility uses durable JSON manifests instead.
+
 ### Why Broad `source_id` Deletion is Broken & Unsafe
 The previously proposed query:
 ```sql
@@ -5055,47 +5062,37 @@ DELETE FROM bus_services WHERE source_id = 'gochano_bus_seed_v1';
 ```
 is completely invalid and dangerous:
 1. **0 rows affected:** The string `'gochano_bus_seed_v1'` was the seed folder name, NOT the database `source_id`. Running this query would match 0 rows and silently fail to roll back anything.
-2. **Indiscriminate deletion hazard:** If replaced by `WHERE source_id = 'SRC_BUS_GITHUB'`, it would delete *all* rows sharing that source tag—even rows that already existed before this deployment.
+2. **Indiscriminate deletion hazard:** If replaced by `WHERE source_id = 'SRC_BUS_GITHUB'`, it would delete *all* rows sharing that source tag—including rows that already existed before this deployment.
 3. **Foreign key violation & data loss:** If live users submitted fare reports referencing any of these services (`user_fare_reports.bus_service_id`), or if aggregates exist (`crowd_fare_aggregates.bus_service_id`), an unchecked `DELETE` will either abort due to FK constraints or wipe live crowd data.
 
 ### Safe Production Rollback Protocol
-Production rollback must be **exact-ID-based** and distinguish pre-existing rows from newly inserted rows:
+Production rollback must be **exact-ID-based** and distinguish pre-existing rows from newly inserted rows. Expected identity sets are derived directly from the seed CSVs — never from a hardcoded SVC range.
 
-1. **Pre-deployment Snapshot:** Prior to running the seed importer, record all existing `service_id` values:
-   ```sql
-   CREATE TEMP TABLE pre_deploy_bus_services AS
-   SELECT service_id FROM bus_services;
-   ```
-2. **Identify Newly Inserted IDs:** Newly inserted rows are defined as:
-   ```sql
-   CREATE TEMP TABLE newly_inserted_services AS
-   SELECT bs.service_id
-   FROM bus_services bs
-   LEFT JOIN pre_deploy_bus_services pd ON bs.service_id = pd.service_id
-   WHERE pd.service_id IS NULL
-     AND bs.service_id IN ('SVC0001', 'SVC0002', /* ... through SVC0156 ... */);
-   ```
-3. **Check FK Dependencies (Safety Gate):**
-   ```sql
-   SELECT count(*) AS user_report_refs
-   FROM user_fare_reports
-   WHERE bus_service_id IN (SELECT service_id FROM newly_inserted_services);
+**Do NOT rely on TEMP tables.** Use durable JSON audit manifests:
 
-   SELECT count(*) AS aggregate_refs
-   FROM crowd_fare_aggregates
-   WHERE bus_service_id IN (SELECT service_id FROM newly_inserted_services);
-   ```
-   *Rule:* If dependent live data exists, do NOT cascade delete. Defer deletion or soft-retire by setting `current_status = 'inactive'`.
-4. **Exact Deletion Order (Child Table First):**
-   ```sql
-   -- Step 1: Remove stops for newly inserted services only
-   DELETE FROM bus_service_stops
-   WHERE service_id IN (SELECT service_id FROM newly_inserted_services);
+1. **Pre-deployment Manifest:** Generate via `deployment_audit.generate_preimport_manifest()`. Records:
+   - All expected service IDs (from CSV)
+   - All expected stop PK pairs (from CSV)
+   - Which already exist in production
+   - Pre-deployment verified match count
 
-   -- Step 2: Remove newly inserted services
-   DELETE FROM bus_services
-   WHERE service_id IN (SELECT service_id FROM newly_inserted_services);
-   ```
+2. **Post-import Manifest:** Generate via `deployment_audit.generate_postimport_manifest(pre)`. Records:
+   - Newly inserted service IDs
+   - Newly inserted stop PK pairs
+   - Missing expected IDs
+   - Conflicts (PK exists with different data)
+   - Verified match state unchanged
+
+3. **Exact Rollback:** Consume the post-import manifest via `bus_seed_rollback.rollback_from_manifest()`:
+   - FIRST: delete only exact newly inserted `(service_id, stop_sequence)` pairs
+   - THEN: consider deletion of exact newly inserted service IDs
+   - Before deleting a service: check `user_fare_reports`, `crowd_fare_aggregates`, `service_route_matches`
+   - If referenced: DO NOT cascade delete — report dependency, soft-retire with `current_status = 'inactive'`
+
+**Rollback must NOT:**
+- Delete by `source_id`, operator name, route name, or all SVC IDs
+- Delete any pre-existing rows
+- Assume a hardcoded SVC0001..SVC0156 range
 
 ---
 
@@ -5106,22 +5103,26 @@ Success must **NOT** be evaluated solely by raw insert counts (`services_inserte
 ### True Success Conditions
 A production seed import run is successful if and only if:
 1. **Final Entity Presence:**
-   - All 156 expected seed service IDs (`SVC0001` through `SVC0156`) exist in `bus_services`.
-   - All 3,190 expected `(service_id, stop_sequence)` primary key pairs exist in `bus_service_stops`.
+   - All 156 expected seed service IDs (derived from `bus_services_seed.csv`) exist in `bus_services`.
+   - All 3,190 expected `(service_id, stop_sequence)` primary key pairs (derived from `bus_service_stops_seed.csv`) exist in `bus_service_stops`.
 2. **No Duplicate PKs or Sequence Collisions:**
    - `SELECT service_id, stop_sequence, count(*) FROM bus_service_stops GROUP BY service_id, stop_sequence HAVING count(*) > 1;` returns exactly 0 rows.
-3. **Execution Safety:**
+3. **No Unresolved Conflicts:**
+   - `post_import_manifest["unresolvedConflicts"] == 0`
+   - For each existing seed service ID, relevant stored DB fields match seed fields.
+   - For each existing stop PK, at minimum: `service_id`, `stop_sequence`, `normalized_stop_name`, `canonical_place_id` match.
+4. **Execution Safety:**
    - Importer returns `errors == []`.
    - Valid outcomes:
      - Empty database: `services_inserted == 156, stops_inserted == 3190, skipped == 0`.
      - Partial seed: `services_inserted + skipped == 156, stops_inserted + skipped == 3190`.
      - Already populated: `services_inserted == 0, stops_inserted == 0, skipped == 3346`.
-4. **Data Provenance Integrity (Candidate Files Excluded):**
+5. **Data Provenance Integrity (Candidate Files Excluded):**
    - Candidate review files remain unimported:
      - `stop_alias_candidates.csv` (130 rows) — excluded
      - `service_route_match_candidates.csv` (156 rows) — excluded
      - `place_coordinate_candidates.csv` (42 rows) — excluded
-   - Verified matches lock: `SELECT count(*) FROM service_route_matches WHERE verified = true;` remains unchanged (or 0).
+   - Verified matches state unchanged from pre-deployment (§7).
 
 ---
 
@@ -5144,7 +5145,55 @@ The crowd fare aggregation system in `backend/app/services/commute/crowd.py` was
 
 ---
 
-## 5. Production Precheck & Audit Queries
+## 5. Deployment Audit Utility & Conflict Detection (§3, §5, §6)
+
+### `deployment_audit.py`
+Generates durable JSON manifests at `backend/data/commute_seed/deployment_audit/`. Expected identity sets are derived directly from the seed CSVs — never from a hardcoded SVC range.
+
+**Pre-import manifest contains:**
+- `expectedServiceIds` — all service IDs from `bus_services_seed.csv`
+- `preExistingServiceIds` — which expected IDs already exist in DB
+- `missingServiceIdsBeforeImport` — expected IDs not yet in DB
+- `expectedStopPairs` — all `(service_id, stop_sequence)` from CSV
+- `preExistingStopPairs` — which expected pairs already exist
+- `missingStopPairsBeforeImport` — expected pairs not yet in DB
+- `verifiedMatchCountPreDeploy` — snapshot of verified match state
+
+**Post-import manifest contains:**
+- `newlyInsertedServiceIds` — service IDs inserted by this import
+- `newlyInsertedStopPairs` — stop pairs inserted by this import
+- `missingExpectedServiceIds` — expected but still absent (should be 0)
+- `missingExpectedStopPairs` — expected but still absent (should be 0)
+- `serviceConflicts` — existing PK with materially different data
+- `stopConflicts` — existing stop PK with materially different data
+- `unresolvedConflicts` — count of unresolved conflicts (must be 0)
+- `verifiedMatchStateUnchanged` — provenance check (§7)
+
+### `bus_seed_rollback.py`
+Consumes the post-import manifest and performs exact-ID-based rollback:
+- Deletes only exact `(service_id, stop_sequence)` pairs from `bus_service_stops`
+- Checks FK references (`user_fare_reports`, `crowd_fare_aggregates`, `service_route_matches`) before deleting services
+- If referenced: does NOT cascade delete — reports dependency and soft-retires
+- Never removes pre-existing rows
+- Supports `dry_run=True` for simulation
+
+### Conflict Detection (§6)
+For each existing seed service ID, the audit compares relevant stored DB fields with seed fields. For each existing stop PK, it compares at minimum: `service_id`, `stop_sequence`, `normalized_stop_name`, `canonical_place_id`. Conflicts are reported; existing production data is never silently overwritten.
+
+---
+
+## 6. Verified Route Match Provenance (§7)
+
+**Do NOT require** `service_route_matches verified count == 0` as a universal production condition.
+
+Instead:
+- Capture pre-deployment verified count/IDs via `verifiedMatchCountPreDeploy` in the pre-import manifest.
+- After seed import, verify `verifiedMatchStateUnchanged == true` in the post-import manifest.
+- Expected result: seed import did NOT create/promote any verified match. Current known seed candidate rows remain unverified.
+
+---
+
+## 7. Production Precheck & Audit Queries
 
 Read-only SQL queries to run against the production database:
 
@@ -5153,13 +5202,8 @@ Read-only SQL queries to run against the production database:
 SELECT count(*) AS existing_services FROM bus_services;
 SELECT count(*) AS existing_stops FROM bus_service_stops;
 
--- Query 2: Check for collisions with expected seed IDs
-SELECT service_id, operator_name_en, current_status
-FROM bus_services
-WHERE service_id IN (
-    'SVC0001', 'SVC0002', 'SVC0003', 'SVC0004', 'SVC0005',
-    'SVC0010', 'SVC0020', 'SVC0050', 'SVC0100', 'SVC0156'
-);
+-- Query 2: Check for collisions with expected seed IDs (derive from CSV, not hardcoded)
+-- Use deployment_audit.derive_expected_service_ids() to get the complete set programmatically.
 
 -- Query 3: Check for duplicate sequences in bus_service_stops (must return 0)
 SELECT service_id, stop_sequence, count(*)
@@ -5185,70 +5229,74 @@ WHERE conrelid = 'crowd_fare_aggregates'::regclass
 
 ---
 
-## 6. Staged Production Runbook (Ordered Sequence)
+## 8. Final Production Runbook (Ordered Sequence)
 
 Execute the deployment in this strict order only when authorized:
 
-### Step 0: Pre-Deployment DB Inspection & Snapshot
-- Connect to Neon PostgreSQL instance using read-only credentials or transaction.
-- Run queries from Section 5.
-- Record existing `service_id` values to know exact pre-deployment state.
+### A. Production DB Backup/Recovery Point
+- Create a Neon backup/restore point before any changes.
 
-### Step 1: Migration 002 Application
+### B. Generate Durable PRE-Import Identity Manifest
+```python
+from app.services.commute.deployment_audit import generate_preimport_manifest
+pre = generate_preimport_manifest()
+```
+- Review the manifest: expected IDs derived from CSV, not hardcoded.
+
+### C. Inspect/Report Conflicts
+- Review `pre["preExistingServiceIds"]` and `pre["missingServiceIdsBeforeImport"]`.
+- If pre-existing IDs exist with different data, resolve before proceeding.
+
+### D. Apply Additive Migration 002
 - File: `backend/migrations/002_add_bus_service_id_to_crowd_fare_aggregates.sql`
-- Run SQL migration script:
-  ```sql
-  ALTER TABLE crowd_fare_aggregates
-      ADD COLUMN IF NOT EXISTS bus_service_id text;
-  DO $$
-  BEGIN
-      IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'crowd_fare_aggregates_bus_service_id_fkey'
-      ) THEN
-          ALTER TABLE crowd_fare_aggregates
-              ADD CONSTRAINT crowd_fare_aggregates_bus_service_id_fkey
-              FOREIGN KEY (bus_service_id) REFERENCES bus_services(service_id)
-              ON DELETE SET NULL;
-      END IF;
-  END $$;
-  CREATE INDEX IF NOT EXISTS idx_crowd_fare_bus_service_lookup
-      ON crowd_fare_aggregates (transport_mode, bus_service_id, origin_place_id, destination_place_id);
-  ```
-- Verify column and index via Query 4.
+- Verify column and index exist via Query 4.
 
-### Step 2: Bus Seed Import (Idempotent Execution)
-- Run importer with production connection string:
-  ```bash
-  python -m app.services.commute.bus_seed_importer
-  ```
-- Confirm output: `errors == []`. Confirm all 156 services and 3,190 stops exist.
+### E. Run Idempotent Seed Importer
+```bash
+python -m app.services.commute.bus_seed_importer
+```
+- Confirm output: `errors == []`.
+- The importer now emits `newly_inserted_service_ids` and `newly_inserted_stop_pairs`.
 
-### Step 3: Post-Seed DB Verification
-- Run post-seed queries to confirm all 156 services exist and 0 duplicate stop sequences exist.
-- Confirm candidate files remain unimported (`service_route_matches.verified == true` count remains 0).
+### F. Generate POST-Import Identity Manifest
+```python
+from app.services.commute.deployment_audit import generate_postimport_manifest
+post = generate_postimport_manifest(pre)
+```
 
-### Step 4: Backend Render Deployment
-- Stage only verified files:
-  - `backend/app/`
-  - `backend/data/commute_seed/`
-  - `backend/migrations/`
-  - `backend/tests/`
-- Push to remote branch and monitor Render build & startup logs.
-- Verify server starts with no database connection errors or missing module exceptions.
+### G. Prove Exact 156 Service IDs Exist
+- `post["missingExpectedServiceIds"]` must be empty.
 
-### Step 5: Live API Health & Bus Endpoint Smoke Test
+### H. Prove Exact 3190 Stop PK Pairs Exist
+- `post["missingExpectedStopPairs"]` must be empty.
+
+### I. Prove Unresolved Conflicts = 0
+- `post["unresolvedConflicts"]` must be 0.
+- Unless explicitly reviewed/accepted.
+
+### J. Prove Verified Service-Route State Unchanged
+- `post["verifiedMatchStateUnchanged"]` must be `true`.
+
+### K. Commit/Push Backend Only When Explicitly Authorized
+- Stage: `backend/app/`, `backend/data/commute_seed/`, `backend/migrations/`, `backend/tests/`
+- Push to remote branch.
+
+### L. Render Deploy
+- Monitor build & startup logs.
+
+### M. Live API Smoke Tests
 - `GET /health` → `{"status": "ok"}`
-- `GET /api/commute/bus-services/search?q=BRTC` → Returns BRTC bus services with stops.
-- `GET /api/commute/bus-services/direct-match?origin_place_id=...&destination_place_id=...` → Returns 200 OK (verifying route shadowing fix).
+- `GET /api/commute/bus-services/search?q=BRTC` → Returns BRTC services with stops.
+- `GET /api/commute/bus-services/direct-match?origin_place_id=...&destination_place_id=...` → 200 OK.
 - `GET /api/commute/bus-services/SVC0001` → Returns Achim Paribahan details.
 
-### Step 6: Physical Flutter App Verification
-- Build release/debug APK on target device (e.g. Infinix X665E).
-- Execute the physical acceptance checklist (see Section 7).
+### N. Physical Android Bus Verification
+- Build release/debug APK on target device.
+- Execute the physical acceptance checklist (see Section 9).
 
 ---
 
-## 7. Physical Acceptance Test Checklist (Post-Deploy)
+## 9. Physical Acceptance Test Checklist (Post-Deploy)
 
 1. [ ] **Open Commute screen** on physical device.
 2. [ ] **Select origin and destination** that have canonical place IDs (e.g., Mirpur 10 → Farmgate).
@@ -5256,23 +5304,33 @@ Execute the deployment in this strict order only when authorized:
 4. [ ] **Select Bus mode** in Compare Transport.
 5. [ ] **Verify Possible Buses section:** Appears only when direct matches exist; shows operator name, Bengali translation, stop count, and boarding/exit stop chips.
 6. [ ] **Select a specific bus:** Ensure selection highlights, updating journey facts and single fare estimation.
-7. [ ] **Check Smart Journey Guide:** Displays verified operator name, boarding stop, exit stop, and stop count.
+7. [ ] **Check Smart Journey Guide:** Displays the backend-provided selected operator/service name with its actual provenance. Official BRTA fare remains separately authoritative.
 8. [ ] **Verify Fare Honesty:** If bus fare is unavailable, displays "Fare unavailable" (NEVER "Free" or "৳0"). If qualified crowd fare exists, labeled "Community estimate".
 9. [ ] **Report Fare (Known Bus):** Tap "Report fare" / "ভাড়া জানান", pick a suggested direct bus chip or search an operator, enter fare, submit. Verify accepted message.
 10. [ ] **Report Fare (Bus Not Listed):** Check "Bus not listed", enter arbitrary operator name (e.g. "Anabil Super"), submit. Verify accepted message.
 11. [ ] **Language Toggle:** Switch English ↔ Bengali; verify all bus labels, chips, and guide explanations render with correct typography and zero overflow.
-12. [ ] **Log Inspection:** Verify zero unhandled exceptions or red-screen crashes in runtime logs.
+12. [ ] **Log Inspection:** Verify zero unhandled exceptions or red-screen crashes in runtime notes.
 
 ---
 
-## 8. Current Verification Summary (Pre-Deployment)
+## 10. Migration Preservation
+
+The following migration 002 artifacts are preserved as-is:
+- Nullable `crowd_fare_aggregates.bus_service_id` FK → `bus_services(service_id)`
+- Composite index `idx_crowd_fare_bus_service_lookup` on `(transport_mode, bus_service_id, origin_place_id, destination_place_id)`
+
+Canonical route-pair identity remains: `bus_service_id + origin_place_id + destination_place_id`. Free text only when canonical IDs are genuinely unavailable.
+
+---
+
+## 11. Current Verification Summary (Pre-Deployment)
 
 | Check | Tool / Command | Result |
 |---|---|---|
-| Backend Bus Seed Integration Tests | `pytest tests/test_bus_seed_integration.py` | **49/49 passed** (6.18s) |
-| Backend Full Test Suite | `pytest` | **491/491 passed** (50.01s) |
+| Backend Bus Seed Integration Tests | `pytest tests/test_bus_seed_integration.py` | **49/49 passed** |
+| Backend Full Test Suite | `pytest` | **491/491 passed** |
 | Flutter Analyzer | `flutter analyze` | **No issues found!** (0 errors, 0 warnings) |
 | Commute Journey Unit Tests | `flutter test test/commute_journey_test.dart` | **81/81 passed** |
-| Production Neon Database Execution | — | **STAGED — NOT YET EXECUTED** |
-| Backend Render Deployment | — | **STAGED — NOT YET EXECUTED** |
-| Physical Device Verification | — | **STAGED — NOT YET EXECUTED** |
+| Production Neon Database Execution | — | **NOT EXECUTED** |
+| Backend Render Deployment | — | **NOT DEPLOYED** |
+| Physical Bus Verification | — | **NOT EXECUTED** |

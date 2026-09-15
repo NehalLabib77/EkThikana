@@ -1118,7 +1118,7 @@ class _TransportModeSelector extends StatelessWidget {
   }
 }
 
-/// Possible buses section showing verified direct bus services on the route.
+/// Possible buses section showing backend-matched direct bus services on the route.
 class _PossibleBusesSection extends StatelessWidget {
   const _PossibleBusesSection({
     required this.buses,

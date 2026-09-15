@@ -60,16 +60,33 @@ def import_bus_seed(seed_dir: Path | None = None) -> dict[str, Any]:
     ``service_route_match_candidates.csv``, ``place_coordinate_candidates.csv``)
     are explicitly NOT imported or auto-promoted to verified truth.
 
-    Returns a summary dict with counts. Safe to call multiple times (idempotent).
+    Returns a summary dict with counts and ID lists. Safe to call multiple times (idempotent).
+    The dict includes ``newly_inserted_service_ids`` and
+    ``newly_inserted_stop_pairs`` (as ``"SVC0001,3"`` strings) which the
+    deployment audit post-import manifest can consume directly.
     """
     seed_path = seed_dir or SEED_DIR
     services_rows = _read_csv(seed_path, "bus_services_seed.csv")
     stops_rows = _read_csv(seed_path, "bus_service_stops_seed.csv")
 
     if not services_rows and not stops_rows:
-        return {"services_inserted": 0, "stops_inserted": 0, "skipped": 0, "errors": ["No seed CSVs found"]}
+        return {
+            "services_inserted": 0,
+            "stops_inserted": 0,
+            "skipped": 0,
+            "errors": ["No seed CSVs found"],
+            "newly_inserted_service_ids": [],
+            "newly_inserted_stop_pairs": [],
+        }
 
-    stats = {"services_inserted": 0, "stops_inserted": 0, "skipped": 0, "errors": []}
+    stats: dict[str, Any] = {
+        "services_inserted": 0,
+        "stops_inserted": 0,
+        "skipped": 0,
+        "errors": [],
+        "newly_inserted_service_ids": [],
+        "newly_inserted_stop_pairs": [],
+    }
 
     with get_sessionmaker()() as session:
         # --- Bus services ---
@@ -107,6 +124,7 @@ def import_bus_seed(seed_dir: Path | None = None) -> dict[str, Any]:
             ))
             existing_service_ids.add(svc_id)
             stats["services_inserted"] += 1
+            stats["newly_inserted_service_ids"].append(svc_id)
 
         session.flush()
 
@@ -146,6 +164,7 @@ def import_bus_seed(seed_dir: Path | None = None) -> dict[str, Any]:
             ))
             existing_stop_keys.add((svc_id, seq))
             stats["stops_inserted"] += 1
+            stats["newly_inserted_stop_pairs"].append(f"{svc_id},{seq}")
 
         session.commit()
 

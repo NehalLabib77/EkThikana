@@ -643,7 +643,12 @@ class JourneyGuideFacts {
   }
 }
 
-/// A verified direct bus service matching an origin-destination stop pair.
+/// A direct bus service matching an origin-destination stop pair.
+///
+/// The operator/service name displayed may reflect the backend-provided
+/// selected operator/service name with its actual provenance.  Seed
+/// operator/service information is community/reference data and the
+/// service_route_matches are not automatically verified.
 @immutable
 class DirectBusCandidate {
   const DirectBusCandidate({
