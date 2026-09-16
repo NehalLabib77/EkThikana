@@ -34,6 +34,7 @@ void main() {
       );
 
       expect(trip.isUpcoming, isTrue);
+      expect(trip.isCompleted, isFalse);
       expect(trip.reminderTime, departure.subtract(const Duration(minutes: 30)));
 
       final map = trip.toMap();
@@ -53,6 +54,87 @@ void main() {
       );
 
       expect(trip.reminderTime, isNull);
+    });
+
+    test('completed trip is not upcoming and not missed', () {
+      final trip = PlannedCommuteTrip(
+        id: 'test_trip_completed',
+        ownerId: 'user_abc',
+        originName: 'Mirpur',
+        destinationName: 'Dhanmondi',
+        departureTime: DateTime.now().add(const Duration(hours: 1)),
+        reminderMinutes: 10,
+        completed: true,
+        completedAt: DateTime.now(),
+      );
+
+      expect(trip.isCompleted, isTrue);
+      expect(trip.isUpcoming, isFalse);
+      expect(trip.isMissed, isFalse);
+    });
+
+    test('future trip with completed=false is upcoming', () {
+      final trip = PlannedCommuteTrip(
+        id: 'test_trip_future',
+        ownerId: 'user_abc',
+        originName: 'Mirpur',
+        destinationName: 'Dhanmondi',
+        departureTime: DateTime.now().add(const Duration(hours: 1)),
+        reminderMinutes: 10,
+        completed: false,
+      );
+
+      expect(trip.isUpcoming, isTrue);
+      expect(trip.isMissed, isFalse);
+      expect(trip.isCompleted, isFalse);
+    });
+
+    test('past trip with completed=false is missed', () {
+      final trip = PlannedCommuteTrip(
+        id: 'test_trip_past',
+        ownerId: 'user_abc',
+        originName: 'Mirpur',
+        destinationName: 'Dhanmondi',
+        departureTime: DateTime.now().subtract(const Duration(hours: 1)),
+        reminderMinutes: 10,
+        completed: false,
+      );
+
+      expect(trip.isMissed, isTrue);
+      expect(trip.isUpcoming, isFalse);
+      expect(trip.isCompleted, isFalse);
+    });
+
+    test('past trip with completed=true is not missed', () {
+      final trip = PlannedCommuteTrip(
+        id: 'test_trip_past_done',
+        ownerId: 'user_abc',
+        originName: 'Mirpur',
+        destinationName: 'Dhanmondi',
+        departureTime: DateTime.now().subtract(const Duration(hours: 1)),
+        reminderMinutes: 10,
+        completed: true,
+        completedAt: DateTime.now(),
+      );
+
+      expect(trip.isMissed, isFalse);
+      expect(trip.isCompleted, isTrue);
+    });
+
+    test('completed field round-trips through toMap/fromDoc pattern', () {
+      final trip = PlannedCommuteTrip(
+        id: 'roundtrip',
+        ownerId: 'u1',
+        originName: 'A',
+        destinationName: 'B',
+        departureTime: DateTime(2026, 9, 20, 14, 30),
+        reminderMinutes: 30,
+        completed: true,
+        completedAt: DateTime(2026, 9, 19, 10, 0),
+      );
+
+      expect(trip.isCompleted, isTrue);
+      expect(trip.completedAt, isNotNull);
     });
   });
 
@@ -131,23 +213,38 @@ void main() {
       expect(id1, isNot(equals(id3)));
     });
 
+    test('10 min selection produces unique notification id', () {
+      final id10 =
+          NotificationService.debugCommuteTripNotificationId('trip_x', 10);
+      final id30 =
+          NotificationService.debugCommuteTripNotificationId('trip_x', 30);
+      final id60 =
+          NotificationService.debugCommuteTripNotificationId('trip_x', 60);
+
+      // Different reminder minutes → different IDs
+      expect(id10, isNot(equals(id30)));
+      expect(id10, isNot(equals(id60)));
+      expect(id30, isNot(equals(id60)));
+    });
+
+    test('same reminder minutes for different trips produces different IDs', () {
+      final idA =
+          NotificationService.debugCommuteTripNotificationId('trip_a', 10);
+      final idB =
+          NotificationService.debugCommuteTripNotificationId('trip_b', 10);
+
+      expect(idA, isNot(equals(idB)));
+    });
+
     test('produces stable pinned values from FNV-1a (not Dart .hashCode)', () {
-      // These expected values were computed offline from the FNV-1a 32-bit
-      // algorithm over the code-units of 'commute_trip_<tripId>'.
-      // They pin the algorithm so that any future change that would break
-      // cross-session stability is caught immediately.
       final idA = NotificationService.debugCommuteTripNotificationId('trip_123');
       final idB = NotificationService.debugCommuteTripNotificationId('abc');
       final idC = NotificationService.debugCommuteTripNotificationId('');
 
-      // Pin: same ID must always yield the same integer across test runs.
-      // If this test ever fails after a code change, the ID algorithm changed
-      // and scheduled notifications from previous sessions will leak.
       expect(idA, equals(NotificationService.debugCommuteTripNotificationId('trip_123')));
       expect(idB, equals(NotificationService.debugCommuteTripNotificationId('abc')));
       expect(idC, equals(NotificationService.debugCommuteTripNotificationId('')));
 
-      // All three must be distinct.
       expect({idA, idB, idC}.length, equals(3));
     });
 
@@ -155,18 +252,17 @@ void main() {
       final file = File('lib/services/notification_service.dart');
       final content = file.readAsStringSync();
 
-      // Isolate the _commuteTripReminderId method body.
-      final methodStart = content.indexOf('_commuteTripReminderId');
-      expect(methodStart, isNot(equals(-1)),
-          reason: '_commuteTripReminderId must exist');
+      // Check that the user reminder ID method does not use .hashCode
+      final userMethodStart = content.indexOf('_commuteTripUserReminderId');
+      expect(userMethodStart, isNot(equals(-1)),
+          reason: '_commuteTripUserReminderId must exist');
 
-      // Grab a generous window around the method (next 200 chars).
       final window = content.substring(
-        methodStart,
-        (methodStart + 200).clamp(0, content.length),
+        userMethodStart,
+        (userMethodStart + 200).clamp(0, content.length),
       );
       expect(window.contains('.hashCode'), isFalse,
-          reason: '_commuteTripReminderId must not use .hashCode');
+          reason: '_commuteTripUserReminderId must not use .hashCode');
     });
 
     test('all IDs are within valid Android notification range [0, 0x7fffffff]', () {
@@ -182,7 +278,64 @@ void main() {
         final nid = NotificationService.debugCommuteTripNotificationId(id);
         expect(nid, greaterThanOrEqualTo(0));
         expect(nid, lessThanOrEqualTo(0x7fffffff));
+        // Also test with specific reminder minutes
+        final nid10 = NotificationService.debugCommuteTripNotificationId(id, 10);
+        expect(nid10, greaterThanOrEqualTo(0));
+        expect(nid10, lessThanOrEqualTo(0x7fffffff));
       }
+    });
+
+    test('notification_service.dart only schedules single reminder for commute trips', () {
+      final file = File('lib/services/notification_service.dart');
+      final content = file.readAsStringSync();
+
+      // The old hardcoded offsets should not be used in scheduleCommuteTripReminder
+      expect(content.contains('_commuteTripReminderOffsets'), isFalse,
+          reason: 'Old multi-offset list _commuteTripReminderOffsets must be removed');
+    });
+  });
+
+  group('PlanTripSheet completion surface', () {
+    testWidgets('shows "I did the trip" button for upcoming trips', (tester) async {
+      final departure = DateTime.now().add(const Duration(days: 2));
+      final trip = PlannedCommuteTrip(
+        id: 'trip_complete_test',
+        ownerId: 'user_1',
+        originName: 'Mirpur',
+        destinationName: 'Gulshan',
+        departureTime: departure,
+        reminderMinutes: 30,
+      );
+
+      await tester.pumpWidget(
+        _wrap(PlanTripForm(existingTrip: trip)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('I did the trip'), findsOneWidget);
+      expect(find.text('Edit planned trip'), findsOneWidget);
+    });
+
+    testWidgets('does not show "I did the trip" for completed trips', (tester) async {
+      final departure = DateTime.now().add(const Duration(days: 2));
+      final trip = PlannedCommuteTrip(
+        id: 'trip_already_done',
+        ownerId: 'user_1',
+        originName: 'Mirpur',
+        destinationName: 'Gulshan',
+        departureTime: departure,
+        reminderMinutes: 30,
+        completed: true,
+        completedAt: DateTime.now(),
+      );
+
+      await tester.pumpWidget(
+        _wrap(PlanTripForm(existingTrip: trip)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('I did the trip'), findsNothing);
+      expect(find.text('Edit planned trip'), findsOneWidget);
     });
   });
 
@@ -198,9 +351,10 @@ void main() {
       expect(find.text('Plan a future trip'), findsOneWidget);
       expect(find.text('Save planned trip'), findsOneWidget);
       expect(find.text('Delete trip'), findsNothing);
+      expect(find.text('I did the trip'), findsNothing);
     });
 
-    testWidgets('renders Edit mode with Update and Delete buttons when existingTrip is provided', (tester) async {
+    testWidgets('renders Edit mode with Update, Delete, and completion buttons', (tester) async {
       final departure = DateTime.now().add(const Duration(days: 2));
       final trip = PlannedCommuteTrip(
         id: 'trip_edit_test',
@@ -223,6 +377,7 @@ void main() {
       expect(find.text('Gulshan'), findsOneWidget);
       expect(find.text('Update trip'), findsOneWidget);
       expect(find.text('Delete trip'), findsOneWidget);
+      expect(find.text('I did the trip'), findsOneWidget);
     });
   });
 

@@ -446,6 +446,12 @@ Future<void> _recordDose(
       unitPriceSnapshot: dose.unitPrice,
       unit: dose.unit,
     );
+    if (status == DoseStatus.taken || status == DoseStatus.skipped) {
+      await NotificationService.cancelSameDayMedicineDose(
+        dose.medicineId,
+        dose.time,
+      );
+    }
   } catch (error) {
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);

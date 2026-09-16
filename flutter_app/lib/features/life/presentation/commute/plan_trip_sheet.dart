@@ -233,6 +233,60 @@ class _PlanTripFormState extends State<PlanTripForm> {
     }
   }
 
+  Future<void> _complete() async {
+    final existing = widget.existingTrip;
+    if (existing == null || existing.isCompleted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(
+          GochanoLanguage.text(
+            'I did the trip',
+            'ভ্রমণটি সম্পন্ন করেছি',
+          ),
+        ),
+        content: Text(
+          GochanoLanguage.text(
+            'This trip will be marked as completed and removed from upcoming.',
+            'এই যাত্রা সম্পন্ন হিসাবে চিহ্নিত হবে এবং আসন্ন তালিকা থেকে সরিয়ে ফেলা হবে।',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: Text(
+              GochanoLanguage.text('I did the trip', 'ভ্রমণটি সম্পন্ন করেছি'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await CommuteTripService.completeTrip(existing);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = e.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -371,6 +425,24 @@ class _PlanTripFormState extends State<PlanTripForm> {
 
           if (isEditing) ...[
             const SizedBox(height: GochanoSpacing.sm),
+            if (widget.existingTrip != null &&
+                widget.existingTrip!.isUpcoming &&
+                !widget.existingTrip!.isCompleted) ...[
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: (_saving || _deleting) ? null : _complete,
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  label: Text(
+                    GochanoLanguage.text(
+                      'I did the trip',
+                      'ভ্রমণটি সম্পন্ন করেছি',
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+            ],
             OutlinedButton.icon(
               onPressed: (_saving || _deleting) ? null : _delete,
               icon: _deleting
@@ -418,12 +490,16 @@ class _PlannedTripsListSection extends StatelessWidget {
         final trips = snapshot.data ?? const [];
         if (trips.isEmpty) return const SizedBox.shrink();
 
-        final now = DateTime.now();
         final upcoming = trips
-            .where((t) => t.departureTime.isAfter(now))
+            .where((t) => t.isUpcoming)
             .toList();
         final missed = trips
-            .where((t) => t.departureTime.isBefore(now))
+            .where((t) => t.isMissed)
+            .toList()
+            .reversed
+            .toList();
+        final completed = trips
+            .where((t) => t.isCompleted)
             .toList()
             .reversed
             .toList();
@@ -461,6 +537,21 @@ class _PlannedTripsListSection extends StatelessWidget {
                   onTap: () => onSelectTrip(trip),
                 ),
             ],
+            if (completed.isNotEmpty) ...[
+              const SizedBox(height: GochanoSpacing.xs),
+              Text(
+                GochanoLanguage.text('Completed', 'সম্পন্ন'),
+                style: type.label.copyWith(color: colors.textSecondary),
+              ),
+              const SizedBox(height: GochanoSpacing.xxs),
+              for (final trip in completed)
+                _PlannedTripTile(
+                  trip: trip,
+                  isMissed: false,
+                  isCompleted: true,
+                  onTap: () => onSelectTrip(trip),
+                ),
+            ],
           ],
         );
       },
@@ -473,10 +564,12 @@ class _PlannedTripTile extends StatelessWidget {
     required this.trip,
     required this.isMissed,
     required this.onTap,
+    this.isCompleted = false,
   });
 
   final PlannedCommuteTrip trip;
   final bool isMissed;
+  final bool isCompleted;
   final VoidCallback onTap;
 
   @override
@@ -493,11 +586,17 @@ class _PlannedTripTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              isMissed
-                  ? Icons.history_rounded
-                  : Icons.directions_transit_rounded,
+              isCompleted
+                  ? Icons.check_circle_outline_rounded
+                  : isMissed
+                      ? Icons.history_rounded
+                      : Icons.directions_transit_rounded,
               size: 20,
-              color: isMissed ? colors.textTertiary : colors.commute,
+              color: isCompleted
+                  ? colors.success
+                  : isMissed
+                      ? colors.textTertiary
+                      : colors.commute,
             ),
             const SizedBox(width: GochanoSpacing.xs),
             Expanded(
@@ -522,7 +621,12 @@ class _PlannedTripTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: GochanoSpacing.xs),
-            if (isMissed)
+            if (isCompleted)
+              GochanoBadge(
+                label: GochanoLanguage.text('Completed', 'সম্পন্ন'),
+                tone: GochanoBadgeTone.success,
+              )
+            else if (isMissed)
               GochanoBadge(
                 label: GochanoLanguage.text('Missed', 'মিসড'),
                 tone: GochanoBadgeTone.warning,

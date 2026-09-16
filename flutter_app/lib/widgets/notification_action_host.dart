@@ -8,11 +8,9 @@ import '../services/financial_service.dart';
 import '../services/notification_service.dart';
 
 import '../core/page_route.dart';
+
 class NotificationActionHost extends StatefulWidget {
-  const NotificationActionHost({
-    super.key,
-    required this.child,
-  });
+  const NotificationActionHost({super.key, required this.child});
 
   final Widget child;
 
@@ -51,9 +49,7 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
     // medicine context before any confirm/skip dialog. Payload is untouched.
     final nav = AppNavigation.navigatorKey.currentState;
     if (nav != null) {
-      nav.push(
-        GochanoRoute.to(builder: (_) => const MedicineScreen()),
-      );
+      nav.push(GochanoRoute.to(builder: (_) => const MedicineScreen()));
       // Let the new route mount so its dialogs/snackbars use the new context.
       await Future<void>.delayed(const Duration(milliseconds: 50));
       context = AppNavigation.navigatorKey.currentContext;
@@ -71,13 +67,18 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
           unitPriceSnapshot: action.unitPrice,
           unit: action.unit,
         );
+        await NotificationService.cancelSameDayMedicineDose(
+          action.medicineId,
+          action.hhmm,
+        );
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Dose marked skipped.')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Dose marked skipped.')));
         }
       } catch (e) {
-        if (context.mounted) showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
+        if (context.mounted)
+          showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
       }
       return;
     }
@@ -99,12 +100,16 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
               action.medicineName,
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            Text('Scheduled: ${_format(action.quantityPerDose)} ${action.unit}'),
+            Text(
+              'Scheduled: ${_format(action.quantityPerDose)} ${action.unit}',
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: quantity,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Actual quantity taken',
               ),
@@ -137,6 +142,10 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
           unitPriceSnapshot: action.unitPrice,
           unit: action.unit,
         );
+        await NotificationService.cancelSameDayMedicineDose(
+          action.medicineId,
+          action.hhmm,
+        );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -147,16 +156,16 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
           );
         }
       } catch (e) {
-        if (context.mounted) showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
+        if (context.mounted)
+          showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
       }
     }
     quantity.dispose();
   }
 
-  static String _format(double value) =>
-      value == value.roundToDouble()
-          ? value.toInt().toString()
-          : value.toStringAsFixed(2);
+  static String _format(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toStringAsFixed(2);
 
   @override
   Widget build(BuildContext context) => widget.child;

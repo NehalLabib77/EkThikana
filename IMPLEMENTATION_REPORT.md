@@ -8,6 +8,74 @@
 
 ---
 
+## Core Reminder Reliability Audit & Implementation — Reference Project Mechanics Only
+
+**Date:** 2026-09-16
+**Branch:** `gochano-ui-rebuild-v1`
+
+### ROOT CAUSE
+1. **Timezone Wall-Clock Shift**:
+   `tz.TZDateTime.from(when, tz.local)` could shift displayed/scheduled alarm hours when the source `DateTime` was instantiated in a different timezone context or during DST transitions. Reconstructing using explicit wall-clock components (`year, month, day, hour, minute, second`) eliminates any unintended offset shift.
+2. **Premature Grace Period Exit**:
+   In `NotificationService.scheduleTask`, a guard `if (!when.isAfter(DateTime.now())) return;` prevented tasks within their 30-minute grace window (`when < now < when + 30m`) from scheduling their `T+30` incomplete notification.
+3. **Planned Commute Multi-Slot Cadence**:
+   Planned commute trips previously scheduled only a single leave-by reminder. The locked Gochano policy requires `T-60, T-30, T-10` slots with deterministic OS alarm IDs.
+4. **Community Task ID Determinism**:
+   Community task notification IDs previously used Dart's non-deterministic `String.hashCode`, which can change across Dart VM sessions and process restarts.
+5. **Medicine Recurrence Isolation**:
+   When marking a dose Taken or Skipped in the UI (`medicine_screen.dart`) or via notification action button (`notification_action_host.dart`), follow-up reminders (`T+30, T+60, T+90, T+120`) must be cancelled for the day without cancelling the daily repeating base alarm (`T`, offset 0).
+6. **Missing Vibration Permission**:
+   `AndroidManifest.xml` lacked `<uses-permission android:name="android.permission.VIBRATE" />`, which could suppress haptic alerting on certain OEM Android versions when alarms fired while idle.
+
+### CHANGE
+1. **Android Manifest Permission (`flutter_app/android/app/src/main/AndroidManifest.xml`)**:
+   - Added `<uses-permission android:name="android.permission.VIBRATE" />` alongside `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, and `SCHEDULE_EXACT_ALARM`.
+2. **Notification Service Reliability (`flutter_app/lib/services/notification_service.dart`)**:
+   - Added `_toLocalTz(DateTime dt)` using wall-clock components with `tz.local` (`AppConfig.bangladeshTimeZone`, Asia/Dhaka).
+   - In `scheduleTask`: Removed premature return so tasks within the 30-minute grace window can still schedule `T+30`.
+   - Planned Commute: Implemented locked `T-60, T-30, T-10` slots (`_commuteTripReminderOffsets = [60, 30, 10]`) with deterministic stable IDs (`commute_${tripId}_$offsetMinutes`) and backward-compatible single ID fallback.
+   - Community Tasks: Replaced Dart `.hashCode` with `_stableStringId('community_${groupId}_${projectId}_${taskId}_$userId')`.
+   - Registration Diagnostics & Audit: Added `_verifyAndDiagnoseRegistration` to inspect `pendingNotificationRequests()`, check exact alarm capability, verify scheduled slots in AlarmManager, and log safe diagnostics without leaking sensitive data (titles, notes, tokens).
+   - Startup Reconciliation: Added idempotent `reconcileReminders()` for tasks, medicines, and commute trips to synchronize OS alarms with active state without blind bulk cancellations.
+3. **Planned Commute Models (`flutter_app/lib/features/life/presentation/commute/planned_trip_models.dart`)**:
+   - Updated `createTrip` and `updateTrip` to call `scheduleCommuteTripReminder` and `rescheduleCommuteTripReminder` with `departureTime` to schedule the `T-60, T-30, T-10` slots.
+4. **Medicine Screen & Action Host (`medicine_screen.dart` & `notification_action_host.dart`)**:
+   - `_recordDose` and `_handle` invoke `NotificationService.cancelSameDayMedicineDose(medicineId, hhmm)` when marking a dose Taken or Skipped, cancelling follow-ups (`30, 60, 90, 120`) while preserving daily repeating base alarm (`offset 0`).
+5. **Comprehensive Unit Tests (`test/notification_policy_test.dart`)**:
+   - Added tests for deterministic IDs, FNV-1a stability across process restarts, Planned Commute `[60, 30, 10]` slots, Medicine Taken/Skip isolation, and grace window slot eligibility.
+
+### FILES
+- `flutter_app/android/app/src/main/AndroidManifest.xml`
+- `flutter_app/lib/services/notification_service.dart`
+- `flutter_app/lib/features/life/presentation/commute/planned_trip_models.dart`
+- `flutter_app/lib/features/life/presentation/medicine/medicine_screen.dart`
+- `flutter_app/lib/widgets/notification_action_host.dart`
+- `flutter_app/test/notification_policy_test.dart`
+- `IMPLEMENTATION_REPORT.md`
+
+### AUTOMATED VALIDATION
+- `flutter test test/notification_policy_test.dart` -> **17/17 passed**
+- `flutter test test/commute_rebuild_step6_test.dart` -> **15/15 passed**
+- `flutter test` -> **690/690 passed** (0 analyzer issues, 0 failures across full Flutter suite)
+- `pytest` in `backend` -> **507/507 passed** (0 failures across full backend suite)
+- `flutter analyze` -> **0 issues found**
+
+### PHYSICAL VALIDATION (Acceptance Runbook)
+1. **Foreground**:
+   - Create a task due in 2 minutes: verify `T` and `T+30` scheduled in OS via diagnostic log `[ReminderRegistrationDiagnostic]`.
+2. **Background & Screen Locked**:
+   - Background app, turn off screen: verify alarm fires at exact due time with Gochano sound and vibration.
+3. **Process Terminated / Removed from Recents**:
+   - Swipe away app from Android Recents: verify AlarmManager delivers `T` and follow-up slots on schedule.
+4. **Device Reboot**:
+   - Reboot device: `ScheduledNotificationBootReceiver` handles `BOOT_COMPLETED`, restoring scheduled alarms into AlarmManager.
+5. **Medicine Same-Day Resolution**:
+   - Tap "Taken" or "Skip": verify follow-ups (`T+30, T+60, T+90, T+120`) cancel immediately while the daily recurring alarm for tomorrow remains active.
+6. **Task Completion Cancellation**:
+   - Check task done before `T+30`: verify all pending notifications (`T-90..T+30`) cancel immediately.
+
+---
+
 ## Bus Seed v1 Integration Audit & Backend Corrections
 
 **Date:** 2026-09-15

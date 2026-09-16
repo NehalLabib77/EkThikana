@@ -17,6 +17,8 @@ class PlannedCommuteTrip {
     required this.departureTime,
     required this.reminderMinutes,
     this.createdAt,
+    this.completed = false,
+    this.completedAt,
   });
 
   final String id;
@@ -32,14 +34,22 @@ class PlannedCommuteTrip {
   /// Reminder in minutes before departure: e.g. 10, 30, 60. 0 means no reminder.
   final int reminderMinutes;
   final DateTime? createdAt;
+  final bool completed;
+  final DateTime? completedAt;
 
   DateTime? get reminderTime {
     if (reminderMinutes <= 0) return null;
     return departureTime.subtract(Duration(minutes: reminderMinutes));
   }
 
-  bool get isUpcoming => departureTime.isAfter(DateTime.now());
-  bool get isMissed => departureTime.isBefore(DateTime.now());
+  bool get isCompleted => completed;
+
+  /// Upcoming = not completed AND departure is in the future.
+  bool get isUpcoming => !completed && departureTime.isAfter(DateTime.now());
+
+  /// Missed = not completed AND departure is in the past.
+  /// A completed trip is never "missed".
+  bool get isMissed => !completed && departureTime.isBefore(DateTime.now());
 
   Map<String, dynamic> toMap() {
     return {
@@ -58,10 +68,13 @@ class PlannedCommuteTrip {
     };
   }
 
-  static PlannedCommuteTrip fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+  static PlannedCommuteTrip fromDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? {};
     final departureTimestamp = data['departureTime'] as Timestamp?;
     final createdTimestamp = data['createdAt'] as Timestamp?;
+    final completedAtTimestamp = data['completedAt'] as Timestamp?;
 
     return PlannedCommuteTrip(
       id: doc.id,
@@ -75,6 +88,8 @@ class PlannedCommuteTrip {
       departureTime: departureTimestamp?.toDate() ?? DateTime.now(),
       reminderMinutes: (data['reminderMinutes'] as num?)?.toInt() ?? 0,
       createdAt: createdTimestamp?.toDate(),
+      completed: data['completed'] == true,
+      completedAt: completedAtTimestamp?.toDate(),
     );
   }
 }
@@ -117,14 +132,12 @@ class CommuteTripService {
     });
 
     if (reminderMinutes > 0) {
-      final notifyAt = departureTime.subtract(Duration(minutes: reminderMinutes));
-      if (notifyAt.isAfter(DateTime.now())) {
-        await NotificationService.scheduleCommuteTripReminder(
-          tripId: ref.id,
-          title: 'Trip to $destinationName in $reminderMinutes mins',
-          when: notifyAt,
-        );
-      }
+      await NotificationService.scheduleCommuteTripReminder(
+        tripId: ref.id,
+        title: 'Trip to $destinationName',
+        reminderMinutes: reminderMinutes,
+        departureTime: departureTime,
+      );
     }
 
     return ref.id;
@@ -153,15 +166,23 @@ class CommuteTripService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    final notifyAt = reminderMinutes > 0
-        ? departureTime.subtract(Duration(minutes: reminderMinutes))
-        : null;
-
     await NotificationService.rescheduleCommuteTripReminder(
       tripId: tripId,
-      title: 'Trip to $destinationName in $reminderMinutes mins',
-      when: notifyAt,
+      title: 'Trip to $destinationName',
+      reminderMinutes: reminderMinutes,
+      departureTime: departureTime,
     );
+  }
+
+  /// Mark a planned trip as completed. Idempotent — safe to call multiple times.
+  static Future<void> completeTrip(PlannedCommuteTrip trip) async {
+    if (trip.isCompleted) return; // already completed
+    await NotificationService.cancelCommuteTripReminder(trip.id);
+    await FirestoreService.db.collection(collection).doc(trip.id).update({
+      'completed': true,
+      'completedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   static Future<void> deleteTrip(PlannedCommuteTrip trip) async {

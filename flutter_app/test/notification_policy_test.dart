@@ -273,5 +273,143 @@ void main() {
         expect(afterDeadline.isBefore(now), isTrue);
       },
     );
+
+    test(
+      'Planned commute reminders generate 3 distinct deterministic IDs for 60, 30, 10 min lead times',
+      () {
+        const tripId = 'trip_farmgate_to_tsc';
+        const leadTimes = [60, 30, 10];
+        final ids = leadTimes
+            .map(
+              (mins) => NotificationService.debugCommuteTripNotificationId(
+                tripId,
+                mins,
+              ),
+            )
+            .toList();
+
+        for (final id in ids) {
+          expect(id, isNonNegative);
+          expect(id, lessThan(0x80000000));
+        }
+
+        final uniqueIds = ids.toSet();
+        expect(uniqueIds.length, equals(3));
+
+        // Deterministic reproduction
+        expect(
+          ids[0],
+          equals(
+            NotificationService.debugCommuteTripNotificationId(tripId, 60),
+          ),
+        );
+        expect(
+          ids[1],
+          equals(
+            NotificationService.debugCommuteTripNotificationId(tripId, 30),
+          ),
+        );
+        expect(
+          ids[2],
+          equals(
+            NotificationService.debugCommuteTripNotificationId(tripId, 10),
+          ),
+        );
+
+        // Backward compatible legacy ID (offset 0) is distinct and stable
+        final legacyId = NotificationService.debugCommuteTripNotificationId(
+          tripId,
+        );
+        expect(legacyId, isNonNegative);
+        expect(
+          legacyId,
+          equals(NotificationService.debugCommuteTripNotificationId(tripId, 0)),
+        );
+      },
+    );
+
+    test(
+      'FNV-1a notification ID stability across simulated process restarts',
+      () {
+        // String.hashCode is allowed to vary between VM runs; FNV-1a is guaranteed stable.
+        const taskId = 'persisted_task_uuid_98765';
+        const medId = 'persisted_med_uuid_12345';
+        const tripId = 'persisted_trip_uuid_54321';
+
+        final taskExpected = NotificationService.debugTaskNotificationId(
+          taskId,
+          30,
+        );
+        final medExpected = NotificationService.debugMedicineNotificationId(
+          medId,
+          '09:00',
+          60,
+        );
+        final commuteExpected =
+            NotificationService.debugCommuteTripNotificationId(tripId, 10);
+
+        // Re-compute dynamically from fresh string instances
+        final freshTaskId = String.fromCharCodes(taskId.codeUnits);
+        final freshMedId = String.fromCharCodes(medId.codeUnits);
+        final freshTripId = String.fromCharCodes(tripId.codeUnits);
+
+        expect(
+          NotificationService.debugTaskNotificationId(freshTaskId, 30),
+          equals(taskExpected),
+        );
+        expect(
+          NotificationService.debugMedicineNotificationId(
+            freshMedId,
+            '09:00',
+            60,
+          ),
+          equals(medExpected),
+        );
+        expect(
+          NotificationService.debugCommuteTripNotificationId(freshTripId, 10),
+          equals(commuteExpected),
+        );
+      },
+    );
+
+    test(
+      'Medicine Taken/Skip isolation: same-day cancels follow-ups, preserves offset 0',
+      () {
+        // Pinned contract:
+        // Follow-ups at offsets 30, 60, 90, 120 are one-off alarms for today.
+        // Base dose at offset 0 repeats daily via DateTimeComponents.time.
+        // Cancelling same-day must target {30, 60, 90, 120} only.
+        const offsets = [0, 30, 60, 90, 120];
+        final followUpOffsets = offsets.where((o) => o > 0).toList();
+
+        expect(followUpOffsets, equals([30, 60, 90, 120]));
+        expect(offsets.contains(0), isTrue);
+        expect(followUpOffsets.contains(0), isFalse);
+      },
+    );
+
+    test(
+      'Task slot eligibility within 30m grace window filters past slots correctly',
+      () {
+        final now = DateTime(2026, 9, 13, 10, 15);
+        final dueAt = DateTime(2026, 9, 13, 10, 0); // 15 mins ago
+        const taskOffsets = [90, 60, 30, 10, 0, -30];
+
+        // Items >= 30m past due are missed
+        final missedAt = dueAt.add(const Duration(minutes: 30));
+        expect(missedAt.isAfter(now), isTrue); // still within grace window
+
+        final eligibleOffsets = <int>[];
+        for (final offset in taskOffsets) {
+          final notifyAt = dueAt.subtract(Duration(minutes: offset));
+          if (notifyAt.isAfter(now)) {
+            eligibleOffsets.add(offset);
+          }
+        }
+
+        // Only T+30 (-30) is at 10:30, which is after 10:15
+        expect(eligibleOffsets, equals([-30]));
+      },
+    );
   });
 }

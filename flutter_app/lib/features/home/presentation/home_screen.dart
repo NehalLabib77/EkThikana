@@ -1358,9 +1358,8 @@ class _CommuteCard extends StatelessWidget {
       stream: CommuteTripService.streamPlannedTrips(),
       builder: (context, snapshot) {
         final trips = snapshot.data ?? const [];
-        final now = DateTime.now();
         final upcomingTrips = trips
-            .where((t) => t.departureTime.isAfter(now))
+            .where((t) => t.isUpcoming)
             .toList();
         final trip = upcomingTrips.isNotEmpty ? upcomingTrips.first : null;
 

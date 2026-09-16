@@ -79,6 +79,7 @@ class NotificationService {
     required String channelName,
     required String channelDescription,
     List<AndroidNotificationAction>? actions,
+    AndroidNotificationCategory category = AndroidNotificationCategory.reminder,
   }) {
     return AndroidNotificationDetails(
       channelId,
@@ -86,11 +87,28 @@ class NotificationService {
       channelDescription: channelDescription,
       importance: Importance.high,
       priority: Priority.high,
-      category: AndroidNotificationCategory.reminder,
+      category: category,
       icon: '@drawable/ic_stat_gochano',
       enableVibration: true,
       playSound: true,
       actions: actions,
+    );
+  }
+
+  /// Converts a [DateTime] into a [tz.TZDateTime] aligned to the local
+  /// timezone using wall-clock components. Reconstructing from wall-clock fields
+  /// prevents accidental hour shifts caused by differing local/UTC representations.
+  static tz.TZDateTime _toLocalTz(DateTime dt) {
+    return tz.TZDateTime(
+      tz.local,
+      dt.year,
+      dt.month,
+      dt.day,
+      dt.hour,
+      dt.minute,
+      dt.second,
+      dt.millisecond,
+      dt.microsecond,
     );
   }
 
@@ -246,15 +264,24 @@ class NotificationService {
     String type = 'task',
   }) async {
     await init();
-    if (!when.isAfter(DateTime.now())) return;
     final now = DateTime.now();
     // Items >= 30m past due are already missed; do not schedule past reminders.
     final missedAt = when.add(const Duration(minutes: 30));
     if (!missedAt.isAfter(now)) return;
 
-    final scheduleMode = await _resolveScheduleMode();
+    // Debug experiment: use alarmClock mode for task reminders to test whether
+    // OEM broadcast restrictions (XOS "3rd-died") grant alarm-clock alarms an
+    // exemption. In release builds this is always false — no behaviour change.
+    final useAlarmClock = kDebugMode;
+    final scheduleMode =
+        await _resolveScheduleMode(useAlarmClock: useAlarmClock);
     final isAssignment = type == 'assignment';
     final scheduledIds = <int>[];
+    final scheduledSlots = <_ScheduledSlot>[];
+
+    final taskCategory = useAlarmClock
+        ? AndroidNotificationCategory.alarm
+        : AndroidNotificationCategory.reminder;
 
     for (final offset in _taskReminderOffsets) {
       final notifyAt = when.subtract(Duration(minutes: offset));
@@ -293,12 +320,13 @@ class NotificationService {
                       'কাজের সময় হয়েছে: $title',
                     )
                   : '$title (in $offset mins)'),
-        scheduledDate: tz.TZDateTime.from(notifyAt, tz.local),
+        scheduledDate: _toLocalTz(notifyAt),
         notificationDetails: NotificationDetails(
           android: _details(
             channelId: kChannelRemindersId,
             channelName: kChannelRemindersName,
             channelDescription: kChannelRemindersDesc,
+            category: taskCategory,
           ),
         ),
         androidScheduleMode: scheduleMode,
@@ -306,6 +334,13 @@ class NotificationService {
       );
 
       scheduledIds.add(notifId);
+      scheduledSlots.add(
+        _ScheduledSlot(
+          slotLabel: slotLabel,
+          notificationId: notifId,
+          scheduledAt: notifyAt,
+        ),
+      );
       if (kDebugMode) {
         debugPrint(
           '[TaskReminderSchedule] taskId=$taskId'
@@ -318,22 +353,12 @@ class NotificationService {
       }
     }
 
-    if (kDebugMode && scheduledIds.isNotEmpty) {
-      try {
-        final pending = await plugin.pendingNotificationRequests();
-        final pendingIds = pending.map((r) => r.id).toSet();
-        final expectedIds = scheduledIds.toSet();
-        final missing = expectedIds.difference(pendingIds);
-        debugPrint(
-          '[TaskReminderPending] taskId=$taskId'
-          ' expected=$expectedIds'
-          ' present=${pendingIds.intersection(expectedIds)}'
-          ' missing=$missing',
-        );
-      } catch (e) {
-        debugPrint('[TaskReminderPending] pending query failed: $e');
-      }
-    }
+    await _verifyAndDiagnoseRegistration(
+      entityType: 'task',
+      entityId: taskId,
+      slots: scheduledSlots,
+      scheduleMode: scheduleMode,
+    );
   }
 
   /// Cancel an existing reminder and (if [when] is still in the future) schedule
@@ -428,6 +453,13 @@ class NotificationService {
     });
 
     final scheduleMode = await _resolveScheduleMode();
+    final scheduledSlots = <_ScheduledSlot>[
+      _ScheduledSlot(
+        slotLabel: 'T (daily recurring)',
+        notificationId: _medicineNotificationId(medicineId, hhmm, 0),
+        scheduledAt: next,
+      ),
+    ];
 
     // Base dose at scheduled time (offset 0), repeats daily
     await plugin.zonedSchedule(
@@ -466,8 +498,16 @@ class NotificationService {
     // Follow-ups at 30, 60, 90, 120 minutes
     for (final offset in _medicineFollowUpOffsets.skip(1)) {
       final followUpTime = next.add(Duration(minutes: offset));
+      final notifId = _medicineNotificationId(medicineId, hhmm, offset);
+      scheduledSlots.add(
+        _ScheduledSlot(
+          slotLabel: 'T+$offset (follow-up)',
+          notificationId: notifId,
+          scheduledAt: followUpTime,
+        ),
+      );
       await plugin.zonedSchedule(
-        id: _medicineNotificationId(medicineId, hhmm, offset),
+        id: notifId,
         title: 'Gochano • Medicine reminder (follow-up)',
         body: '$medicineName • Overdue ($offset min) — please take or skip',
         scheduledDate: followUpTime,
@@ -496,6 +536,13 @@ class NotificationService {
         payload: payload,
       );
     }
+
+    await _verifyAndDiagnoseRegistration(
+      entityType: 'medicine',
+      entityId: '$medicineId:$hhmm',
+      slots: scheduledSlots,
+      scheduleMode: scheduleMode,
+    );
   }
 
   /// Cancels follow-ups for a dose that was resolved today (Taken/Skipped),
@@ -541,6 +588,13 @@ class NotificationService {
     String projectId,
     String taskId,
     String userId,
+  ) => _stableStringId('community_${groupId}_${projectId}_${taskId}_$userId');
+
+  static int _legacyCommunityTaskReminderId(
+    String groupId,
+    String projectId,
+    String taskId,
+    String userId,
   ) => '$groupId|$projectId|$taskId|$userId'.hashCode & 0x7fffffff;
 
   static Future<void> scheduleCommunityTaskReminder({
@@ -554,11 +608,19 @@ class NotificationService {
     await init();
     if (!when.isAfter(DateTime.now())) return;
 
+    final scheduleMode = await _resolveScheduleMode();
+    final notifId = _communityTaskReminderId(
+      groupId,
+      projectId,
+      taskId,
+      userId,
+    );
+
     await plugin.zonedSchedule(
-      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
+      id: notifId,
       title: 'Gochano reminder',
       body: title,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      scheduledDate: _toLocalTz(when),
       notificationDetails: NotificationDetails(
         android: _details(
           channelId: kChannelRemindersId,
@@ -566,8 +628,21 @@ class NotificationService {
           channelDescription: kChannelRemindersDesc,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       payload: taskId,
+    );
+
+    await _verifyAndDiagnoseRegistration(
+      entityType: 'community_task',
+      entityId: taskId,
+      slots: [
+        _ScheduledSlot(
+          slotLabel: 'T',
+          notificationId: notifId,
+          scheduledAt: when,
+        ),
+      ],
+      scheduleMode: scheduleMode,
     );
   }
 
@@ -583,21 +658,17 @@ class NotificationService {
     await plugin.cancel(
       id: _communityTaskReminderId(groupId, projectId, taskId, userId),
     );
+    await plugin.cancel(
+      id: _legacyCommunityTaskReminderId(groupId, projectId, taskId, userId),
+    );
     if (when == null || !when.isAfter(DateTime.now())) return;
-    await plugin.zonedSchedule(
-      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
-      title: 'Gochano reminder',
-      body: title,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
-      notificationDetails: NotificationDetails(
-        android: _details(
-          channelId: kChannelRemindersId,
-          channelName: kChannelRemindersName,
-          channelDescription: kChannelRemindersDesc,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: taskId,
+    await scheduleCommunityTaskReminder(
+      groupId: groupId,
+      projectId: projectId,
+      taskId: taskId,
+      userId: userId,
+      title: title,
+      when: when,
     );
   }
 
@@ -611,13 +682,31 @@ class NotificationService {
     await plugin.cancel(
       id: _communityTaskReminderId(groupId, projectId, taskId, userId),
     );
+    await plugin.cancel(
+      id: _legacyCommunityTaskReminderId(groupId, projectId, taskId, userId),
+    );
   }
 
   /// Resolves the safe scheduling mode on Android.
-  /// Uses exactAllowWhileIdle when exact-alarm capability is granted/supported,
-  /// otherwise falls back to inexactAllowWhileIdle without requesting dangerous
-  /// permissions or crashing.
-  static Future<AndroidScheduleMode> _resolveScheduleMode() async {
+  ///
+  /// When [useAlarmClock] is true (debug-only experiment), returns
+  /// [AndroidScheduleMode.alarmClock] — the platform's highest-priority
+  /// user-visible alarm class. This tests whether OEM broadcast restrictions
+  /// (e.g. XOS "3rd-died" limit) grant alarm-clock alarms an exemption.
+  ///
+  /// Otherwise uses exactAllowWhileIdle when exact-alarm capability is
+  /// granted/supported, falling back to inexactAllowWhileIdle.
+  static Future<AndroidScheduleMode> _resolveScheduleMode({
+    bool useAlarmClock = false,
+  }) async {
+    if (useAlarmClock) {
+      if (kDebugMode) {
+        debugPrint(
+          '[TaskReminderSchedule] EXPR: using alarmClock schedule mode',
+        );
+      }
+      return AndroidScheduleMode.alarmClock;
+    }
     try {
       final android = plugin
           .resolvePlatformSpecificImplementation<
@@ -664,23 +753,40 @@ class NotificationService {
     return hash & 0x7fffffff; // positive 31-bit
   }
 
-  static int _commuteTripReminderId(String tripId) {
-    return _stableStringId('commute_trip_$tripId');
+  // ---------------------------------------------------------------------------
+  // Planned Commute Trip Reminders (user-selected single reminder)
+  // ---------------------------------------------------------------------------
+
+  /// Deterministic notification id for the user-selected reminder lead time.
+  static int _commuteTripUserReminderId(String tripId, int reminderMinutes) {
+    return _stableStringId('commute_reminder_${tripId}_$reminderMinutes');
   }
 
+  /// Schedule exactly ONE notification at [reminderMinutes] before departure.
+  /// If [reminderMinutes] <= 0, no notification is scheduled.
   static Future<void> scheduleCommuteTripReminder({
     required String tripId,
     required String title,
-    required DateTime when,
+    required int reminderMinutes,
+    DateTime? departureTime,
   }) async {
     await init();
-    if (!when.isAfter(DateTime.now())) return;
+    if (reminderMinutes <= 0 || departureTime == null) return;
+
     final scheduleMode = await _resolveScheduleMode();
+    final now = DateTime.now();
+    final scheduledSlots = <_ScheduledSlot>[];
+
+    final notifyAt = departureTime.subtract(Duration(minutes: reminderMinutes));
+    if (!notifyAt.isAfter(now)) return;
+
+    final notifId = _commuteTripUserReminderId(tripId, reminderMinutes);
+
     await plugin.zonedSchedule(
-      id: _commuteTripReminderId(tripId),
+      id: notifId,
       title: 'Commute reminder',
-      body: title,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      body: '$title ($reminderMinutes min before departure)',
+      scheduledDate: _toLocalTz(notifyAt),
       notificationDetails: NotificationDetails(
         android: _details(
           channelId: kChannelRemindersId,
@@ -690,42 +796,277 @@ class NotificationService {
       ),
       androidScheduleMode: scheduleMode,
       payload: 'commute_trip:$tripId',
+    );
+
+    scheduledSlots.add(
+      _ScheduledSlot(
+        slotLabel: 'T-$reminderMinutes',
+        notificationId: notifId,
+        scheduledAt: notifyAt,
+      ),
+    );
+
+    await _verifyAndDiagnoseRegistration(
+      entityType: 'commute_trip',
+      entityId: tripId,
+      slots: scheduledSlots,
+      scheduleMode: scheduleMode,
     );
   }
 
   static Future<void> rescheduleCommuteTripReminder({
     required String tripId,
     required String title,
-    DateTime? when,
+    required int reminderMinutes,
+    DateTime? departureTime,
   }) async {
     await init();
-    await plugin.cancel(id: _commuteTripReminderId(tripId));
-    if (when == null || !when.isAfter(DateTime.now())) return;
-    final scheduleMode = await _resolveScheduleMode();
-    await plugin.zonedSchedule(
-      id: _commuteTripReminderId(tripId),
-      title: 'Commute reminder',
-      body: title,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
-      notificationDetails: NotificationDetails(
-        android: _details(
-          channelId: kChannelRemindersId,
-          channelName: kChannelRemindersName,
-          channelDescription: kChannelRemindersDesc,
-        ),
-      ),
-      androidScheduleMode: scheduleMode,
-      payload: 'commute_trip:$tripId',
-    );
+    await cancelCommuteTripReminder(tripId);
+    if (reminderMinutes > 0 && departureTime != null) {
+      await scheduleCommuteTripReminder(
+        tripId: tripId,
+        title: title,
+        reminderMinutes: reminderMinutes,
+        departureTime: departureTime,
+      );
+    }
   }
 
   static Future<void> cancelCommuteTripReminder(String tripId) async {
     await init();
-    await plugin.cancel(id: _commuteTripReminderId(tripId));
+    // Cancel user-selected reminders for all known lead-time options.
+    for (final mins in [10, 30, 60]) {
+      await plugin.cancel(
+        id: _commuteTripUserReminderId(tripId, mins),
+      );
+    }
+    // Also cancel any legacy offset-based IDs from previous versions.
+    for (final offset in [60, 30, 10]) {
+      await plugin.cancel(
+        id: _stableStringId('commute_${tripId}_$offset'),
+      );
+    }
+    // Cancel legacy single-ID format.
+    await plugin.cancel(
+      id: _stableStringId('commute_trip_$tripId'),
+    );
   }
 
   @visibleForTesting
-  static int debugCommuteTripNotificationId(String tripId) {
-    return _commuteTripReminderId(tripId);
+  static int debugCommuteTripNotificationId(
+    String tripId, [
+    int reminderMinutes = 0,
+  ]) {
+    if (reminderMinutes <= 0) {
+      return _stableStringId('commute_trip_$tripId');
+    }
+    return _commuteTripUserReminderId(tripId, reminderMinutes);
   }
+
+  // ---------------------------------------------------------------------------
+  // Diagnostics & Registration Verification
+  // ---------------------------------------------------------------------------
+
+  static Future<void> _verifyAndDiagnoseRegistration({
+    required String entityType,
+    required String entityId,
+    required List<_ScheduledSlot> slots,
+    required AndroidScheduleMode scheduleMode,
+  }) async {
+    if (!kDebugMode || slots.isEmpty) return;
+    try {
+      final android = plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      final pending = await plugin.pendingNotificationRequests();
+      final pendingIds = pending.map((r) => r.id).toSet();
+      final expectedIds = slots.map((s) => s.notificationId).toSet();
+      final missing = expectedIds.difference(pendingIds);
+      final notificationsOn = await android?.areNotificationsEnabled() ?? false;
+      final exactOn = await android?.canScheduleExactNotifications() ?? false;
+
+      debugPrint(
+        '[ReminderRegistrationDiagnostic] entityType=$entityType'
+        ' entityId=$entityId'
+        ' totalSlots=${slots.length}'
+        ' verifiedInOs=${slots.length - missing.length}'
+        ' missingFromOs=${missing.length}'
+        ' exactCapability=$exactOn'
+        ' notificationsAllowed=$notificationsOn'
+        ' scheduleMode=$scheduleMode',
+      );
+    } catch (e) {
+      debugPrint('[ReminderRegistrationDiagnostic] audit failed: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Startup Reconciliation
+  // ---------------------------------------------------------------------------
+
+  /// Idempotent startup reconciliation to ensure AlarmManager/OS scheduled
+  /// alarms match active Firestore state without clearing unaffected alarms.
+  static Future<void> reconcileReminders({
+    List<Map<String, dynamic>>? tasks,
+    List<Map<String, dynamic>>? medicines,
+    List<Map<String, dynamic>>? commuteTrips,
+  }) async {
+    await init();
+    try {
+      final pending = await plugin.pendingNotificationRequests();
+      final pendingIds = pending.map((r) => r.id).toSet();
+      final now = DateTime.now();
+
+      // 1. Reconcile Tasks
+      if (tasks != null) {
+        for (final task in tasks) {
+          final id = task['id']?.toString() ?? '';
+          if (id.isEmpty) continue;
+          final isCompleted = task['completed'] == true;
+          final dueAt = task['dueAt'] is DateTime
+              ? task['dueAt'] as DateTime
+              : (task['dueAt'] != null
+                    ? DateTime.tryParse(task['dueAt'].toString())
+                    : null);
+          final title = task['title']?.toString() ?? '';
+          final type = task['type']?.toString() ?? 'task';
+
+          if (isCompleted ||
+              dueAt == null ||
+              !dueAt.add(const Duration(minutes: 30)).isAfter(now)) {
+            // Cancel stale/completed/missed task notifications
+            for (final offset in _taskReminderOffsets) {
+              final notifId = _taskNotificationId(id, offset);
+              if (pendingIds.contains(notifId)) {
+                await plugin.cancel(id: notifId);
+                pendingIds.remove(notifId);
+              }
+            }
+          } else {
+            // Check if any future offset is missing from OS
+            var hasMissingFutureSlot = false;
+            for (final offset in _taskReminderOffsets) {
+              final notifyAt = dueAt.subtract(Duration(minutes: offset));
+              if (notifyAt.isAfter(now)) {
+                final notifId = _taskNotificationId(id, offset);
+                if (!pendingIds.contains(notifId)) {
+                  hasMissingFutureSlot = true;
+                  break;
+                }
+              }
+            }
+            if (hasMissingFutureSlot) {
+              await scheduleTask(
+                taskId: id,
+                title: title,
+                when: dueAt,
+                type: type,
+              );
+            }
+          }
+        }
+      }
+
+      // 2. Reconcile Medicines
+      if (medicines != null) {
+        for (final med in medicines) {
+          final id = med['id']?.toString() ?? '';
+          if (id.isEmpty) continue;
+          final isActive = med['active'] != false && med['paused'] != true;
+          final times =
+              (med['times'] as List<dynamic>?)
+                  ?.map((t) => t.toString())
+                  .toList() ??
+              const <String>[];
+          final name = med['name']?.toString() ?? '';
+
+          if (!isActive) {
+            for (final t in times) {
+              for (final off in _medicineFollowUpOffsets) {
+                final notifId = _medicineNotificationId(id, t, off);
+                if (pendingIds.contains(notifId)) {
+                  await plugin.cancel(id: notifId);
+                  pendingIds.remove(notifId);
+                }
+              }
+            }
+          } else {
+            for (final t in times) {
+              final baseId = _medicineNotificationId(id, t, 0);
+              if (!pendingIds.contains(baseId)) {
+                await scheduleDailyMedicine(
+                  medicineId: id,
+                  medicineName: name,
+                  hhmm: t,
+                  instruction: med['instruction']?.toString() ?? '',
+                  quantityPerDose:
+                      (med['quantityPerDose'] as num?)?.toDouble() ?? 1,
+                  unitPrice: (med['unitPrice'] as num?)?.toDouble() ?? 0,
+                  unit: med['unit']?.toString() ?? 'tablet',
+                );
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Reconcile Commute Trips (single user-selected reminder)
+      if (commuteTrips != null) {
+        for (final trip in commuteTrips) {
+          final id = trip['id']?.toString() ?? '';
+          if (id.isEmpty) continue;
+          final departure = trip['departureTime'] is DateTime
+              ? trip['departureTime'] as DateTime
+              : (trip['departureTime'] != null
+                    ? DateTime.tryParse(trip['departureTime'].toString())
+                    : null);
+          final destination = trip['destinationName']?.toString() ?? '';
+          final reminderMinutes =
+              (trip['reminderMinutes'] as num?)?.toInt() ?? 0;
+          final completed = trip['completed'] == true;
+
+          if (completed ||
+              departure == null ||
+              !departure.isAfter(now) ||
+              reminderMinutes <= 0) {
+            // Cancel reminders for stale/past/disabled/completed trips
+            await cancelCommuteTripReminder(id);
+            for (final mins in [10, 30, 60]) {
+              pendingIds.remove(
+                _stableStringId('commute_reminder_${id}_$mins'),
+              );
+            }
+          } else {
+            // Upcoming trip: check if the user-selected reminder is present
+            final expectedId = _commuteTripUserReminderId(id, reminderMinutes);
+            if (!pendingIds.contains(expectedId)) {
+              await scheduleCommuteTripReminder(
+                tripId: id,
+                title: 'Trip to $destination',
+                reminderMinutes: reminderMinutes,
+                departureTime: departure,
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[NotificationService.reconcileReminders] error: $e');
+      }
+    }
+  }
+}
+
+class _ScheduledSlot {
+  const _ScheduledSlot({
+    required this.slotLabel,
+    required this.notificationId,
+    required this.scheduledAt,
+  });
+
+  final String slotLabel;
+  final int notificationId;
+  final DateTime scheduledAt;
 }
