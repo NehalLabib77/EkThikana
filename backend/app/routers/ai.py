@@ -118,8 +118,11 @@ async def commute_guide(
                 facts_lines.append(f"Fare source: {fare['source']}")
         elif fare.get("available") is False:
             fare_type = fare.get("type", "none")
-            if fare_type == "none":
+            mode = (body.selected_mode or "").lower()
+            if fare_type == "none" and mode in ("walk", "walking"):
                 facts_lines.append("Fare: Free (walking)")
+            elif fare_type == "free":
+                facts_lines.append("Fare: Free")
             else:
                 facts_lines.append("Fare: Not available for this mode")
     if body.verified_waypoints:

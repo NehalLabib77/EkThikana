@@ -6,6 +6,7 @@
 // drives it, rather than in a separate follow-up screen.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
@@ -68,19 +69,22 @@ class _TaskForm extends StatefulWidget {
   State<_TaskForm> createState() => _TaskFormState();
 }
 
-class _TaskFormState extends State<_TaskForm> {
+class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
   late final TextEditingController _title;
   DateTime? _dueAt;
   DateTime? _remindAt;
   int _reminderPreset = 0;
   bool _saving = false;
   String? _error;
+  bool _exactAlarmAllowed = true;
 
   bool get _isEdit => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkExactAlarm();
     final data = widget.existing?.data() ?? const <String, dynamic>{};
     _title = TextEditingController(text: data['title']?.toString() ?? '');
     _dueAt = (data['dueAt'] as Timestamp?)?.toDate();
@@ -98,8 +102,16 @@ class _TaskFormState extends State<_TaskForm> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _title.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkExactAlarm();
+    }
   }
 
   /// Detect which preset matches the current _remindAt relative to _dueAt.
@@ -227,6 +239,15 @@ class _TaskFormState extends State<_TaskForm> {
     }
   }
 
+  Future<void> _checkExactAlarm() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final allowed = await NotificationService.isExactAlarmPermissionGranted();
+      if (mounted) {
+        setState(() => _exactAlarmAllowed = allowed);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -263,6 +284,64 @@ class _TaskFormState extends State<_TaskForm> {
                     : GochanoLanguage.text('New task', 'নতুন কাজ'),
                 style: context.type.sectionHeading,
               ),
+              if (!_exactAlarmAllowed) ...[
+                const SizedBox(height: GochanoSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.all(GochanoSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: colors.warning.withValues(alpha: 0.12),
+                    borderRadius: GochanoRadius.mdAll,
+                    border: Border.all(
+                      color: colors.warning.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.alarm_off_rounded,
+                        color: colors.warning,
+                        size: 20,
+                      ),
+                      const SizedBox(width: GochanoSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Enable "Alarms & reminders" in settings so reminders ring when the app is closed.',
+                            'অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে সেটিংসে "অ্যালার্ম ও রিমাইন্ডার" চালু করুন।',
+                          ),
+                          style: context.type.caption.copyWith(
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () async {
+                          final granted =
+                              await NotificationService.requestExactAlarmPermission();
+                          if (mounted && granted) {
+                            setState(() => _exactAlarmAllowed = true);
+                          }
+                          await NotificationService.requestExactAlarmPermission();
+                          await _checkExactAlarm();
+                        },
+                        child: Text(
+                          GochanoLanguage.text('Enable', 'চালু করুন'),
+                          style: TextStyle(
+                            color: colors.warning,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: GochanoSpacing.md),
               TextField(
                 controller: _title,

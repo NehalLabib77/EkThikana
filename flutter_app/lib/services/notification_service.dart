@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../core/app_config.dart';
 import '../core/localization/gochano_language.dart';
+import 'firestore_service.dart';
 
 class MedicineNotificationAction {
   const MedicineNotificationAction({
@@ -66,6 +67,9 @@ class NotificationService {
 
   @pragma('vm:entry-point')
   static void _backgroundResponse(NotificationResponse response) {
+    if (kDebugMode) {
+      debugPrint('[Reminder] receiver:fired id=${response.id}');
+    }
     // Background isolates must not write Firebase data directly. The action
     // opens the app (showsUserInterface=true); the foreground callback then
     // performs the user-confirmed operation.
@@ -85,7 +89,7 @@ class NotificationService {
       channelId,
       channelName,
       channelDescription: channelDescription,
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
       category: category,
       icon: '@drawable/ic_stat_gochano',
@@ -148,82 +152,188 @@ class NotificationService {
     }
   }
 
+  /// Open the OS exact-alarm settings screen for this app so the user can
+  /// grant SCHEDULE_EXACT_ALARM special access. Falls back safely to
+  /// [requestExactAlarmPermission] and application details settings.
+  static Future<bool> openExactAlarmSettings() async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'openExactAlarmSettings',
+      );
+      if (result == true) return true;
+      return await requestExactAlarmPermission();
+    } on MissingPluginException {
+      return await requestExactAlarmPermission();
+    } catch (_) {
+      return await requestExactAlarmPermission();
+    }
+  }
+
+  /// Open the OS Auto-start settings screen for this app (best-effort vendor
+  /// target such as Transsion PhoneMaster AutoStart with app settings fallback).
+  static Future<bool> openAutoStartSettings() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('openAutoStartSettings');
+      return result ?? false;
+    } on MissingPluginException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns whether the app can schedule exact notifications on Android 12+ (API 31+).
+  /// On older Android versions or non-Android platforms, returns true.
+  static Future<bool> isExactAlarmPermissionGranted() async {
+    try {
+      await init();
+      final android = plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android == null) return true;
+      final canExact = await android.canScheduleExactNotifications() ?? false;
+      if (kDebugMode) {
+        debugPrint('[Reminder] exactAlarmAllowed=$canExact');
+      }
+      return canExact;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Reminder] isExactAlarmPermissionGranted fallback: $e');
+      }
+      return true;
+    }
+  }
+
+  /// Request exact-alarm permission via Android system settings intent
+  /// (Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM on Android 12+).
+  /// Returns true if permission is granted or capability is supported.
+  static Future<bool> requestExactAlarmPermission() async {
+    try {
+      await init();
+      final android = plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android == null) return true;
+      final requested = await android.requestExactAlarmsPermission() ?? false;
+      final canExact = await android.canScheduleExactNotifications() ?? false;
+      if (kDebugMode) {
+        debugPrint('[Reminder] exactAlarmAllowed=$canExact');
+      }
+      return canExact || requested;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Reminder] requestExactAlarmPermission fallback: $e');
+      }
+      return true;
+    }
+  }
+
   static Future<void> init() async {
     if (_ready) return;
 
-    tzdata.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation(AppConfig.bangladeshTimeZone));
-
-    // Use the monochrome notification small icon (white-on-transparent vector).
-    // The launcher icon (Gochano.png) must never be used as a status-bar icon -
-    // Android would render it as a solid white square.
-    const settings = InitializationSettings(
-      android: AndroidInitializationSettings('@drawable/ic_stat_gochano'),
-    );
-
-    await plugin.initialize(
-      settings: settings,
-      onDidReceiveNotificationResponse: _onResponse,
-      onDidReceiveBackgroundNotificationResponse: _backgroundResponse,
-    );
-
-    final android = plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-
-    // Request POST_NOTIFICATIONS permission (Android 13+). On older Android
-    // the OS grants this by default, so the call is a no-op.
-    await android?.requestNotificationsPermission();
-
-    // Request exact-alarm access (Android 12+). The SCHEDULE_EXACT_ALARM
-    // manifest declaration alone is NOT sufficient — the user must grant
-    // the permission through the system dialog. Without this call,
-    // canScheduleExactNotifications() returns false and all task reminders
-    // fall back to inexactAllowWhileIdle, which Android Doze mode may
-    // delay or suppress when the app is backgrounded.
     try {
-      final canExact = await android?.canScheduleExactNotifications() ?? false;
-      if (!canExact) {
-        await android?.requestExactAlarmsPermission();
+      tzdata.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation(AppConfig.bangladeshTimeZone));
+    } catch (_) {}
+
+    try {
+      // Use the monochrome notification small icon (white-on-transparent vector).
+      // The launcher icon (Gochano.png) must never be used as a status-bar icon -
+      // Android would render it as a solid white square.
+      const settings = InitializationSettings(
+        android: AndroidInitializationSettings('@drawable/ic_stat_gochano'),
+      );
+
+      await plugin.initialize(
+        settings: settings,
+        onDidReceiveNotificationResponse: _onResponse,
+        onDidReceiveBackgroundNotificationResponse: _backgroundResponse,
+      );
+
+      final android = plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      if (android != null) {
+        // Explicitly register notification channels with Importance.max so the OS
+        // creates them with full sound, vibration, and heads-up banner display
+        // before any background alarms fire.
+        await android.createNotificationChannel(
+          const AndroidNotificationChannel(
+            kChannelRemindersId,
+            kChannelRemindersName,
+            description: kChannelRemindersDesc,
+            importance: Importance.max,
+            playSound: true,
+            enableVibration: true,
+          ),
+        );
+        await android.createNotificationChannel(
+          const AndroidNotificationChannel(
+            kChannelMedicineId,
+            kChannelMedicineName,
+            description: kChannelMedicineDesc,
+            importance: Importance.max,
+            playSound: true,
+            enableVibration: true,
+          ),
+        );
+
+        // Request POST_NOTIFICATIONS permission (Android 13+).
+        await android.requestNotificationsPermission();
+
+        // Check exact-alarm capability on Android 12+.
+        try {
+          final canExact =
+              await android.canScheduleExactNotifications() ?? false;
+          if (kDebugMode) {
+            debugPrint('[Reminder] exactAlarmAllowed=$canExact');
+          }
+        } catch (_) {
+          // Safe to ignore on non-Android platforms or older API levels.
+        }
       }
-    } catch (_) {
-      // Some OEMs throw — safe to ignore; inexact fallback handles it.
-    }
 
-    final launch = await plugin.getNotificationAppLaunchDetails();
-    if (launch?.didNotificationLaunchApp == true &&
-        launch?.notificationResponse != null) {
-      _onResponse(launch!.notificationResponse!);
-    }
+      final launch = await plugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp == true &&
+          launch?.notificationResponse != null) {
+        _onResponse(launch!.notificationResponse!);
+      }
 
-    _ready = true;
+      _ready = true;
 
-    // DEBUG: audit pending alarms surviving from previous sessions.
-    if (kDebugMode) {
-      try {
-        final pending = await plugin.pendingNotificationRequests();
-        final taskPending = pending.where((r) => '${r.id}'.isNotEmpty).toList();
-        debugPrint(
-          '[TaskReminderRestoreAudit]'
-          ' totalPending=${pending.length}'
-          ' sampleIds=${taskPending.take(5).map((r) => r.id).toList()}',
-        );
-        final notificationsOn =
-            await android?.areNotificationsEnabled() ?? false;
-        final exactOn = await android?.canScheduleExactNotifications() ?? false;
-        debugPrint(
-          '[TaskReminderRestoreAudit]'
-          ' notificationsAllowed=$notificationsOn'
-          ' exactCapability=$exactOn',
-        );
-      } catch (e) {
-        debugPrint('[TaskReminderRestoreAudit] audit failed: $e');
+      // Audit pending alarms surviving from previous sessions.
+      if (kDebugMode) {
+        try {
+          final pending = await plugin.pendingNotificationRequests();
+          debugPrint('[Reminder] pendingCount=${pending.length}');
+          final notificationsOn =
+              await android?.areNotificationsEnabled() ?? false;
+          final exactOn =
+              await android?.canScheduleExactNotifications() ?? false;
+          debugPrint(
+            '[TaskReminderRestoreAudit]'
+            ' notificationsAllowed=$notificationsOn'
+            ' exactCapability=$exactOn',
+          );
+        } catch (e) {
+          debugPrint('[Reminder] pending audit failed: $e');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Reminder] NotificationService.init caught: $e');
       }
     }
   }
 
   static void _onResponse(NotificationResponse response) {
+    if (kDebugMode) {
+      debugPrint('[Reminder] receiver:fired id=${response.id}');
+    }
     final payload = response.payload;
     if (payload == null || !payload.startsWith('{')) return;
     try {
@@ -269,19 +379,12 @@ class NotificationService {
     final missedAt = when.add(const Duration(minutes: 30));
     if (!missedAt.isAfter(now)) return;
 
-    // Debug experiment: use alarmClock mode for task reminders to test whether
-    // OEM broadcast restrictions (XOS "3rd-died") grant alarm-clock alarms an
-    // exemption. In release builds this is always false — no behaviour change.
-    final useAlarmClock = kDebugMode;
-    final scheduleMode =
-        await _resolveScheduleMode(useAlarmClock: useAlarmClock);
+    final scheduleMode = await _resolveScheduleMode();
     final isAssignment = type == 'assignment';
     final scheduledIds = <int>[];
     final scheduledSlots = <_ScheduledSlot>[];
 
-    final taskCategory = useAlarmClock
-        ? AndroidNotificationCategory.alarm
-        : AndroidNotificationCategory.reminder;
+    const taskCategory = AndroidNotificationCategory.reminder;
 
     for (final offset in _taskReminderOffsets) {
       final notifyAt = when.subtract(Duration(minutes: offset));
@@ -294,44 +397,71 @@ class NotificationService {
           ? 'T'
           : 'T+${-offset}';
 
-      await plugin.zonedSchedule(
-        id: notifId,
-        title: 'Gochano reminder',
-        body: isAssignment
-            ? (offset == -30
-                  ? GochanoLanguage.text(
-                      'Assignment incomplete',
-                      'অ্যাসাইনমেন্টটি এখনো সম্পন্ন হয়নি',
-                    )
-                  : offset == 0
-                  ? GochanoLanguage.text(
-                      'Assignment due now: $title',
-                      'অ্যাসাইনমেন্টের সময় হয়েছে: $title',
-                    )
-                  : '$title (in $offset mins)')
-            : (offset == -30
-                  ? GochanoLanguage.text(
-                      'Task incomplete',
-                      'কাজটি এখনো সম্পন্ন হয়নি',
-                    )
-                  : offset == 0
-                  ? GochanoLanguage.text(
-                      'Task due now: $title',
-                      'কাজের সময় হয়েছে: $title',
-                    )
-                  : '$title (in $offset mins)'),
-        scheduledDate: _toLocalTz(notifyAt),
-        notificationDetails: NotificationDetails(
-          android: _details(
-            channelId: kChannelRemindersId,
-            channelName: kChannelRemindersName,
-            channelDescription: kChannelRemindersDesc,
-            category: taskCategory,
+      try {
+        await plugin.zonedSchedule(
+          id: notifId,
+          title: 'Gochano reminder',
+          body: isAssignment
+              ? (offset == -30
+                    ? GochanoLanguage.text(
+                        'Assignment incomplete',
+                        'অ্যাসাইনমেন্টটি এখনো সম্পন্ন হয়নি',
+                      )
+                    : offset == 0
+                    ? GochanoLanguage.text(
+                        'Assignment due now: $title',
+                        'অ্যাসাইনমেন্টের সময় হয়েছে: $title',
+                      )
+                    : '$title (in $offset mins)')
+              : (offset == -30
+                    ? GochanoLanguage.text(
+                        'Task incomplete',
+                        'কাজটি এখনো সম্পন্ন হয়নি',
+                      )
+                    : offset == 0
+                    ? GochanoLanguage.text(
+                        'Task due now: $title',
+                        'কাজের সময় হয়েছে: $title',
+                      )
+                    : '$title (in $offset mins)'),
+          scheduledDate: _toLocalTz(notifyAt),
+          notificationDetails: NotificationDetails(
+            android: _details(
+              channelId: kChannelRemindersId,
+              channelName: kChannelRemindersName,
+              channelDescription: kChannelRemindersDesc,
+              category: taskCategory,
+            ),
           ),
-        ),
-        androidScheduleMode: scheduleMode,
-        payload: taskId,
-      );
+          androidScheduleMode: scheduleMode,
+          payload: taskId,
+        );
+      } on PlatformException catch (e) {
+        if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
+          await plugin.zonedSchedule(
+            id: notifId,
+            title: 'Gochano reminder',
+            body: isAssignment
+                ? '$title (in $offset mins)'
+                : '$title (in $offset mins)',
+            scheduledDate: _toLocalTz(notifyAt),
+            notificationDetails: NotificationDetails(
+              android: _details(
+                channelId: kChannelRemindersId,
+                channelName: kChannelRemindersName,
+                channelDescription: kChannelRemindersDesc,
+                category: taskCategory,
+              ),
+            ),
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            payload: taskId,
+          );
+        } else {
+          if (kDebugMode) {
+            debugPrint('[TaskReminderSchedule] zonedSchedule failed: $e');
+          }
+        }
+      }
 
       scheduledIds.add(notifId);
       scheduledSlots.add(
@@ -342,6 +472,7 @@ class NotificationService {
         ),
       );
       if (kDebugMode) {
+        debugPrint('[Reminder] schedule id=$notifId type=$type at=$notifyAt');
         debugPrint(
           '[TaskReminderSchedule] taskId=$taskId'
           ' slot=$slotLabel'
@@ -381,7 +512,11 @@ class NotificationService {
       debugPrint('[TaskReminderSchedule] reschedule taskId=$taskId when=$when');
     }
     for (final offset in _taskReminderOffsets) {
-      await plugin.cancel(id: _taskNotificationId(taskId, offset));
+      final notifId = _taskNotificationId(taskId, offset);
+      await plugin.cancel(id: notifId);
+      if (kDebugMode) {
+        debugPrint('[Reminder] cancel id=$notifId');
+      }
     }
     if (when == null) return;
     final missedAt = when.add(const Duration(minutes: 30));
@@ -396,7 +531,11 @@ class NotificationService {
       debugPrint('[TaskReminderSchedule] cancelTask taskId=$taskId');
     }
     for (final offset in _taskReminderOffsets) {
-      await plugin.cancel(id: _taskNotificationId(taskId, offset));
+      final notifId = _taskNotificationId(taskId, offset);
+      await plugin.cancel(id: notifId);
+      if (kDebugMode) {
+        debugPrint('[Reminder] cancel id=$notifId');
+      }
     }
   }
 
@@ -461,56 +600,16 @@ class NotificationService {
       ),
     ];
 
+    final baseId = _medicineNotificationId(medicineId, hhmm, 0);
     // Base dose at scheduled time (offset 0), repeats daily
-    await plugin.zonedSchedule(
-      id: _medicineNotificationId(medicineId, hhmm, 0),
-      title: 'Gochano • Medicine reminder',
-      body: instruction.trim().isEmpty
-          ? '$medicineName • $quantityPerDose $unit'
-          : '$medicineName • $instruction',
-      scheduledDate: next,
-      notificationDetails: NotificationDetails(
-        android: _details(
-          channelId: kChannelMedicineId,
-          channelName: kChannelMedicineName,
-          channelDescription: kChannelMedicineDesc,
-          actions: const [
-            AndroidNotificationAction(
-              'taken',
-              'Taken',
-              showsUserInterface: true,
-              cancelNotification: true,
-            ),
-            AndroidNotificationAction(
-              'skip',
-              'Skip',
-              showsUserInterface: true,
-              cancelNotification: true,
-            ),
-          ],
-        ),
-      ),
-      androidScheduleMode: scheduleMode,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: payload,
-    );
-
-    // Follow-ups at 30, 60, 90, 120 minutes
-    for (final offset in _medicineFollowUpOffsets.skip(1)) {
-      final followUpTime = next.add(Duration(minutes: offset));
-      final notifId = _medicineNotificationId(medicineId, hhmm, offset);
-      scheduledSlots.add(
-        _ScheduledSlot(
-          slotLabel: 'T+$offset (follow-up)',
-          notificationId: notifId,
-          scheduledAt: followUpTime,
-        ),
-      );
+    try {
       await plugin.zonedSchedule(
-        id: notifId,
-        title: 'Gochano • Medicine reminder (follow-up)',
-        body: '$medicineName • Overdue ($offset min) — please take or skip',
-        scheduledDate: followUpTime,
+        id: baseId,
+        title: 'Gochano • Medicine reminder',
+        body: instruction.trim().isEmpty
+            ? '$medicineName • $quantityPerDose $unit'
+            : '$medicineName • $instruction',
+        scheduledDate: next,
         notificationDetails: NotificationDetails(
           android: _details(
             channelId: kChannelMedicineId,
@@ -533,8 +632,136 @@ class NotificationService {
           ),
         ),
         androidScheduleMode: scheduleMode,
+        matchDateTimeComponents: DateTimeComponents.time,
         payload: payload,
       );
+    } on PlatformException catch (e) {
+      if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
+        await plugin.zonedSchedule(
+          id: baseId,
+          title: 'Gochano • Medicine reminder',
+          body: instruction.trim().isEmpty
+              ? '$medicineName • $quantityPerDose $unit'
+              : '$medicineName • $instruction',
+          scheduledDate: next,
+          notificationDetails: NotificationDetails(
+            android: _details(
+              channelId: kChannelMedicineId,
+              channelName: kChannelMedicineName,
+              channelDescription: kChannelMedicineDesc,
+              actions: const [
+                AndroidNotificationAction(
+                  'taken',
+                  'Taken',
+                  showsUserInterface: true,
+                  cancelNotification: true,
+                ),
+                AndroidNotificationAction(
+                  'skip',
+                  'Skip',
+                  showsUserInterface: true,
+                  cancelNotification: true,
+                ),
+              ],
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          payload: payload,
+        );
+      } else {
+        if (kDebugMode) {
+          debugPrint('[MedicineSchedule] zonedSchedule base dose failed: $e');
+        }
+      }
+    }
+    if (kDebugMode) {
+      debugPrint('[Reminder] schedule id=$baseId type=medicine at=$next');
+    }
+
+    // Follow-ups at 30, 60, 90, 120 minutes
+    for (final offset in _medicineFollowUpOffsets.skip(1)) {
+      final followUpTime = next.add(Duration(minutes: offset));
+      final notifId = _medicineNotificationId(medicineId, hhmm, offset);
+      scheduledSlots.add(
+        _ScheduledSlot(
+          slotLabel: 'T+$offset (follow-up)',
+          notificationId: notifId,
+          scheduledAt: followUpTime,
+        ),
+      );
+      try {
+        await plugin.zonedSchedule(
+          id: notifId,
+          title: 'Gochano • Medicine reminder (follow-up)',
+          body: '$medicineName • Overdue ($offset min) — please take or skip',
+          scheduledDate: followUpTime,
+          notificationDetails: NotificationDetails(
+            android: _details(
+              channelId: kChannelMedicineId,
+              channelName: kChannelMedicineName,
+              channelDescription: kChannelMedicineDesc,
+              actions: const [
+                AndroidNotificationAction(
+                  'taken',
+                  'Taken',
+                  showsUserInterface: true,
+                  cancelNotification: true,
+                ),
+                AndroidNotificationAction(
+                  'skip',
+                  'Skip',
+                  showsUserInterface: true,
+                  cancelNotification: true,
+                ),
+              ],
+            ),
+          ),
+          androidScheduleMode: scheduleMode,
+          payload: payload,
+        );
+      } on PlatformException catch (e) {
+        if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
+          await plugin.zonedSchedule(
+            id: notifId,
+            title: 'Gochano • Medicine reminder (follow-up)',
+            body: '$medicineName • Overdue ($offset min) — please take or skip',
+            scheduledDate: followUpTime,
+            notificationDetails: NotificationDetails(
+              android: _details(
+                channelId: kChannelMedicineId,
+                channelName: kChannelMedicineName,
+                channelDescription: kChannelMedicineDesc,
+                actions: const [
+                  AndroidNotificationAction(
+                    'taken',
+                    'Taken',
+                    showsUserInterface: true,
+                    cancelNotification: true,
+                  ),
+                  AndroidNotificationAction(
+                    'skip',
+                    'Skip',
+                    showsUserInterface: true,
+                    cancelNotification: true,
+                  ),
+                ],
+              ),
+            ),
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            payload: payload,
+          );
+        } else {
+          if (kDebugMode) {
+            debugPrint('[MedicineSchedule] zonedSchedule follow-up failed: $e');
+          }
+        }
+      }
+      if (kDebugMode) {
+        debugPrint(
+          '[Reminder] schedule id=$notifId type=medicine at=$followUpTime',
+        );
+      }
     }
 
     await _verifyAndDiagnoseRegistration(
@@ -556,9 +783,11 @@ class NotificationService {
     // Offset 0 is scheduled with matchDateTimeComponents: DateTimeComponents.time
     // to repeat daily; cancelling offset 0 would cancel future days' daily alarms.
     for (final offset in _medicineFollowUpOffsets.where((o) => o > 0)) {
-      await plugin.cancel(
-        id: _medicineNotificationId(medicineId, hhmm, offset),
-      );
+      final notifId = _medicineNotificationId(medicineId, hhmm, offset);
+      await plugin.cancel(id: notifId);
+      if (kDebugMode) {
+        debugPrint('[Reminder] cancel id=$notifId');
+      }
     }
   }
 
@@ -569,9 +798,11 @@ class NotificationService {
     await init();
     for (final time in times) {
       for (final offset in _medicineFollowUpOffsets) {
-        await plugin.cancel(
-          id: _medicineNotificationId(medicineId, time, offset),
-        );
+        final notifId = _medicineNotificationId(medicineId, time, offset);
+        await plugin.cancel(id: notifId);
+        if (kDebugMode) {
+          debugPrint('[Reminder] cancel id=$notifId');
+        }
       }
     }
   }
@@ -616,21 +847,50 @@ class NotificationService {
       userId,
     );
 
-    await plugin.zonedSchedule(
-      id: notifId,
-      title: 'Gochano reminder',
-      body: title,
-      scheduledDate: _toLocalTz(when),
-      notificationDetails: NotificationDetails(
-        android: _details(
-          channelId: kChannelRemindersId,
-          channelName: kChannelRemindersName,
-          channelDescription: kChannelRemindersDesc,
+    try {
+      await plugin.zonedSchedule(
+        id: notifId,
+        title: 'Gochano reminder',
+        body: title,
+        scheduledDate: _toLocalTz(when),
+        notificationDetails: NotificationDetails(
+          android: _details(
+            channelId: kChannelRemindersId,
+            channelName: kChannelRemindersName,
+            channelDescription: kChannelRemindersDesc,
+          ),
         ),
-      ),
-      androidScheduleMode: scheduleMode,
-      payload: taskId,
-    );
+        androidScheduleMode: scheduleMode,
+        payload: taskId,
+      );
+    } on PlatformException catch (e) {
+      if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
+        await plugin.zonedSchedule(
+          id: notifId,
+          title: 'Gochano reminder',
+          body: title,
+          scheduledDate: _toLocalTz(when),
+          notificationDetails: NotificationDetails(
+            android: _details(
+              channelId: kChannelRemindersId,
+              channelName: kChannelRemindersName,
+              channelDescription: kChannelRemindersDesc,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: taskId,
+        );
+      } else {
+        if (kDebugMode) {
+          debugPrint('[CommunityTaskSchedule] zonedSchedule failed: $e');
+        }
+      }
+    }
+    if (kDebugMode) {
+      debugPrint(
+        '[Reminder] schedule id=$notifId type=community_task at=$when',
+      );
+    }
 
     await _verifyAndDiagnoseRegistration(
       entityType: 'community_task',
@@ -655,12 +915,24 @@ class NotificationService {
     DateTime? when,
   }) async {
     await init();
-    await plugin.cancel(
-      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
+    final primaryId = _communityTaskReminderId(
+      groupId,
+      projectId,
+      taskId,
+      userId,
     );
-    await plugin.cancel(
-      id: _legacyCommunityTaskReminderId(groupId, projectId, taskId, userId),
+    final legacyId = _legacyCommunityTaskReminderId(
+      groupId,
+      projectId,
+      taskId,
+      userId,
     );
+    await plugin.cancel(id: primaryId);
+    await plugin.cancel(id: legacyId);
+    if (kDebugMode) {
+      debugPrint('[Reminder] cancel id=$primaryId');
+      debugPrint('[Reminder] cancel id=$legacyId');
+    }
     if (when == null || !when.isAfter(DateTime.now())) return;
     await scheduleCommunityTaskReminder(
       groupId: groupId,
@@ -679,34 +951,31 @@ class NotificationService {
     required String userId,
   }) async {
     await init();
-    await plugin.cancel(
-      id: _communityTaskReminderId(groupId, projectId, taskId, userId),
+    final primaryId = _communityTaskReminderId(
+      groupId,
+      projectId,
+      taskId,
+      userId,
     );
-    await plugin.cancel(
-      id: _legacyCommunityTaskReminderId(groupId, projectId, taskId, userId),
+    final legacyId = _legacyCommunityTaskReminderId(
+      groupId,
+      projectId,
+      taskId,
+      userId,
     );
+    await plugin.cancel(id: primaryId);
+    await plugin.cancel(id: legacyId);
+    if (kDebugMode) {
+      debugPrint('[Reminder] cancel id=$primaryId');
+      debugPrint('[Reminder] cancel id=$legacyId');
+    }
   }
 
   /// Resolves the safe scheduling mode on Android.
   ///
-  /// When [useAlarmClock] is true (debug-only experiment), returns
-  /// [AndroidScheduleMode.alarmClock] — the platform's highest-priority
-  /// user-visible alarm class. This tests whether OEM broadcast restrictions
-  /// (e.g. XOS "3rd-died" limit) grant alarm-clock alarms an exemption.
-  ///
-  /// Otherwise uses exactAllowWhileIdle when exact-alarm capability is
-  /// granted/supported, falling back to inexactAllowWhileIdle.
-  static Future<AndroidScheduleMode> _resolveScheduleMode({
-    bool useAlarmClock = false,
-  }) async {
-    if (useAlarmClock) {
-      if (kDebugMode) {
-        debugPrint(
-          '[TaskReminderSchedule] EXPR: using alarmClock schedule mode',
-        );
-      }
-      return AndroidScheduleMode.alarmClock;
-    }
+  /// Uses [AndroidScheduleMode.exactAllowWhileIdle] when exact-alarm capability is
+  /// granted/supported, falling back to [AndroidScheduleMode.inexactAllowWhileIdle].
+  static Future<AndroidScheduleMode> _resolveScheduleMode() async {
     try {
       final android = plugin
           .resolvePlatformSpecificImplementation<
@@ -716,6 +985,7 @@ class NotificationService {
       final notificationsAllowed =
           await android?.areNotificationsEnabled() ?? false;
       if (kDebugMode) {
+        debugPrint('[Reminder] exactAlarmAllowed=$canExact');
         debugPrint(
           '[TaskReminderSchedule] notificationsAllowed=$notificationsAllowed'
           ' exactCapability=$canExact'
@@ -782,21 +1052,50 @@ class NotificationService {
 
     final notifId = _commuteTripUserReminderId(tripId, reminderMinutes);
 
-    await plugin.zonedSchedule(
-      id: notifId,
-      title: 'Commute reminder',
-      body: '$title ($reminderMinutes min before departure)',
-      scheduledDate: _toLocalTz(notifyAt),
-      notificationDetails: NotificationDetails(
-        android: _details(
-          channelId: kChannelRemindersId,
-          channelName: kChannelRemindersName,
-          channelDescription: kChannelRemindersDesc,
+    try {
+      await plugin.zonedSchedule(
+        id: notifId,
+        title: 'Commute reminder',
+        body: '$title ($reminderMinutes min before departure)',
+        scheduledDate: _toLocalTz(notifyAt),
+        notificationDetails: NotificationDetails(
+          android: _details(
+            channelId: kChannelRemindersId,
+            channelName: kChannelRemindersName,
+            channelDescription: kChannelRemindersDesc,
+          ),
         ),
-      ),
-      androidScheduleMode: scheduleMode,
-      payload: 'commute_trip:$tripId',
-    );
+        androidScheduleMode: scheduleMode,
+        payload: 'commute_trip:$tripId',
+      );
+    } on PlatformException catch (e) {
+      if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
+        await plugin.zonedSchedule(
+          id: notifId,
+          title: 'Commute reminder',
+          body: '$title ($reminderMinutes min before departure)',
+          scheduledDate: _toLocalTz(notifyAt),
+          notificationDetails: NotificationDetails(
+            android: _details(
+              channelId: kChannelRemindersId,
+              channelName: kChannelRemindersName,
+              channelDescription: kChannelRemindersDesc,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: 'commute_trip:$tripId',
+        );
+      } else {
+        if (kDebugMode) {
+          debugPrint('[CommuteTripSchedule] zonedSchedule failed: $e');
+        }
+      }
+    }
+    if (kDebugMode) {
+      debugPrint(
+        '[Reminder] schedule id=$notifId type=commute_trip at=$notifyAt',
+      );
+    }
 
     scheduledSlots.add(
       _ScheduledSlot(
@@ -836,20 +1135,26 @@ class NotificationService {
     await init();
     // Cancel user-selected reminders for all known lead-time options.
     for (final mins in [10, 30, 60]) {
-      await plugin.cancel(
-        id: _commuteTripUserReminderId(tripId, mins),
-      );
+      final notifId = _commuteTripUserReminderId(tripId, mins);
+      await plugin.cancel(id: notifId);
+      if (kDebugMode) {
+        debugPrint('[Reminder] cancel id=$notifId');
+      }
     }
     // Also cancel any legacy offset-based IDs from previous versions.
     for (final offset in [60, 30, 10]) {
-      await plugin.cancel(
-        id: _stableStringId('commute_${tripId}_$offset'),
-      );
+      final notifId = _stableStringId('commute_${tripId}_$offset');
+      await plugin.cancel(id: notifId);
+      if (kDebugMode) {
+        debugPrint('[Reminder] cancel id=$notifId');
+      }
     }
     // Cancel legacy single-ID format.
-    await plugin.cancel(
-      id: _stableStringId('commute_trip_$tripId'),
-    );
+    final singleId = _stableStringId('commute_trip_$tripId');
+    await plugin.cancel(id: singleId);
+    if (kDebugMode) {
+      debugPrint('[Reminder] cancel id=$singleId');
+    }
   }
 
   @visibleForTesting
@@ -913,8 +1218,14 @@ class NotificationService {
     List<Map<String, dynamic>>? commuteTrips,
   }) async {
     await init();
+    if (kDebugMode) {
+      debugPrint('[Reminder] reconcile:start');
+    }
     try {
       final pending = await plugin.pendingNotificationRequests();
+      if (kDebugMode) {
+        debugPrint('[Reminder] pendingCount=${pending.length}');
+      }
       final pendingIds = pending.map((r) => r.id).toSet();
       final now = DateTime.now();
 
@@ -940,6 +1251,9 @@ class NotificationService {
               final notifId = _taskNotificationId(id, offset);
               if (pendingIds.contains(notifId)) {
                 await plugin.cancel(id: notifId);
+                if (kDebugMode) {
+                  debugPrint('[Reminder] cancel id=$notifId');
+                }
                 pendingIds.remove(notifId);
               }
             }
@@ -987,6 +1301,9 @@ class NotificationService {
                 final notifId = _medicineNotificationId(id, t, off);
                 if (pendingIds.contains(notifId)) {
                   await plugin.cancel(id: notifId);
+                  if (kDebugMode) {
+                    debugPrint('[Reminder] cancel id=$notifId');
+                  }
                   pendingIds.remove(notifId);
                 }
               }
@@ -1051,9 +1368,55 @@ class NotificationService {
           }
         }
       }
+      if (kDebugMode) {
+        debugPrint('[Reminder] reconcile:end');
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[NotificationService.reconcileReminders] error: $e');
+      }
+    }
+  }
+
+  /// Automatically pulls active tasks, medicines, and planned trips for the current
+  /// authenticated user and reconciles OS-level scheduled notifications with active state.
+  static Future<void> reconcileFromFirestore() async {
+    final uid = FirestoreService.uid;
+    if (uid == null) return;
+    try {
+      final tasksSnap = await FirestoreService.db
+          .collection('tasks')
+          .where('ownerId', isEqualTo: uid)
+          .limit(100)
+          .get();
+      final tasks = tasksSnap.docs
+          .map((d) => {'id': d.id, ...d.data()})
+          .toList();
+
+      final medsSnap = await FirestoreService.db
+          .collection('medicines')
+          .where('ownerId', isEqualTo: uid)
+          .limit(50)
+          .get();
+      final meds = medsSnap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+
+      final tripsSnap = await FirestoreService.db
+          .collection('planned_trips')
+          .where('ownerId', isEqualTo: uid)
+          .limit(50)
+          .get();
+      final trips = tripsSnap.docs
+          .map((d) => {'id': d.id, ...d.data()})
+          .toList();
+
+      await reconcileReminders(
+        tasks: tasks,
+        medicines: meds,
+        commuteTrips: trips,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[NotificationService.reconcileFromFirestore] error: $e');
       }
     }
   }

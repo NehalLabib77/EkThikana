@@ -160,7 +160,8 @@ class _IdentityHeader extends StatelessWidget {
               builder: (context, phoneSnap) {
                 final displayPhone = phoneSnap.data?.trim() ?? phone;
                 // Never show internal placeholders or roles like "student" as phone
-                final validPhone = displayPhone.isNotEmpty &&
+                final validPhone =
+                    displayPhone.isNotEmpty &&
                         displayPhone.toLowerCase() != 'student'
                     ? displayPhone
                     : '';
@@ -600,6 +601,7 @@ class _SettingsCard extends StatefulWidget {
 class _SettingsCardState extends State<_SettingsCard>
     with WidgetsBindingObserver {
   bool? _notificationsEnabled;
+  bool? _exactAlarmsAllowed;
 
   /// The month's amount, or null while unread. Kept separate from "zero" so
   /// a failed read is never shown as "not set".
@@ -612,13 +614,27 @@ class _SettingsCardState extends State<_SettingsCard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkNotifications();
+    _checkExactAlarm();
     if (widget.isStudent) _loadBudget();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkNotifications();
+      _checkExactAlarm();
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _checkExactAlarm() async {
+    final allowed = await NotificationService.isExactAlarmPermissionGranted();
+    if (mounted) setState(() => _exactAlarmsAllowed = allowed);
   }
 
   Future<void> _loadBudget() async {
@@ -751,6 +767,55 @@ class _SettingsCardState extends State<_SettingsCard>
                           ),
                         )
                       : null,
+                ),
+                _SettingsRow(
+                  icon: Icons.alarm_rounded,
+                  iconColor: _exactAlarmsAllowed == false
+                      ? colors.warning
+                      : null,
+                  title: GochanoLanguage.text(
+                    'Alarms & reminders',
+                    'অ্যালার্ম ও রিমাইন্ডার',
+                  ),
+                  value: GochanoLanguage.text(
+                    'Allow exact reminders when the app is closed',
+                    'অ্যাপ বন্ধ থাকলেও সঠিক সময়ে রিমাইন্ডার পেতে অনুমতি দিন',
+                  ),
+                  onTap: () async {
+                    await NotificationService.openExactAlarmSettings();
+                    await _checkExactAlarm();
+                  },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_exactAlarmsAllowed != null)
+                        Text(
+                          _exactAlarmsAllowed == true
+                              ? GochanoLanguage.text('Enabled', 'চালু')
+                              : GochanoLanguage.text('Disabled', 'বন্ধ'),
+                          style: context.type.caption.copyWith(
+                            color: _exactAlarmsAllowed == true
+                                ? colors.success
+                                : colors.warning,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: colors.textTertiary,
+                      ),
+                    ],
+                  ),
+                ),
+                _SettingsRow(
+                  icon: Icons.restart_alt_rounded,
+                  title: GochanoLanguage.text('Auto-start', 'অটো-স্টার্ট'),
+                  value: GochanoLanguage.text(
+                    'Allow Gochano to start for reminders after swipe-away or reboot',
+                    'সোয়াইপ-অ্যাওয়ে বা রিবুটের পর রিমাইন্ডারের জন্য Gochano চালু হতে দিন',
+                  ),
+                  onTap: () => NotificationService.openAutoStartSettings(),
                 ),
               ],
             );

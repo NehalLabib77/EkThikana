@@ -12,6 +12,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'package:flutter/foundation.dart';
+
 import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
@@ -35,17 +37,37 @@ class PlanView extends StatefulWidget {
   State<PlanView> createState() => _PlanViewState();
 }
 
-class _PlanViewState extends State<PlanView> {
+class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
   DateTime _selectedDay = DateTime.now();
+  bool _exactAlarmAllowed = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     GochanoLanguage.current.addListener(_onLanguageChange);
+    _checkExactAlarm();
+  }
+
+  Future<void> _checkExactAlarm() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final allowed = await NotificationService.isExactAlarmPermissionGranted();
+      if (mounted) {
+        setState(() => _exactAlarmAllowed = allowed);
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkExactAlarm();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     GochanoLanguage.current.removeListener(_onLanguageChange);
     super.dispose();
   }
@@ -56,11 +78,71 @@ class _PlanViewState extends State<PlanView> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: () async {
+        await _checkExactAlarm();
+      },
       child: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
+          if (!_exactAlarmAllowed) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: GochanoSpacing.sm),
+              padding: const EdgeInsets.all(GochanoSpacing.sm),
+              decoration: BoxDecoration(
+                color: colors.warning.withValues(alpha: 0.12),
+                borderRadius: GochanoRadius.mdAll,
+                border: Border.all(
+                  color: colors.warning.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.alarm_off_rounded,
+                    color: colors.warning,
+                    size: 20,
+                  ),
+                  const SizedBox(width: GochanoSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      GochanoLanguage.text(
+                        'Enable "Alarms & reminders" in settings so reminders ring when the app is closed.',
+                        'অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে সেটিংসে "অ্যালার্ম ও রিমাইন্ডার" চালু করুন।',
+                      ),
+                      style: context.type.caption.copyWith(
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () async {
+                      final granted =
+                          await NotificationService.requestExactAlarmPermission();
+                      if (mounted && granted) {
+                        setState(() => _exactAlarmAllowed = true);
+                      }
+                    },
+                    child: Text(
+                      GochanoLanguage.text('Enable', 'চালু করুন'),
+                      style: TextStyle(
+                        color: colors.warning,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           _DateStrip(
             selectedDay: _selectedDay,
             onDaySelected: (day) => setState(() => _selectedDay = day),
@@ -569,9 +651,8 @@ class _PlanHistoryScreen extends StatelessWidget {
               if (d['done'] == true) return false;
               final due = (d['dueAt'] as Timestamp?)?.toDate();
               if (due == null) return true;
-              final missedAt = due.add(const Duration(minutes: 30));
-              // Items only become Missed once dueAt + 30m has passed.
-              return missedAt.isAfter(now);
+              // Canonical missed rule: incomplete task whose deadline has passed.
+              return due.isAfter(now);
             })
             ..sort((a, b) {
               final at = (a.data()['dueAt'] as Timestamp?)?.toDate();

@@ -147,6 +147,52 @@ void main() {
       },
     );
 
+    test('contains Alarms & reminders and Auto-start with BN labels', () {
+      expect(source, contains("'Alarms & reminders'"));
+      expect(source, contains("'অ্যালার্ম ও রিমাইন্ডার'"));
+      expect(source, contains("'Auto-start'"));
+      expect(source, contains("'অটো-স্টার্ট'"));
+      expect(
+        source,
+        contains("'Allow exact reminders when the app is closed'"),
+      );
+      expect(
+        source,
+        contains("'অ্যাপ বন্ধ থাকলেও সঠিক সময়ে রিমাইন্ডার পেতে অনুমতি দিন'"),
+      );
+      expect(
+        source,
+        contains(
+          "'Allow Gochano to start for reminders after swipe-away or reboot'",
+        ),
+      );
+      expect(
+        source,
+        contains(
+          "'সোয়াইপ-অ্যাওয়ে বা রিবুটের পর রিমাইন্ডারের জন্য Gochano চালু হতে দিন'",
+        ),
+      );
+      expect(source, contains("GochanoLanguage.text('Enabled', 'চালু')"));
+      expect(source, contains("GochanoLanguage.text('Disabled', 'বন্ধ')"));
+    });
+
+    test(
+      'alarms row calls openExactAlarmSettings and auto-start row calls openAutoStartSettings',
+      () {
+        expect(
+          source,
+          contains('NotificationService.openExactAlarmSettings()'),
+        );
+        expect(source, contains('NotificationService.openAutoStartSettings()'));
+      },
+    );
+
+    test('no USE_EXACT_ALARM permission added to AndroidManifest.xml', () {
+      final manifest = _read('android/app/src/main/AndroidManifest.xml');
+      expect(manifest, isNot(contains('android.permission.USE_EXACT_ALARM')));
+      expect(manifest, contains('android.permission.SCHEDULE_EXACT_ALARM'));
+    });
+
     test('no XP, levels, gems, badges, or productivity stats remain', () {
       expect(source, isNot(contains('XP')));
       expect(source, isNot(contains('gems')));

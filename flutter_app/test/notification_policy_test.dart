@@ -411,5 +411,21 @@ void main() {
         expect(eligibleOffsets, equals([-30]));
       },
     );
+
+    test('Exact alarm APIs are exposed and callable without throwing', () async {
+      // In unit test environment (no Android platform channel), should complete safely
+      final canExact =
+          await NotificationService.isExactAlarmPermissionGranted();
+      expect(canExact, isA<bool>());
+
+      final requested = await NotificationService.requestExactAlarmPermission();
+      expect(requested, isA<bool>());
+
+      final openedExact = await NotificationService.openExactAlarmSettings();
+      expect(openedExact, isA<bool>());
+
+      final openedAutoStart = await NotificationService.openAutoStartSettings();
+      expect(openedAutoStart, isA<bool>());
+    });
   });
 }

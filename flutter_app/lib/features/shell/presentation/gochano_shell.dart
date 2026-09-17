@@ -29,6 +29,7 @@ import '../../life/presentation/expense/expense_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../study/presentation/study_screen.dart';
 import '../../tasks/presentation/tasks_screen.dart';
+import '../../../services/notification_service.dart';
 
 class GochanoShell extends StatefulWidget {
   const GochanoShell({
@@ -53,6 +54,9 @@ class _GochanoShellState extends State<GochanoShell> {
   void initState() {
     super.initState();
     GochanoLanguage.current.addListener(_onLanguageChange);
+    NotificationService.reconcileFromFirestore().catchError((_) {
+      return Future<void>.value();
+    });
   }
 
   @override

@@ -166,14 +166,8 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   String _greeting(String name) {
-    final hour = DateTime.now().hour;
-    final greeting = hour < 12
-        ? GochanoLanguage.text('Good morning', 'সুপ্রভাত')
-        : hour < 17
-        ? GochanoLanguage.text('Good afternoon', 'শুভ অপরাহ্ন')
-        : GochanoLanguage.text('Good evening', 'শুভ সন্ধ্যা');
     final trimmed = name.trim();
-    return trimmed.isEmpty ? greeting : '$greeting, $trimmed';
+    return trimmed.isEmpty ? '?' : trimmed;
   }
 }
 
@@ -552,15 +546,12 @@ class _TodaysTasksCard extends StatelessWidget {
           if (data['done'] == true) continue;
           final due = (data['dueAt'] as Timestamp?)?.toDate();
           if (due == null) continue;
-          if (due.isBefore(now)) {
+          // Canonical missed rule: incomplete task whose deadline has passed.
+          if (!due.isAfter(now)) {
             overdue++;
             continue;
           }
-          final missedAt = due.add(const Duration(minutes: 30));
-          // Once 30-minute grace period expires, item is Missed and leaves Home.
-          if (!missedAt.isAfter(now)) continue;
-
-          if (due.isBefore(endOfToday)) open.add(doc);
+          if (!due.isAfter(endOfToday)) open.add(doc);
         }
         open.sort(_byDueAtAsc);
 
@@ -597,7 +588,29 @@ class _TodaysTasksCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: GochanoSpacing.xs),
-              if (open.isEmpty)
+              if (open.isEmpty && overdue > 0)
+                Row(
+                  children: [
+                    GochanoIllustration(
+                      GochanoArt.emptyTasks,
+                      size: 28,
+                      accent: colors.warning,
+                    ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text(
+                          '$overdue overdue, nothing else today',
+                          '$overdue টি বাকি, আর কিছু নেই',
+                        ),
+                        style: context.type.bodySecondary.copyWith(
+                          color: colors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else if (open.isEmpty)
                 Row(
                   children: [
                     GochanoIllustration(

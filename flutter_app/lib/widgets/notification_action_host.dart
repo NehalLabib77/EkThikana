@@ -77,8 +77,9 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
           ).showSnackBar(const SnackBar(content: Text('Dose marked skipped.')));
         }
       } catch (e) {
-        if (context.mounted)
+        if (context.mounted) {
           showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
+        }
       }
       return;
     }
@@ -156,8 +157,9 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
           );
         }
       } catch (e) {
-        if (context.mounted)
+        if (context.mounted) {
           showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
+        }
       }
     }
     quantity.dispose();

@@ -332,3 +332,74 @@ def test_image_question_404_on_missing_material(client, fake_db, fake_auth):
         json={"material_id": "nope", "question": "what?"},
     )
     assert resp.status_code in (404, 403), resp.text
+
+
+# ---------------------------------------------------------------------------
+# commute-guide
+# ---------------------------------------------------------------------------
+
+
+def test_commute_guide_fare_unavailable_not_walking(client, fake_db, fake_auth, monkeypatch):
+    uid = "commute-guide-user"
+    fake_db.seed("users", uid, {"role": "student"})
+
+    captured = {}
+
+    async def _capture(uid: str, prompt: str) -> str:
+        captured["prompt"] = prompt
+        return "mocked explanation"
+
+    monkeypatch.setattr("app.routers.ai.generate", _capture)
+
+    resp = client.post(
+        "/api/ai/commute-guide",
+        headers=_auth(fake_auth, uid),
+        json={
+            "origin": "Farmgate",
+            "destination": "Mirpur-10",
+            "distance_km": "6.8",
+            "duration_minutes": 7,
+            "duration_provenance": "osrm",
+            "selected_mode": "drive",
+            "fare": {"available": False},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["explanation"] == "mocked explanation"
+    assert "prompt" in captured
+    assert "Fare: Free (walking)" not in captured["prompt"]
+    assert "Fare: Not available for this mode" in captured["prompt"]
+
+
+def test_commute_guide_walking_free(client, fake_db, fake_auth, monkeypatch):
+    uid = "commute-guide-walk"
+    fake_db.seed("users", uid, {"role": "student"})
+
+    captured = {}
+
+    async def _capture(uid: str, prompt: str) -> str:
+        captured["prompt"] = prompt
+        return "mocked explanation"
+
+    monkeypatch.setattr("app.routers.ai.generate", _capture)
+
+    resp = client.post(
+        "/api/ai/commute-guide",
+        headers=_auth(fake_auth, uid),
+        json={
+            "origin": "Farmgate",
+            "destination": "Mirpur-10",
+            "distance_km": "6.8",
+            "duration_minutes": 85,
+            "duration_provenance": "osrm",
+            "selected_mode": "walk",
+            "fare": {"available": False},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["explanation"] == "mocked explanation"
+    assert "prompt" in captured
+    assert "Fare: Free (walking)" in captured["prompt"]
+
