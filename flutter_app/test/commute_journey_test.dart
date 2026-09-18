@@ -61,7 +61,7 @@ Map<String, dynamic> _response({
               'durationDeltaMinutes': 0,
               'whyRecommended':
                   'About 26 minutes faster than the cheapest option for '
-                      'around ৳16 more.',
+                  'around ৳16 more.',
               'legs': [
                 {
                   'mode': 'walk',
@@ -74,8 +74,7 @@ Map<String, dynamic> _response({
                   'fareType': 'none',
                   'fareLabel': 'Free',
                   'fareSource': '',
-                  'instruction':
-                      'Walk about 30 m to Mirpur 10 Metro Station.',
+                  'instruction': 'Walk about 30 m to Mirpur 10 Metro Station.',
                   'isTransfer': false,
                   'transferMinutes': 0,
                   'serviceName': null,
@@ -97,7 +96,7 @@ Map<String, dynamic> _response({
                   'fareSource': 'Official MRT6 fare table',
                   'instruction':
                       'Board MRT Line 6 at Mirpur 10 Metro Station and get '
-                          'off at Farmgate Metro Station.',
+                      'off at Farmgate Metro Station.',
                   'isTransfer': true,
                   'transferMinutes': 7,
                   'serviceName': 'MRT Line 6',
@@ -137,7 +136,7 @@ Map<String, dynamic> _response({
                   'fareSource': 'BRTA 2.45 Tk/km project rule',
                   'instruction':
                       'Take a bus from Mirpur 10 Bus Stop towards Farmgate '
-                          'Bus Stop.',
+                      'Bus Stop.',
                   'isTransfer': false,
                   'transferMinutes': 8,
                   'serviceName': null,
@@ -155,11 +154,9 @@ Map<String, dynamic> _response({
 }
 
 Widget _wrap(Widget child) => MaterialApp(
-      theme: GochanoTheme.light(),
-      home: Scaffold(
-        body: SingleChildScrollView(child: child),
-      ),
-    );
+  theme: GochanoTheme.light(),
+  home: Scaffold(body: SingleChildScrollView(child: child)),
+);
 
 void main() {
   group('JourneyPlan parsing', () {
@@ -301,10 +298,7 @@ void main() {
       final journey = JourneyPlan.fromResponse(_response()).journeys.first;
       await tester.pumpWidget(_wrap(JourneyTimeline(journey: journey)));
 
-      expect(
-        find.text('Change here — allow about 7 min'),
-        findsOneWidget,
-      );
+      expect(find.text('Change here — allow about 7 min'), findsOneWidget);
     });
 
     testWidgets('keeps each leg fare next to its provenance', (tester) async {
@@ -331,14 +325,18 @@ void main() {
   });
 
   group('JourneyFareBadge', () {
-    testWidgets('never labels an unknown provenance as official',
-        (tester) async {
+    testWidgets('never labels an unknown provenance as official', (
+      tester,
+    ) async {
       for (final unknown in ['', 'guessed', 'ml', 'predicted', 'wishful']) {
         await tester.pumpWidget(_wrap(JourneyFareBadge(fareType: unknown)));
         await tester.pump();
 
-        expect(find.text('Official'), findsNothing,
-            reason: '"$unknown" must not present as an official fare');
+        expect(
+          find.text('Official'),
+          findsNothing,
+          reason: '"$unknown" must not present as an official fare',
+        );
         if (unknown.isNotEmpty) {
           expect(find.text('Estimated'), findsOneWidget);
         }
@@ -352,8 +350,9 @@ void main() {
   });
 
   group('JourneySummaryCard', () {
-    testWidgets('reports the weakest fare certainty, not the best',
-        (tester) async {
+    testWidgets('reports the weakest fare certainty, not the best', (
+      tester,
+    ) async {
       // The cheapest journey's only fare is a historical BRTA rule. It must
       // not borrow confidence from anywhere.
       final journey = JourneyPlan.fromResponse(_response()).journeys[1];
@@ -363,20 +362,19 @@ void main() {
       expect(find.text('Official'), findsNothing);
     });
 
-    testWidgets('states the comparison against the recommended route',
-        (tester) async {
+    testWidgets('states the comparison against the recommended route', (
+      tester,
+    ) async {
       final journey = JourneyPlan.fromResponse(_response()).journeys[1];
       await tester.pumpWidget(_wrap(JourneySummaryCard(journey: journey)));
 
-      expect(
-        find.textContaining('cheaper'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('cheaper'), findsOneWidget);
       expect(find.textContaining('27 min slower'), findsOneWidget);
     });
 
-    testWidgets('shows the recommended reason the backend measured',
-        (tester) async {
+    testWidgets('shows the recommended reason the backend measured', (
+      tester,
+    ) async {
       final journey = JourneyPlan.fromResponse(_response()).journeys.first;
       await tester.pumpWidget(_wrap(JourneySummaryCard(journey: journey)));
 
@@ -386,8 +384,9 @@ void main() {
       );
     });
 
-    testWidgets('shows no comparison line for the baseline journey',
-        (tester) async {
+    testWidgets('shows no comparison line for the baseline journey', (
+      tester,
+    ) async {
       final journey = JourneyPlan.fromResponse(_response()).journeys.first;
       await tester.pumpWidget(_wrap(JourneySummaryCard(journey: journey)));
 
@@ -434,8 +433,9 @@ void main() {
       );
     });
 
-    testWidgets('distinguishes "no route" from "could not plan"',
-        (tester) async {
+    testWidgets('distinguishes "no route" from "could not plan"', (
+      tester,
+    ) async {
       final plan = JourneyPlan.fromResponse({
         'journeyPlanning': {'available': true, 'reason': 'no_route'},
         'journeys': [],
@@ -1146,21 +1146,27 @@ void main() {
   });
 
   group('Smart Journey Guide — acceptance criteria', () {
-    test('AC1. exactly one SmartJourneyGuide in commute_screen.dart (source)', () {
-      final source = File(
-        'lib/features/life/presentation/commute/commute_screen.dart',
-      ).readAsStringSync();
-      final count = 'SmartJourneyGuide('.allMatches(source).length;
-      expect(count, 1);
-    });
+    test(
+      'AC1. exactly one SmartJourneyGuide in commute_screen.dart (source)',
+      () {
+        final source = File(
+          'lib/features/life/presentation/commute/commute_screen.dart',
+        ).readAsStringSync();
+        final count = 'SmartJourneyGuide('.allMatches(source).length;
+        expect(count, 1);
+      },
+    );
 
-    test('AC2. exactly one JourneyGuideFacts in commute_screen.dart (source)', () {
-      final source = File(
-        'lib/features/life/presentation/commute/commute_screen.dart',
-      ).readAsStringSync();
-      final count = 'SmartJourneyGuide('.allMatches(source).length;
-      expect(count, 1);
-    });
+    test(
+      'AC2. exactly one JourneyGuideFacts in commute_screen.dart (source)',
+      () {
+        final source = File(
+          'lib/features/life/presentation/commute/commute_screen.dart',
+        ).readAsStringSync();
+        final count = 'SmartJourneyGuide('.allMatches(source).length;
+        expect(count, 1);
+      },
+    );
 
     test('AC3. exactly one Your Journey section (source)', () {
       final source = File(
@@ -1180,9 +1186,7 @@ void main() {
 
     test('AC5. no Groq/API key in Flutter source (source)', () {
       // The AI key must never be hardcoded in Flutter
-      final source = File(
-        'lib/services/api_service.dart',
-      ).readAsStringSync();
+      final source = File('lib/services/api_service.dart').readAsStringSync();
       expect(source, isNot(contains('sk_')));
       expect(source, isNot(contains('groq_api_key')));
       expect(source, isNot(contains('GROQ_API_KEY')));
@@ -1197,86 +1201,97 @@ void main() {
   });
 
   group('Bus UI Integration — models, guide & reporting', () {
-    test('B1. DirectBusCandidate.fromJson parses basic and crowd fare fields', () {
-      final json = {
-        'serviceId': 'sv-101',
-        'operatorName': 'Bikolpo Auto Service',
-        'operatorNameBn': 'বিকল্প অটো সার্ভিস',
-        'serviceType': 'regular',
-        'originStopName': 'Mirpur 10',
-        'destinationStopName': 'Motijheel',
-        'originSequence': 3,
-        'destinationSequence': 18,
-        'crowdFare': {
-          'fareLow': 25.0,
-          'fareHigh': 30.0,
-          'recommendedFare': 30.0,
-          'hasQualifiedFare': true,
-          'sampleCount': 8,
-          'label': 'Community estimate',
-          'labelBn': 'কমিউনিটি হিসাব',
-        },
-      };
-      final candidate = DirectBusCandidate.fromJson(json);
-      expect(candidate.serviceId, 'sv-101');
-      expect(candidate.operatorName, 'Bikolpo Auto Service');
-      expect(candidate.stopCount, 15);
-      expect(candidate.hasQualifiedCrowdFare, isTrue);
-      expect(candidate.crowdFareLow, 25.0);
-      expect(candidate.crowdFareHigh, 30.0);
-      expect(candidate.crowdFareRecommended, 30.0);
-      expect(candidate.crowdSampleCount, 8);
-      expect(candidate.crowdFareLabel, 'Community estimate');
-    });
+    test(
+      'B1. DirectBusCandidate.fromJson parses basic and crowd fare fields',
+      () {
+        final json = {
+          'serviceId': 'sv-101',
+          'operatorName': 'Bikolpo Auto Service',
+          'operatorNameBn': 'বিকল্প অটো সার্ভিস',
+          'serviceType': 'regular',
+          'originStopName': 'Mirpur 10',
+          'destinationStopName': 'Motijheel',
+          'originSequence': 3,
+          'destinationSequence': 18,
+          'crowdFare': {
+            'fareLow': 25.0,
+            'fareHigh': 30.0,
+            'recommendedFare': 30.0,
+            'hasQualifiedFare': true,
+            'sampleCount': 8,
+            'label': 'Community estimate',
+            'labelBn': 'কমিউনিটি হিসাব',
+          },
+        };
+        final candidate = DirectBusCandidate.fromJson(json);
+        expect(candidate.serviceId, 'sv-101');
+        expect(candidate.operatorName, 'Bikolpo Auto Service');
+        expect(candidate.stopCount, 15);
+        expect(candidate.hasQualifiedCrowdFare, isTrue);
+        expect(candidate.crowdFareLow, 25.0);
+        expect(candidate.crowdFareHigh, 30.0);
+        expect(candidate.crowdFareRecommended, 30.0);
+        expect(candidate.crowdSampleCount, 8);
+        expect(candidate.crowdFareLabel, 'Community estimate');
+      },
+    );
 
-    test('B2. DirectBusCandidate without crowd fare indicates hasQualifiedCrowdFare=false', () {
-      final json = {
-        'serviceId': 'sv-102',
-        'operatorName': 'Shikhor Paribahan',
-        'originStopName': 'Mirpur 1',
-        'destinationStopName': 'Farmgate',
-        'originSequence': 2,
-        'destinationSequence': 12,
-      };
-      final candidate = DirectBusCandidate.fromJson(json);
-      expect(candidate.serviceId, 'sv-102');
-      expect(candidate.stopCount, 10);
-      expect(candidate.hasQualifiedCrowdFare, isFalse);
-      expect(candidate.crowdFareRecommended, isNull);
-    });
+    test(
+      'B2. DirectBusCandidate without crowd fare indicates hasQualifiedCrowdFare=false',
+      () {
+        final json = {
+          'serviceId': 'sv-102',
+          'operatorName': 'Shikhor Paribahan',
+          'originStopName': 'Mirpur 1',
+          'destinationStopName': 'Farmgate',
+          'originSequence': 2,
+          'destinationSequence': 12,
+        };
+        final candidate = DirectBusCandidate.fromJson(json);
+        expect(candidate.serviceId, 'sv-102');
+        expect(candidate.stopCount, 10);
+        expect(candidate.hasQualifiedCrowdFare, isFalse);
+        expect(candidate.crowdFareRecommended, isNull);
+      },
+    );
 
-    test('B3. JourneyGuideFacts includes and serializes bus facts in toJson()', () {
-      final facts = JourneyGuideFacts(
-        originName: 'Mirpur 10',
-        destinationName: 'Farmgate',
-        distanceKm: 5.5,
-        durationMinutes: 25,
-        durationProvenance: 'osrm',
-        selectedMode: 'bus',
-        modeLabel: 'Bus',
-        fareAvailable: true,
-        fareType: 'crowd_sourced',
-        fareLow: 20.0,
-        fareHigh: 25.0,
-        selectedBusOperator: 'Bihanga Paribahan',
-        selectedBusBoardStop: 'Mirpur 10',
-        selectedBusExitStop: 'Farmgate',
-        selectedBusStopCount: 8,
-      );
+    test(
+      'B3. JourneyGuideFacts includes and serializes bus facts in toJson()',
+      () {
+        final facts = JourneyGuideFacts(
+          originName: 'Mirpur 10',
+          destinationName: 'Farmgate',
+          distanceKm: 5.5,
+          durationMinutes: 25,
+          durationProvenance: 'osrm',
+          selectedMode: 'bus',
+          modeLabel: 'Bus',
+          fareAvailable: true,
+          fareType: 'crowd_sourced',
+          fareLow: 20.0,
+          fareHigh: 25.0,
+          selectedBusOperator: 'Bihanga Paribahan',
+          selectedBusBoardStop: 'Mirpur 10',
+          selectedBusExitStop: 'Farmgate',
+          selectedBusStopCount: 8,
+        );
 
-      expect(facts.selectedBusOperator, 'Bihanga Paribahan');
-      expect(facts.selectedBusBoardStop, 'Mirpur 10');
-      expect(facts.selectedBusExitStop, 'Farmgate');
-      expect(facts.selectedBusStopCount, 8);
+        expect(facts.selectedBusOperator, 'Bihanga Paribahan');
+        expect(facts.selectedBusBoardStop, 'Mirpur 10');
+        expect(facts.selectedBusExitStop, 'Farmgate');
+        expect(facts.selectedBusStopCount, 8);
 
-      final json = facts.toJson();
-      expect(json['selected_bus_operator'], 'Bihanga Paribahan');
-      expect(json['selected_bus_board_stop'], 'Mirpur 10');
-      expect(json['selected_bus_exit_stop'], 'Farmgate');
-      expect(json['selected_bus_stop_count'], 8);
-    });
+        final json = facts.toJson();
+        expect(json['selected_bus_operator'], 'Bihanga Paribahan');
+        expect(json['selected_bus_board_stop'], 'Mirpur 10');
+        expect(json['selected_bus_exit_stop'], 'Farmgate');
+        expect(json['selected_bus_stop_count'], 8);
+      },
+    );
 
-    testWidgets('B4. SmartJourneyGuide renders bus operator and stop info', (tester) async {
+    testWidgets('B4. SmartJourneyGuide renders bus operator and stop info', (
+      tester,
+    ) async {
       final facts = JourneyGuideFacts(
         originName: 'Mirpur 10',
         destinationName: 'Farmgate',
@@ -1302,59 +1317,68 @@ void main() {
       expect(find.textContaining('8 stops'), findsWidgets);
     });
 
-    testWidgets('B5. SmartJourneyGuide never displays "Official" for crowd sourced bus fare', (tester) async {
-      final facts = JourneyGuideFacts(
-        originName: 'Mirpur 10',
-        destinationName: 'Farmgate',
-        distanceKm: 5.5,
-        durationMinutes: 25,
-        durationProvenance: 'osrm',
-        selectedMode: 'bus',
-        modeLabel: 'Bus',
-        fareAvailable: true,
-        fareType: 'crowd_sourced',
-        fareLow: 20.0,
-        fareHigh: 25.0,
-        selectedBusOperator: 'Bihanga Paribahan',
-      );
+    testWidgets(
+      'B5. SmartJourneyGuide never displays "Official" for crowd sourced bus fare',
+      (tester) async {
+        final facts = JourneyGuideFacts(
+          originName: 'Mirpur 10',
+          destinationName: 'Farmgate',
+          distanceKm: 5.5,
+          durationMinutes: 25,
+          durationProvenance: 'osrm',
+          selectedMode: 'bus',
+          modeLabel: 'Bus',
+          fareAvailable: true,
+          fareType: 'crowd_sourced',
+          fareLow: 20.0,
+          fareHigh: 25.0,
+          selectedBusOperator: 'Bihanga Paribahan',
+        );
 
-      await tester.pumpWidget(_wrap(SmartJourneyGuide(facts: facts)));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_wrap(SmartJourneyGuide(facts: facts)));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Official'), findsNothing);
-      expect(find.text('Official BRTA fare'), findsNothing);
-      expect(find.textContaining('Community estimate'), findsWidgets);
-    });
+        expect(find.text('Official'), findsNothing);
+        expect(find.text('Official BRTA fare'), findsNothing);
+        expect(find.textContaining('Community estimate'), findsWidgets);
+      },
+    );
 
-    testWidgets('B6. SmartJourneyGuide for bus without fare never displays "Free"', (tester) async {
-      final facts = JourneyGuideFacts(
-        originName: 'Mirpur 10',
-        destinationName: 'Farmgate',
-        distanceKm: 5.5,
-        durationMinutes: 25,
-        durationProvenance: 'osrm',
-        selectedMode: 'bus',
-        modeLabel: 'Bus',
-        fareAvailable: false,
-        selectedBusOperator: 'Bihanga Paribahan',
-      );
+    testWidgets(
+      'B6. SmartJourneyGuide for bus without fare never displays "Free"',
+      (tester) async {
+        final facts = JourneyGuideFacts(
+          originName: 'Mirpur 10',
+          destinationName: 'Farmgate',
+          distanceKm: 5.5,
+          durationMinutes: 25,
+          durationProvenance: 'osrm',
+          selectedMode: 'bus',
+          modeLabel: 'Bus',
+          fareAvailable: false,
+          selectedBusOperator: 'Bihanga Paribahan',
+        );
 
-      await tester.pumpWidget(_wrap(SmartJourneyGuide(facts: facts)));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_wrap(SmartJourneyGuide(facts: facts)));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Free'), findsNothing);
-      expect(find.text('৳0'), findsNothing);
-      expect(find.text('Fare unavailable'), findsWidgets);
-    });
+        expect(find.text('Free'), findsNothing);
+        expect(find.text('৳0'), findsNothing);
+        expect(find.text('Fare unavailable'), findsWidgets);
+      },
+    );
 
-    test('B7. commute_screen.dart contains bus integration components (source)', () {
-      final source = File(
-        'lib/features/life/presentation/commute/commute_screen.dart',
-      ).readAsStringSync();
-      expect(source, contains('_PossibleBusesSection'));
-      expect(source, contains('_DirectBusRow'));
-      expect(source, contains('initialBusServiceId'));
-      expect(source, contains('selectedBusServiceId'));
-    });
+    test(
+      'B7. commute_screen.dart contains bus integration components (source)',
+      () {
+        final source = File(
+          'lib/features/life/presentation/commute/commute_screen.dart',
+        ).readAsStringSync();
+        expect(source, contains('_PossibleBusesSection'));
+        expect(source, contains('_DirectBusRow'));
+        expect(source, contains('initialBusServiceId'));
+        expect(source, contains('selectedBusServiceId'));
+      },
+    );
   });
 }

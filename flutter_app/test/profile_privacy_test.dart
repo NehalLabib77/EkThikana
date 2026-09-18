@@ -17,8 +17,9 @@ String _read(String path) =>
     File(path).readAsStringSync().replaceAll('\r\n', '\n');
 
 void main() {
-  final profile =
-      _read('lib/features/profile/presentation/profile_screen.dart');
+  final profile = _read(
+    'lib/features/profile/presentation/profile_screen.dart',
+  );
 
   group('Compact Profile privacy redesign', () {
     test('removes "Export my data" from the Privacy card', () {
@@ -88,7 +89,8 @@ void main() {
     });
 
     test('keeps the unsubscribe button wired and full-width (PART 17)', () {
-      final hasUnsubscribeButton = profile.contains('SecondaryButton(') &&
+      final hasUnsubscribeButton =
+          profile.contains('SecondaryButton(') &&
           profile.contains("GochanoLanguage.text('Unsubscribe'");
       expect(
         hasUnsubscribeButton,
@@ -103,7 +105,8 @@ void main() {
     });
 
     test('has a separate logout button', () {
-      final hasLogoutButton = profile.contains('PrimaryButton(') &&
+      final hasLogoutButton =
+          profile.contains('PrimaryButton(') &&
           profile.contains("GochanoLanguage.text('Logout'");
       expect(
         hasLogoutButton,

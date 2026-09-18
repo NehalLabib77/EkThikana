@@ -25,8 +25,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 File get _screen => File(
-      'lib/features/life/presentation/medicine/prescription_scan_screen.dart',
-    );
+  'lib/features/life/presentation/medicine/prescription_scan_screen.dart',
+);
 
 void main() {
   late String source;
@@ -37,8 +37,11 @@ void main() {
   late String code;
 
   setUpAll(() {
-    expect(_screen.existsSync(), isTrue,
-        reason: 'the prescription review screen must exist');
+    expect(
+      _screen.existsSync(),
+      isTrue,
+      reason: 'the prescription review screen must exist',
+    );
     // Normalised: this repo checks out with CRLF on Windows.
     source = _screen.readAsStringSync().replaceAll('\r\n', '\n');
     code = source
@@ -75,8 +78,11 @@ void main() {
   group('Confidence is reported, not invented', () {
     test('bands are rendered as phrases', () {
       for (final phrase in ['Read clearly', 'Check this one', 'Hard to read']) {
-        expect(source, contains(phrase),
-            reason: 'the $phrase band needs a plain-language label');
+        expect(
+          source,
+          contains(phrase),
+          reason: 'the $phrase band needs a plain-language label',
+        );
       }
     });
 
@@ -92,8 +98,11 @@ void main() {
       // A percent sign in this screen's actual code would almost certainly be
       // a confidence dressed up as a probability. Comments are excluded --
       // one of them explains precisely why not to do that.
-      expect(code.contains('%'), isFalse,
-          reason: 'confidence must not be presented as a percentage');
+      expect(
+        code.contains('%'),
+        isFalse,
+        reason: 'confidence must not be presented as a percentage',
+      );
     });
   });
 

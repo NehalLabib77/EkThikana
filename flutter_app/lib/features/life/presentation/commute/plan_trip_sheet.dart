@@ -3,19 +3,38 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import 'commute_place_picker.dart';
 import 'planned_trip_models.dart';
 
-Future<bool?> showPlanTripSheet(
+/// Immutable result contract for the trip save flow.
+@immutable
+class TripSaveResult {
+  const TripSaveResult({
+    required this.saved,
+    this.reminderMinutes = 30,
+    this.isEdit = false,
+    this.deleted = false,
+    this.completed = false,
+  });
+
+  final bool saved;
+  final int reminderMinutes;
+  final bool isEdit;
+  final bool deleted;
+  final bool completed;
+}
+
+Future<TripSaveResult?> showPlanTripSheet(
   BuildContext context, {
   CommutePlace? initialOrigin,
   CommutePlace? initialDestination,
   PlannedCommuteTrip? existingTrip,
-}) {
-  return showModalBottomSheet<bool>(
+}) async {
+  final result = await showModalBottomSheet<TripSaveResult>(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => Padding(
@@ -29,6 +48,20 @@ Future<bool?> showPlanTripSheet(
       ),
     ),
   );
+  if (result != null &&
+      result.saved &&
+      !result.deleted &&
+      !result.completed &&
+      context.mounted) {
+    showGochanoMessage(
+      context,
+      FeedbackMessages.tripPlanned(
+        reminderMinutes: result.reminderMinutes,
+        isEdit: result.isEdit,
+      ),
+    );
+  }
+  return result;
 }
 
 class PlanTripForm extends StatefulWidget {
@@ -48,28 +81,46 @@ class PlanTripForm extends StatefulWidget {
 }
 
 class _PlanTripFormState extends State<PlanTripForm> {
-  late CommutePlace? _origin = widget.existingTrip != null
-      ? CommutePlace(
-          name: widget.existingTrip!.originName,
-          lat: widget.existingTrip!.originLat,
-          lon: widget.existingTrip!.originLon,
-        )
-      : widget.initialOrigin;
-  late CommutePlace? _destination = widget.existingTrip != null
-      ? CommutePlace(
-          name: widget.existingTrip!.destinationName,
-          lat: widget.existingTrip!.destinationLat,
-          lon: widget.existingTrip!.destinationLon,
-        )
-      : widget.initialDestination;
-  late DateTime _date = widget.existingTrip?.departureTime ?? DateTime.now();
-  late TimeOfDay _time = widget.existingTrip != null
-      ? TimeOfDay.fromDateTime(widget.existingTrip!.departureTime)
-      : TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 30)));
-  late int _reminderMinutes = widget.existingTrip?.reminderMinutes ?? 30;
+  late CommutePlace? _origin;
+  late CommutePlace? _destination;
+  late DateTime _date;
+  late TimeOfDay _time;
+  late int _reminderMinutes;
+  late bool _showMoreOptions;
+  PlannedCommuteTrip? _editingTrip;
   bool _saving = false;
   bool _deleting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _editingTrip = widget.existingTrip;
+    _origin = widget.existingTrip != null
+        ? CommutePlace(
+            name: widget.existingTrip!.originName,
+            lat: widget.existingTrip!.originLat,
+            lon: widget.existingTrip!.originLon,
+          )
+        : widget.initialOrigin;
+    _destination = widget.existingTrip != null
+        ? CommutePlace(
+            name: widget.existingTrip!.destinationName,
+            lat: widget.existingTrip!.destinationLat,
+            lon: widget.existingTrip!.destinationLon,
+          )
+        : widget.initialDestination;
+    _date = widget.existingTrip?.departureTime ?? DateTime.now();
+    _time = widget.existingTrip != null
+        ? TimeOfDay.fromDateTime(widget.existingTrip!.departureTime)
+        : TimeOfDay.fromDateTime(
+            DateTime.now().add(const Duration(minutes: 30)),
+          );
+    _reminderMinutes = widget.existingTrip?.reminderMinutes ?? 30;
+    _showMoreOptions =
+        widget.existingTrip != null &&
+        widget.existingTrip!.reminderMinutes != 30;
+  }
 
   DateTime get _departureDateTime =>
       DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
@@ -146,9 +197,9 @@ class _PlanTripFormState extends State<PlanTripForm> {
     });
 
     try {
-      if (widget.existingTrip != null) {
+      if (_editingTrip != null) {
         await CommuteTripService.updateTrip(
-          tripId: widget.existingTrip!.id,
+          tripId: _editingTrip!.id,
           originName: origin.name,
           destinationName: destination.name,
           originLat: origin.lat,
@@ -171,7 +222,13 @@ class _PlanTripFormState extends State<PlanTripForm> {
         );
       }
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(
+        TripSaveResult(
+          saved: true,
+          reminderMinutes: _reminderMinutes,
+          isEdit: _editingTrip != null,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -182,7 +239,7 @@ class _PlanTripFormState extends State<PlanTripForm> {
   }
 
   Future<void> _delete() async {
-    final existing = widget.existingTrip;
+    final existing = _editingTrip;
     if (existing == null) return;
 
     final confirmed = await showDialog<bool>(
@@ -223,7 +280,9 @@ class _PlanTripFormState extends State<PlanTripForm> {
     try {
       await CommuteTripService.deleteTrip(existing);
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      Navigator.of(
+        context,
+      ).pop(const TripSaveResult(saved: true, deleted: true));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -234,17 +293,14 @@ class _PlanTripFormState extends State<PlanTripForm> {
   }
 
   Future<void> _complete() async {
-    final existing = widget.existingTrip;
+    final existing = _editingTrip;
     if (existing == null || existing.isCompleted) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: Text(
-          GochanoLanguage.text(
-            'I did the trip',
-            'ভ্রমণটি সম্পন্ন করেছি',
-          ),
+          GochanoLanguage.text('I did the trip', 'ভ্রমণটি সম্পন্ন করেছি'),
         ),
         content: Text(
           GochanoLanguage.text(
@@ -277,7 +333,9 @@ class _PlanTripFormState extends State<PlanTripForm> {
     try {
       await CommuteTripService.completeTrip(existing);
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      Navigator.of(
+        context,
+      ).pop(const TripSaveResult(saved: true, completed: true));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -291,7 +349,7 @@ class _PlanTripFormState extends State<PlanTripForm> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
-    final isEditing = widget.existingTrip != null;
+    final isEditing = _editingTrip != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(GochanoSpacing.md),
@@ -320,7 +378,7 @@ class _PlanTripFormState extends State<PlanTripForm> {
               IconButton(
                 tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন'),
                 icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ],
           ),
@@ -380,34 +438,67 @@ class _PlanTripFormState extends State<PlanTripForm> {
               ),
             ],
           ),
-          const SizedBox(height: GochanoSpacing.md),
-
-          // Reminder chips
-          Text(
-            GochanoLanguage.text('Leave-by Reminder', 'রওনা হওয়ার রিমাইন্ডার'),
-            style: type.label,
-          ),
-          const SizedBox(height: GochanoSpacing.xs),
-          Wrap(
-            spacing: GochanoSpacing.xs,
-            children: [
-              for (final mins in [0, 10, 30, 60])
-                ChoiceChip(
-                  label: Text(
-                    mins == 0
-                        ? GochanoLanguage.text('None', 'নেই')
-                        : GochanoLanguage.text(
-                            '$mins min before',
-                            '$mins মিনিট আগে',
-                          ),
-                  ),
-                  selected: _reminderMinutes == mins,
-                  onSelected: (val) {
-                    if (val) setState(() => _reminderMinutes = mins);
-                  },
+          // More options toggle (progressive disclosure)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const ValueKey('trip_more_options_toggle'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                minimumSize: const Size(0, GochanoSizes.minTouchTarget),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  setState(() => _showMoreOptions = !_showMoreOptions),
+              icon: Icon(
+                _showMoreOptions
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                size: 20,
+              ),
+              label: Text(
+                GochanoLanguage.text('More options', 'আরও অপশন'),
+                style: type.bodySecondary.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colors.brand,
                 ),
-            ],
+              ),
+            ),
           ),
+
+          if (_showMoreOptions) ...[
+            const SizedBox(height: GochanoSpacing.xs),
+            Text(
+              GochanoLanguage.text(
+                'Leave-by Reminder',
+                'রওনা হওয়ার রিমাইন্ডার',
+              ),
+              style: type.label,
+            ),
+            const SizedBox(height: GochanoSpacing.xs),
+            Wrap(
+              spacing: GochanoSpacing.xs,
+              children: [
+                for (final mins in [0, 10, 30, 60])
+                  ChoiceChip(
+                    label: Text(
+                      mins == 0
+                          ? GochanoLanguage.text('None', 'নেই')
+                          : mins == 60
+                          ? GochanoLanguage.text('1 hour before', '১ ঘণ্টা আগে')
+                          : GochanoLanguage.text(
+                              '$mins min before',
+                              '${GochanoLanguage.toBanglaDigits(mins)} মিনিট আগে',
+                            ),
+                    ),
+                    selected: _reminderMinutes == mins,
+                    onSelected: (val) {
+                      if (val) setState(() => _reminderMinutes = mins);
+                    },
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: GochanoSpacing.md),
 
           if (_error != null) ...[
@@ -425,14 +516,17 @@ class _PlanTripFormState extends State<PlanTripForm> {
 
           if (isEditing) ...[
             const SizedBox(height: GochanoSpacing.sm),
-            if (widget.existingTrip != null &&
-                widget.existingTrip!.isUpcoming &&
-                !widget.existingTrip!.isCompleted) ...[
+            if (_editingTrip != null &&
+                _editingTrip!.isUpcoming &&
+                !_editingTrip!.isCompleted) ...[
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: (_saving || _deleting) ? null : _complete,
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  icon: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    size: 18,
+                  ),
                   label: Text(
                     GochanoLanguage.text(
                       'I did the trip',
@@ -490,9 +584,7 @@ class _PlannedTripsListSection extends StatelessWidget {
         final trips = snapshot.data ?? const [];
         if (trips.isEmpty) return const SizedBox.shrink();
 
-        final upcoming = trips
-            .where((t) => t.isUpcoming)
-            .toList();
+        final upcoming = trips.where((t) => t.isUpcoming).toList();
         final missed = trips
             .where((t) => t.isMissed)
             .toList()
@@ -589,14 +681,14 @@ class _PlannedTripTile extends StatelessWidget {
               isCompleted
                   ? Icons.check_circle_outline_rounded
                   : isMissed
-                      ? Icons.history_rounded
-                      : Icons.directions_transit_rounded,
+                  ? Icons.history_rounded
+                  : Icons.directions_transit_rounded,
               size: 20,
               color: isCompleted
                   ? colors.success
                   : isMissed
-                      ? colors.textTertiary
-                      : colors.commute,
+                  ? colors.textTertiary
+                  : colors.commute,
             ),
             const SizedBox(width: GochanoSpacing.xs),
             Expanded(

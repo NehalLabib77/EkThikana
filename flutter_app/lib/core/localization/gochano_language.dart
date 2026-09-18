@@ -62,6 +62,34 @@ class GochanoLanguage {
   /// ```
   static String text(String en, String bn) => isBangla ? bn : en;
 
+  /// Converts ASCII digits (0-9) to Bengali digits (০-৯).
+  static String toBanglaDigits(Object? value) {
+    if (value == null) return '';
+    const englishToBengali = {
+      '0': '০',
+      '1': '১',
+      '2': '২',
+      '3': '৩',
+      '4': '৪',
+      '5': '৫',
+      '6': '৬',
+      '7': '৭',
+      '8': '৮',
+      '9': '৯',
+    };
+    return value
+        .toString()
+        .split('')
+        .map((c) => englishToBengali[c] ?? c)
+        .join();
+  }
+
+  /// Formats a number in the active language (Bengali digits if Bangla, ASCII digits if English).
+  static String formatNumber(Object? value) {
+    if (value == null) return '';
+    return isBangla ? toBanglaDigits(value) : value.toString();
+  }
+
   /// Loads the persisted choice. Called once during app bootstrap; failures
   /// are non-fatal and simply leave the app in English.
   static Future<void> restore() async {

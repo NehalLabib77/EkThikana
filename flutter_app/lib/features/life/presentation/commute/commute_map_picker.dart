@@ -85,7 +85,11 @@ class _CommuteMapPickerState extends State<CommuteMapPicker> {
         _loading = false;
         _places = ((body['places'] as List?) ?? const [])
             .whereType<Map>()
-            .map((e) => _MapPlace.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+            .map(
+              (e) => _MapPlace.fromJson(
+                e.map((k, v) => MapEntry(k.toString(), v)),
+              ),
+            )
             .whereType<_MapPlace>()
             .toList();
         // An empty list is not an error: it means the derived coordinate
@@ -132,18 +136,21 @@ class _CommuteMapPickerState extends State<CommuteMapPicker> {
                 Text(
                   GochanoLanguage.text(
                     'A point on the map, not a CommuteBD stop. Routing works, '
-                    'but fares will be distance estimates rather than official '
-                    'bus or metro fares.',
+                        'but fares will be distance estimates rather than official '
+                        'bus or metro fares.',
                     'মানচিত্রের একটি বিন্দু, কমিউটবিডির কোনো স্টপ নয়। রুট বের '
-                    'হবে, তবে ভাড়া সরকারি বাস/মেট্রো ভাড়া নয় — দূরত্বভিত্তিক '
-                    'আনুমানিক হবে।',
+                        'হবে, তবে ভাড়া সরকারি বাস/মেট্রো ভাড়া নয় — দূরত্বভিত্তিক '
+                        'আনুমানিক হবে।',
                   ),
                   style: sheetContext.type.caption,
                 ),
               ],
               const SizedBox(height: GochanoSpacing.md),
               PrimaryButton(
-                label: GochanoLanguage.text('Start from here', 'এখান থেকে শুরু'),
+                label: GochanoLanguage.text(
+                  'Start from here',
+                  'এখান থেকে শুরু',
+                ),
                 icon: Icons.trip_origin_rounded,
                 onPressed: () =>
                     Navigator.of(sheetContext).pop(CommuteEndpoint.origin),
@@ -174,9 +181,9 @@ class _CommuteMapPickerState extends State<CommuteMapPicker> {
         // hammer the public geocoder that already rate-limits this feature.
         name: GochanoLanguage.text(
           'Point at ${point.latitude.toStringAsFixed(4)}, '
-          '${point.longitude.toStringAsFixed(4)}',
+              '${point.longitude.toStringAsFixed(4)}',
           '${point.latitude.toStringAsFixed(4)}, '
-          '${point.longitude.toStringAsFixed(4)} বিন্দু',
+              '${point.longitude.toStringAsFixed(4)} বিন্দু',
         ),
         lat: point.latitude,
         lon: point.longitude,
@@ -215,12 +222,14 @@ class _CommuteMapPickerState extends State<CommuteMapPicker> {
                             ? null
                             : CameraFit.coordinates(
                                 coordinates: chosen,
-                                padding:
-                                    const EdgeInsets.all(GochanoSpacing.xl),
+                                padding: const EdgeInsets.all(
+                                  GochanoSpacing.xl,
+                                ),
                               ),
                         onTap: _onMapTap,
                         interactionOptions: const InteractionOptions(
-                          flags: InteractiveFlag.pinchZoom |
+                          flags:
+                              InteractiveFlag.pinchZoom |
                               InteractiveFlag.drag |
                               InteractiveFlag.doubleTapZoom,
                         ),
@@ -310,26 +319,26 @@ class _CommuteMapPickerState extends State<CommuteMapPicker> {
     if (_error.isNotEmpty) {
       return GochanoLanguage.text(
         'Stops could not be loaded, but you can still tap anywhere on the map '
-        'to pick a point. ($_error)',
+            'to pick a point. ($_error)',
         'স্টপ লোড করা যায়নি, তবে মানচিত্রের যেকোনো জায়গায় চাপ দিয়ে বিন্দু '
-        'বেছে নিতে পারেন। ($_error)',
+            'বেছে নিতে পারেন। ($_error)',
       );
     }
     if (_places.isEmpty) {
       return GochanoLanguage.text(
         'No stops can be drawn yet. Tap anywhere to pick a point, or use the '
-        'From and To fields to search by name.',
+            'From and To fields to search by name.',
         'এখনো কোনো স্টপ আঁকা যাচ্ছে না। বিন্দু বাছতে যেকোনো জায়গায় চাপ দিন, '
-        'অথবা নাম দিয়ে খুঁজতে "থেকে"/"পর্যন্ত" ব্যবহার করুন।',
+            'অথবা নাম দিয়ে খুঁজতে "থেকে"/"পর্যন্ত" ব্যবহার করুন।',
       );
     }
     return GochanoLanguage.text(
       'Tap a stop for official fares, or anywhere else to drop a point. '
-      '${_places.length} stops have map locations; the rest are searchable by '
-      'name.',
+          '${_places.length} stops have map locations; the rest are searchable by '
+          'name.',
       'সরকারি ভাড়ার জন্য কোনো স্টপে চাপ দিন, নয়তো অন্য যেকোনো জায়গায় চাপ '
-      'দিয়ে বিন্দু বসান। ${_places.length}টি স্টপের মানচিত্র অবস্থান আছে; '
-      'বাকিগুলো নাম দিয়ে খোঁজা যায়।',
+          'দিয়ে বিন্দু বসান। ${_places.length}টি স্টপের মানচিত্র অবস্থান আছে; '
+          'বাকিগুলো নাম দিয়ে খোঁজা যায়।',
     );
   }
 }
@@ -347,12 +356,12 @@ class _MapPlace {
   final LatLng point;
 
   CommutePlace asPlace() => CommutePlace(
-        name: name,
-        placeId: placeId,
-        lat: point.latitude,
-        lon: point.longitude,
-        isDatasetPlace: true,
-      );
+    name: name,
+    placeId: placeId,
+    lat: point.latitude,
+    lon: point.longitude,
+    isDatasetPlace: true,
+  );
 
   static _MapPlace? fromJson(Map<String, dynamic> json) {
     final name = json['name']?.toString().trim() ?? '';

@@ -94,9 +94,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   /// the file name together, so a material with a missing `mimeType` still
   /// reaches the right endpoint (see `ai_context_routing.dart`).
   AiContextRoute get _route => AiContextRouting.routeFor(
-        mimeType: _mimeType,
-        fileName: _fileName ?? _materialTitle,
-      );
+    mimeType: _mimeType,
+    fileName: _fileName ?? _materialTitle,
+  );
 
   @override
   void initState() {
@@ -165,7 +165,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             answer: answer.trim().isEmpty
                 ? GochanoLanguage.text(
                     'The AI service returned an empty answer. Try rephrasing '
-                    'your question.',
+                        'your question.',
                     'এআই সার্ভিস কোনো উত্তর দেয়নি। প্রশ্নটি অন্যভাবে লিখে দেখুন।',
                   )
                 : answer,
@@ -198,7 +198,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     if (raw.contains('no extractable pdf text')) {
       return GochanoLanguage.text(
         'This appears to be a scanned PDF and OCR could not extract enough '
-        'text to answer from.',
+            'text to answer from.',
         'এটি সম্ভবত স্ক্যান করা পিডিএফ এবং ওসিআর যথেষ্ট লেখা বের করতে পারেনি।',
       );
     }
@@ -244,25 +244,28 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Study AI', 'স্টাডি এআই'),
         subtitle: _hasContext
-            ? GochanoLanguage.text('Answering from your material', 'আপনার উপকরণ থেকে উত্তর')
-            : GochanoLanguage.text('General academic questions', 'সাধারণ একাডেমিক প্রশ্ন'),
+            ? GochanoLanguage.text(
+                'Answering from your material',
+                'আপনার উপকরণ থেকে উত্তর',
+              )
+            : GochanoLanguage.text(
+                'General academic questions',
+                'সাধারণ একাডেমিক প্রশ্ন',
+              ),
       ),
-      bottomBar: _Composer(
-        controller: _question,
-        busy: _busy,
-        onSubmit: _ask,
-      ),
+      bottomBar: _Composer(controller: _question, busy: _busy, onSubmit: _ask),
       body: Column(
         children: [
-          if (_hasContext) _ContextChip(
-            title: _materialTitle ?? '',
-            onRemove: () => setState(() {
-              _materialId = null;
-              _materialTitle = null;
-              _mimeType = null;
-              _fileName = null;
-            }),
-          ),
+          if (_hasContext)
+            _ContextChip(
+              title: _materialTitle ?? '',
+              onRemove: () => setState(() {
+                _materialId = null;
+                _materialTitle = null;
+                _mimeType = null;
+                _fileName = null;
+              }),
+            ),
           Expanded(
             child: ListView(
               controller: _scroll,
@@ -304,8 +307,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         Expanded(
                           child: Text(
                             _error,
-                            style: context.type.bodySecondary
-                                .copyWith(color: colors.error),
+                            style: context.type.bodySecondary.copyWith(
+                              color: colors.error,
+                            ),
                           ),
                         ),
                       ],
@@ -413,10 +417,7 @@ class _Suggestions extends StatelessWidget {
               'Extract the key points',
               'মূল পয়েন্টগুলো বের করো',
             ),
-            GochanoLanguage.text(
-              'Explain this simply',
-              'সহজ করে ব্যাখ্যা করো',
-            ),
+            GochanoLanguage.text('Explain this simply', 'সহজ করে ব্যাখ্যা করো'),
             if (hasPage)
               GochanoLanguage.text(
                 'Explain what is on this page',
@@ -489,9 +490,7 @@ class _Suggestions extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(suggestion, style: context.type.body),
-                  ),
+                  Expanded(child: Text(suggestion, style: context.type.body)),
                   Icon(
                     Icons.arrow_outward_rounded,
                     size: GochanoSizes.iconSm,
@@ -517,13 +516,13 @@ class _TurnCard extends StatelessWidget {
     // Remove fenced code blocks (```...```) — keep content
     result = result.replaceAllMapped(
       RegExp(r'```[\s\S]*?```', multiLine: true),
-      (m) => m.group(0)!.replaceFirst(RegExp(r'^```\w*\n?'), '').replaceFirst(RegExp(r'\n?```$'), ''),
+      (m) => m
+          .group(0)!
+          .replaceFirst(RegExp(r'^```\w*\n?'), '')
+          .replaceFirst(RegExp(r'\n?```$'), ''),
     );
     // Remove inline code backticks
-    result = result.replaceAllMapped(
-      RegExp(r'`([^`]+)`'),
-      (m) => m.group(1)!,
-    );
+    result = result.replaceAllMapped(RegExp(r'`([^`]+)`'), (m) => m.group(1)!);
     // Remove heading markers (### Heading)
     result = result.replaceAllMapped(
       RegExp(r'^#{1,6}\s+', multiLine: true),

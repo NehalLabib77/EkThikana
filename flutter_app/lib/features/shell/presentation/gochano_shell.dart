@@ -30,6 +30,7 @@ import '../../profile/presentation/profile_screen.dart';
 import '../../study/presentation/study_screen.dart';
 import '../../tasks/presentation/tasks_screen.dart';
 import '../../../services/notification_service.dart';
+import 'quick_add_sheet.dart';
 
 class GochanoShell extends StatefulWidget {
   const GochanoShell({
@@ -165,6 +166,16 @@ class _GochanoShellState extends State<GochanoShell> {
     setState(() => _index = index);
   }
 
+  /// Opens Quick Add sheet, waits for the result, then dispatches the
+  /// selected action AFTER the sheet has fully closed. This avoids
+  ///Navigator !_debugLocked by never pushing a second route inside
+  /// the sheet's pop callback.
+  Future<void> _openQuickAdd() async {
+    final action = await showQuickAddSheet(context);
+    if (!mounted || action == null) return;
+    await launchQuickAddAction(context, action);
+  }
+
   @override
   Widget build(BuildContext context) {
     final destinations = _buildDestinations();
@@ -173,6 +184,15 @@ class _GochanoShellState extends State<GochanoShell> {
     return Scaffold(
       backgroundColor: context.colors.background,
       body: IndexedStack(index: index, children: _buildPages()),
+      floatingActionButton: _isStudent
+          ? FloatingActionButton(
+              key: const ValueKey('universal_quick_add_fab'),
+              heroTag: 'universal_quick_add_fab',
+              tooltip: GochanoLanguage.text('Quick Add', 'দ্রুত যোগ করুন'),
+              onPressed: _openQuickAdd,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: _select,

@@ -74,7 +74,33 @@ abstract final class GochanoTheme {
       scaffoldBackgroundColor: c.background,
       canvasColor: c.background,
       fontFamily: GochanoTypography.fontFamily,
+      fontFamilyFallback: GochanoTypography.fontFamilyFallback,
       textTheme: type.materialTextTheme,
+      chipTheme: ChipThemeData(
+        backgroundColor: c.surface,
+        selectedColor: c.brandSoft,
+        disabledColor: c.surfaceVariant,
+        checkmarkColor: c.brand,
+        labelStyle: type.label.copyWith(
+          color: c.textPrimary,
+          fontWeight: FontWeight.w600,
+          fontFamily: GochanoTypography.fontFamily,
+          fontFamilyFallback: GochanoTypography.fontFamilyFallback,
+        ),
+        secondaryLabelStyle: type.label.copyWith(
+          color: c.brand,
+          fontWeight: FontWeight.w600,
+          fontFamily: GochanoTypography.fontFamily,
+          fontFamilyFallback: GochanoTypography.fontFamilyFallback,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: GochanoSpacing.sm,
+          vertical: GochanoSpacing.xs,
+        ),
+        shape: const RoundedRectangleBorder(borderRadius: GochanoRadius.mdAll),
+        side: BorderSide(color: c.border, width: GochanoBorders.hairline),
+        showCheckmark: true,
+      ),
       extensions: <ThemeExtension<dynamic>>[c],
 
       // Flat by default: no surface tint bleeding brand colour into every
@@ -91,9 +117,14 @@ abstract final class GochanoTheme {
         foregroundColor: c.textPrimary,
         surfaceTintColor: Colors.transparent,
         titleTextStyle: type.pageTitle,
-        iconTheme: IconThemeData(color: c.textPrimary, size: GochanoSizes.iconMd),
-        actionsIconTheme:
-            IconThemeData(color: c.textSecondary, size: GochanoSizes.iconMd),
+        iconTheme: IconThemeData(
+          color: c.textPrimary,
+          size: GochanoSizes.iconMd,
+        ),
+        actionsIconTheme: IconThemeData(
+          color: c.textSecondary,
+          size: GochanoSizes.iconMd,
+        ),
       ),
 
       cardTheme: CardThemeData(
@@ -131,8 +162,9 @@ abstract final class GochanoTheme {
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             size: GochanoSizes.iconMd,
-            color:
-                states.contains(WidgetState.selected) ? c.brand : c.textSecondary,
+            color: states.contains(WidgetState.selected)
+                ? c.brand
+                : c.textSecondary,
           ),
         ),
       ),
@@ -169,7 +201,9 @@ abstract final class GochanoTheme {
           padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.lg),
           textStyle: type.button,
           elevation: 0,
-          shape: const RoundedRectangleBorder(borderRadius: GochanoRadius.mdAll),
+          shape: const RoundedRectangleBorder(
+            borderRadius: GochanoRadius.mdAll,
+          ),
         ),
       ),
 
@@ -180,8 +214,13 @@ abstract final class GochanoTheme {
           minimumSize: const Size(0, GochanoSizes.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.lg),
           textStyle: type.button,
-          side: BorderSide(color: c.borderStrong, width: GochanoBorders.hairline),
-          shape: const RoundedRectangleBorder(borderRadius: GochanoRadius.mdAll),
+          side: BorderSide(
+            color: c.borderStrong,
+            width: GochanoBorders.hairline,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: GochanoRadius.mdAll,
+          ),
         ),
       ),
 
@@ -192,7 +231,9 @@ abstract final class GochanoTheme {
           minimumSize: const Size(0, GochanoSizes.minTouchTarget),
           padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.sm),
           textStyle: type.button,
-          shape: const RoundedRectangleBorder(borderRadius: GochanoRadius.smAll),
+          shape: const RoundedRectangleBorder(
+            borderRadius: GochanoRadius.smAll,
+          ),
         ),
       ),
 
@@ -215,22 +256,6 @@ abstract final class GochanoTheme {
         highlightElevation: 0,
         shape: const RoundedRectangleBorder(borderRadius: GochanoRadius.lgAll),
         extendedTextStyle: type.button,
-      ),
-
-      chipTheme: ChipThemeData(
-        backgroundColor: c.surface,
-        selectedColor: c.brandSoft,
-        disabledColor: c.surfaceVariant,
-        checkmarkColor: c.brand,
-        labelStyle: type.label.copyWith(color: c.textPrimary),
-        secondaryLabelStyle: type.label.copyWith(color: c.brand),
-        side: BorderSide(color: c.border, width: GochanoBorders.hairline),
-        padding: const EdgeInsets.symmetric(
-          horizontal: GochanoSpacing.sm,
-          vertical: GochanoSpacing.xs,
-        ),
-        shape: const RoundedRectangleBorder(borderRadius: GochanoRadius.smAll),
-        showCheckmark: true,
       ),
 
       dialogTheme: DialogThemeData(
@@ -333,7 +358,8 @@ abstract final class GochanoTheme {
 
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? c.brand : Colors.transparent,
+          (s) =>
+              s.contains(WidgetState.selected) ? c.brand : Colors.transparent,
         ),
         checkColor: WidgetStatePropertyAll(c.onBrand),
         side: BorderSide(color: c.borderStrong, width: 1.6),

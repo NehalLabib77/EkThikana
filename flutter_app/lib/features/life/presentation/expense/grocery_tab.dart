@@ -60,8 +60,9 @@ class GroceryTab extends StatelessWidget {
             final ap = a.data()['purchased'] == true ? 1 : 0;
             final bp = b.data()['purchased'] == true ? 1 : 0;
             if (ap != bp) return ap - bp;
-            return (a.data()['title']?.toString() ?? '')
-                .compareTo(b.data()['title']?.toString() ?? '');
+            return (a.data()['title']?.toString() ?? '').compareTo(
+              b.data()['title']?.toString() ?? '',
+            );
           });
 
         if (docs.isEmpty) {
@@ -73,7 +74,7 @@ class GroceryTab extends StatelessWidget {
             ),
             message: GochanoLanguage.text(
               'Add what you need to buy. Marking an item purchased records '
-              'it as an expense.',
+                  'it as an expense.',
               'যা কিনতে হবে যোগ করুন। কেনা হয়েছে চিহ্নিত করলে সেটি খরচ হিসেবে যোগ হবে।',
             ),
           );
@@ -93,8 +94,9 @@ class GroceryTab extends StatelessWidget {
               (running, d) =>
                   running + ((d.data()['price'] as num?)?.toDouble() ?? 0),
             );
-        final pendingCount =
-            docs.where((d) => d.data()['purchased'] != true).length;
+        final pendingCount = docs
+            .where((d) => d.data()['purchased'] != true)
+            .length;
 
         return ListView(
           padding: GochanoSpacing.scrollBody,
@@ -194,7 +196,8 @@ class _GroceryRow extends StatelessWidget {
             child: InkWell(
               onTap: () => showGroceryItemSheet(
                 context,
-                sessionId: data['sessionId']?.toString() ??
+                sessionId:
+                    data['sessionId']?.toString() ??
                     FinancialService.bazarSessionId(DateTime.now()),
                 existing: doc,
               ),
@@ -211,8 +214,9 @@ class _GroceryRow extends StatelessWidget {
                       title,
                       style: context.type.cardHeading.copyWith(
                         color: purchased ? colors.textSecondary : null,
-                        decoration:
-                            purchased ? TextDecoration.lineThrough : null,
+                        decoration: purchased
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -236,7 +240,8 @@ class _GroceryRow extends StatelessWidget {
                 icon: Icons.edit_outlined,
                 onSelected: () => showGroceryItemSheet(
                   context,
-                  sessionId: data['sessionId']?.toString() ??
+                  sessionId:
+                      data['sessionId']?.toString() ??
                       FinancialService.bazarSessionId(DateTime.now()),
                   existing: doc,
                 ),
@@ -294,7 +299,8 @@ Future<bool> showGroceryItemSheet(
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => _GroceryForm(sessionId: sessionId, existing: existing),
+    builder: (sheetContext) =>
+        _GroceryForm(sessionId: sessionId, existing: existing),
   );
   return saved ?? false;
 }
@@ -335,7 +341,9 @@ class _GroceryFormState extends State<_GroceryForm> {
     _unitPrice = TextEditingController(
       text: total == 0 ? '' : _trim(quantity > 0 ? total / quantity : total),
     );
-    _unit = _units.contains(data['unit']) ? data['unit'].toString() : _units.first;
+    _unit = _units.contains(data['unit'])
+        ? data['unit'].toString()
+        : _units.first;
     _purchased = data['purchased'] == true;
   }
 
@@ -359,24 +367,28 @@ class _GroceryFormState extends State<_GroceryForm> {
     final unitPrice = double.tryParse(_unitPrice.text.trim()) ?? 0;
 
     if (title.isEmpty) {
-      setState(() => _error = GochanoLanguage.text(
-            'Name the item.',
-            'আইটেমের নাম দিন।',
-          ));
+      setState(
+        () =>
+            _error = GochanoLanguage.text('Name the item.', 'আইটেমের নাম দিন।'),
+      );
       return;
     }
     if (quantity <= 0) {
-      setState(() => _error = GochanoLanguage.text(
-            'Quantity must be greater than zero.',
-            'পরিমাণ শূন্যের বেশি হতে হবে।',
-          ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Quantity must be greater than zero.',
+          'পরিমাণ শূন্যের বেশি হতে হবে।',
+        ),
+      );
       return;
     }
     if (_purchased && unitPrice <= 0) {
-      setState(() => _error = GochanoLanguage.text(
-            'Add the price before marking it purchased.',
-            'কেনা হয়েছে চিহ্নিত করার আগে দাম যোগ করুন।',
-          ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Add the price before marking it purchased.',
+          'কেনা হয়েছে চিহ্নিত করার আগে দাম যোগ করুন।',
+        ),
+      );
       return;
     }
 
@@ -452,8 +464,9 @@ class _GroceryFormState extends State<_GroceryForm> {
                   Expanded(
                     child: TextField(
                       controller: _quantity,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                       ],
@@ -483,7 +496,9 @@ class _GroceryFormState extends State<_GroceryForm> {
               const SizedBox(height: GochanoSpacing.sm),
               TextField(
                 controller: _unitPrice,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],

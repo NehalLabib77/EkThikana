@@ -32,7 +32,10 @@ import '../../life/presentation/commute/commute_screen.dart';
 import '../../life/presentation/commute/planned_trip_models.dart';
 import '../../life/presentation/commute/plan_trip_sheet.dart';
 import '../../life/presentation/medicine/medicine_screen.dart';
+import '../../notifications/presentation/notification_center_screen.dart';
+import '../../search/presentation/universal_search_screen.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
+import '../../../services/local_reminder_store.dart';
 import '../../../widgets/language_toggle.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -60,6 +63,66 @@ class HomeScreen extends StatelessWidget {
         onOpenProfile: onOpenProfile,
         actions: [
           const LanguageToggle(),
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                GochanoRoute.to(builder: (_) => const UniversalSearchScreen()),
+              );
+            },
+            tooltip: GochanoLanguage.text('Search', 'অনুসন্ধান'),
+            icon: const Icon(Icons.search_rounded),
+          ),
+          ValueListenableBuilder<int>(
+            valueListenable: LocalReminderStore.instance.unreadCountNotifier,
+            builder: (context, unreadCount, _) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        GochanoRoute.to(
+                          builder: (_) => const NotificationCenterScreen(),
+                        ),
+                      );
+                    },
+                    tooltip: GochanoLanguage.text(
+                      'Notification Center',
+                      'নোটিফিকেশন সেন্টার',
+                    ),
+                    icon: const Icon(Icons.notifications_outlined),
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: context.colors.brand,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            unreadCount > 9 ? '9+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             onPressed: onOpenProfile,
             tooltip: GochanoLanguage.text('Profile', 'প্রোফাইল'),
@@ -1371,9 +1434,7 @@ class _CommuteCard extends StatelessWidget {
       stream: CommuteTripService.streamPlannedTrips(),
       builder: (context, snapshot) {
         final trips = snapshot.data ?? const [];
-        final upcomingTrips = trips
-            .where((t) => t.isUpcoming)
-            .toList();
+        final upcomingTrips = trips.where((t) => t.isUpcoming).toList();
         final trip = upcomingTrips.isNotEmpty ? upcomingTrips.first : null;
 
         if (trip != null) {

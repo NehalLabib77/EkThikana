@@ -410,9 +410,16 @@ class _FareRow extends StatelessWidget {
 
     final String fareTypeLabel;
     if (facts.fareType == 'official') {
-      fareTypeLabel = GochanoLanguage.text('Official BRTA fare', 'অফিসিয়াল বিআরটিএ ভাড়া');
-    } else if (facts.fareType == 'crowdsourced' || facts.fareType == 'crowd_sourced') {
-      fareTypeLabel = GochanoLanguage.text('Community estimate', 'কমিউনিটি হিসাব');
+      fareTypeLabel = GochanoLanguage.text(
+        'Official BRTA fare',
+        'অফিসিয়াল বিআরটিএ ভাড়া',
+      );
+    } else if (facts.fareType == 'crowdsourced' ||
+        facts.fareType == 'crowd_sourced') {
+      fareTypeLabel = GochanoLanguage.text(
+        'Community estimate',
+        'কমিউনিটি হিসাব',
+      );
     } else {
       fareTypeLabel = GochanoLanguage.text('Estimated', 'আনুমানিক');
     }
@@ -428,10 +435,7 @@ class _FareRow extends StatelessWidget {
             fareText,
             style: context.type.body.copyWith(fontWeight: FontWeight.w600),
           ),
-          Text(
-            fareTypeLabel,
-            style: context.type.caption,
-          ),
+          Text(fareTypeLabel, style: context.type.caption),
         ],
       ),
     );

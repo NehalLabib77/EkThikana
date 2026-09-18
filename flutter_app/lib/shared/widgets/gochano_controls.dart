@@ -193,10 +193,7 @@ class GochanoBadge extends StatelessWidget {
         horizontal: GochanoSpacing.xs,
         vertical: 3,
       ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: GochanoRadius.smAll,
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: GochanoRadius.smAll),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -510,7 +507,11 @@ Future<bool> showConfirmationSheet(
                 ),
               ),
               const SizedBox(height: GochanoSpacing.md),
-              Text(title, style: type.sectionHeading, textAlign: TextAlign.center),
+              Text(
+                title,
+                style: type.sectionHeading,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: GochanoSpacing.xs),
               Text(
                 message,

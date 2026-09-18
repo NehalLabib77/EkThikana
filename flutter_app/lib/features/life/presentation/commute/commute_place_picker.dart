@@ -192,17 +192,21 @@ class _PlacePickerState extends State<_PlacePicker> {
           .map((raw) {
             final e = raw.map((k, v) => MapEntry(k.toString(), v));
             return CommutePlace(
-              name: e['name']?.toString() ??
+              name:
+                  e['name']?.toString() ??
                   e['nameEn']?.toString() ??
                   e['name_en']?.toString() ??
                   '',
               placeId: e['placeId']?.toString() ?? e['place_id']?.toString(),
-              lat: (e['latitude'] as num?)?.toDouble() ??
+              lat:
+                  (e['latitude'] as num?)?.toDouble() ??
                   (e['lat'] as num?)?.toDouble(),
-              lon: (e['longitude'] as num?)?.toDouble() ??
+              lon:
+                  (e['longitude'] as num?)?.toDouble() ??
                   (e['lon'] as num?)?.toDouble(),
               isDatasetPlace: true,
-              detail: e['area']?.toString() ??
+              detail:
+                  e['area']?.toString() ??
                   e['district']?.toString() ??
                   e['type']?.toString(),
             );
@@ -315,9 +319,7 @@ class _PlacePickerState extends State<_PlacePicker> {
                 ],
               ),
             ),
-            Expanded(
-              child: _buildResults(context, scrollController, colors),
-            ),
+            Expanded(child: _buildResults(context, scrollController, colors)),
           ],
         ),
       ),
@@ -435,7 +437,6 @@ class _PlaceRow extends StatelessWidget {
   }
 }
 
-
 /// A location failure that already carries a sentence for the student.
 class _LocationFailure implements Exception {
   const _LocationFailure.servicesOff() : _kind = 'servicesOff';
@@ -445,19 +446,19 @@ class _LocationFailure implements Exception {
   final String _kind;
 
   String get message => switch (_kind) {
-        'servicesOff' => GochanoLanguage.text(
-            'Location is turned off on this phone. Turn it on and try again.',
-            'এই ফোনে লোকেশন বন্ধ আছে। চালু করে আবার চেষ্টা করুন।',
-          ),
-        'deniedForever' => GochanoLanguage.text(
-            'Location permission is blocked. Allow it for Gochano in Android '
-            'settings, or search for a place instead.',
-            'লোকেশন অনুমতি ব্লক করা আছে। Android সেটিংসে গোছানোর জন্য অনুমতি দিন, অথবা একটি স্থান খুঁজুন।',
-          ),
-        _ => GochanoLanguage.text(
-            'Location permission was not given. You can still search for a '
-            'place.',
-            'লোকেশন অনুমতি দেওয়া হয়নি। আপনি চাইলে স্থান খুঁজে নিতে পারেন।',
-          ),
-      };
+    'servicesOff' => GochanoLanguage.text(
+      'Location is turned off on this phone. Turn it on and try again.',
+      'এই ফোনে লোকেশন বন্ধ আছে। চালু করে আবার চেষ্টা করুন।',
+    ),
+    'deniedForever' => GochanoLanguage.text(
+      'Location permission is blocked. Allow it for Gochano in Android '
+          'settings, or search for a place instead.',
+      'লোকেশন অনুমতি ব্লক করা আছে। Android সেটিংসে গোছানোর জন্য অনুমতি দিন, অথবা একটি স্থান খুঁজুন।',
+    ),
+    _ => GochanoLanguage.text(
+      'Location permission was not given. You can still search for a '
+          'place.',
+      'লোকেশন অনুমতি দেওয়া হয়নি। আপনি চাইলে স্থান খুঁজে নিতে পারেন।',
+    ),
+  };
 }

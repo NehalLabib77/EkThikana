@@ -38,9 +38,13 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty,
-          reason: 'read response lists through _listField instead:\n'
-              '${offenders.join('\n')}');
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'read response lists through _listField instead:\n'
+            '${offenders.join('\n')}',
+      );
     });
 
     test('the focus list reads the key the route actually returns', () {
@@ -50,8 +54,11 @@ void main() {
         source.indexOf('static Future<Map<String, dynamic>> getStudyStats()'),
       );
 
-      expect(method, contains("'sessions'"),
-          reason: 'the route returns its rows under `sessions`');
+      expect(
+        method,
+        contains("'sessions'"),
+        reason: 'the route returns its rows under `sessions`',
+      );
       // `items` stays accepted so the fix works against a backend of either
       // vintage, but it must not be the only key tried.
       expect(method, contains("'items'"));

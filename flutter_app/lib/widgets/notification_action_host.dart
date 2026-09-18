@@ -1,13 +1,21 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/navigation.dart';
 import '../shared/states/gochano_states.dart';
 import '../shared/widgets/gochano_controls.dart';
-import '../features/life/presentation/medicine/medicine_screen.dart';
-import '../services/financial_service.dart';
-import '../services/notification_service.dart';
-
 import '../core/page_route.dart';
+import '../features/life/presentation/commute/commute_screen.dart';
+import '../features/life/presentation/expense/expense_screen.dart';
+import '../features/life/presentation/medicine/medicine_screen.dart';
+import '../features/notifications/presentation/notification_center_screen.dart';
+import '../features/tasks/presentation/tasks_screen.dart';
+import '../models/local_reminder.dart';
+import '../services/financial_service.dart';
+import '../services/firestore_service.dart';
+import '../services/local_reminder_store.dart';
+import '../services/notification_service.dart';
 
 class NotificationActionHost extends StatefulWidget {
   const NotificationActionHost({super.key, required this.child});
@@ -22,16 +30,105 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
   @override
   void initState() {
     super.initState();
-    NotificationService.medicineAction.addListener(_handle);
+    NotificationService.medicineAction.addListener(_handleMedicine);
+    NotificationService.taskAction.addListener(_handleTask);
+    NotificationService.notificationTap.addListener(_handleTap);
   }
 
   @override
   void dispose() {
-    NotificationService.medicineAction.removeListener(_handle);
+    NotificationService.medicineAction.removeListener(_handleMedicine);
+    NotificationService.taskAction.removeListener(_handleTask);
+    NotificationService.notificationTap.removeListener(_handleTap);
     super.dispose();
   }
 
-  Future<void> _handle() async {
+  Future<void> _handleTask() async {
+    final action = NotificationService.taskAction.value;
+    if (action == null) return;
+    NotificationService.taskAction.value = null;
+
+    if (action.action == 'done') {
+      try {
+        await LocalReminderStore.instance.updateStatusByOwnerItemId(
+          action.taskId,
+          LocalReminderStatus.completed,
+          completedAt: DateTime.now(),
+        );
+        await NotificationService.cancelTask(action.taskId);
+
+        final uid = FirestoreService.uid;
+        if (uid != null) {
+          try {
+            await FirestoreService.db
+                .collection('tasks')
+                .doc(action.taskId)
+                .update({
+                  'done': true,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+          } catch (_) {}
+        }
+
+        final context = AppNavigation.navigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                action.title.isNotEmpty
+                    ? 'Marked done: ${action.title}'
+                    : 'Task marked done.',
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[NotificationActionHost] task done error: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> _handleTap() async {
+    final tap = NotificationService.notificationTap.value;
+    if (tap == null) return;
+    NotificationService.notificationTap.value = null;
+
+    BuildContext? context;
+    for (var i = 0; i < 20; i++) {
+      context = AppNavigation.navigatorKey.currentContext;
+      if (context != null) break;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    if (context == null || !context.mounted) return;
+
+    final nav = AppNavigation.navigatorKey.currentState;
+    if (nav == null) return;
+
+    switch (tap.kind) {
+      case 'medicine':
+        nav.push(GochanoRoute.to(builder: (_) => const MedicineScreen()));
+        break;
+      case 'task':
+      case 'assignment':
+        nav.push(GochanoRoute.to(builder: (_) => const TasksScreen()));
+        break;
+      case 'expense_due':
+        nav.push(GochanoRoute.to(builder: (_) => const ExpenseScreen()));
+        break;
+      case 'commute_trip':
+        nav.push(GochanoRoute.to(builder: (_) => const CommuteScreen()));
+        break;
+      case 'custom':
+        nav.push(
+          GochanoRoute.to(builder: (_) => const NotificationCenterScreen()),
+        );
+        break;
+    }
+  }
+
+  Future<void> _handleMedicine() async {
     final action = NotificationService.medicineAction.value;
     if (action == null) return;
     NotificationService.medicineAction.value = null;
@@ -70,6 +167,11 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
         await NotificationService.cancelSameDayMedicineDose(
           action.medicineId,
           action.hhmm,
+        );
+        await LocalReminderStore.instance.updateStatusByOwnerItemId(
+          action.medicineId,
+          LocalReminderStatus.skipped,
+          completedAt: DateTime.now(),
         );
         if (context.mounted) {
           ScaffoldMessenger.of(
@@ -146,6 +248,11 @@ class _NotificationActionHostState extends State<NotificationActionHost> {
         await NotificationService.cancelSameDayMedicineDose(
           action.medicineId,
           action.hhmm,
+        );
+        await LocalReminderStore.instance.updateStatusByOwnerItemId(
+          action.medicineId,
+          LocalReminderStatus.completed,
+          completedAt: DateTime.now(),
         );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

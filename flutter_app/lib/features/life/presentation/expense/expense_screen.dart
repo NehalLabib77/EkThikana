@@ -81,6 +81,51 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Expense', 'খরচ'),
+        actions: [
+          if (_tabs.index == 0)
+            IconButton(
+              key: const ValueKey('expense_header_add_button'),
+              icon: const Icon(Icons.add_rounded),
+              tooltip: GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
+              onPressed: () async {
+                final saved = await showAddExpenseSheet(context);
+                if (saved) _onExpenseAdded();
+              },
+            )
+          else if (_tabs.index == 1)
+            IconButton(
+              key: const ValueKey('expense_header_add_grocery_button'),
+              icon: const Icon(Icons.add_rounded),
+              tooltip: GochanoLanguage.text(
+                'Add grocery item',
+                'বাজারের আইটেম যোগ করুন',
+              ),
+              onPressed: () async {
+                final sessionId = FinancialService.bazarSessionId(
+                  DateTime.now(),
+                );
+                final saved = await showGroceryItemSheet(
+                  context,
+                  sessionId: sessionId,
+                );
+                if (saved) _onExpenseAdded();
+              },
+            )
+          else if (_tabs.index == 2)
+            IconButton(
+              key: const ValueKey('expense_header_add_dena_pawna_button'),
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              tooltip: GochanoLanguage.text('Add record', 'রেকর্ড যোগ করুন'),
+              onPressed: () async {
+                final saved = await showDenaPawnaSheet(
+                  context,
+                  onChanged: _onExpenseAdded,
+                );
+                if (saved) _onExpenseAdded();
+              },
+            ),
+          const SizedBox(width: GochanoSpacing.xs),
+        ],
         bottom: TabBar(
           controller: _tabs,
           isScrollable: true,
@@ -102,46 +147,6 @@ class _ExpenseScreenState extends State<ExpenseScreen>
           OverviewTab(key: _overviewKey),
         ],
       ),
-      floatingActionButton: _buildFab(),
-    );
-  }
-
-  Widget? _buildFab() {
-    if (_tabs.index == 3) return null;
-
-    final isDenaPawna = _tabs.index == 2;
-    final isGrocery = _tabs.index == 1;
-
-    if (isDenaPawna) {
-      return FloatingActionButton.extended(
-        onPressed: () async {
-          final saved = await showDenaPawnaSheet(
-            context,
-            onChanged: _onExpenseAdded,
-          );
-          if (saved) _onExpenseAdded();
-        },
-        icon: const Icon(Icons.people_rounded),
-        label: Text(GochanoLanguage.text('Add record', 'রেকর্ড যোগ করুন')),
-      );
-    }
-
-    return FloatingActionButton.extended(
-      onPressed: () async {
-        if (isGrocery) {
-          final sessionId = FinancialService.bazarSessionId(DateTime.now());
-          final saved = await showGroceryItemSheet(
-            context,
-            sessionId: sessionId,
-          );
-          if (saved) _onExpenseAdded();
-        } else {
-          final saved = await showAddExpenseSheet(context);
-          if (saved) _onExpenseAdded();
-        }
-      },
-      icon: const Icon(Icons.receipt_long_rounded),
-      label: Text(GochanoLanguage.text('Add expense', 'খরচ যোগ করুন')),
     );
   }
 }

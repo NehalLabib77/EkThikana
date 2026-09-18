@@ -72,7 +72,9 @@ void main() {
 
       expect(
         section,
-        contains('resource == null || resource.data.ownerId == request.auth.uid'),
+        contains(
+          'resource == null || resource.data.ownerId == request.auth.uid',
+        ),
         reason:
             'deleting a mirror row that was never written must be a no-op, '
             'not a denial that rejects the whole batch',
@@ -87,7 +89,9 @@ void main() {
 
       expect(
         section,
-        contains('allow read: if verified() && resource.data.ownerId == request.auth.uid'),
+        contains(
+          'allow read: if verified() && resource.data.ownerId == request.auth.uid',
+        ),
         reason: 'loosening delete must not have loosened read',
       );
       expect(section, isNot(contains('allow read, delete:')));
@@ -98,7 +102,10 @@ void main() {
         rules.indexOf('match /financial_transactions/{id}'),
       );
 
-      expect(section, contains("request.resource.data.ownerId == request.auth.uid"));
+      expect(
+        section,
+        contains("request.resource.data.ownerId == request.auth.uid"),
+      );
       expect(section, contains("request.resource.data.type == 'expense'"));
     });
   });

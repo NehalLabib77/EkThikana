@@ -17,6 +17,7 @@ import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/financial_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -43,6 +44,12 @@ Future<bool> showAddExpenseSheet(
       initialDate: initialDate,
     ),
   );
+  if (saved == true && context.mounted) {
+    showGochanoMessage(
+      context,
+      FeedbackMessages.expenseSaved(isEdit: expenseId != null),
+    );
+  }
   return saved ?? false;
 }
 
@@ -72,6 +79,7 @@ class _ExpenseFormState extends State<_ExpenseForm> {
   late DateTime _date;
   bool _saving = false;
   String? _error;
+  late bool _showMoreOptions;
 
   bool get _isEdit => widget.expenseId != null;
 
@@ -101,6 +109,15 @@ class _ExpenseFormState extends State<_ExpenseForm> {
     _category = widget.initialCategory == null
         ? _categoryForNow(_date)
         : ExpenseCategories.byId(widget.initialCategory);
+    final hasNote =
+        widget.initialTitle != null && widget.initialTitle!.trim().isNotEmpty;
+    final now = DateTime.now();
+    final isNonToday =
+        widget.initialDate != null &&
+        (_date.year != now.year ||
+            _date.month != now.month ||
+            _date.day != now.day);
+    _showMoreOptions = _isEdit && (hasNote || isNonToday);
   }
 
   @override
@@ -155,7 +172,9 @@ class _ExpenseFormState extends State<_ExpenseForm> {
     });
 
     // An empty note is fine — the category already says what it was.
-    final title = _title.text.trim().isEmpty ? _category.id : _title.text.trim();
+    final title = _title.text.trim().isEmpty
+        ? _category.id
+        : _title.text.trim();
 
     try {
       if (_isEdit) {
@@ -218,7 +237,9 @@ class _ExpenseFormState extends State<_ExpenseForm> {
               TextField(
                 controller: _amount,
                 autofocus: !_isEdit,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
@@ -226,7 +247,9 @@ class _ExpenseFormState extends State<_ExpenseForm> {
                 decoration: InputDecoration(
                   labelText: GochanoLanguage.text('Amount', 'পরিমাণ'),
                   prefixText: '৳ ',
-                  prefixStyle: type.statistic.copyWith(color: colors.textSecondary),
+                  prefixStyle: type.statistic.copyWith(
+                    color: colors.textSecondary,
+                  ),
                 ),
                 onSubmitted: (_) => _save(),
               ),
@@ -255,31 +278,67 @@ class _ExpenseFormState extends State<_ExpenseForm> {
               ),
               const SizedBox(height: GochanoSpacing.md),
 
-              TextField(
-                controller: _title,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('Note (optional)', 'নোট (ঐচ্ছিক)'),
-                  hintText: GochanoLanguage.text(
-                    'Rice and curry at the canteen',
-                    'ক্যান্টিনে ভাত ও তরকারি',
+              // More options toggle (progressive disclosure)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey('expense_more_options_toggle'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
+                    minimumSize: const Size(0, GochanoSizes.minTouchTarget),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () =>
+                      setState(() => _showMoreOptions = !_showMoreOptions),
+                  icon: Icon(
+                    _showMoreOptions
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 20,
+                  ),
+                  label: Text(
+                    GochanoLanguage.text('More options', 'আরও অপশন'),
+                    style: type.bodySecondary.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colors.brand,
+                    ),
                   ),
                 ),
-                onSubmitted: (_) => _save(),
               ),
-              const SizedBox(height: GochanoSpacing.sm),
 
-              InkWell(
-                onTap: _pickDate,
-                borderRadius: GochanoRadius.mdAll,
-                child: InputDecorator(
+              if (_showMoreOptions) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                TextField(
+                  controller: _title,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: GochanoLanguage.text('Date', 'তারিখ'),
-                    prefixIcon: const Icon(Icons.event_rounded),
+                    labelText: GochanoLanguage.text(
+                      'Note (optional)',
+                      'নোট (ঐচ্ছিক)',
+                    ),
+                    hintText: GochanoLanguage.text(
+                      'Rice and curry at the canteen',
+                      'ক্যান্টিনে ভাত ও তরকারি',
+                    ),
                   ),
-                  child: Text(_formatDate(_date), style: type.body),
+                  onSubmitted: (_) => _save(),
                 ),
-              ),
+                const SizedBox(height: GochanoSpacing.sm),
+                InkWell(
+                  onTap: _pickDate,
+                  borderRadius: GochanoRadius.mdAll,
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: GochanoLanguage.text('Date', 'তারিখ'),
+                      prefixIcon: const Icon(Icons.event_rounded),
+                    ),
+                    child: Text(_formatDate(_date), style: type.body),
+                  ),
+                ),
+              ],
 
               if (_error != null) ...[
                 const SizedBox(height: GochanoSpacing.xs),
@@ -305,14 +364,25 @@ class _ExpenseFormState extends State<_ExpenseForm> {
 
 String _formatDate(DateTime when) {
   final today = DateTime.now();
-  final isToday = when.year == today.year &&
+  final isToday =
+      when.year == today.year &&
       when.month == today.month &&
       when.day == today.day;
   if (isToday) return GochanoLanguage.text('Today', 'আজ');
 
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${when.day} ${months[when.month - 1]} ${when.year}';
 }

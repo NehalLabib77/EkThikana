@@ -25,13 +25,11 @@ class NotesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return GochanoScaffold(
       padBody: false,
-      appBar: GochanoAppBar(
-        title: GochanoLanguage.text('Notes', 'নোট'),
-      ),
+      appBar: GochanoAppBar(title: GochanoLanguage.text('Notes', 'নোট')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const NoteEditorScreen()),
-        ),
+        onPressed: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const NoteEditorScreen())),
         icon: const Icon(Icons.edit_note_rounded),
         label: Text(GochanoLanguage.text('New note', 'নতুন নোট')),
       ),
@@ -119,13 +117,10 @@ class _NoteRow extends StatelessWidget {
     final isShared = data['visibility']?.toString() == 'group';
 
     void open() => Navigator.of(context).push(
-          GochanoRoute.to(
-            builder: (_) => NoteEditorScreen(
-              noteId: doc.id,
-              initialData: data,
-            ),
-          ),
-        );
+      GochanoRoute.to(
+        builder: (_) => NoteEditorScreen(noteId: doc.id, initialData: data),
+      ),
+    );
 
     return GochanoListRow(
       illustration: GochanoArt.fileNote,
@@ -174,8 +169,18 @@ String _updatedAt(Object? value) {
   if (value is! Timestamp) return '';
   final when = value.toDate();
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${when.day} ${months[when.month - 1]} ${when.year}';
 }

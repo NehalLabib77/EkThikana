@@ -13,8 +13,9 @@ class GochanoAppearance {
   static const String _prefsKey = 'gochano.themeMode';
 
   /// The active theme mode. Read through [GochanoAppearanceScope].
-  static final ValueNotifier<ThemeMode> mode =
-      ValueNotifier<ThemeMode>(ThemeMode.system);
+  static final ValueNotifier<ThemeMode> mode = ValueNotifier<ThemeMode>(
+    ThemeMode.system,
+  );
 
   /// Loads the persisted choice. Non-fatal on failure — the app simply
   /// follows the system theme.
@@ -39,16 +40,16 @@ class GochanoAppearance {
   }
 
   static String _encode(ThemeMode value) => switch (value) {
-        ThemeMode.light => 'light',
-        ThemeMode.dark => 'dark',
-        ThemeMode.system => 'system',
-      };
+    ThemeMode.light => 'light',
+    ThemeMode.dark => 'dark',
+    ThemeMode.system => 'system',
+  };
 
   static ThemeMode _decode(String? value) => switch (value) {
-        'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        _ => ThemeMode.system,
-      };
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
 }
 
 /// Rebuilds [builder] whenever the appearance preference changes.

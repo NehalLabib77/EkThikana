@@ -33,8 +33,7 @@ import 'package:gochano/features/study/presentation/focus/focus_view.dart'
 
 void main() {
   group('FocusSession.fromJson', () {
-    test('reads accumulatedSeconds — the field the backend actually sends',
-        () {
+    test('reads accumulatedSeconds — the field the backend actually sends', () {
       // Exactly the payload PATCH /study/focus/{id} returns on "complete".
       final session = FocusSession.fromJson(const {
         'id': 'focus_1756713600000',
@@ -112,20 +111,22 @@ void main() {
       expect(session.elapsedSeconds, 660);
     });
 
-    test('a start response with no accumulated total yet reads 0, not null',
-        () {
-      // POST /study/focus/start does not include accumulatedSeconds.
-      final session = FocusSession.fromJson(const {
-        'id': 'focus_1',
-        'status': 'running',
-        'label': '',
-        'plannedMinutes': 25,
-        'startedAtIso': '2026-09-01T10:00:00+00:00',
-      });
-      expect(session.elapsedSeconds, 0);
-      expect(session.plannedMinutes, 25);
-      expect(session.isActive, isTrue);
-    });
+    test(
+      'a start response with no accumulated total yet reads 0, not null',
+      () {
+        // POST /study/focus/start does not include accumulatedSeconds.
+        final session = FocusSession.fromJson(const {
+          'id': 'focus_1',
+          'status': 'running',
+          'label': '',
+          'plannedMinutes': 25,
+          'startedAtIso': '2026-09-01T10:00:00+00:00',
+        });
+        expect(session.elapsedSeconds, 0);
+        expect(session.plannedMinutes, 25);
+        expect(session.isActive, isTrue);
+      },
+    );
 
     test('a cancelled session is not active', () {
       final session = FocusSession.fromJson(const {
@@ -148,8 +149,11 @@ void main() {
         'accumulatedSeconds': 475, // 7m55s — the canonical bug example
       });
       expect(session.isActive, isFalse);
-      expect(session.elapsedSeconds, 475,
-          reason: 'cancel must surface the real elapsed time, not 0');
+      expect(
+        session.elapsedSeconds,
+        475,
+        reason: 'cancel must surface the real elapsed time, not 0',
+      );
     });
 
     test('cancel response on an already-cancelled session is idempotent', () {
@@ -176,8 +180,11 @@ void main() {
           'status': 'completed',
           'accumulatedSeconds': d,
         });
-        expect(session.elapsedSeconds, d,
-            reason: 'duration $d must not collapse to 0 or a rounded minute');
+        expect(
+          session.elapsedSeconds,
+          d,
+          reason: 'duration $d must not collapse to 0 or a rounded minute',
+        );
       }
     });
 
@@ -377,8 +384,11 @@ void main() {
         'accumulatedSeconds': 354920,
         'dayKey': '2026-09-03',
       });
-      expect(session.elapsedSeconds, 0,
-          reason: 'corrupt value mapped to 0 by _coerceFocusSeconds');
+      expect(
+        session.elapsedSeconds,
+        0,
+        reason: 'corrupt value mapped to 0 by _coerceFocusSeconds',
+      );
       // Even though status is cancelled (counted), corrupt duration = 0
       var total = 0;
       if (session.status == 'completed' || session.status == 'cancelled') {
@@ -419,8 +429,11 @@ void main() {
         if (s.status != 'completed' && s.status != 'cancelled') continue;
         total += s.elapsedSeconds;
       }
-      expect(total, 900,
-          reason: 'only completed (600) + cancelled (300) = 900');
+      expect(
+        total,
+        900,
+        reason: 'only completed (600) + cancelled (300) = 900',
+      );
     });
   });
 
@@ -457,8 +470,7 @@ void main() {
       final groups = groupSessions(sessions);
       expect(groups.length, 1);
       expect(groups.first.label, 'Physics');
-      expect(groups.first.totalSeconds, 1020,
-          reason: '600 + 300 + 120 = 1020');
+      expect(groups.first.totalSeconds, 1020, reason: '600 + 300 + 120 = 1020');
       expect(groups.first.latestDayKey, '2026-09-03');
     });
 
@@ -484,8 +496,11 @@ void main() {
       final history = sessions.where((s) => s.status != 'running').toList();
       final groups = groupSessions(history);
       expect(groups.length, 1);
-      expect(groups.first.totalSeconds, 600,
-          reason: 'running (200) must not be included');
+      expect(
+        groups.first.totalSeconds,
+        600,
+        reason: 'running (200) must not be included',
+      );
     });
 
     test('case and whitespace are normalized', () {
@@ -561,8 +576,11 @@ void main() {
       ];
       final groups = groupSessions(sessions);
       expect(groups.length, 1);
-      expect(groups.first.totalSeconds, 100,
-          reason: 'corrupt session contributes 0, valid contributes 100');
+      expect(
+        groups.first.totalSeconds,
+        100,
+        reason: 'corrupt session contributes 0, valid contributes 100',
+      );
     });
 
     test('no double-counting across pause/resume cycles', () {
@@ -586,8 +604,11 @@ void main() {
         }),
       ];
       final groups = groupSessions(sessions);
-      expect(groups.first.totalSeconds, 900,
-          reason: '600 + 300 = 900, no overlap');
+      expect(
+        groups.first.totalSeconds,
+        900,
+        reason: '600 + 300 = 900, no overlap',
+      );
     });
 
     test('latest dayKey is used for grouped row', () {

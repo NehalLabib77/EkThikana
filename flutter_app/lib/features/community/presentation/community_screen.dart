@@ -44,13 +44,19 @@ class CommunityScreen extends StatelessWidget {
           'একসাথে পড়ুন, উপকরণ শেয়ার করুন',
         ),
         automaticallyImplyLeading: false,
-        actions: const [LanguageToggle(), SizedBox(width: GochanoSpacing.xs)],
+        actions: [
+          IconButton(
+            key: const ValueKey('community_header_new_group_button'),
+            icon: const Icon(Icons.group_add_rounded),
+            tooltip: GochanoLanguage.text('Group options', 'গ্রুপ অপশন'),
+            onPressed: () => showGroupActionsSheet(context),
+          ),
+          const LanguageToggle(),
+          const SizedBox(width: GochanoSpacing.xs),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showGroupActionsSheet(context),
-        icon: const Icon(Icons.group_add_rounded),
-        label: Text(GochanoLanguage.text('New group', 'নতুন গ্রুপ')),
-      ),
+      // Universal Quick Add FAB is provided by GochanoShell.
+      // No local floatingActionButton here to avoid overlap.
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirestoreService.myGroups(),
         builder: (context, snapshot) {
@@ -67,8 +73,11 @@ class CommunityScreen extends StatelessWidget {
           }
 
           final groups = [...?snapshot.data?.docs]
-            ..sort((a, b) => (a.data()['name']?.toString() ?? '')
-                .compareTo(b.data()['name']?.toString() ?? ''));
+            ..sort(
+              (a, b) => (a.data()['name']?.toString() ?? '').compareTo(
+                b.data()['name']?.toString() ?? '',
+              ),
+            );
 
           if (groups.isEmpty) {
             return EmptyState(
@@ -79,10 +88,12 @@ class CommunityScreen extends StatelessWidget {
               ),
               message: GochanoLanguage.text(
                 'Create a group for your class, or join one with an invite '
-                'code from a classmate.',
-                'আপনার ক্লাসের জন্য একটি গ্রুপ তৈরি করুন, অথবা সহপাঠীর ইনভাইট কোড দিয়ে যোগ দিন।',
+                    'code from a classmate.',
+                'আপনার ক্লাসের জন্য একটি গ্রুপ তৈরি করুন, অথবা সহপাঠীর '
+                    'ইনভাইট কোড দিয়ে যোগ দিন।',
               ),
-
+              actionLabel: GochanoLanguage.text('New group', 'নতুন গ্রুপ'),
+              onAction: () => showGroupActionsSheet(context),
             );
           }
 
@@ -182,8 +193,10 @@ class _GroupCard extends StatelessWidget {
 // Create / join
 // ---------------------------------------------------------------------------
 
+enum _GroupSheetAction { create, join }
+
 Future<void> showGroupActionsSheet(BuildContext context) async {
-  await showModalBottomSheet<void>(
+  final action = await showModalBottomSheet<_GroupSheetAction>(
     context: context,
     builder: (sheetContext) => SafeArea(
       child: Column(
@@ -191,37 +204,43 @@ Future<void> showGroupActionsSheet(BuildContext context) async {
         children: [
           ListTile(
             leading: const Icon(Icons.group_add_rounded),
-            title: Text(GochanoLanguage.text('Create a group', 'গ্রুপ তৈরি করুন')),
+            title: Text(
+              GochanoLanguage.text('Create a group', 'গ্রুপ তৈরি করুন'),
+            ),
             subtitle: Text(
               GochanoLanguage.text(
                 'You become the admin and get an invite code to share.',
                 'আপনি অ্যাডমিন হবেন এবং শেয়ার করার জন্য একটি ইনভাইট কোড পাবেন।',
               ),
             ),
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              showCreateGroupSheet(context);
-            },
+            onTap: () =>
+                Navigator.of(sheetContext).pop(_GroupSheetAction.create),
           ),
           ListTile(
             leading: const Icon(Icons.login_rounded),
-            title: Text(GochanoLanguage.text('Join with a code', 'কোড দিয়ে যোগ দিন')),
+            title: Text(
+              GochanoLanguage.text('Join with a code', 'কোড দিয়ে যোগ দিন'),
+            ),
             subtitle: Text(
               GochanoLanguage.text(
                 'Enter the invite code a classmate shared with you.',
                 'সহপাঠীর দেওয়া ইনভাইট কোড লিখুন।',
               ),
             ),
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              showJoinGroupSheet(context);
-            },
+            onTap: () => Navigator.of(sheetContext).pop(_GroupSheetAction.join),
           ),
           const SizedBox(height: GochanoSpacing.sm),
         ],
       ),
     ),
   );
+
+  if (!context.mounted || action == null) return;
+  if (action == _GroupSheetAction.create) {
+    await showCreateGroupSheet(context);
+  } else if (action == _GroupSheetAction.join) {
+    await showJoinGroupSheet(context);
+  }
 }
 
 Future<void> showCreateGroupSheet(BuildContext context) =>
@@ -270,7 +289,10 @@ class _GroupFormState extends State<_GroupForm> {
     if (value.isEmpty) {
       setState(() {
         _error = widget.join
-            ? GochanoLanguage.text('Enter the invite code.', 'ইনভাইট কোড লিখুন।')
+            ? GochanoLanguage.text(
+                'Enter the invite code.',
+                'ইনভাইট কোড লিখুন।',
+              )
             : GochanoLanguage.text('Name your group.', 'গ্রুপের নাম দিন।');
       });
       return;
@@ -292,7 +314,10 @@ class _GroupFormState extends State<_GroupForm> {
       showGochanoMessage(
         context,
         widget.join
-            ? GochanoLanguage.text('You joined the group.', 'আপনি গ্রুপে যোগ দিয়েছেন।')
+            ? GochanoLanguage.text(
+                'You joined the group.',
+                'আপনি গ্রুপে যোগ দিয়েছেন।',
+              )
             : GochanoLanguage.text('Group created.', 'গ্রুপ তৈরি হয়েছে।'),
       );
     } catch (error) {
@@ -339,7 +364,10 @@ class _GroupFormState extends State<_GroupForm> {
                     : GochanoLanguage.text('Group name', 'গ্রুপের নাম'),
                 hintText: widget.join
                     ? 'AB12CD'
-                    : GochanoLanguage.text('CSE 5th Semester', 'সিএসই ৫ম সেমিস্টার'),
+                    : GochanoLanguage.text(
+                        'CSE 5th Semester',
+                        'সিএসই ৫ম সেমিস্টার',
+                      ),
               ),
               onSubmitted: (_) => _submit(),
             ),

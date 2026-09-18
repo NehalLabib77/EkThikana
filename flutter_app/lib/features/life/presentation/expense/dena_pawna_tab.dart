@@ -19,6 +19,8 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/financial_service.dart';
+import '../../../../services/notification_service.dart';
+import 'dena_pawna_due_options.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -86,8 +88,7 @@ class DenaPawnaTab extends StatelessWidget {
 
         // Separate into outstanding / partially settled / settled.
         final unsettled = docs
-            .where((d) =>
-                d.data()['status'] != 'settled')
+            .where((d) => d.data()['status'] != 'settled')
             .toList();
         final settledDocs = docs
             .where((d) => d.data()['status'] == 'settled')
@@ -116,7 +117,10 @@ class DenaPawnaTab extends StatelessWidget {
                 Expanded(
                   child: StatCard(
                     compact: true,
-                    label: GochanoLanguage.text('Dena outstanding', 'দেনা বাকি'),
+                    label: GochanoLanguage.text(
+                      'Dena outstanding',
+                      'দেনা বাকি',
+                    ),
                     value: formatTaka(totalDenaOutstanding),
                     accent: context.colors.warning,
                     caption: totalDenaOutstanding > 0
@@ -150,7 +154,8 @@ class DenaPawnaTab extends StatelessWidget {
             SectionHeader(
               title: GochanoLanguage.text('Open', 'খোলা'),
               action: TextButton.icon(
-                onPressed: () => showDenaPawnaSheet(context, onChanged: onChanged),
+                onPressed: () =>
+                    showDenaPawnaSheet(context, onChanged: onChanged),
                 icon: const Icon(Icons.add_rounded, size: GochanoSizes.iconSm),
                 label: Text(GochanoLanguage.text('Add', 'যোগ')),
               ),
@@ -173,9 +178,7 @@ class DenaPawnaTab extends StatelessWidget {
                 ],
               ),
             if (settledDocs.isNotEmpty) ...[
-              SectionHeader(
-                title: GochanoLanguage.text('Settled', 'মিটমাট'),
-              ),
+              SectionHeader(title: GochanoLanguage.text('Settled', 'মিটমাট')),
               CardGroup(
                 children: [
                   for (final doc in settledDocs)
@@ -219,8 +222,10 @@ class _DenaPawnaRow extends StatelessWidget {
 
     final statusLabel = switch (status) {
       'settled' => GochanoLanguage.text('Settled', 'মিটমাট'),
-      'partially_settled' =>
-        GochanoLanguage.text('Partially settled', 'আংশিক মিটমাট'),
+      'partially_settled' => GochanoLanguage.text(
+        'Partially settled',
+        'আংশিক মিটমাট',
+      ),
       _ => GochanoLanguage.text('Outstanding', 'বাকি'),
     };
 
@@ -266,8 +271,8 @@ class _DenaPawnaRow extends StatelessWidget {
               color: status == 'settled'
                   ? colors.textTertiary
                   : status == 'partially_settled'
-                      ? colors.warning
-                      : colors.textSecondary,
+                  ? colors.warning
+                  : colors.textSecondary,
             ),
           ),
           if (status != 'settled')
@@ -300,7 +305,11 @@ class _DenaPawnaRow extends StatelessWidget {
           GochanoMenuAction(
             label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
             icon: Icons.edit_outlined,
-            onSelected: () => showDenaPawnaSheet(context, existing: doc, onChanged: onChanged),
+            onSelected: () => showDenaPawnaSheet(
+              context,
+              existing: doc,
+              onChanged: onChanged,
+            ),
           ),
         ],
         GochanoMenuAction(
@@ -333,14 +342,16 @@ class _DenaPawnaRow extends StatelessWidget {
     );
 
     if (result == true && context.mounted) {
-      final settleAmount =
-          double.tryParse(amountController.text.trim()) ?? 0;
+      final settleAmount = double.tryParse(amountController.text.trim()) ?? 0;
       if (settleAmount > 0 && settleAmount <= outstanding + 0.001) {
         try {
           await FinancialService.settleDenaPawna(
             doc.id,
             settleAmount: settleAmount,
           );
+          if (settleAmount >= outstanding - 0.001) {
+            await NotificationService.cancelExpenseDueReminder(doc.id);
+          }
           onChanged?.call();
         } catch (error) {
           if (context.mounted) {
@@ -367,15 +378,12 @@ class _DenaPawnaRow extends StatelessWidget {
     );
     if (!confirmed || !context.mounted) return;
     try {
+      await NotificationService.cancelExpenseDueReminder(doc.id);
       await FinancialService.deleteDenaPawna(doc.id);
       onChanged?.call();
     } catch (error) {
       if (context.mounted) {
-        showGochanoMessage(
-          context,
-          friendlyErrorMessage(error),
-          isError: true,
-        );
+        showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
       }
     }
   }
@@ -435,13 +443,17 @@ class _SettleFormState extends State<_SettleForm> {
               const SizedBox(height: GochanoSpacing.md),
               TextField(
                 controller: widget.amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
                 decoration: InputDecoration(
-                  labelText: GochanoLanguage.text('Amount to settle', 'মিটমাটের পরিমাণ'),
+                  labelText: GochanoLanguage.text(
+                    'Amount to settle',
+                    'মিটমাটের পরিমাণ',
+                  ),
                   prefixText: '৳ ',
                 ),
                 onChanged: (_) => setState(() {}),
@@ -479,17 +491,21 @@ class _SettleFormState extends State<_SettleForm> {
                   final entered =
                       double.tryParse(widget.amountController.text.trim()) ?? 0;
                   if (entered <= 0) {
-                    setState(() => _error = GochanoLanguage.text(
-                          'Enter an amount greater than zero.',
-                          'শূন্যের বেশি পরিমাণ লিখুন।',
-                        ));
+                    setState(
+                      () => _error = GochanoLanguage.text(
+                        'Enter an amount greater than zero.',
+                        'শূন্যের বেশি পরিমাণ লিখুন।',
+                      ),
+                    );
                     return;
                   }
                   if (entered > widget.outstanding + 0.001) {
-                    setState(() => _error = GochanoLanguage.text(
-                          'Amount cannot exceed outstanding.',
-                          'পরিমাণ বাকি থেকে বেশি হতে পারে না।',
-                        ));
+                    setState(
+                      () => _error = GochanoLanguage.text(
+                        'Amount cannot exceed outstanding.',
+                        'পরিমাণ বাকি থেকে বেশি হতে পারে না।',
+                      ),
+                    );
                     return;
                   }
                   Navigator.of(context).pop(true);
@@ -553,7 +569,8 @@ Future<bool> showDenaPawnaSheet(
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => _DenaPawnaForm(existing: existing, onChanged: onChanged),
+    builder: (sheetContext) =>
+        _DenaPawnaForm(existing: existing, onChanged: onChanged),
   );
   return saved ?? false;
 }
@@ -572,6 +589,7 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
   late final TextEditingController _personName;
   late final TextEditingController _amount;
   late String _type;
+  DateTime? _targetDueDateTime;
   bool _saving = false;
   String? _error;
 
@@ -582,13 +600,16 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
     super.initState();
     final data = widget.existing?.data() ?? const <String, dynamic>{};
     _personName = TextEditingController(
-        text: data['personName']?.toString() ?? '');
+      text: data['personName']?.toString() ?? '',
+    );
     _amount = TextEditingController(
       text: (data['amount'] as num?)?.toDouble() == 0
           ? ''
           : '${(data['amount'] as num?)?.toDouble() ?? ''}',
     );
     _type = data['type']?.toString() ?? 'lend';
+    final existingDue = (data['dueDate'] as Timestamp?)?.toDate();
+    _targetDueDateTime = existingDue;
   }
 
   @override
@@ -603,17 +624,21 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
     final amount = double.tryParse(_amount.text.trim()) ?? 0;
 
     if (personName.isEmpty) {
-      setState(() => _error = GochanoLanguage.text(
-            'Enter the person\'s name.',
-            'ব্যক্তির নাম লিখুন।',
-          ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Enter the person\'s name.',
+          'ব্যক্তির নাম লিখুন।',
+        ),
+      );
       return;
     }
     if (amount <= 0) {
-      setState(() => _error = GochanoLanguage.text(
-            'Amount must be greater than zero.',
-            'পরিমাণ শূন্যের বেশি হতে হবে।',
-          ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Amount must be greater than zero.',
+          'পরিমাণ শূন্যের বেশি হতে হবে।',
+        ),
+      );
       return;
     }
 
@@ -623,18 +648,33 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
     });
 
     try {
-      await FinancialService.saveDenaPawna(
+      final docId = await FinancialService.saveDenaPawna(
         id: widget.existing?.id,
         personName: personName,
         amount: amount,
         type: _type,
         date: _isEdit
             ? ((widget.existing?.data()?['date'] as Timestamp?)?.toDate() ??
-                DateTime.now())
+                  DateTime.now())
             : DateTime.now(),
         note: '',
-        dueDate: null,
+        dueDate: _targetDueDateTime,
       );
+
+      // Local-first reminder scheduling/cancellation:
+      if (_targetDueDateTime != null &&
+          _targetDueDateTime!.isAfter(DateTime.now())) {
+        await NotificationService.scheduleExpenseDueReminder(
+          itemId: docId,
+          personName: personName,
+          amount: amount,
+          type: _type,
+          dueDate: _targetDueDateTime!,
+        );
+      } else {
+        await NotificationService.cancelExpenseDueReminder(docId);
+      }
+
       widget.onChanged?.call();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
@@ -643,6 +683,12 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
         _saving = false;
         _error = friendlyErrorMessage(error);
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -688,8 +734,9 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
               const SizedBox(height: GochanoSpacing.sm),
               TextField(
                 controller: _amount,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
@@ -705,10 +752,7 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
                 children: [
                   Expanded(
                     child: _TypeChip(
-                      label: GochanoLanguage.text(
-                        'Give',
-                        'দেব',
-                      ),
+                      label: GochanoLanguage.text('Give', 'দেব'),
                       icon: Icons.arrow_upward_rounded,
                       color: colors.warning,
                       selected: _type == 'borrow',
@@ -718,10 +762,7 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
                   const SizedBox(width: GochanoSpacing.xs),
                   Expanded(
                     child: _TypeChip(
-                      label: GochanoLanguage.text(
-                        'Receive',
-                        'পাব',
-                      ),
+                      label: GochanoLanguage.text('Receive', 'পাব'),
                       icon: Icons.arrow_downward_rounded,
                       color: colors.success,
                       selected: _type == 'lend',
@@ -729,6 +770,13 @@ class _DenaPawnaFormState extends State<_DenaPawnaForm> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+              DenaPawnaDueOptions(
+                initialDateTime: _targetDueDateTime,
+                onDateTimeChanged: (val) {
+                  setState(() => _targetDueDateTime = val);
+                },
               ),
               if (_error != null) ...[
                 const SizedBox(height: GochanoSpacing.xs),

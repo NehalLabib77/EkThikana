@@ -31,14 +31,14 @@ class OfflineEntry {
   final DateTime savedAt;
 
   Map<String, dynamic> toJson() => {
-        'materialId': materialId,
-        'title': title,
-        'fileName': fileName,
-        'localPath': localPath,
-        'size': size,
-        'mimeType': mimeType,
-        'savedAt': savedAt.toIso8601String(),
-      };
+    'materialId': materialId,
+    'title': title,
+    'fileName': fileName,
+    'localPath': localPath,
+    'size': size,
+    'mimeType': mimeType,
+    'savedAt': savedAt.toIso8601String(),
+  };
 
   factory OfflineEntry.fromJson(Map<String, dynamic> json) {
     return OfflineEntry(
@@ -49,7 +49,8 @@ class OfflineEntry {
       size: (json['size'] as num?)?.toInt() ?? 0,
       mimeType: json['mimeType']?.toString() ?? 'application/pdf',
       savedAt:
-          DateTime.tryParse(json['savedAt']?.toString() ?? '') ?? DateTime.now(),
+          DateTime.tryParse(json['savedAt']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }
@@ -93,7 +94,9 @@ class OfflineService {
 
   static Future<void> _writeManifest(List<OfflineEntry> entries) async {
     final file = await _manifestFile();
-    await file.writeAsString(jsonEncode(entries.map((e) => e.toJson()).toList()));
+    await file.writeAsString(
+      jsonEncode(entries.map((e) => e.toJson()).toList()),
+    );
   }
 
   /// Public counterpart used by non-PDF viewers that need a temp file path

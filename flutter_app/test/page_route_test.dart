@@ -19,7 +19,9 @@ void main() {
         const MaterialApp(home: Scaffold(body: Text('home'))),
       );
 
-      tester.state<NavigatorState>(find.byType(Navigator)).push(
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
             GochanoRoute.to<void>(
               builder: (_) => const Scaffold(body: Text('destination')),
             ),
@@ -29,8 +31,9 @@ void main() {
       expect(find.text('destination'), findsOneWidget);
     });
 
-    testWidgets('uses the platform transition, not a custom duration',
-        (tester) async {
+    testWidgets('uses the platform transition, not a custom duration', (
+      tester,
+    ) async {
       // The old route hardcoded 240ms in both directions. Inheriting from
       // MaterialPageRoute means the duration is whatever the platform's
       // page-transition theme says — which is the point.
@@ -48,8 +51,10 @@ void main() {
       tester.state<NavigatorState>(find.byType(Navigator)).push(route);
       await tester.pumpAndSettle();
       expect(find.text('d'), findsOneWidget);
-      expect(route.transitionDuration,
-          isNot(const Duration(milliseconds: 240)));
+      expect(
+        route.transitionDuration,
+        isNot(const Duration(milliseconds: 240)),
+      );
     });
 
     testWidgets('fullscreenDialog is honoured', (tester) async {

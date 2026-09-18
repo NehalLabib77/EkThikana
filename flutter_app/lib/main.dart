@@ -41,10 +41,7 @@ Future<void> main() async {
     // the app does not paint in English/system and then visibly flip to the
     // student's choice. Both restores swallow their own failures and fall
     // back to the default, so neither can block startup.
-    await Future.wait([
-      GochanoLanguage.restore(),
-      GochanoAppearance.restore(),
-    ]);
+    await Future.wait([GochanoLanguage.restore(), GochanoAppearance.restore()]);
 
     runApp(const GochanoApp());
     // Defer non-critical platform setup so the first frame paints sooner.

@@ -32,7 +32,6 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../domain/medicine_schedule.dart';
 import 'medicine_form_screen.dart';
 import 'medicine_history_screen.dart';
-import 'prescription_scan_screen.dart';
 
 class MedicineScreen extends StatelessWidget {
   const MedicineScreen({super.key});
@@ -54,31 +53,13 @@ class MedicineScreen extends StatelessWidget {
         ],
       ),
       body: const _MedicineBody(),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'medicine-scan-prescription',
-            tooltip: GochanoLanguage.text(
-              'Scan prescription',
-              'প্রেসক্রিপশন স্ক্যান',
-            ),
-            onPressed: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const PrescriptionScanScreen()),
-            ),
-            child: const Icon(Icons.document_scanner_outlined),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          FloatingActionButton.extended(
-            heroTag: 'medicine-add',
-            onPressed: () => Navigator.of(
-              context,
-            ).push(GochanoRoute.to(builder: (_) => const MedicineFormScreen())),
-            icon: const Icon(Icons.medication_rounded),
-            label: Text(GochanoLanguage.text('Add medicine', 'ওষুধ যোগ')),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'medicine-add',
+        onPressed: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const MedicineFormScreen())),
+        icon: const Icon(Icons.medication_rounded),
+        label: Text(GochanoLanguage.text('Add medicine', 'ওষুধ যোগ')),
       ),
     );
   }

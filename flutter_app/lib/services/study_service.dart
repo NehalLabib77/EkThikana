@@ -84,7 +84,8 @@ class FocusSession {
       dayKey: readStr('dayKey', 'day_key'),
       monthKey: readStr('monthKey', 'month_key'),
       createdAtIso: readStr('createdAtIso', 'created_at_iso'),
-      completedAtIso: json['completedAtIso']?.toString() ??
+      completedAtIso:
+          json['completedAtIso']?.toString() ??
           json['completed_at_iso']?.toString(),
     );
   }

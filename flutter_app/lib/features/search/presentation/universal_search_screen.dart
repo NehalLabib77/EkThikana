@@ -1,298 +1,383 @@
-// Search across everything the student owns (spec §31, §85).
+// Universal Search across Gochano (Phase 2B).
 //
-// One field, results grouped by what they are: materials, notes and tasks.
-// Search runs client-side over the documents already streamed for this user —
-// which is the right trade-off here because the collections are per-owner and
-// bounded, and it means search works on partial words and on Bangla text
-// without needing a search index.
+// Searches across the 7 canonical student collections:
+// 1. Task
+// 2. Assignment
+// 3. Note
+// 4. PDF
+// 5. Medicine
+// 6. Expense (Daily expense & Dena/Pawna)
+// 7. Trip (Planned commute trips)
+//
+// Pure client-side ranked search over cached/streamed owner records.
+// Zero remote search service, zero composite indexes, zero duplicates.
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_art.dart';
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
+import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
-import '../../../core/page_route.dart';
-import '../../../services/firestore_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
-import '../../study/presentation/materials/material_reader_screen.dart';
-import '../../study/presentation/notes/note_editor_screen.dart';
-import '../../tasks/presentation/add_task_sheet.dart';
+import '../data/universal_search_coordinator.dart';
+import '../domain/universal_search_models.dart';
 
 class UniversalSearchScreen extends StatefulWidget {
-  const UniversalSearchScreen({super.key});
+  const UniversalSearchScreen({
+    super.key,
+    this.initialFilter = UniversalSearchType.all,
+    this.initialQuery = '',
+    this.initialItems,
+    this.itemsStream,
+  });
+
+  final UniversalSearchType initialFilter;
+  final String initialQuery;
+  final List<UniversalSearchResult>? initialItems;
+  final Stream<List<UniversalSearchResult>>? itemsStream;
 
   @override
   State<UniversalSearchScreen> createState() => _UniversalSearchScreenState();
 }
 
 class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
+  late UniversalSearchType _activeFilter;
   String _query = '';
+  Timer? _debounceTimer;
+
+  List<UniversalSearchResult> _allCachedItems = const [];
+  StreamSubscription<List<UniversalSearchResult>>? _streamSubscription;
+  bool _initialLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeFilter = widget.initialFilter;
+    _query = widget.initialQuery;
+    _controller = TextEditingController(text: widget.initialQuery);
+
+    if (widget.initialItems != null) {
+      _allCachedItems = widget.initialItems!;
+      _initialLoading = false;
+    }
+
+    final stream =
+        widget.itemsStream ?? UniversalSearchCoordinator.streamAllItems();
+    _streamSubscription = stream.listen(
+      (items) {
+        if (!mounted) return;
+        setState(() {
+          _allCachedItems = items;
+          _initialLoading = false;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() => _initialLoading = false);
+      },
+    );
+  }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _streamSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
+  void _onQueryChanged(String rawValue) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted) return;
+      setState(() {
+        _query = rawValue.trim();
+      });
+    });
+  }
+
+  void _onClearQuery() {
+    _debounceTimer?.cancel();
+    _controller.clear();
+    setState(() {
+      _query = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    final results = UniversalSearchCoordinator.search(
+      allItems: _allCachedItems,
+      query: _query,
+      activeFilter: _activeFilter,
+      limit: 50,
+    );
+
     return GochanoScaffold(
       padBody: false,
-      appBar: GochanoAppBar(
-        title: GochanoLanguage.text('Search', 'অনুসন্ধান'),
-      ),
+      appBar: GochanoAppBar(title: GochanoLanguage.text('Search', 'অনুসন্ধান')),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 1. Search input bar
           Padding(
             padding: const EdgeInsets.fromLTRB(
               GochanoSpacing.md,
               GochanoSpacing.xs,
               GochanoSpacing.md,
-              GochanoSpacing.sm,
+              GochanoSpacing.xs,
             ),
             child: SearchField(
               controller: _controller,
               autofocus: true,
               hint: GochanoLanguage.text(
-                'Search materials, notes and tasks',
-                'উপকরণ, নোট ও কাজ খুঁজুন',
+                'Search tasks, notes, medicines…',
+                'কাজ, নোট, ওষুধ খুঁজুন…',
               ),
-              onChanged: (value) => setState(() => _query = value.trim()),
-              trailing: _query.isEmpty
-                  ? null
-                  : IconActionButton(
+              onChanged: _onQueryChanged,
+              trailing: _controller.text.isNotEmpty
+                  ? IconActionButton(
                       icon: Icons.close_rounded,
                       label: GochanoLanguage.text('Clear', 'মুছুন'),
-                      onPressed: () {
-                        _controller.clear();
-                        setState(() => _query = '');
-                      },
-                    ),
+                      onPressed: _onClearQuery,
+                    )
+                  : null,
             ),
           ),
-          Expanded(
-            child: _query.length < 2
-                ? EmptyState(
-                    illustration: GochanoArt.emptySearch,
-                    title: GochanoLanguage.text(
-                      'Search your work',
-                      'আপনার কাজ খুঁজুন',
-                    ),
-                    message: GochanoLanguage.text(
-                      'Type at least two letters to search across materials, '
-                      'notes and tasks.',
-                      'উপকরণ, নোট ও কাজে খুঁজতে অন্তত দুটি অক্ষর লিখুন।',
-                    ),
-                  )
-                : _Results(query: _query.toLowerCase()),
-          ),
+
+          // 2. Horizontally scrollable category filter chips
+          _buildFilterChips(colors, type),
+
+          const SizedBox(height: GochanoSpacing.xxs),
+
+          // 3. Search Results or Empty/Loading States
+          Expanded(child: _buildBody(results)),
         ],
       ),
     );
   }
-}
 
-class _Results extends StatelessWidget {
-  const _Results({required this.query});
+  Widget _buildFilterChips(GochanoColors colors, GochanoTypography type) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.md,
+        vertical: GochanoSpacing.xxs,
+      ),
+      child: Row(
+        children: [
+          for (final filterType in UniversalSearchType.values) ...[
+            _buildChip(filterType, colors, type),
+            const SizedBox(width: GochanoSpacing.xs),
+          ],
+        ],
+      ),
+    );
+  }
 
-  final String query;
+  Widget _buildChip(
+    UniversalSearchType filterType,
+    GochanoColors colors,
+    GochanoTypography type,
+  ) {
+    final selected = _activeFilter == filterType;
 
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('materials', limit: 300),
-      builder: (context, materialSnapshot) {
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirestoreService.ownerStream('notes', limit: 300),
-          builder: (context, noteSnapshot) {
-            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirestoreService.ownerStream('tasks', limit: 300),
-              builder: (context, taskSnapshot) {
-                final loading = [materialSnapshot, noteSnapshot, taskSnapshot]
-                    .any((s) => s.connectionState == ConnectionState.waiting);
-                if (loading) {
-                  return StaticLoadingState(
-                    message: GochanoLanguage.text(
-                      'Searching…',
-                      'খোঁজা হচ্ছে…',
-                    ),
-                  );
-                }
+    return FilterChip(
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      selected: selected,
+      showCheckmark: false,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (filterType != UniversalSearchType.all) ...[
+            Icon(
+              filterType.icon,
+              size: 16,
+              color: selected ? colors.brand : colors.textSecondary,
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(filterType.displayName),
+        ],
+      ),
+      onSelected: (_) {
+        setState(() {
+          _activeFilter = filterType;
+        });
+      },
+      selectedColor: colors.brand.withValues(alpha: 0.14),
+      backgroundColor: colors.surfaceVariant,
+      side: BorderSide(
+        color: selected ? colors.brand : colors.border,
+        width: 1,
+      ),
+      shape: const StadiumBorder(),
+      labelStyle: type.caption.copyWith(
+        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+        color: selected ? colors.brand : colors.textSecondary,
+      ),
+    );
+  }
 
-                final materials = _filter(
-                  materialSnapshot.data?.docs,
-                  const ['title', 'fileName', 'subject'],
-                );
-                final notes = _filter(
-                  noteSnapshot.data?.docs,
-                  const ['title', 'content'],
-                );
-                final tasks = _filter(
-                  taskSnapshot.data?.docs,
-                  const ['title'],
-                );
+  Widget _buildBody(List<UniversalSearchResult> results) {
+    if (_query.isEmpty) {
+      return EmptyState(
+        illustration: GochanoArt.emptySearch,
+        title: GochanoLanguage.text(
+          'Search your Gochano',
+          'আপনার গোছানো খুঁজুন',
+        ),
+        message: GochanoLanguage.text(
+          'Tasks, notes, PDFs, medicines, expenses and trips.',
+          'কাজ, অ্যাসাইনমেন্ট, নোট, পিডিএফ, ওষুধ, খরচ ও যাত্রা।',
+        ),
+      );
+    }
 
-                if (materials.isEmpty && notes.isEmpty && tasks.isEmpty) {
-                  return EmptyState(
-                    illustration: GochanoArt.emptySearch,
-                    title: GochanoLanguage.text(
-                      'Nothing found',
-                      'কিছু পাওয়া যায়নি',
-                    ),
-                    message: GochanoLanguage.text(
-                      'Try a different word.',
-                      'অন্য একটি শব্দ চেষ্টা করুন।',
-                    ),
-                  );
-                }
+    if (_initialLoading && _allCachedItems.isEmpty) {
+      return Center(
+        child: StaticLoadingState(
+          message: GochanoLanguage.text(
+            'Searching your Gochano…',
+            'আপনার গোছানো খোঁজা হচ্ছে…',
+          ),
+        ),
+      );
+    }
 
-                return ListView(
-                  padding: GochanoSpacing.scrollBody,
-                  children: [
-                    if (materials.isNotEmpty) ...[
-                      SectionHeader(
-                        title: GochanoLanguage.text('Materials', 'উপকরণ'),
-                        padding: const EdgeInsets.only(
-                          bottom: GochanoSpacing.xs,
-                        ),
-                      ),
-                      CardGroup(
-                        children: [
-                          for (final doc in materials)
-                            _MaterialResult(doc: doc),
-                        ],
-                      ),
-                    ],
-                    if (notes.isNotEmpty) ...[
-                      SectionHeader(
-                        title: GochanoLanguage.text('Notes', 'নোট'),
-                      ),
-                      CardGroup(
-                        children: [
-                          for (final doc in notes) _NoteResult(doc: doc),
-                        ],
-                      ),
-                    ],
-                    if (tasks.isNotEmpty) ...[
-                      SectionHeader(
-                        title: GochanoLanguage.text('Tasks', 'কাজ'),
-                      ),
-                      CardGroup(
-                        children: [
-                          for (final doc in tasks) _TaskResult(doc: doc),
-                        ],
-                      ),
-                    ],
-                  ],
-                );
-              },
-            );
-          },
-        );
+    if (results.isEmpty) {
+      return EmptyState(
+        illustration: GochanoArt.emptySearch,
+        title: GochanoLanguage.text(
+          'No results for "$_query"',
+          '"$_query"-এর জন্য কিছু পাওয়া যায়নি',
+        ),
+        message: GochanoLanguage.text(
+          'Try a different search term or check spelling.',
+          'অন্য শব্দ দিয়ে খুঁজুন বা বানান পরীক্ষা করুন।',
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: GochanoSpacing.scrollBody,
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        return _SearchResultTile(result: results[index]);
       },
     );
   }
-
-  /// Case-insensitive substring match over the named fields.
-  ///
-  /// Substring rather than token-prefix so a Bangla query, or a partial word
-  /// like "normal" inside "Normalization", still matches.
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _filter(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>>? docs,
-    List<String> fields,
-  ) {
-    if (docs == null) return const [];
-    return docs.where((doc) {
-      final data = doc.data();
-      return fields.any(
-        (field) => (data[field]?.toString().toLowerCase() ?? '').contains(query),
-      );
-    }).take(20).toList();
-  }
 }
 
-class _MaterialResult extends StatelessWidget {
-  const _MaterialResult({required this.doc});
+class _SearchResultTile extends StatelessWidget {
+  const _SearchResultTile({required this.result});
 
-  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  final UniversalSearchResult result;
+
+  Color _accentColor(GochanoColors colors, UniversalSearchType type) {
+    switch (type) {
+      case UniversalSearchType.all:
+      case UniversalSearchType.task:
+      case UniversalSearchType.assignment:
+        return colors.brand;
+      case UniversalSearchType.note:
+      case UniversalSearchType.pdf:
+        return colors.study;
+      case UniversalSearchType.medicine:
+        return colors.medicine;
+      case UniversalSearchType.expense:
+        return colors.expense;
+      case UniversalSearchType.trip:
+        return colors.commute;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final data = doc.data();
-    final title = data['title']?.toString().trim().isNotEmpty == true
-        ? data['title'].toString()
-        : data['fileName']?.toString() ?? '';
-    final fileName = data['fileName']?.toString() ?? '';
-    final mimeType = data['mimeType']?.toString() ?? '';
+    final colors = context.colors;
+    final type = context.type;
+    final accent = _accentColor(colors, result.type);
 
-    return GochanoListRow(
-      illustration: GochanoArt.fileIdFor(fileName: fileName, mimeType: mimeType),
-      accent: context.colors.study,
-      title: title,
-      subtitle: data['subject']?.toString(),
-      onTap: () => Navigator.of(context).push(
-        GochanoRoute.to(
-          builder: (_) => MaterialReaderScreen(
-            materialId: doc.id,
-            title: title,
-            mimeType: mimeType,
-            fileName: fileName,
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+      child: AppCard(
+        onTap: () => result.onTap?.call(context),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: GochanoRadius.smAll,
+              ),
+              child: Icon(result.type.icon, size: 20, color: accent),
+            ),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          result.title,
+                          style: type.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.xs,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceVariant,
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Text(
+                          result.type.displayName,
+                          style: type.caption.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (result.subtitle != null &&
+                      result.subtitle!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      result.subtitle!,
+                      style: type.caption.copyWith(color: colors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _NoteResult extends StatelessWidget {
-  const _NoteResult({required this.doc});
-
-  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
-
-  @override
-  Widget build(BuildContext context) {
-    final data = doc.data();
-    return GochanoListRow(
-      illustration: GochanoArt.fileNote,
-      accent: context.colors.study,
-      title: data['title']?.toString() ?? '',
-      subtitle: data['content']?.toString().replaceAll('\n', ' ').trim(),
-      onTap: () => Navigator.of(context).push(
-        GochanoRoute.to(
-          builder: (_) => NoteEditorScreen(noteId: doc.id, initialData: data),
-        ),
-      ),
-    );
-  }
-}
-
-class _TaskResult extends StatelessWidget {
-  const _TaskResult({required this.doc});
-
-  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
-
-  @override
-  Widget build(BuildContext context) {
-    final data = doc.data();
-    final done = data['done'] == true;
-
-    return GochanoListRow(
-      illustration: done ? GochanoArt.stateTaken : GochanoArt.featureTasks,
-      accent: done ? context.colors.success : context.colors.brand,
-      title: data['title']?.toString() ?? '',
-      badge: done
-          ? GochanoBadge(
-              label: GochanoLanguage.text('Done', 'সম্পন্ন'),
-              tone: GochanoBadgeTone.success,
-              icon: Icons.check_rounded,
-            )
-          : null,
-      onTap: () => showAddTaskSheet(context, existing: doc),
     );
   }
 }
