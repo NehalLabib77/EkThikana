@@ -181,6 +181,35 @@ Questions returned as JSON
 
 ---
 
+## Quiz Source Wiring Fix
+
+### Root Cause
+
+Flutter sent `sourceIds` (camelCase) but backend `QuizGenerateRequest` used plain `BaseModel`, which only accepts `source_ids` (snake_case). Material IDs were silently ignored.
+
+### Fix
+
+Changed all request classes in `ai_study.py` from `BaseModel` to `_CamelModel`:
+
+| Class | Field | Before | After |
+|-------|-------|--------|-------|
+| `QuizGenerateRequest` | `source_ids` | `BaseModel` | `_CamelModel` |
+| `AssignmentExplainRequest` | all fields | `BaseModel` | `_CamelModel` |
+| `AssignmentBreakdownRequest` | all fields | `BaseModel` | `_CamelModel` |
+| `AssignmentPlanRequest` | all fields | `BaseModel` | `_CamelModel` |
+| `SmartPlannerRecommendRequest` | all fields | `BaseModel` | `_CamelModel` |
+| `ContextBuilderRequest` | all fields | `BaseModel` | `_CamelModel` |
+
+`_CamelModel` config:
+- `alias_generator`: converts snake_case → camelCase
+- `populate_by_name=True`: accepts both `sourceIds` and `source_ids`
+
+### Validation
+
+- Backend pytest: 523 passed, 0 failures
+
+---
+
 ## Implementation Notes
 
 1. **No duplicate AI infrastructure** — all features reuse existing `ai_service.py` cascade

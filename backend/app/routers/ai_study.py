@@ -195,7 +195,7 @@ async def _extract_source_material_text(
     return "\n\n".join(extracted_parts)
 
 
-class AssignmentExplainRequest(BaseModel):
+class AssignmentExplainRequest(_CamelModel):
     title: str = Field(..., min_length=1, max_length=500)
     description: str = Field(default="", max_length=5000)
     instructions: str = Field(default="", max_length=5000)
@@ -204,7 +204,7 @@ class AssignmentExplainRequest(BaseModel):
     note_id: str | None = Field(default=None, max_length=120)
 
 
-class AssignmentBreakdownRequest(BaseModel):
+class AssignmentBreakdownRequest(_CamelModel):
     title: str = Field(..., min_length=1, max_length=500)
     description: str = Field(default="", max_length=5000)
     instructions: str = Field(default="", max_length=5000)
@@ -214,7 +214,7 @@ class AssignmentBreakdownRequest(BaseModel):
     note_id: str | None = Field(default=None, max_length=120)
 
 
-class AssignmentPlanRequest(BaseModel):
+class AssignmentPlanRequest(_CamelModel):
     title: str = Field(..., min_length=1, max_length=500)
     description: str = Field(default="", max_length=5000)
     instructions: str = Field(default="", max_length=5000)
@@ -345,7 +345,7 @@ async def assignment_plan(
 # Quiz Generator
 # ---------------------------------------------------------------------------
 
-class QuizGenerateRequest(BaseModel):
+class QuizGenerateRequest(_CamelModel):
     source: str = Field(default="", max_length=5000)
     source_ids: list[str] = Field(default_factory=list, max_length=5)
     topic: str = Field(default="", max_length=500)
@@ -511,7 +511,7 @@ async def quiz_generate(
 # Smart Study Planner AI
 # ---------------------------------------------------------------------------
 
-class SmartPlannerRecommendRequest(BaseModel):
+class SmartPlannerRecommendRequest(_CamelModel):
     available_hours: int = Field(default=4, ge=1, le=12)
     preferred_subjects: list[str] = Field(default_factory=list, max_length=10)
 
@@ -592,7 +592,7 @@ async def smart_planner_recommend(
 # AI Context Builder — Enhanced context for all AI features
 # ---------------------------------------------------------------------------
 
-class ContextBuilderRequest(BaseModel):
+class ContextBuilderRequest(_CamelModel):
     context_type: str = Field(
         ...,
         min_length=1,
