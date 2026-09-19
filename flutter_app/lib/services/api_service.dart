@@ -445,6 +445,10 @@ class ApiService {
           )['result']
           as String;
 
+  /// Daily AI usage counters and remaining limits across features.
+  static Future<Map<String, dynamic>> getAiUsage() async =>
+      _decode(await _get('/api/ai/usage'));
+
   /// Smart Journey Guide: returns an AI-generated human-readable explanation
   /// of verified commute facts. On any failure, returns an empty string so
   /// the client can render the local deterministic guide instead.

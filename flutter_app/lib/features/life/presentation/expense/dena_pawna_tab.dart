@@ -305,11 +305,10 @@ class _DenaPawnaRow extends StatelessWidget {
           GochanoMenuAction(
             label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
             icon: Icons.edit_outlined,
-            onSelected: () => showDenaPawnaSheet(
-              context,
-              existing: doc,
-              onChanged: onChanged,
-            ),
+            onSelected: () {
+              // showDenaPawnaSheet(context, existing: doc);
+              showDenaPawnaSheet(context, existing: doc, onChanged: onChanged);
+            },
           ),
         ],
         GochanoMenuAction(

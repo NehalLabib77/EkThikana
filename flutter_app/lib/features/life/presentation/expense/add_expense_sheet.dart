@@ -19,6 +19,7 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../services/financial_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
@@ -47,7 +48,10 @@ Future<bool> showAddExpenseSheet(
   if (saved == true && context.mounted) {
     showGochanoMessage(
       context,
-      FeedbackMessages.expenseSaved(isEdit: expenseId != null),
+      FeedbackMessages.expenseSaved(
+        isEdit: expenseId != null,
+        isOffline: !ConnectivityService.instance.online.value,
+      ),
     );
   }
   return saved ?? false;

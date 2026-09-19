@@ -42,14 +42,32 @@ class Settings(BaseSettings):
     # Gemini (fallback when GROQ is unavailable or for multimodal if GROQ
     # vision model is not configured).
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.1-flash-lite"
+
+    # OpenRouter (emergency fallback when both GROQ and Gemini are unavailable).
+    openrouter_api_key: str = ""
+    openrouter_model: str = "qwen/qwen-2.5-72b-instruct:free"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     max_upload_mb: int = 15
     user_storage_limit_mb: int = 100
     upload_daily_limit: int = 10
     # Spec §8.10: signed download/view URLs must expire in 15 minutes or less.
     signed_url_ttl_seconds: int = 900
-    ai_daily_limit: int = 30
+    ai_daily_limit: int = 20
+
+    # Phase 3A Feature-specific AI limits
+    ai_limit_chat_daily: int = 20
+    ai_limit_note_monthly: int = 5
+    ai_limit_quiz_monthly: int = 3
+    ai_limit_study_plan_active: int = 1
+
+    # Legacy per-feature daily limits
+    ai_daily_limit_note: int = 10
+    ai_daily_limit_pdf: int = 10
+    ai_daily_limit_image: int = 10
+    ai_daily_limit_commute: int = 10
+    ai_daily_limit_prescription: int = 10
 
     routing_provider: str = "osrm"
     osrm_base_url: str = "https://router.project-osrm.org"

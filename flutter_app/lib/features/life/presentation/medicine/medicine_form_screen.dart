@@ -24,6 +24,7 @@ import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../services/notification_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -390,15 +391,22 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
 
       if (!mounted) return;
       final firstTime = _times.isNotEmpty ? _times.first : null;
+      final isOffline = !ConnectivityService.instance.online.value;
       if (notificationsEnabled == false) {
         showGochanoMessage(
           context,
-          FeedbackMessages.medicineSaved(notificationsDenied: true),
+          FeedbackMessages.medicineSaved(
+            notificationsDenied: true,
+            isOffline: isOffline,
+          ),
         );
       } else {
         showGochanoMessage(
           context,
-          FeedbackMessages.medicineSaved(firstTime: firstTime),
+          FeedbackMessages.medicineSaved(
+            firstTime: firstTime,
+            isOffline: isOffline,
+          ),
         );
       }
       Navigator.of(context).pop(true);

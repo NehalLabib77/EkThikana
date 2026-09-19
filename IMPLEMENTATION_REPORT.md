@@ -7262,3 +7262,46 @@ Phase 2B (Universal Search) is complete and verified. A clean, local-first searc
 - **v1.0.0**: UNTOUCHED
 
 **STOP.** Do not commit or push without explicit user authorization.
+# Phase 2C — Offline UX + Sync Transparency Walkthrough
+
+## 1. Executive Summary
+Phase 2C has been successfully implemented and verified across the Gochano Flutter application. It delivers a transparent, student-friendly offline UX without introducing heavy synchronization engines or changing backend Firestore paradigms.
+
+Students now clearly understand:
+1. **Current Connectivity & Sync State**: Through a non-intrusive chip at the top of Home (`Synced`, `Offline mode`, `X items waiting to sync`, `Sync paused`).
+2. **Pending Writes Breakdown**: A bottom sheet shows student-friendly categories without showing raw Firestore document IDs or scary stack traces.
+3. **Truthful Action Feedback**: Instant confirmation that local writes succeeded while acknowledging pending cloud sync when offline (`Saved offline. Will sync when connected` vs `Saved`).
+4. **Graceful Commute Fallback**: Offline commuters receive a clear offline card directing them to their saved trips.
+5. **Zero-Network Reminder Guarantee**: Confirmation that the `LocalReminderStore` remains 100% on-device.
+
+---
+
+## 2. Existing Offline & Sync Audit
+| Component | Persistence Mechanism | Offline Capability | Reconnect / Sync Behavior |
+| :--- | :--- | :--- | :--- |
+| **Tasks** | Cloud Firestore with local cache | Full read & write via local persistence cache | Auto-syncs pending writes via Firestore background stream (`hasPendingWrites`) |
+| **Medicine** | Cloud Firestore with local cache | Full read & write via local persistence cache | Auto-syncs pending writes via Firestore background stream (`hasPendingWrites`) |
+| **Daily Expense** | Cloud Firestore with local cache | Full read & write via local persistence cache | Auto-syncs pending writes via Firestore background stream (`hasPendingWrites`) |
+| **Commute (Saved Trips)**| Cloud Firestore with local cache | Full read & write for planned trips | Auto-syncs pending writes via Firestore background stream (`hasPendingWrites`) |
+| **Commute (Route Search)**| Live Overpass / OpenStreetMap API | Requires active internet | Graceful fallback: explains route search requires internet and offers one-tap access to saved trips |
+| **Custom Reminders** | Local JSON manifest (`LocalReminderStore`) + Alarm Manager | 100% On-Device / Zero cloud dependency | Continues ringing and scheduling alarms completely offline |
+
+---
+
+## 3. Key Components Added & Modified
+- [`lib/services/sync_coordinator.dart`](file:///d:/Gochano_Rebuild/flutter_app/lib/services/sync_coordinator.dart): Reactive controller tracking snapshot metadata, pending item counts, and manual `waitForPendingWrites()` sync triggers.
+- [`lib/widgets/sync_status_indicator.dart`](file:///d:/Gochano_Rebuild/flutter_app/lib/widgets/sync_status_indicator.dart): Minimal, top-area chip providing immediate state clarity with responsive touch-target.
+- [`lib/widgets/sync_status_sheet.dart`](file:///d:/Gochano_Rebuild/flutter_app/lib/widgets/sync_status_sheet.dart): Transparent sync modal detailing pending categories, offline-ready vs online features, and safe "Sync now" action.
+- [`lib/core/localization/feedback_messages.dart`](file:///d:/Gochano_Rebuild/flutter_app/lib/core/localization/feedback_messages.dart): Bilingual truthful snackbar messages for Tasks, Medicine, Expense, and Trips.
+- [`lib/features/life/presentation/commute/commute_screen.dart`](file:///d:/Gochano_Rebuild/flutter_app/lib/features/life/presentation/commute/commute_screen.dart): Graceful offline fallback card with "View saved trips" button and offline route guidance.
+- [`test/offline_sync_transparency_test.dart`](file:///d:/Gochano_Rebuild/flutter_app/test/offline_sync_transparency_test.dart): 18 comprehensive widget and unit tests covering all states, touch targets, accessibility, and bilingual text.
+
+---
+
+## 4. Verification Results
+- **Code Formatted**: `dart format lib test` passed with 0 errors.
+- **Static Analysis**: `flutter analyze` completed with **0 issues found**.
+- **Test Suite**: All **856 tests passed** (including the 18 new Phase 2C tests).
+- **Git Diff**: `git diff --check` passed cleanly with 0 whitespace errors.
+- **Strict Compliance**: No APK built, no commits/pushes made, baseline architecture preserved.
+\

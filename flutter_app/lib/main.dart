@@ -11,6 +11,7 @@ import 'core/settings/gochano_appearance.dart';
 import 'firebase_options.dart';
 import 'services/connectivity_service.dart';
 import 'services/notification_service.dart';
+import 'services/sync_coordinator.dart';
 
 const String _kLogoAsset = 'assets/branding/gochano1.png';
 
@@ -55,6 +56,9 @@ Future<void> main() async {
       ConnectivityService.instance.init().catchError((_) {
         // Swallow - the offline banner falls back to "online" if the
         // platform channel is unavailable, so the app stays usable.
+        return Future<void>.value();
+      });
+      SyncCoordinator.instance.init().catchError((_) {
         return Future<void>.value();
       });
     });

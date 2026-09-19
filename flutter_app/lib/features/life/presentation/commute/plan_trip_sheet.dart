@@ -6,6 +6,7 @@ import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import 'commute_place_picker.dart';
 import 'planned_trip_models.dart';
@@ -58,6 +59,7 @@ Future<TripSaveResult?> showPlanTripSheet(
       FeedbackMessages.tripPlanned(
         reminderMinutes: result.reminderMinutes,
         isEdit: result.isEdit,
+        isOffline: !ConnectivityService.instance.online.value,
       ),
     );
   }

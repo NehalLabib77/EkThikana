@@ -39,6 +39,9 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../auth/presentation/auth_gate.dart';
 import '../../home/presentation/home_screen.dart' show formatTaka;
 import '../../life/presentation/expense/monthly_budget_sheet.dart';
+import '../../../services/sync_coordinator.dart';
+import '../../../widgets/sync_status_sheet.dart';
+import 'ai_usage_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.role});
@@ -61,6 +64,9 @@ class ProfileScreen extends StatelessWidget {
             children: [
               _IdentityHeader(),
               _RoleBadge(role: role),
+
+              const SizedBox(height: GochanoSpacing.sm),
+              const _SyncStatusCard(),
 
               const SizedBox(height: GochanoSpacing.sm),
               _SettingsCard(isStudent: role == 'student'),
@@ -505,6 +511,73 @@ class _RoleBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Sync Status
+// ---------------------------------------------------------------------------
+
+class _SyncStatusCard extends StatelessWidget {
+  const _SyncStatusCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<SyncState>(
+      valueListenable: SyncCoordinator.instance.syncState,
+      builder: (context, state, _) {
+        final colors = context.colors;
+
+        Color iconColor;
+        IconData icon;
+        String text;
+
+        switch (state.status) {
+          case SyncStatus.synced:
+            iconColor = colors.success;
+            icon = Icons.cloud_done_rounded;
+            text = GochanoLanguage.text('Synced', 'সিঙ্ক সম্পন্ন');
+            break;
+          case SyncStatus.offline:
+            iconColor = colors.warning;
+            icon = Icons.cloud_off_rounded;
+            text = GochanoLanguage.text('Offline mode', 'অফলাইন মোড');
+            break;
+          case SyncStatus.pending:
+            iconColor = colors.warning;
+            icon = Icons.sync_problem_rounded;
+            final count = state.pendingCount;
+            final bnCount = GochanoLanguage.toBanglaDigits(count);
+            text = GochanoLanguage.text(
+              '$count ${count == 1 ? "item" : "items"} waiting to sync',
+              '$bnCountটি পরিবর্তন সিঙ্ক অপেক্ষায়',
+            );
+            break;
+          case SyncStatus.syncing:
+            iconColor = colors.brand;
+            icon = Icons.sync_rounded;
+            text = GochanoLanguage.text('Syncing…', 'সিঙ্ক হচ্ছে…');
+            break;
+          case SyncStatus.error:
+            iconColor = colors.error;
+            icon = Icons.error_outline_rounded;
+            text = GochanoLanguage.text('Sync paused', 'সিঙ্ক স্থগিত');
+            break;
+        }
+
+        return CardGroup(
+          children: [
+            _SettingsRow(
+              icon: icon,
+              iconColor: iconColor,
+              title: GochanoLanguage.text('Sync Status', 'সিঙ্ক স্ট্যাটাস'),
+              value: text,
+              onTap: () => showSyncStatusSheet(context),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
@@ -609,13 +682,20 @@ class _SettingsCardState extends State<_SettingsCard>
   bool _budgetFailed = false;
   bool _loaded = false;
 
+  Map<String, dynamic>? _aiUsage;
+  bool _aiUsageFailed = false;
+  bool _aiUsageLoaded = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkNotifications();
     _checkExactAlarm();
-    if (widget.isStudent) _loadBudget();
+    if (widget.isStudent) {
+      _loadBudget();
+      _loadAiUsage();
+    }
   }
 
   @override
@@ -623,6 +703,9 @@ class _SettingsCardState extends State<_SettingsCard>
     if (state == AppLifecycleState.resumed) {
       _checkNotifications();
       _checkExactAlarm();
+      if (widget.isStudent) {
+        _loadAiUsage();
+      }
     }
   }
 
@@ -676,6 +759,58 @@ class _SettingsCardState extends State<_SettingsCard>
     return formatTaka(amount);
   }
 
+  Future<void> _loadAiUsage() async {
+    try {
+      final body = await ApiService.getAiUsage();
+      if (!mounted) return;
+      setState(() {
+        _aiUsage = body;
+        _aiUsageFailed = false;
+        _aiUsageLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _aiUsageFailed = true;
+        _aiUsageLoaded = true;
+      });
+    }
+  }
+
+  String get _aiUsageLabel {
+    if (_aiUsageFailed) {
+      return GochanoLanguage.text(
+        'Could not check usage. Tap to retry.',
+        'ব্যবহার জানা যায়নি। আবার দেখতে চাপ দিন।',
+      );
+    }
+    if (!_aiUsageLoaded) {
+      return GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…');
+    }
+    final chat = _aiUsage?['chat'] as Map<String, dynamic>?;
+    if (chat != null) {
+      final remaining = chat['remaining'] as int? ?? 0;
+      final limit = chat['limit'] as int? ?? 20;
+      return GochanoLanguage.text(
+        '$remaining of $limit chat remaining today',
+        'আজ চ্যাট বাকি $remaining/$limit বার',
+      );
+    }
+    final total = _aiUsage?['total'] as Map<String, dynamic>?;
+    if (total == null) {
+      return GochanoLanguage.text('Usage unavailable', 'ব্যবহার অনুপলব্ধ');
+    }
+    final remaining = total['remaining'] as int? ?? 0;
+    final limit = total['limit'] as int? ?? 0;
+    if (limit <= 0) {
+      return GochanoLanguage.text('Unlimited access', 'সীমাহীন ব্যবহার');
+    }
+    return GochanoLanguage.text(
+      '$remaining of $limit remaining today',
+      'আজ আর $remaining/$limit বার বাকি',
+    );
+  }
+
   Future<void> _checkNotifications() async {
     final enabled = await NotificationService.areNotificationsEnabled();
     if (mounted) setState(() => _notificationsEnabled = enabled);
@@ -696,7 +831,7 @@ class _SettingsCardState extends State<_SettingsCard>
           builder: (context, mode, _) {
             return CardGroup(
               children: [
-                if (widget.isStudent)
+                if (widget.isStudent) ...[
                   _SettingsRow(
                     icon: Icons.account_balance_wallet_outlined,
                     title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
@@ -710,6 +845,20 @@ class _SettingsCardState extends State<_SettingsCard>
                       if (changed) await _loadBudget();
                     },
                   ),
+                  _SettingsRow(
+                    icon: Icons.auto_awesome_rounded,
+                    title: GochanoLanguage.text('AI usage', 'এআই ব্যবহার'),
+                    value: _aiUsageLabel,
+                    onTap: () async {
+                      if (_aiUsageFailed || !_aiUsageLoaded) {
+                        await _loadAiUsage();
+                      }
+                      if (!context.mounted) return;
+                      await _showAiUsageSheet(context, _aiUsage ?? {});
+                      if (mounted) _loadAiUsage();
+                    },
+                  ),
+                ],
                 _SettingsRow(
                   icon: Icons.language_rounded,
                   title: GochanoLanguage.text('Language', 'ভাষা'),
@@ -1016,6 +1165,15 @@ Future<void> _pickAppearance(BuildContext context) async {
     ),
   );
   if (chosen != null) await GochanoAppearance.select(chosen);
+}
+
+Future<void> _showAiUsageSheet(
+  BuildContext context,
+  Map<String, dynamic> usage,
+) async {
+  await Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const AiUsageScreen()));
 }
 
 // ---------------------------------------------------------------------------

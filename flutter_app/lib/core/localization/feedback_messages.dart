@@ -15,7 +15,18 @@ class FeedbackMessages {
     bool isAssignment = false,
     DateTime? remindAt,
     bool reminderFailed = false,
+    bool isOffline = false,
   }) {
+    if (isOffline) {
+      return GochanoLanguage.text(
+        isAssignment
+            ? 'Assignment saved offline. Will sync when internet returns.'
+            : 'Saved offline. Will sync when internet returns.',
+        isAssignment
+            ? 'অ্যাসাইনমেন্ট অফলাইনে সংরক্ষিত। ইন্টারনেট ফিরলে সিঙ্ক হবে।'
+            : 'অফলাইনে সংরক্ষিত। ইন্টারনেট ফিরলে সিঙ্ক হবে।',
+      );
+    }
     if (reminderFailed) {
       return GochanoLanguage.text(
         isAssignment
@@ -43,7 +54,10 @@ class FeedbackMessages {
     );
   }
 
-  static String expenseSaved({bool isEdit = false}) {
+  static String expenseSaved({bool isEdit = false, bool isOffline = false}) {
+    if (isOffline) {
+      return GochanoLanguage.text('Saved locally.', 'ডিভাইসে সংরক্ষিত হয়েছে।');
+    }
     return GochanoLanguage.text(
       isEdit ? 'Expense updated' : 'Expense added',
       isEdit ? 'খরচ সংরক্ষিত হয়েছে' : 'খরচ যোগ করা হয়েছে',
@@ -53,7 +67,14 @@ class FeedbackMessages {
   static String medicineSaved({
     String? firstTime,
     bool notificationsDenied = false,
+    bool isOffline = false,
   }) {
+    if (isOffline) {
+      return GochanoLanguage.text(
+        'Reminder saved. Sync pending.',
+        'রিমাইন্ডার সংরক্ষিত। সিঙ্ক অপেক্ষায়।',
+      );
+    }
     if (notificationsDenied) {
       return GochanoLanguage.text(
         'Saved. Reminders will not appear until notifications are enabled in settings.',
@@ -74,7 +95,14 @@ class FeedbackMessages {
     int reminderMinutes = 0,
     bool reminderFailed = false,
     bool isEdit = false,
+    bool isOffline = false,
   }) {
+    if (isOffline) {
+      return GochanoLanguage.text(
+        'Trip planned offline. Will sync when internet returns.',
+        'অফলাইনে যাত্রা পরিকল্পিত। ইন্টারনেট ফিরলে সিঙ্ক হবে।',
+      );
+    }
     if (reminderFailed) {
       return GochanoLanguage.text(
         isEdit

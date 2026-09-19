@@ -17,6 +17,7 @@ import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/feedback_messages.dart';
 import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../../services/connectivity_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
@@ -94,6 +95,7 @@ Future<TaskSaveResult?> showAddTaskSheet(
         isAssignment: result.isAssignment,
         remindAt: result.remindAt,
         reminderFailed: result.reminderFailed,
+        isOffline: !ConnectivityService.instance.online.value,
       ),
     );
   }

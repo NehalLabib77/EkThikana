@@ -30,6 +30,7 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -154,6 +155,21 @@ class _CommuteScreenState extends State<CommuteScreen> {
     final origin = _origin;
     final destination = _destination;
     if (origin == null || destination == null) return;
+
+    if (!ConnectivityService.instance.online.value) {
+      setState(() {
+        _searching = false;
+        _errorTitle = GochanoLanguage.text(
+          'No internet connection',
+          'ইন্টারনেট সংযোগ নেই',
+        );
+        _error = GochanoLanguage.text(
+          'Live route search requires internet. Saved trips are available offline.',
+          'লাইভ রুট খোঁজার জন্য ইন্টারনেট প্রয়োজন। সংরক্ষিত যাত্রাগুলি অফলাইনে উপলব্ধ।',
+        );
+      });
+      return;
+    }
 
     setState(() {
       _searching = true;
@@ -544,6 +560,69 @@ class _CommuteScreenState extends State<CommuteScreen> {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
+          ValueListenableBuilder<bool>(
+            valueListenable: ConnectivityService.instance.online,
+            builder: (context, isOnline, _) {
+              if (isOnline) return const SizedBox.shrink();
+              return Container(
+                key: const ValueKey('commute_offline_banner'),
+                margin: const EdgeInsets.only(bottom: GochanoSpacing.md),
+                padding: const EdgeInsets.all(GochanoSpacing.sm),
+                decoration: BoxDecoration(
+                  color: context.colors.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: context.colors.warning.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 18,
+                          color: context.colors.warning,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'No internet connection. Saved trips are available.',
+                              'ইন্টারনেট সংযোগ নেই। সংরক্ষিত যাত্রাগুলি উপলব্ধ।',
+                            ),
+                            style: context.type.bodySecondary.copyWith(
+                              color: context.colors.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        key: const ValueKey('commute_view_saved_trips_button'),
+                        icon: const Icon(
+                          Icons.bookmark_outline_rounded,
+                          size: 16,
+                        ),
+                        label: Text(
+                          GochanoLanguage.text(
+                            'View saved trips',
+                            'সংরক্ষিত যাত্রা দেখুন',
+                          ),
+                        ),
+                        onPressed: () => showPlanTripSheet(context),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           // 1. From / To Trip Planner
           _TripPlanner(
             origin: _origin,

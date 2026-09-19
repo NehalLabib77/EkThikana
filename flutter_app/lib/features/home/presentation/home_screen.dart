@@ -37,6 +37,7 @@ import '../../search/presentation/universal_search_screen.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
 import '../../../services/local_reminder_store.dart';
 import '../../../widgets/language_toggle.dart';
+import '../../../widgets/sync_status_indicator.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -134,6 +135,8 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
+          const SyncStatusIndicator(),
+          const SizedBox(height: GochanoSpacing.sm),
           _TodaysTasksCard(
             onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
           ),
