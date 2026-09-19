@@ -6,6 +6,7 @@
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -355,38 +356,36 @@ class QuizGenerateRequest(_CamelModel):
 
 
 def _extract_material_text(user: CurrentUser, material_id: str) -> str:
-    """Extract text content from a material (PDF, image, etc.)."""
+    """Extract text content from a material (PDF, image, etc.).
+
+    Optimised for quiz generation speed:
+    - PDF: text extraction only, no OCR fallback, limited to 10 pages
+    - Image: OCR skipped (too slow for quiz flow)
+    - Text files: direct decode
+    """
     try:
         material = get_material_for_user(material_id, user)
     except HTTPException:
         return ""
 
     mime = (material.get("mimeType") or "").lower()
-    raw = _material_bytes(material)
 
-    # PDF: extract text
+    # PDF: extract text (no OCR — too slow)
     if "pdf" in mime or material.get("fileName", "").lower().endswith(".pdf"):
         try:
-            text = extract_pdf_text(raw)
-            if len(text.strip()) < 40:
-                try:
-                    text = ocr_extract_text(raw, mime)
-                except Exception:
-                    text = text or ""
-            return text
+            raw = _material_bytes(material)
+            return extract_pdf_text(raw, max_pages=10)[:8000]
         except Exception:
             return ""
 
-    # Image: OCR
+    # Image: skip OCR entirely for quiz speed
     if mime.startswith("image/"):
-        try:
-            return ocr_extract_text(raw, mime)
-        except Exception:
-            return ""
+        return ""
 
     # Text-based files (txt, doc, docx)
     try:
-        return raw.decode("utf-8", errors="ignore")[:10000]
+        raw = _material_bytes(material)
+        return raw.decode("utf-8", errors="ignore")[:8000]
     except Exception:
         return ""
 
@@ -410,6 +409,7 @@ async def quiz_generate(
     Uses the existing QUIZ quota (3/month).
     Supports source material IDs for content-based quiz generation.
     """
+    t0 = time.monotonic()
     logger.info(
         "Quiz generate: source_ids=%d has_source_text=%d topic=%s",
         len(body.source_ids), len(body.source), bool(body.topic),
@@ -417,25 +417,33 @@ async def quiz_generate(
 
     # Build source content from material IDs
     source_parts = []
+    MAX_PER_SOURCE = 5000  # chars per material/note
+    MAX_TOTAL_SOURCE = 15000  # chars total for all sources combined
 
     # Extract content from selected materials
     for mid in body.source_ids:
-        text = _extract_material_text(user, mid)
-        if text.strip():
-            source_parts.append(f"[Material {mid}]:\n{text[:3000]}")
-
-    # Extract content from selected notes
-    for nid in body.source_ids:
-        if nid.startswith("note_"):
-            text = _extract_note_text(user, nid[5:])  # Remove "note_" prefix
+        if mid.startswith("note_"):
+            text = _extract_note_text(user, mid[5:])
             if text.strip():
-                source_parts.append(f"[Note]:\n{text[:3000]}")
+                source_parts.append(f"[Note]:\n{text[:MAX_PER_SOURCE]}")
+        else:
+            text = _extract_material_text(user, mid)
+            if text.strip():
+                source_parts.append(f"[Material]:\n{text[:MAX_PER_SOURCE]}")
 
     # Add manually entered source text
     if body.source.strip():
-        source_parts.append(body.source)
+        source_parts.append(body.source[:MAX_PER_SOURCE])
 
     combined_source = "\n\n".join(source_parts)
+    # Truncate total to protect AI call
+    combined_source = combined_source[:MAX_TOTAL_SOURCE]
+
+    t_extract = time.monotonic()
+    logger.info(
+        "Material extraction completed: %.2f seconds, %d chars",
+        t_extract - t0, len(combined_source),
+    )
 
     if not combined_source.strip():
         return {
@@ -491,7 +499,18 @@ async def quiz_generate(
         "IMPORTANT: Return ONLY valid JSON. No additional text before or after."
     )
 
-    result = await _call_generate(user.uid, prompt, feature=AiFeature.QUIZ)
+    try:
+        result = await _call_generate(user.uid, prompt, feature=AiFeature.QUIZ)
+    except Exception as exc:
+        logger.warning("Quiz AI call failed: %s", exc)
+        return {
+            "quiz": [],
+            "raw": "",
+            "error": "Quiz generation timed out. Please try again with fewer or smaller source materials.",
+        }
+
+    t_ai = time.monotonic()
+    logger.info("AI generation completed: %.2f seconds", t_ai - t_extract)
 
     # Try to parse as JSON; if parsing fails, return as plain text
     try:

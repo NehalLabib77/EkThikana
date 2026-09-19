@@ -3,7 +3,7 @@ from io import BytesIO
 from pypdf import PdfReader
 
 
-def extract_pdf_text(data: bytes, page: int | None = None, max_chars: int = 70000) -> str:
+def extract_pdf_text(data: bytes, page: int | None = None, max_chars: int = 70000, max_pages: int | None = None) -> str:
     reader = PdfReader(BytesIO(data))
 
     if page is not None:
@@ -12,6 +12,8 @@ def extract_pdf_text(data: bytes, page: int | None = None, max_chars: int = 7000
         pages = [reader.pages[page - 1]]
     else:
         pages = reader.pages
+        if max_pages is not None:
+            pages = pages[:max_pages]
 
     chunks = []
     total = 0

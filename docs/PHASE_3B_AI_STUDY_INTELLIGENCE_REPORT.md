@@ -210,6 +210,35 @@ Changed all request classes in `ai_study.py` from `BaseModel` to `_CamelModel`:
 
 ---
 
+## Quiz Timeout Fix
+
+### Root Cause
+
+Large source extraction (PDF read, OCR) + huge AI prompts caused Render worker timeout (502).
+
+### Optimizations
+
+| Change | Before | After |
+|--------|--------|-------|
+| PDF extraction | All pages | Max 10 pages |
+| OCR in quiz | Fallback when text < 40 chars | Skipped entirely |
+| Content per source | 3000 chars | 5000 chars |
+| Total source limit | Unlimited | 15000 chars max |
+| Text file limit | 10000 chars | 8000 chars |
+| Timing logs | None | Extraction + AI timing |
+| Error handling | Crash | Graceful timeout message |
+
+### Files Changed
+
+- `backend/app/routers/ai_study.py` — quiz endpoint optimization
+- `backend/app/services/pdf_service.py` — `max_pages` parameter added
+
+### Validation
+
+- Backend pytest: 523 passed, 0 failures
+
+---
+
 ## Implementation Notes
 
 1. **No duplicate AI infrastructure** — all features reuse existing `ai_service.py` cascade
