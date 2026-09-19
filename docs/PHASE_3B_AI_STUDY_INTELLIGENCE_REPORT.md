@@ -271,6 +271,61 @@ Large PDF extraction + huge AI prompts caused Render worker timeout (502).
 
 ---
 
+## Material Management Fix
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `material_picker_sheet.dart` | Dual-mode picker: quiz (docs only) + general (all types + upload + delete) |
+| `material_picker_sheet.dart` | Upload button with inline title dialog |
+| `material_picker_sheet.dart` | Delete button with confirmation dialog |
+| `material_picker_sheet.dart` | Runtime type detection (mimeType + fileName) |
+
+### Picker Modes
+
+**Quiz Mode** (`showMaterialPicker`):
+- Shows only documents (PDF, DOC, DOCX, TXT)
+- No upload button, no delete button
+- Multi-select for quiz generation
+
+**General Mode** (`showGeneralMaterialPicker`):
+- Shows all materials with categories (Documents, Images)
+- Upload button in search bar
+- Delete button on each tile
+- Categories: Documents (PDF, DOC, DOCX, TXT) + Images (JPG, PNG)
+
+### Runtime Type Detection
+
+Classifies materials by `mimeType` and `fileName` extension:
+- PDF: `application/pdf` or `.pdf` → document
+- DOC/DOCX: `application/msword` or `.doc/.docx` → document
+- TXT: `text/plain` or `.txt` → document
+- JPG/PNG: `image/*` or `.jpg/.jpeg/.png` → image
+
+### Upload Flow
+
+```
+Tap upload icon → File picker → Select file → Title dialog → Upload → Refresh list
+```
+
+Supported: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG
+
+### Delete Flow
+
+```
+Tap delete icon → Confirmation dialog → Delete from Firestore + Storage → Refresh list
+```
+
+Owner-only via existing `ApiService.deleteMaterial()`.
+
+### Validation
+
+- Backend pytest: 523 passed, 0 failures
+- Flutter analyze: No issues found
+
+---
+
 ## Implementation Notes
 
 1. **No duplicate AI infrastructure** — all features reuse existing `ai_service.py` cascade
