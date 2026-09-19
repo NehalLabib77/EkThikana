@@ -1,6 +1,6 @@
 // Material Picker — bottom sheet for selecting source materials for quiz generation.
 //
-// Shows user's uploaded materials with search, file type icons, and multi-select.
+// Shows user's uploaded materials separated into Documents and Images categories.
 // Returns list of selected material IDs.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -25,6 +25,18 @@ Future<List<Map<String, String>>> showMaterialPicker(BuildContext context) async
     builder: (_) => const _MaterialPickerSheet(),
   );
   return result ?? [];
+}
+
+bool _isImageMaterial(Map<String, dynamic> data) {
+  final mime = (data['mimeType'] ?? '').toString().toLowerCase();
+  final name = (data['fileName'] ?? '').toString().toLowerCase();
+  if (mime.startsWith('image/')) return true;
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return true;
+  return false;
+}
+
+bool _isDocumentMaterial(Map<String, dynamic> data) {
+  return !_isImageMaterial(data);
 }
 
 class _MaterialPickerSheet extends StatefulWidget {
@@ -56,7 +68,6 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
   }
 
   void _confirm() {
-    // Return selected items as list of {id, title, type}
     Navigator.of(context).pop(
       _selectedIds.map((id) => {'id': id}).toList(),
     );
@@ -162,7 +173,7 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
 
               const SizedBox(height: GochanoSpacing.sm),
 
-              // Material list
+              // Material list with categories
               Expanded(
                 child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                   stream: FirestoreService.ownerStream('materials', limit: 100),
@@ -225,32 +236,38 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                       );
                     }
 
-                    return ListView.builder(
+                    // Separate into categories
+                    final documents = filtered.where((doc) => _isDocumentMaterial(doc.data())).toList();
+                    final images = filtered.where((doc) => _isImageMaterial(doc.data())).toList();
+
+                    return ListView(
                       controller: scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final doc = filtered[index];
-                        final data = doc.data();
-                        final id = doc.id;
-                        final title = data['title']?.toString().trim().isNotEmpty == true
-                            ? data['title'].toString()
-                            : data['fileName']?.toString() ?? '';
-                        final mimeType = data['mimeType']?.toString() ?? '';
-                        final fileName = data['fileName']?.toString() ?? '';
-                        final createdAt = data['createdAt'];
-                        final selected = _selectedIds.contains(id);
+                      children: [
+                        // Documents section
+                        if (documents.isNotEmpty) ...[
+                          _buildCategoryHeader(
+                            context,
+                            icon: Icons.description_rounded,
+                            label: GochanoLanguage.text('Documents', 'ডকুমেন্ট'),
+                            count: documents.length,
+                            color: colors.brand,
+                          ),
+                          ...documents.map((doc) => _buildTile(doc)),
+                        ],
 
-                        return _MaterialTile(
-                          id: id,
-                          title: title,
-                          mimeType: mimeType,
-                          fileName: fileName,
-                          createdAt: createdAt,
-                          selected: selected,
-                          onTap: () => _toggle(id),
-                        );
-                      },
+                        // Images section
+                        if (images.isNotEmpty) ...[
+                          _buildCategoryHeader(
+                            context,
+                            icon: Icons.image_rounded,
+                            label: GochanoLanguage.text('Images', 'ছবি'),
+                            count: images.length,
+                            color: colors.study,
+                          ),
+                          ...images.map((doc) => _buildTile(doc)),
+                        ],
+                      ],
                     );
                   },
                 ),
@@ -290,6 +307,53 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
       },
     );
   }
+
+  Widget _buildCategoryHeader(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: GochanoSpacing.sm, bottom: GochanoSpacing.xs),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: GochanoSpacing.xs),
+          Text(
+            '$label ($count)',
+            style: context.type.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTile(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final id = doc.id;
+    final title = data['title']?.toString().trim().isNotEmpty == true
+        ? data['title'].toString()
+        : data['fileName']?.toString() ?? '';
+    final mimeType = data['mimeType']?.toString() ?? '';
+    final fileName = data['fileName']?.toString() ?? '';
+    final createdAt = data['createdAt'];
+    final selected = _selectedIds.contains(id);
+
+    return _MaterialTile(
+      id: id,
+      title: title,
+      mimeType: mimeType,
+      fileName: fileName,
+      createdAt: createdAt,
+      selected: selected,
+      onTap: () => _toggle(id),
+    );
+  }
 }
 
 class _MaterialTile extends StatelessWidget {
@@ -310,6 +374,14 @@ class _MaterialTile extends StatelessWidget {
   final dynamic createdAt;
   final bool selected;
   final VoidCallback onTap;
+
+  bool get isImage {
+    final mime = mimeType.toLowerCase();
+    final name = fileName.toLowerCase();
+    if (mime.startsWith('image/')) return true;
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return true;
+    return false;
+  }
 
   IconData _fileIcon() {
     final mime = mimeType.toLowerCase();

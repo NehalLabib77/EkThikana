@@ -360,7 +360,7 @@ def _extract_material_text(user: CurrentUser, material_id: str) -> str:
 
     Optimised for quiz generation speed:
     - PDF: text extraction only, no OCR fallback, limited to 10 pages
-    - Image: OCR skipped (too slow for quiz flow)
+    - Image: OCR with size limit (max 5MB)
     - Text files: direct decode
     """
     try:
@@ -378,9 +378,15 @@ def _extract_material_text(user: CurrentUser, material_id: str) -> str:
         except Exception:
             return ""
 
-    # Image: skip OCR entirely for quiz speed
+    # Image: OCR with size limit
     if mime.startswith("image/"):
-        return ""
+        try:
+            raw = _material_bytes(material)
+            if len(raw) > 5 * 1024 * 1024:  # 5MB limit
+                return ""
+            return ocr_extract_text(raw, mime)[:5000]
+        except Exception:
+            return ""
 
     # Text-based files (txt, doc, docx)
     try:

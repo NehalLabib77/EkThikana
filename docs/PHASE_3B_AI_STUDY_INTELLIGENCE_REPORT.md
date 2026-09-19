@@ -221,7 +221,7 @@ Large source extraction (PDF read, OCR) + huge AI prompts caused Render worker t
 | Change | Before | After |
 |--------|--------|-------|
 | PDF extraction | All pages | Max 10 pages |
-| OCR in quiz | Fallback when text < 40 chars | Skipped entirely |
+| OCR in quiz | Fallback when text < 40 chars | Enabled for images (5MB limit, 5k chars) |
 | Content per source | 3000 chars | 5000 chars |
 | Total source limit | Unlimited | 15000 chars max |
 | Text file limit | 10000 chars | 8000 chars |
@@ -236,6 +236,53 @@ Large source extraction (PDF read, OCR) + huge AI prompts caused Render worker t
 ### Validation
 
 - Backend pytest: 523 passed, 0 failures
+
+---
+
+## Material System Fix
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `material_picker_sheet.dart` | Separated Documents/Images categories with headers |
+| `material_upload_screen.dart` | Added TXT to allowed extensions |
+| `ai_study.py` | Re-enabled OCR for images (5MB limit, 5k chars) |
+| `utils.py` | Added TXT detection with printable-text heuristic |
+
+### Material Picker Categories
+
+Before: Flat list of all materials.
+After: Grouped by type with section headers.
+
+```
+Documents (3)
+  📄 lecture-notes.pdf
+  📄 chapter1.docx
+  📄 notes.txt
+
+Images (2)
+  🖼 diagram.jpg
+  🖼 chart.png
+```
+
+### OCR Flow for Images
+
+```
+Image upload → Detect MIME → Size check (≤5MB) → OCR → Extract text → Quiz AI
+```
+
+### TXT Upload Support
+
+Backend `detect_supported_file_type` now accepts plain text:
+- No null bytes in first 4KB
+- ≥80% printable characters
+- Returns `text/plain` MIME type
+
+### Validation
+
+- Backend pytest: 523 passed, 0 failures
+- Flutter analyze: No issues found
 
 ---
 

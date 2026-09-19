@@ -62,6 +62,7 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
     'jpeg',
     'doc',
     'docx',
+    'txt',
   ];
 
   late final TextEditingController _title;
