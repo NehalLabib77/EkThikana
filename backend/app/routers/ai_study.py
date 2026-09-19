@@ -356,12 +356,9 @@ class QuizGenerateRequest(_CamelModel):
 
 
 def _extract_material_text(user: CurrentUser, material_id: str) -> str:
-    """Extract text content from a material (PDF, image, etc.).
+    """Extract text content from a material (PDF, DOC, DOCX, TXT).
 
-    Optimised for quiz generation speed:
-    - PDF: text extraction only, no OCR fallback, limited to 10 pages
-    - Image: OCR with size limit (max 5MB)
-    - Text files: direct decode
+    Supported: PDF, DOC, DOCX, TXT. Images are not supported.
     """
     try:
         material = get_material_for_user(material_id, user)
@@ -369,26 +366,17 @@ def _extract_material_text(user: CurrentUser, material_id: str) -> str:
         return ""
 
     mime = (material.get("mimeType") or "").lower()
+    name = (material.get("fileName") or "").lower()
 
-    # PDF: extract text (no OCR — too slow)
-    if "pdf" in mime or material.get("fileName", "").lower().endswith(".pdf"):
+    # PDF
+    if "pdf" in mime or name.endswith(".pdf"):
         try:
             raw = _material_bytes(material)
             return extract_pdf_text(raw, max_pages=10)[:8000]
         except Exception:
             return ""
 
-    # Image: OCR with size limit
-    if mime.startswith("image/"):
-        try:
-            raw = _material_bytes(material)
-            if len(raw) > 5 * 1024 * 1024:  # 5MB limit
-                return ""
-            return ocr_extract_text(raw, mime)[:5000]
-        except Exception:
-            return ""
-
-    # Text-based files (txt, doc, docx)
+    # DOC / DOCX / TXT — read as text
     try:
         raw = _material_bytes(material)
         return raw.decode("utf-8", errors="ignore")[:8000]

@@ -27,16 +27,12 @@ Future<List<Map<String, String>>> showMaterialPicker(BuildContext context) async
   return result ?? [];
 }
 
-bool _isImageMaterial(Map<String, dynamic> data) {
+bool _isSupportedDocument(Map<String, dynamic> data) {
   final mime = (data['mimeType'] ?? '').toString().toLowerCase();
   final name = (data['fileName'] ?? '').toString().toLowerCase();
-  if (mime.startsWith('image/')) return true;
-  if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return true;
-  return false;
-}
-
-bool _isDocumentMaterial(Map<String, dynamic> data) {
-  return !_isImageMaterial(data);
+  if (mime.startsWith('image/')) return false;
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return false;
+  return true;
 }
 
 class _MaterialPickerSheet extends StatefulWidget {
@@ -212,10 +208,11 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                       );
                     }
 
-                    // Filter by search query
+                    // Filter by search query and supported types
                     final filtered = docs.where((doc) {
-                      if (_searchQuery.isEmpty) return true;
                       final data = doc.data();
+                      if (!_isSupportedDocument(data)) return false;
+                      if (_searchQuery.isEmpty) return true;
                       final title = (data['title'] ?? '').toString().toLowerCase();
                       final fileName = (data['fileName'] ?? '').toString().toLowerCase();
                       final subject = (data['subject'] ?? '').toString().toLowerCase();
@@ -236,38 +233,32 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                       );
                     }
 
-                    // Separate into categories
-                    final documents = filtered.where((doc) => _isDocumentMaterial(doc.data())).toList();
-                    final images = filtered.where((doc) => _isImageMaterial(doc.data())).toList();
-
-                    return ListView(
+                    return ListView.builder(
                       controller: scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
-                      children: [
-                        // Documents section
-                        if (documents.isNotEmpty) ...[
-                          _buildCategoryHeader(
-                            context,
-                            icon: Icons.description_rounded,
-                            label: GochanoLanguage.text('Documents', 'ডকুমেন্ট'),
-                            count: documents.length,
-                            color: colors.brand,
-                          ),
-                          ...documents.map((doc) => _buildTile(doc)),
-                        ],
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final doc = filtered[index];
+                        final data = doc.data();
+                        final id = doc.id;
+                        final title = data['title']?.toString().trim().isNotEmpty == true
+                            ? data['title'].toString()
+                            : data['fileName']?.toString() ?? '';
+                        final mimeType = data['mimeType']?.toString() ?? '';
+                        final fileName = data['fileName']?.toString() ?? '';
+                        final createdAt = data['createdAt'];
+                        final selected = _selectedIds.contains(id);
 
-                        // Images section
-                        if (images.isNotEmpty) ...[
-                          _buildCategoryHeader(
-                            context,
-                            icon: Icons.image_rounded,
-                            label: GochanoLanguage.text('Images', 'ছবি'),
-                            count: images.length,
-                            color: colors.study,
-                          ),
-                          ...images.map((doc) => _buildTile(doc)),
-                        ],
-                      ],
+                        return _MaterialTile(
+                          id: id,
+                          title: title,
+                          mimeType: mimeType,
+                          fileName: fileName,
+                          createdAt: createdAt,
+                          selected: selected,
+                          onTap: () => _toggle(id),
+                        );
+                      },
                     );
                   },
                 ),
@@ -307,53 +298,6 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
       },
     );
   }
-
-  Widget _buildCategoryHeader(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required int count,
-    required Color color,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(top: GochanoSpacing.sm, bottom: GochanoSpacing.xs),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: GochanoSpacing.xs),
-          Text(
-            '$label ($count)',
-            style: context.type.caption.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTile(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data();
-    final id = doc.id;
-    final title = data['title']?.toString().trim().isNotEmpty == true
-        ? data['title'].toString()
-        : data['fileName']?.toString() ?? '';
-    final mimeType = data['mimeType']?.toString() ?? '';
-    final fileName = data['fileName']?.toString() ?? '';
-    final createdAt = data['createdAt'];
-    final selected = _selectedIds.contains(id);
-
-    return _MaterialTile(
-      id: id,
-      title: title,
-      mimeType: mimeType,
-      fileName: fileName,
-      createdAt: createdAt,
-      selected: selected,
-      onTap: () => _toggle(id),
-    );
-  }
 }
 
 class _MaterialTile extends StatelessWidget {
@@ -375,26 +319,11 @@ class _MaterialTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  bool get isImage {
-    final mime = mimeType.toLowerCase();
-    final name = fileName.toLowerCase();
-    if (mime.startsWith('image/')) return true;
-    if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return true;
-    return false;
-  }
-
   IconData _fileIcon() {
     final mime = mimeType.toLowerCase();
     final name = fileName.toLowerCase();
     if (mime.contains('pdf') || name.endsWith('.pdf')) {
       return Icons.picture_as_pdf_rounded;
-    }
-    if (mime.startsWith('image/') ||
-        name.endsWith('.jpg') ||
-        name.endsWith('.jpeg') ||
-        name.endsWith('.png') ||
-        name.endsWith('.webp')) {
-      return Icons.image_rounded;
     }
     if (name.endsWith('.doc') || name.endsWith('.docx')) {
       return Icons.description_rounded;
@@ -515,12 +444,8 @@ class _MaterialTile extends StatelessWidget {
     if (name.endsWith('.pdf')) return 'PDF';
     if (name.endsWith('.doc') || name.endsWith('.docx')) return 'DOC';
     if (name.endsWith('.txt')) return 'TXT';
-    if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'JPG';
-    if (name.endsWith('.png')) return 'PNG';
-    if (name.endsWith('.webp')) return 'WEBP';
     final mime = mimeType.toLowerCase();
     if (mime.contains('pdf')) return 'PDF';
-    if (mime.startsWith('image/')) return 'IMG';
     return 'FILE';
   }
 
@@ -533,11 +458,6 @@ class _MaterialTile extends StatelessWidget {
         return colors.brand;
       case 'TXT':
         return colors.textSecondary;
-      case 'JPG':
-      case 'PNG':
-      case 'WEBP':
-      case 'IMG':
-        return colors.study;
       default:
         return colors.textSecondary;
     }

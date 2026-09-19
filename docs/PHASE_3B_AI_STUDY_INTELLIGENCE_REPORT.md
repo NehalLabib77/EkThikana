@@ -118,10 +118,11 @@ Questions returned as JSON
 
 ### Content Extraction
 
-- **PDF:** `extract_pdf_text()` with OCR fallback
-- **Images:** `ocr_extract_text()` for text extraction
-- **Text files:** Direct UTF-8 decode
+- **PDF:** `extract_pdf_text()` (limited to 10 pages)
+- **DOC/DOCX:** Direct UTF-8 decode
+- **TXT:** Direct UTF-8 decode
 - **Notes:** Firestore `notes` collection content
+- **Images:** Not supported — images excluded from quiz source picker
 
 ---
 
@@ -253,31 +254,26 @@ Large source extraction (PDF read, OCR) + huge AI prompts caused Render worker t
 ### Material Picker Categories
 
 Before: Flat list of all materials.
-After: Grouped by type with section headers.
+After: Only documents (PDF, DOC, DOCX, TXT). Images excluded.
 
 ```
-Documents (3)
-  📄 lecture-notes.pdf
-  📄 chapter1.docx
-  📄 notes.txt
-
-Images (2)
-  🖼 diagram.jpg
-  🖼 chart.png
+lecture-notes.pdf
+chapter1.docx
+notes.txt
 ```
 
-### OCR Flow for Images
+### Quiz Source Scope
 
-```
-Image upload → Detect MIME → Size check (≤5MB) → OCR → Extract text → Quiz AI
-```
+Supported sources:
+- PDF (text extraction, max 10 pages)
+- DOC/DOCX (direct text read)
+- TXT (direct text read)
+- Notes (Firestore notes content)
+- Manual pasted text
 
-### TXT Upload Support
-
-Backend `detect_supported_file_type` now accepts plain text:
-- No null bytes in first 4KB
-- ≥80% printable characters
-- Returns `text/plain` MIME type
+Not supported:
+- JPG/PNG images
+- OCR extraction
 
 ### Validation
 
