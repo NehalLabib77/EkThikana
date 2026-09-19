@@ -1185,7 +1185,8 @@ class ApiService {
 
   /// Quiz Generator: generate quiz questions from source material.
   static Future<Map<String, dynamic>> quizGenerate({
-    required String source,
+    String source = '',
+    List<String> sourceIds = const [],
     String topic = '',
     int questionCount = 5,
     String difficulty = 'medium',
@@ -1196,6 +1197,7 @@ class ApiService {
         '/api/ai/quiz/generate',
         body: {
           'source': source,
+          'sourceIds': sourceIds,
           'topic': topic,
           'questionCount': questionCount,
           'difficulty': difficulty,
@@ -1203,27 +1205,6 @@ class ApiService {
         },
       );
       return _decode(body);
-    });
-  }
-
-  /// Revision Assistant: generate exam revision plan.
-  static Future<String> revisionPlan({
-    required String subject,
-    required String examDate,
-    List<String> topics = const [],
-    String notesSummary = '',
-  }) async {
-    return _guard(() async {
-      final body = await _post(
-        '/api/ai/revision/plan',
-        body: {
-          'subject': subject,
-          'examDate': examDate,
-          'topics': topics,
-          'notesSummary': notesSummary,
-        },
-      );
-      return (_decode(body)['revision_plan'] as String?) ?? '';
     });
   }
 

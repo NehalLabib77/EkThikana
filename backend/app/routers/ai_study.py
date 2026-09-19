@@ -24,6 +24,7 @@ from app.services.ai_service import (
 from app.services.pdf_service import extract_pdf_text
 from app.services.ocr_service import extract_text as ocr_extract_text
 from app.services.permission_service import get_material_for_user, get_note_for_user
+from app.services import storage_provider
 from app.routers.ai import _material_bytes
 
 logger = logging.getLogger("gochano.ai_study")
@@ -345,11 +346,58 @@ async def assignment_plan(
 # ---------------------------------------------------------------------------
 
 class QuizGenerateRequest(BaseModel):
-    source: str = Field(..., min_length=1, max_length=500)
+    source: str = Field(default="", max_length=5000)
+    source_ids: list[str] = Field(default_factory=list, max_length=5)
     topic: str = Field(default="", max_length=500)
     question_count: int = Field(default=5, ge=1, le=20)
     difficulty: str = Field(default="medium", pattern=r"^(easy|medium|hard)$")
     question_type: str = Field(default="mcq", pattern=r"^(mcq|short_answer|mixed)$")
+
+
+def _extract_material_text(user: CurrentUser, material_id: str) -> str:
+    """Extract text content from a material (PDF, image, etc.)."""
+    try:
+        material = get_material_for_user(material_id, user)
+    except HTTPException:
+        return ""
+
+    mime = (material.get("mimeType") or "").lower()
+    raw = _material_bytes(material)
+
+    # PDF: extract text
+    if "pdf" in mime or material.get("fileName", "").lower().endswith(".pdf"):
+        try:
+            text = extract_pdf_text(raw)
+            if len(text.strip()) < 40:
+                try:
+                    text = ocr_extract_text(raw, mime)
+                except Exception:
+                    text = text or ""
+            return text
+        except Exception:
+            return ""
+
+    # Image: OCR
+    if mime.startswith("image/"):
+        try:
+            return ocr_extract_text(raw, mime)
+        except Exception:
+            return ""
+
+    # Text-based files (txt, doc, docx)
+    try:
+        return raw.decode("utf-8", errors="ignore")[:10000]
+    except Exception:
+        return ""
+
+
+def _extract_note_text(user: CurrentUser, note_id: str) -> str:
+    """Extract text content from a note."""
+    try:
+        note = get_note_for_user(note_id, user)
+        return note.get("content", "")[:10000]
+    except HTTPException:
+        return ""
 
 
 @router.post("/quiz/generate")
@@ -360,7 +408,42 @@ async def quiz_generate(
     """Generate a quiz from notes, materials, or topics.
 
     Uses the existing QUIZ quota (3/month).
+    Supports source material IDs for content-based quiz generation.
     """
+    logger.info(
+        "Quiz generate: source_ids=%d has_source_text=%d topic=%s",
+        len(body.source_ids), len(body.source), bool(body.topic),
+    )
+
+    # Build source content from material IDs
+    source_parts = []
+
+    # Extract content from selected materials
+    for mid in body.source_ids:
+        text = _extract_material_text(user, mid)
+        if text.strip():
+            source_parts.append(f"[Material {mid}]:\n{text[:3000]}")
+
+    # Extract content from selected notes
+    for nid in body.source_ids:
+        if nid.startswith("note_"):
+            text = _extract_note_text(user, nid[5:])  # Remove "note_" prefix
+            if text.strip():
+                source_parts.append(f"[Note]:\n{text[:3000]}")
+
+    # Add manually entered source text
+    if body.source.strip():
+        source_parts.append(body.source)
+
+    combined_source = "\n\n".join(source_parts)
+
+    if not combined_source.strip():
+        return {
+            "quiz": [],
+            "raw": "",
+            "error": "No source material provided. Please select materials or enter source text.",
+        }
+
     difficulty_map = {
         "easy": "basic recall and understanding",
         "medium": "application and analysis",
@@ -379,13 +462,15 @@ async def quiz_generate(
         "You are a quiz generator for university students.\n"
         f"Generate {body.question_count} {type_desc} questions.\n"
         f"Difficulty level: {difficulty_desc}.\n\n"
+        "IMPORTANT: Generate questions ONLY based on the provided source material.\n"
+        "Do NOT use external knowledge.\n\n"
     )
 
     if body.topic:
         prompt += f"TOPIC: {body.topic}\n\n"
 
     prompt += (
-        f"SOURCE MATERIAL:\n{body.source}\n\n"
+        f"SOURCE MATERIAL:\n{combined_source}\n\n"
         "For each question, provide:\n"
         "- The question\n"
         "- For MCQ: 4 options (A, B, C, D) with the correct answer marked\n"
@@ -420,51 +505,6 @@ async def quiz_generate(
         return {"quiz": parsed.get("questions", []), "raw": result}
     except (json.JSONDecodeError, KeyError):
         return {"quiz": [], "raw": result}
-
-
-# ---------------------------------------------------------------------------
-# Revision Assistant
-# ---------------------------------------------------------------------------
-
-class RevisionPlanRequest(BaseModel):
-    subject: str = Field(..., min_length=1, max_length=200)
-    exam_date: str = Field(..., min_length=1, max_length=30)
-    topics: list[str] = Field(default_factory=list, max_length=20)
-    notes_summary: str = Field(default="", max_length=5000)
-
-
-@router.post("/revision/plan")
-async def revision_plan(
-    body: RevisionPlanRequest,
-    user: CurrentUser = Depends(require_student),
-):
-    """Generate a revision checklist and schedule for exam preparation."""
-    topics_text = "\n".join(f"- {t}" for t in body.topics) if body.topics else "Not specified"
-
-    prompt = (
-        "You are a study assistant helping a university student prepare for an exam.\n"
-        "Create a comprehensive revision plan.\n\n"
-        f"SUBJECT: {body.subject}\n"
-        f"EXAM DATE: {body.exam_date}\n"
-        f"TOPICS TO COVER:\n{topics_text}\n\n"
-    )
-    if body.notes_summary:
-        prompt += f"NOTES SUMMARY:\n{body.notes_summary}\n\n"
-
-    prompt += (
-        "Provide:\n"
-        "1. A revision checklist (all topics that need review)\n"
-        "2. Priority ranking (most important topics first)\n"
-        "3. Day-by-day revision schedule from now until the exam\n"
-        "4. Suggested review order (what to study when)\n"
-        "5. Tips for effective revision of this subject\n\n"
-        "Be realistic about daily study time (3-5 hours per day).\n"
-        "Include practice questions in the last 2-3 days.\n"
-        "Keep the response under 600 words.\n"
-    )
-
-    result = await _call_generate(user.uid, prompt, feature=AiFeature.CHAT)
-    return {"revision_plan": result}
 
 
 # ---------------------------------------------------------------------------
@@ -557,7 +597,7 @@ class ContextBuilderRequest(BaseModel):
         ...,
         min_length=1,
         max_length=50,
-        pattern=r"^(assignment|quiz|revision|planner)$",
+        pattern=r"^(assignment|quiz|planner)$",
     )
     extra_context: str = Field(default="", max_length=5000)
 
@@ -581,8 +621,8 @@ async def build_context(
     context["tasks"] = _fetch_user_tasks(user.uid, limit=20)
     context["assignments"] = _fetch_user_assignments(user.uid, limit=10)
 
-    # Include notes for quiz/revision context
-    if body.context_type in ("quiz", "revision"):
+    # Include notes for quiz context
+    if body.context_type == "quiz":
         context["notes"] = _fetch_user_notes(user.uid, limit=5)
 
     if body.extra_context:

@@ -373,25 +373,6 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
           isPlan: true,
         ),
 
-        const SizedBox(height: GochanoSpacing.sm),
-
-        // 6. Revision Assistant (future quota ready)
-        _FeatureUsageCard(
-          icon: Icons.school_rounded,
-          title: GochanoLanguage.text('Revision Assistant', 'পুনরালোচনা সহকারী'),
-          resetBadge: GochanoLanguage.text(
-            'Coming soon — usage tracking ready',
-            'শীঘ্রই আসছে — ব্যবহার ট্র্যাকিং প্রস্তুত',
-          ),
-          remainingText: GochanoLanguage.text(
-            'Available for all students',
-            'সকল শিক্ষার্থীর জন্য উপলব্ধ',
-          ),
-          used: 0,
-          limit: 1,
-          isPlan: true,
-        ),
-
         const SizedBox(height: GochanoSpacing.lg),
 
         // Footer Note

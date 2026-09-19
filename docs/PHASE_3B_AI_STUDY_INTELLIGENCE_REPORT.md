@@ -34,10 +34,9 @@
 | Feature | Backend | Flutter | Status |
 |---------|---------|---------|--------|
 | Assignment Assistant | Complete | Complete | Done |
-| Quiz Generator | Complete | Complete | Done |
-| Revision Assistant | Complete | Complete | Done |
+| Quiz Generator | Enhanced | Enhanced | Done |
 | Smart Study Planner AI | Complete | Complete | Done |
-| AI Context Builder Upgrade | Complete | Complete | Done |
+| ~~Revision Assistant~~ | Removed | Removed | Removed |
 
 ---
 
@@ -45,15 +44,14 @@
 
 ### Backend
 
-**New file:** `backend/app/routers/ai_study.py`
+**File:** `backend/app/routers/ai_study.py`
 
 | Endpoint | Method | Feature |
 |----------|--------|---------|
 | `POST /api/ai/assignment/explain` | POST | Explain assignment requirements |
 | `POST /api/ai/assignment/breakdown` | POST | Break down into sections/concepts |
 | `POST /api/ai/assignment/plan` | POST | Deadline-aware study plan |
-| `POST /api/ai/quiz/generate` | POST | Generate quiz questions |
-| `POST /api/ai/revision/plan` | POST | Exam revision plan |
+| `POST /api/ai/quiz/generate` | POST | Generate quiz from source materials |
 | `POST /api/ai/planner/recommend` | POST | AI daily recommendations |
 | `POST /api/ai/context` | POST | Enhanced AI context builder |
 
@@ -61,16 +59,69 @@
 
 ### Flutter
 
-**New files:**
+**Files:**
 - `flutter_app/lib/features/study/presentation/ai/assignment_assistant_screen.dart`
 - `flutter_app/lib/features/study/presentation/ai/quiz_generator_screen.dart`
-- `flutter_app/lib/features/study/presentation/ai/revision_assistant_screen.dart`
+- `flutter_app/lib/features/study/presentation/ai/material_picker_sheet.dart`
 - `flutter_app/lib/features/study/presentation/ai/smart_planner_screen.dart`
 
 **Modified files:**
-- `flutter_app/lib/services/api_service.dart` — 7 new API methods added
-- `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` — 4 new quick access items (Assignment AI, Quiz, Revision, Smart Plan)
-- `flutter_app/lib/features/profile/presentation/ai_usage_screen.dart` — updated description text
+- `flutter_app/lib/services/api_service.dart` — API methods for all endpoints
+- `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` — quick access items
+- `flutter_app/lib/features/profile/presentation/ai_usage_screen.dart` — updated description
+
+---
+
+## Quiz Generator Enhancement
+
+### Source Material Support
+
+Users can now generate quizzes from:
+1. **Selected materials** — PDF, DOC, DOCX, JPG, PNG, TXT
+2. **Manual text input** — paste notes, textbook content, topics
+3. **Combined sources** — multiple materials + manual text
+
+### Material Picker
+
+- Scrollable list of user's uploaded materials
+- Search bar for filtering by title/subject
+- File type icons (PDF, DOC, IMG, TXT)
+- Multi-select with chips
+- Upload date display
+
+### Quiz Generation Flow
+
+```
+User selects source material(s)
+        ↓
+Backend extracts content (PDF text, OCR, file read)
+        ↓
+Content combined with manual input
+        ↓
+AI generates quiz based ONLY on source content
+        ↓
+Questions returned as JSON
+```
+
+### API Request Format
+
+```json
+{
+  "source": "manual text (optional)",
+  "sourceIds": ["material_id_1", "material_id_2"],
+  "topic": "optional topic focus",
+  "questionCount": 5,
+  "difficulty": "medium",
+  "questionType": "mcq"
+}
+```
+
+### Content Extraction
+
+- **PDF:** `extract_pdf_text()` with OCR fallback
+- **Images:** `ocr_extract_text()` for text extraction
+- **Text files:** Direct UTF-8 decode
+- **Notes:** Firestore `notes` collection content
 
 ---
 
@@ -80,18 +131,18 @@
 |---------|-------|--------|-------------|
 | Assignment Assistant | Future-ready | — | Not consumed yet (uses chat daily limit) |
 | Quiz Generator | 3/month | Monthly | `AiFeature.QUIZ` |
-| Revision Assistant | Future-ready | — | Not consumed yet (uses chat daily limit) |
 | Smart Planner AI | Future-ready | — | Not consumed yet (uses chat daily limit) |
 
 ---
 
 ## Security Rules
 
-- Only user's own data is sent to AI
+- Only user's own materials are accessible via `get_material_for_user()`
+- Only user's own notes are accessible via `get_note_for_user()`
 - Never send passwords, tokens, or other user data
 - User isolation enforced via `require_student` + Firestore `ownerId` checks
 - No cheating answers — learning assistance only
-- Context builder only returns user's own tasks, assignments, and notes
+- Quiz generates questions ONLY from provided source material
 
 ---
 
@@ -102,7 +153,6 @@
 - **523 tests passed** (pytest)
 - **0 failures**
 - All existing tests continue to pass
-- New endpoints registered and accessible
 
 ### Flutter
 
@@ -111,42 +161,51 @@
 
 ---
 
-## Files Modified Summary
+## Files Summary
 
 ### Backend (1 file modified, 1 file created)
 - `backend/app/main.py` — router import + registration
-- `backend/app/routers/ai_study.py` — new file (7 endpoints, ~350 lines)
+- `backend/app/routers/ai_study.py` — endpoints (6 endpoints, ~550 lines)
 
-### Flutter (3 files modified, 4 files created)
-- `flutter_app/lib/services/api_service.dart` — 7 new API methods (~150 lines added)
-- `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` — 4 new quick access items
+### Flutter (4 files created, 3 files modified)
+- `flutter_app/lib/features/study/presentation/ai/assignment_assistant_screen.dart` — new file
+- `flutter_app/lib/features/study/presentation/ai/quiz_generator_screen.dart` — enhanced with materials
+- `flutter_app/lib/features/study/presentation/ai/material_picker_sheet.dart` — new file
+- `flutter_app/lib/features/study/presentation/ai/smart_planner_screen.dart` — new file
+- `flutter_app/lib/services/api_service.dart` — API methods
+- `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` — quick access items
 - `flutter_app/lib/features/profile/presentation/ai_usage_screen.dart` — updated description
-- `flutter_app/lib/features/study/presentation/ai/assignment_assistant_screen.dart` — new file (~250 lines)
-- `flutter_app/lib/features/study/presentation/ai/quiz_generator_screen.dart` — new file (~350 lines)
-- `flutter_app/lib/features/study/presentation/ai/revision_assistant_screen.dart` — new file (~230 lines)
-- `flutter_app/lib/features/study/presentation/ai/smart_planner_screen.dart` — new file (~200 lines)
+
+### Removed
+- `flutter_app/lib/features/study/presentation/ai/revision_assistant_screen.dart` — deleted
 
 ---
 
 ## Implementation Notes
 
-1. **No duplicate AI infrastructure** — all new features reuse the existing `ai_service.py` cascade
+1. **No duplicate AI infrastructure** — all features reuse existing `ai_service.py` cascade
 2. **No API keys in Flutter** — all AI calls go through the backend
-3. **No production architecture changes** — new endpoints added to existing router pattern
-4. **Learning assistance only** — prompts explicitly instruct AI not to generate cheating answers
+3. **No duplicate file system** — uses existing materials/notes storage
+4. **Learning assistance only** — prompts instruct AI not to generate cheating answers
 5. **Quiz quota enforced** — uses existing `AiFeature.QUIZ` monthly limit (3/month)
 6. **Context builder safe** — only returns user's own data, never passwords/tokens
+7. **Source material extraction** — reuses existing PDF/OCR services
 
 ---
 
-## Phase 3B Completion
+## Deployment Issue (Physical Test)
 
-All 5 features implemented and verified:
+**Issue:** Phase 3B routes missing in production.
 
-1. **Assignment Assistant** — Explain, Breakdown, and Study Plan modes
-2. **Quiz Generator** — MCQ, Short Answer, and Mixed types with difficulty settings
-3. **Revision Assistant** — Exam revision planning with day-by-day schedules
-4. **Smart Study Planner AI** — Daily recommendations based on tasks/deadlines
-5. **AI Context Builder Upgrade** — Enhanced context from user's study data
+**Root Cause:** Phase 3B code was never committed to the deployed branch.
+
+**Fix:** Committed and pushed all Phase 3B files:
+```
+commit 32ee098 feat: Phase 3B — AI Study Intelligence
+```
+
+**Validation:** Render will auto-deploy from `gochano-ui-rebuild-v1` branch.
+
+---
 
 **STOP** — Phase 3B complete. Do not start Phase 3C automatically.

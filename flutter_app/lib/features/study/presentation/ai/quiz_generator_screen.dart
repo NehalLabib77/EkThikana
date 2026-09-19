@@ -2,6 +2,7 @@
 //
 // Supports MCQ, short answer, and mixed question types.
 // Uses the existing QUIZ quota (3/month).
+// Enhanced with source material picker for content-based quiz generation.
 
 import 'package:flutter/material.dart';
 
@@ -13,6 +14,7 @@ import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
+import 'material_picker_sheet.dart';
 
 class QuizGeneratorScreen extends StatefulWidget {
   const QuizGeneratorScreen({super.key});
@@ -29,6 +31,9 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
   String _questionType = 'mcq';
   int _questionCount = 5;
 
+  // Selected source materials
+  final List<Map<String, String>> _selectedMaterials = [];
+
   bool _busy = false;
   List<Map<String, dynamic>> _questions = [];
   String _rawResult = '';
@@ -41,12 +46,33 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
     super.dispose();
   }
 
+  Future<void> _pickMaterials() async {
+    final result = await showMaterialPicker(context);
+    if (result.isNotEmpty) {
+      setState(() {
+        _selectedMaterials.addAll(result);
+        // Remove duplicates by ID
+        final seen = <String>{};
+        _selectedMaterials.retainWhere((m) => seen.add(m['id'] ?? ''));
+      });
+    }
+  }
+
+  void _removeMaterial(String id) {
+    setState(() {
+      _selectedMaterials.removeWhere((m) => m['id'] == id);
+    });
+  }
+
   Future<void> _generate() async {
     final source = _sourceCtrl.text.trim();
-    if (source.isEmpty) {
+    final hasMaterials = _selectedMaterials.isNotEmpty;
+    final hasSource = source.isNotEmpty;
+
+    if (!hasMaterials && !hasSource) {
       setState(() => _error = GochanoLanguage.text(
-        'Please enter source material or topics.',
-        'অনুগ্রহ করে উৎস উপকরণ বা বিষয় লিখুন।',
+        'Please select source materials or enter source text.',
+        'অনুগ্রহ করে উৎস উপকরণ নির্বাচন করুন বা উৎস লিখুন।',
       ));
       return;
     }
@@ -59,8 +85,14 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
     });
 
     try {
+      final sourceIds = _selectedMaterials
+          .map((m) => m['id'] ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+
       final result = await ApiService.quizGenerate(
         source: source,
+        sourceIds: sourceIds,
         topic: _topicCtrl.text.trim(),
         questionCount: _questionCount,
         difficulty: _difficulty,
@@ -69,10 +101,14 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
 
       if (!mounted) return;
       final raw = result['raw'] as String? ?? '';
+      final error = result['error'] as String?;
       final questions = result['quiz'] as List<dynamic>? ?? [];
 
       setState(() {
         _busy = false;
+        if (error != null && error.isNotEmpty) {
+          _error = error;
+        }
         _rawResult = raw;
         _questions = questions
             .whereType<Map>()
@@ -105,20 +141,58 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
           120,
         ),
         children: [
-          // Input card
+          // Source Material Section
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  GochanoLanguage.text('Quiz Settings', 'কুইজ সেটিংস'),
-                  style: context.type.cardHeading,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        GochanoLanguage.text('Source Material', 'উৎস উপকরণ'),
+                        style: context.type.cardHeading,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _pickMaterials,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: Text(GochanoLanguage.text('Select', 'নির্বাচন')),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: GochanoSpacing.sm),
+                const SizedBox(height: GochanoSpacing.xs),
+
+                // Selected materials chips
+                if (_selectedMaterials.isNotEmpty) ...[
+                  Wrap(
+                    spacing: GochanoSpacing.xs,
+                    runSpacing: GochanoSpacing.xs,
+                    children: _selectedMaterials.map((m) {
+                      final id = m['id'] ?? '';
+                      return Chip(
+                        label: Text(
+                          id.length > 20 ? '${id.substring(0, 20)}…' : id,
+                          style: context.type.caption,
+                        ),
+                        deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                        onDeleted: () => _removeMaterial(id),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: GochanoSpacing.sm),
+                ],
+
+                // Manual text input
                 TextField(
                   controller: _sourceCtrl,
                   decoration: InputDecoration(
-                    labelText: GochanoLanguage.text('Source Material *', 'উৎস উপকরণ *'),
+                    labelText: GochanoLanguage.text(
+                      'Or paste source text',
+                      'অথবা উৎস লেখা পেস্ট করুন',
+                    ),
                     hintText: GochanoLanguage.text(
                       'Paste notes, textbook content, or topics…',
                       'নোট, পাঠ্যবই, বা বিষয় পেস্ট করুন…',
@@ -126,6 +200,21 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                   ),
                   maxLines: 5,
                   textCapitalization: TextCapitalization.sentences,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: GochanoSpacing.sm),
+
+          // Topic and settings
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  GochanoLanguage.text('Quiz Settings', 'কুইজ সেটিংস'),
+                  style: context.type.cardHeading,
                 ),
                 const SizedBox(height: GochanoSpacing.sm),
                 TextField(

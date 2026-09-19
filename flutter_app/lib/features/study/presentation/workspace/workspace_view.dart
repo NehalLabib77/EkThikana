@@ -18,7 +18,6 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../ai/ai_assistant_screen.dart';
 import '../ai/assignment_assistant_screen.dart';
 import '../ai/quiz_generator_screen.dart';
-import '../ai/revision_assistant_screen.dart';
 import '../ai/smart_planner_screen.dart';
 import '../materials/material_reader_screen.dart';
 import '../materials/materials_screen.dart';
@@ -131,14 +130,6 @@ class _QuickAccessState extends State<_QuickAccess> {
         onTap: () => Navigator.of(
           context,
         ).push(GochanoRoute.to(builder: (_) => const QuizGeneratorScreen())),
-      ),
-      _QuickAccessItem(
-        icon: Icons.school_rounded,
-        label: GochanoLanguage.text('Revision', 'পুনরালোচনা'),
-        accent: colors.expense,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const RevisionAssistantScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.psychology_rounded,
