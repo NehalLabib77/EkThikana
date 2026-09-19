@@ -11,6 +11,7 @@ money, medicine and getting around Bangladesh, in one Android app.
 > rather than rounding up.
 >
 > Last verified: 1 September 2026, against Flutter 3.47.2 / Dart 3.13.2.
+> Last verified: 19 September 2026, against Flutter 3.47.2 / Dart 3.13.2.
 
 ---
 
@@ -154,6 +155,8 @@ half-typed expense.
 | Medicine | Today's doses, reminders, taken/skipped/missed, history, prescription scanning |
 | CommuteBD | Route planning with official/estimated fares, a static route map, post-trip actual fare |
 | Search | Across materials, notes and tasks |
+| Search | Universal local-first search across Tasks, Assignments, Notes, PDFs, Medicine, Expenses, and Trips |
+| Offline & Sync | Transparent offline mode, sync status indicator, offline write queue, and zero-network alarms |
 | Profile | Account, study stats, monthly money, language, appearance, notifications, data export, account deletion |
 
 ---
@@ -1839,11 +1842,13 @@ production credential has been.
 6. **Server-push notifications** through the already-initialised FCM.
 7. **Offline write queue** so an expense recorded on the bus syncs later.
 8. **Self-hosted OSRM/Nominatim.**
+7. **Self-hosted OSRM/Nominatim.**
 
 ## 63. Final project status
 
 Gochano is a working, coherent student application with a single design
 system, 508 automated tests, and a backend whose integrations are correct in
+system, 856 automated tests, and a backend whose integrations are correct in
 code and — for storage and routing — verified against real data and a real
 bucket.
 
@@ -1854,6 +1859,12 @@ Expense module replacing two disconnected ones, and honest OCR and fare UI.
 All decorative animation was removed and is now blocked by test. 58
 superseded files were deleted after verifying, feature by feature, that
 nothing was lost.
+
+**Phase 2 UX Enhancements.** Following the rebuild, the frontend was fortified with:
+- A local-first Notification Center and offline `LocalReminderStore` decoupled from FCM.
+- A Universal Search overlay mapping the 7 canonical entities without cloud LLM dependencies.
+- A transparent Offline & Sync UX providing clear visibility into the background Firestore pending write queue, gracefully handling disconnected states in Commute, and verifying immediate offline saves.
+- Expanding automated tests to 856+, ensuring absolute layout and invariant stability.
 
 **Six real bugs were found by end-to-end tracing and fixed:**
 

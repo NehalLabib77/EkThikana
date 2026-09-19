@@ -53,7 +53,8 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
     return GochanoScaffold(
       padBody: false,
       appBar: GochanoAppBar(
-        title: widget.subjectFilter ??
+        title:
+            widget.subjectFilter ??
             (widget.mimeFilter != null
                 ? _mimeFilterTitle(widget.mimeFilter!)
                 : GochanoLanguage.text('Materials', 'উপকরণ')),
@@ -151,13 +152,21 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
 
         if (widget.subjectFilter != null) {
           docs = docs
-              .where((d) => d.data()['subject']?.toString() == widget.subjectFilter)
+              .where(
+                (d) => d.data()['subject']?.toString() == widget.subjectFilter,
+              )
               .toList();
         }
 
         if (widget.mimeFilter != null) {
           docs = docs
-              .where((d) => d.data()['mimeType']?.toString().toLowerCase().startsWith(widget.mimeFilter!) == true)
+              .where(
+                (d) =>
+                    d.data()['mimeType']?.toString().toLowerCase().startsWith(
+                      widget.mimeFilter!,
+                    ) ==
+                    true,
+              )
               .toList();
         }
 
@@ -186,15 +195,19 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
                   ? bt.compareTo(at)
                   : at.compareTo(bt);
             case MaterialSort.name:
-              return _title(ad).toLowerCase().compareTo(_title(bd).toLowerCase());
+              return _title(
+                ad,
+              ).toLowerCase().compareTo(_title(bd).toLowerCase());
             case MaterialSort.size:
-              return ((bd['sizeBytes'] as num?) ?? 0)
-                  .compareTo((ad['sizeBytes'] as num?) ?? 0);
+              return ((bd['sizeBytes'] as num?) ?? 0).compareTo(
+                (ad['sizeBytes'] as num?) ?? 0,
+              );
           }
         });
 
         if (docs.isEmpty) {
-          final bool isFiltered = widget.mimeFilter != null || widget.subjectFilter != null;
+          final bool isFiltered =
+              widget.mimeFilter != null || widget.subjectFilter != null;
           final String emptyTitle;
           final String emptyMessage;
 
@@ -205,25 +218,37 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
               'অন্য একটি শব্দ চেষ্টা করুন।',
             );
           } else if (widget.mimeFilter?.startsWith('image/') == true) {
-            emptyTitle = GochanoLanguage.text('No saved images yet', 'এখনো কোনো সংরক্ষিত ছবি নেই');
+            emptyTitle = GochanoLanguage.text(
+              'No saved images yet',
+              'এখনো কোনো সংরক্ষিত ছবি নেই',
+            );
             emptyMessage = GochanoLanguage.text(
               'Upload images using the + button.',
               '+ বোতাম দিয়ে ছবি আপলোড করুন।',
             );
           } else if (widget.mimeFilter?.contains('pdf') == true) {
-            emptyTitle = GochanoLanguage.text('No PDFs yet', 'এখনো কোনো পিডিএফ নেই');
+            emptyTitle = GochanoLanguage.text(
+              'No PDFs yet',
+              'এখনো কোনো পিডিএফ নেই',
+            );
             emptyMessage = GochanoLanguage.text(
               'Upload PDFs using the + button.',
               '+ বোতাম দিয়ে পিডিএফ আপলোড করুন।',
             );
           } else if (isFiltered) {
-            emptyTitle = GochanoLanguage.text('No materials yet', 'এখনো কোনো উপকরণ নেই');
+            emptyTitle = GochanoLanguage.text(
+              'No materials yet',
+              'এখনো কোনো উপকরণ নেই',
+            );
             emptyMessage = GochanoLanguage.text(
               'Upload materials using the + button.',
               '+ বোতাম দিয়ে উপকরণ আপলোড করুন।',
             );
           } else {
-            emptyTitle = GochanoLanguage.text('No materials yet', 'এখনো কোনো উপকরণ নেই');
+            emptyTitle = GochanoLanguage.text(
+              'No materials yet',
+              'এখনো কোনো উপকরণ নেই',
+            );
             emptyMessage = GochanoLanguage.text(
               'Upload your first note, PDF or study resource using the + button.',
               '+ বোতাম দিয়ে আপনার প্রথম নোট, পিডিএফ বা পড়ার উপকরণ আপলোড করুন।',
@@ -269,25 +294,25 @@ class _MaterialRow extends StatelessWidget {
     final visibility = data['visibility']?.toString() ?? 'private';
 
     void open() => Navigator.of(context).push(
-          GochanoRoute.to(
-            builder: (_) => MaterialReaderScreen(
-              materialId: doc.id,
-              title: title,
-              mimeType: mimeType,
-              fileName: fileName,
-            ),
-          ),
-        );
+      GochanoRoute.to(
+        builder: (_) => MaterialReaderScreen(
+          materialId: doc.id,
+          title: title,
+          mimeType: mimeType,
+          fileName: fileName,
+        ),
+      ),
+    );
 
     return GochanoListRow(
-      illustration: GochanoArt.fileIdFor(fileName: fileName, mimeType: mimeType),
+      illustration: GochanoArt.fileIdFor(
+        fileName: fileName,
+        mimeType: mimeType,
+      ),
       accent: context.colors.study,
       title: title,
       subtitle: data['subject']?.toString(),
-      metadata: [
-        _fileSize(data['sizeBytes']),
-        _createdAt(data['createdAt']),
-      ],
+      metadata: [_fileSize(data['sizeBytes']), _createdAt(data['createdAt'])],
       badge: visibility == 'group'
           ? GochanoBadge(
               label: GochanoLanguage.text('Shared', 'শেয়ার করা'),
@@ -303,7 +328,10 @@ class _MaterialRow extends StatelessWidget {
           onSelected: open,
         ),
         GochanoMenuAction(
-          label: GochanoLanguage.text('Ask AI about this', 'এটি নিয়ে জিজ্ঞাসা'),
+          label: GochanoLanguage.text(
+            'Ask AI about this',
+            'এটি নিয়ে জিজ্ঞাসা',
+          ),
           icon: Icons.auto_awesome_outlined,
           onSelected: () => Navigator.of(context).push(
             GochanoRoute.to(
@@ -342,7 +370,9 @@ Future<void> _rename(
     final title = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(GochanoLanguage.text('Rename material', 'উপকরণের নাম পরিবর্তন')),
+        title: Text(
+          GochanoLanguage.text('Rename material', 'উপকরণের নাম পরিবর্তন'),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -426,8 +456,18 @@ String _createdAt(Object? value) {
   if (value is! Timestamp) return '';
   final when = value.toDate();
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${when.day} ${months[when.month - 1]} ${when.year}';
 }

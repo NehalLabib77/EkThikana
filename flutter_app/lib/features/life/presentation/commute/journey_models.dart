@@ -693,8 +693,7 @@ class DirectBusCandidate {
   double? get crowdFareHigh => (crowdFare?['fareHigh'] as num?)?.toDouble();
   double? get crowdFareRecommended =>
       (crowdFare?['recommendedFare'] as num?)?.toDouble();
-  int get crowdSampleCount =>
-      (crowdFare?['sampleCount'] as num?)?.toInt() ?? 0;
+  int get crowdSampleCount => (crowdFare?['sampleCount'] as num?)?.toInt() ?? 0;
   String? get crowdFareLabel => crowdFare?['label']?.toString();
   String? get crowdFareLabelBn => crowdFare?['labelBn']?.toString();
 

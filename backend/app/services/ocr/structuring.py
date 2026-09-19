@@ -160,9 +160,9 @@ async def structure(uid: str, text: str) -> list[dict[str, str]] | None:
     source = source[:MAX_INPUT_CHARS]
 
     try:
-        from app.services.ai_service import generate
+        from app.services.ai_service import AiFeature, generate
 
-        raw = await generate(uid, PROMPT % source)
+        raw = await generate(uid, PROMPT % source, feature=AiFeature.PRESCRIPTION)
     except Exception as exc:
         # Includes a missing API key, a quota refusal and a provider outage.
         # None of them should break prescription scanning.

@@ -96,8 +96,7 @@ class CommuteRouteMap extends StatelessWidget {
               ),
               children: [
                 TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.ekthikana.ekthikana',
                   // Tiles are the heaviest thing on this screen; keeping the
                   // retina override off avoids fetching 4x the bytes on a
@@ -137,7 +136,10 @@ class CommuteRouteMap extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: colors.surface,
                             shape: BoxShape.circle,
-                            border: Border.all(color: colors.borderStrong, width: 2),
+                            border: Border.all(
+                              color: colors.borderStrong,
+                              width: 2,
+                            ),
                           ),
                           child: Center(
                             child: Icon(

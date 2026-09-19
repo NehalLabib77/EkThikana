@@ -17,8 +17,9 @@ import 'package:gochano/shared/widgets/gochano_surfaces.dart';
 
 void main() {
   group('AppCard', () {
-    testWidgets('an accented card survives an unbounded height',
-        (tester) async {
+    testWidgets('an accented card survives an unbounded height', (
+      tester,
+    ) async {
       // The accent rule is a `CrossAxisAlignment.stretch` Row, and stretch
       // needs a bounded height. A card in a ListView is handed an unbounded
       // one, so without an IntrinsicHeight every accented card in a
@@ -43,8 +44,9 @@ void main() {
       expect(find.text('plain'), findsOneWidget);
     });
 
-    testWidgets('an accented card also works with a bounded height',
-        (tester) async {
+    testWidgets('an accented card also works with a bounded height', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: GochanoTheme.light(),
@@ -77,16 +79,17 @@ void main() {
         );
         // After substitution the only hex values left must be the three we
         // supplied. Anything else is a literal baked into the drawing.
-        final hexes = RegExp(r'#[0-9a-fA-F]{3,8}')
-            .allMatches(svg)
-            .map((m) => m.group(0)!.toLowerCase())
-            .toSet();
-        final unexpected =
-            hexes.difference({'#111111', '#222222', '#333333'});
+        final hexes = RegExp(
+          r'#[0-9a-fA-F]{3,8}',
+        ).allMatches(svg).map((m) => m.group(0)!.toLowerCase()).toSet();
+        final unexpected = hexes.difference({'#111111', '#222222', '#333333'});
         if (unexpected.isNotEmpty) offenders.add('$id -> $unexpected');
       }
-      expect(offenders, isEmpty,
-          reason: 'drawings must not hardcode colours: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'drawings must not hardcode colours: $offenders',
+      );
     });
 
     test('every drawing is a well-formed single svg root', () {
@@ -158,15 +161,22 @@ void main() {
   group('File type mapping (spec §21)', () {
     test('recognises the backend-supported types', () {
       expect(GochanoArt.fileIdFor(fileName: 'notes.pdf'), GochanoArt.filePdf);
-      expect(GochanoArt.fileIdFor(mimeType: 'application/pdf'),
-          GochanoArt.filePdf);
+      expect(
+        GochanoArt.fileIdFor(mimeType: 'application/pdf'),
+        GochanoArt.filePdf,
+      );
       expect(GochanoArt.fileIdFor(fileName: 'scan.JPG'), GochanoArt.fileImage);
       expect(GochanoArt.fileIdFor(mimeType: 'image/png'), GochanoArt.fileImage);
       expect(GochanoArt.fileIdFor(fileName: 'report.docx'), GochanoArt.fileDoc);
-      expect(GochanoArt.fileIdFor(fileName: 'deck.pptx'), GochanoArt.fileSlides);
+      expect(
+        GochanoArt.fileIdFor(fileName: 'deck.pptx'),
+        GochanoArt.fileSlides,
+      );
       expect(GochanoArt.fileIdFor(fileName: 'todo.txt'), GochanoArt.fileNote);
-      expect(GochanoArt.fileIdFor(fileName: 'archive.bin'),
-          GochanoArt.fileGeneric);
+      expect(
+        GochanoArt.fileIdFor(fileName: 'archive.bin'),
+        GochanoArt.fileGeneric,
+      );
       expect(GochanoArt.fileIdFor(), GochanoArt.fileGeneric);
     });
   });
@@ -191,10 +201,14 @@ void main() {
 
   group('Theme', () {
     test('light and dark register the GochanoColors extension', () {
-      expect(GochanoTheme.light().extension<GochanoColors>(),
-          same(GochanoColors.light));
-      expect(GochanoTheme.dark().extension<GochanoColors>(),
-          same(GochanoColors.dark));
+      expect(
+        GochanoTheme.light().extension<GochanoColors>(),
+        same(GochanoColors.light),
+      );
+      expect(
+        GochanoTheme.dark().extension<GochanoColors>(),
+        same(GochanoColors.dark),
+      );
     });
 
     test('dark mode is not a mechanical inversion (spec §18)', () {
@@ -202,14 +216,20 @@ void main() {
       const d = GochanoColors.dark;
       // Dark surfaces step *up* from the background rather than being pure
       // black on black.
-      expect(d.surface.computeLuminance(),
-          greaterThan(d.background.computeLuminance()));
-      expect(d.surfaceElevated.computeLuminance(),
-          greaterThan(d.surface.computeLuminance()));
+      expect(
+        d.surface.computeLuminance(),
+        greaterThan(d.background.computeLuminance()),
+      );
+      expect(
+        d.surfaceElevated.computeLuminance(),
+        greaterThan(d.surface.computeLuminance()),
+      );
       // And light mode keeps the same relationship in reverse: the scaffold
       // is slightly tinted so white cards read as raised (spec §17).
-      expect(l.surface.computeLuminance(),
-          greaterThan(l.background.computeLuminance()));
+      expect(
+        l.surface.computeLuminance(),
+        greaterThan(l.background.computeLuminance()),
+      );
       // Illustration paper follows the surface, so drawings never punch a
       // white hole in dark mode.
       expect(d.illustrationPaper.computeLuminance(), lessThan(0.2));
@@ -226,10 +246,16 @@ void main() {
 
       for (final c in [GochanoColors.light, GochanoColors.dark]) {
         for (final bg in [c.background, c.surface, c.surfaceVariant]) {
-          expect(contrast(c.textPrimary, bg), greaterThanOrEqualTo(4.5),
-              reason: 'textPrimary on $bg');
-          expect(contrast(c.textSecondary, bg), greaterThanOrEqualTo(4.5),
-              reason: 'textSecondary on $bg');
+          expect(
+            contrast(c.textPrimary, bg),
+            greaterThanOrEqualTo(4.5),
+            reason: 'textPrimary on $bg',
+          );
+          expect(
+            contrast(c.textSecondary, bg),
+            greaterThanOrEqualTo(4.5),
+            reason: 'textSecondary on $bg',
+          );
         }
         // Status colours carry meaning, so they must be readable too.
         for (final pair in [
@@ -238,8 +264,11 @@ void main() {
           (c.error, c.errorSoft),
           (c.info, c.infoSoft),
         ]) {
-          expect(contrast(pair.$1, pair.$2), greaterThanOrEqualTo(4.5),
-              reason: 'status pair ${pair.$1} on ${pair.$2}');
+          expect(
+            contrast(pair.$1, pair.$2),
+            greaterThanOrEqualTo(4.5),
+            reason: 'status pair ${pair.$1} on ${pair.$2}',
+          );
         }
       }
     });
@@ -278,12 +307,18 @@ void main() {
     });
 
     test('recognised conditions get a specific message', () {
-      expect(friendlyErrorMessage('SocketException: x'),
-          contains('No connection'));
-      expect(friendlyErrorMessage('Daily AI limit reached'),
-          contains('daily AI limit'));
-      expect(friendlyErrorMessage('404 not found'),
-          contains('no longer available'));
+      expect(
+        friendlyErrorMessage('SocketException: x'),
+        contains('No connection'),
+      );
+      expect(
+        friendlyErrorMessage('Daily AI limit reached'),
+        contains('daily AI limit'),
+      );
+      expect(
+        friendlyErrorMessage('404 not found'),
+        contains('no longer available'),
+      );
     });
 
     test('messages are translated when Bangla is active', () {
@@ -314,7 +349,8 @@ void main() {
         const EmptyState(
           illustration: GochanoArt.emptySubjects,
           title: 'No subjects yet',
-          message: 'Create your first subject to organize your study materials.',
+          message:
+              'Create your first subject to organize your study materials.',
         ),
       );
       expect(find.text('No subjects yet'), findsOneWidget);
@@ -328,7 +364,9 @@ void main() {
       expect(find.text('Something went wrong. Try again.'), findsOneWidget);
     });
 
-    testWidgets('StaticLoadingState shows a percentage when known', (tester) async {
+    testWidgets('StaticLoadingState shows a percentage when known', (
+      tester,
+    ) async {
       await pumpBoth(
         tester,
         const StaticLoadingState(message: 'Uploading', progress: 0.45),
@@ -349,9 +387,7 @@ void main() {
         tester,
         const GochanoIllustration(GochanoArt.featureCommute, size: 48),
       );
-      final box = tester.getSize(
-        find.byType(GochanoIllustration).first,
-      );
+      final box = tester.getSize(find.byType(GochanoIllustration).first);
       expect(box.width, 48);
       expect(box.height, 48);
     });

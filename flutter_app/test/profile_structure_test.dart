@@ -103,6 +103,16 @@ void main() {
       expect(source, contains('GestureDetector'));
     });
 
+    test('AI usage row and breakdown sheet are present in Settings', () {
+      expect(
+        source,
+        contains("GochanoLanguage.text('AI usage', 'এআই ব্যবহার')"),
+      );
+      expect(source, contains('_loadAiUsage'));
+      expect(source, contains('_aiUsageLabel'));
+      expect(source, contains('_showAiUsageSheet'));
+    });
+
     test('profile editing writes only the displayed fields', () {
       // Never `role`: the security rule refuses a write that changes it, and
       // this screen has no business touching it regardless.

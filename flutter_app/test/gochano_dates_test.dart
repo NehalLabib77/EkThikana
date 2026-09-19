@@ -22,24 +22,50 @@ void main() {
   group('shortMonthLabel', () {
     test('English short months are returned when the app is English', () {
       const expected = <String>[
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       for (var month = 1; month <= 12; month++) {
-        expect(shortMonthLabel(month), expected[month - 1],
-            reason: 'month $month should be ${expected[month - 1]}');
+        expect(
+          shortMonthLabel(month),
+          expected[month - 1],
+          reason: 'month $month should be ${expected[month - 1]}',
+        );
       }
     });
 
     test('Bangla short months are returned when the app is Bangla', () async {
       await GochanoLanguage.select(GochanoLocale.bangla);
       const expected = <String>[
-        'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রি', 'মে', 'জুন',
-        'জুলা', 'আগ', 'সেপ্ট', 'অক্টো', 'নভে', 'ডিসে',
+        'জানু',
+        'ফেব্রু',
+        'মার্চ',
+        'এপ্রি',
+        'মে',
+        'জুন',
+        'জুলা',
+        'আগ',
+        'সেপ্ট',
+        'অক্টো',
+        'নভে',
+        'ডিসে',
       ];
       for (var month = 1; month <= 12; month++) {
-        expect(shortMonthLabel(month), expected[month - 1],
-            reason: 'month $month should be ${expected[month - 1]}');
+        expect(
+          shortMonthLabel(month),
+          expected[month - 1],
+          reason: 'month $month should be ${expected[month - 1]}',
+        );
       }
     });
 
@@ -47,9 +73,9 @@ void main() {
       // The helper clamps the index into the 12-month array, so values that
       // would otherwise throw are coerced to the first or last real label
       // rather than crashing the row caption.
-      expect(shortMonthLabel(0), 'Jan');   // clamped up to 1 → Jan
-      expect(shortMonthLabel(13), 'Dec');  // clamped down to 12 → Dec
-      expect(shortMonthLabel(-1), 'Jan');  // clamped up to 1 → Jan
+      expect(shortMonthLabel(0), 'Jan'); // clamped up to 1 → Jan
+      expect(shortMonthLabel(13), 'Dec'); // clamped down to 12 → Dec
+      expect(shortMonthLabel(-1), 'Jan'); // clamped up to 1 → Jan
     });
   });
 
@@ -67,11 +93,24 @@ void main() {
       expect(label, '23 মার্চ');
       // Defensive: the Bangla label must not contain any English month name.
       for (final en in const [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ]) {
-        expect(label.contains(en), isFalse,
-            reason: 'Bangla date "$label" leaked English month "$en"');
+        expect(
+          label.contains(en),
+          isFalse,
+          reason: 'Bangla date "$label" leaked English month "$en"',
+        );
       }
     });
   });
@@ -88,10 +127,16 @@ void main() {
       await GochanoLanguage.select(GochanoLocale.bangla);
       final morning = formatClock12(DateTime(2025, 1, 1, 9, 0));
       final evening = formatClock12(DateTime(2025, 1, 1, 21, 30));
-      expect(morning.endsWith('পূর্বাহ্ন'), isTrue,
-          reason: 'Bangla morning should end with পূর্বাহ্ন, got "$morning"');
-      expect(evening.endsWith('অপরাহ্ন'), isTrue,
-          reason: 'Bangla evening should end with অপরাহ্ন, got "$evening"');
+      expect(
+        morning.endsWith('পূর্বাহ্ন'),
+        isTrue,
+        reason: 'Bangla morning should end with পূর্বাহ্ন, got "$morning"',
+      );
+      expect(
+        evening.endsWith('অপরাহ্ন'),
+        isTrue,
+        reason: 'Bangla evening should end with অপরাহ্ন, got "$evening"',
+      );
       // Defensive: no English period markers in a Bangla clock.
       expect(morning.contains('am') || morning.contains('pm'), isFalse);
       expect(evening.contains('am') || evening.contains('pm'), isFalse);

@@ -148,19 +148,16 @@ class AuthService {
     await user.updateDisplayName(name.trim());
     // Merge so re-registration (or any pre-existing partial profile) does
     // not blank out valid fields, and so the write is idempotent on retry.
-    await db.collection('users').doc(user.uid).set(
-      {
-        'displayName': name.trim(),
-        'email': email.trim().toLowerCase(),
-        'role': role,
-        'university': role == 'student' ? university.trim() : '',
-        'department': role == 'student' ? department.trim() : '',
-        'semester': role == 'student' ? semester.trim() : '',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await db.collection('users').doc(user.uid).set({
+      'displayName': name.trim(),
+      'email': email.trim().toLowerCase(),
+      'role': role,
+      'university': role == 'student' ? university.trim() : '',
+      'department': role == 'student' ? department.trim() : '',
+      'semester': role == 'student' ? semester.trim() : '',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     await user.sendEmailVerification();
     _ping();
@@ -197,7 +194,9 @@ class AuthService {
     if (fresh != null && !verified) {
       try {
         await fresh.sendEmailVerification();
-      } catch (_) {/* the verify screen resends on demand */}
+      } catch (_) {
+        /* the verify screen resends on demand */
+      }
     }
 
     // Repair a missing or partial `users/{uid}` profile so the next backend
@@ -258,8 +257,10 @@ class AuthService {
     if (fresh == null || !fresh.emailVerified) return null;
     try {
       final token = await fresh.getIdToken(true);
-      _debugLog('forceRefreshIdToken: token refreshed '
-          '(uid=${fresh.uid}, verified=${fresh.emailVerified})');
+      _debugLog(
+        'forceRefreshIdToken: token refreshed '
+        '(uid=${fresh.uid}, verified=${fresh.emailVerified})',
+      );
       _ping();
       return token;
     } catch (e) {
@@ -288,8 +289,8 @@ class AuthService {
       final snap = await ref.get();
       final existing = snap.data() ?? <String, dynamic>{};
       final patch = <String, dynamic>{
-        'email': (existing['email'] as String?) ??
-            (fresh.email ?? '').toLowerCase(),
+        'email':
+            (existing['email'] as String?) ?? (fresh.email ?? '').toLowerCase(),
         'displayName': _firstNonEmpty(
           existing['displayName']?.toString(),
           fresh.displayName,

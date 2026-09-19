@@ -97,7 +97,10 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
       if (!mounted) return;
       showGochanoMessage(
         context,
-        GochanoLanguage.text('Saved to your library.', 'আপনার লাইব্রেরিতে সংরক্ষিত।'),
+        GochanoLanguage.text(
+          'Saved to your library.',
+          'আপনার লাইব্রেরিতে সংরক্ষিত।',
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -174,11 +177,11 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
           .collection('material_state')
           .doc('${FirestoreService.uid}_${widget.materialId}')
           .set({
-        'ownerId': FirestoreService.uid,
-        'materialId': widget.materialId,
-        'lastPage': page,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+            'ownerId': FirestoreService.uid,
+            'materialId': widget.materialId,
+            'lastPage': page,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     } catch (_) {
       // Losing a bookmark is not worth interrupting reading for.
     }
@@ -217,14 +220,20 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
         actions: [
           IconActionButton(
             icon: Icons.auto_awesome_outlined,
-            label: GochanoLanguage.text('Ask AI about this', 'এটি নিয়ে জিজ্ঞাসা'),
+            label: GochanoLanguage.text(
+              'Ask AI about this',
+              'এটি নিয়ে জিজ্ঞাসা',
+            ),
             accent: colors.ai,
             onPressed: _askAi,
           ),
           GochanoOverflowMenu(
             items: [
               GochanoMenuAction(
-                label: GochanoLanguage.text('Save to library', 'লাইব্রেরিতে সংরক্ষণ'),
+                label: GochanoLanguage.text(
+                  'Save to library',
+                  'লাইব্রেরিতে সংরক্ষণ',
+                ),
                 icon: Icons.bookmark_border_rounded,
                 enabled: !_saving,
                 onSelected: _save,
@@ -312,7 +321,10 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
               if (progress == null) return child;
               final total = progress.expectedTotalBytes;
               return StaticLoadingState(
-                message: GochanoLanguage.text('Loading image…', 'ছবি লোড হচ্ছে…'),
+                message: GochanoLanguage.text(
+                  'Loading image…',
+                  'ছবি লোড হচ্ছে…',
+                ),
                 progress: total == null
                     ? null
                     : progress.cumulativeBytesLoaded / total,

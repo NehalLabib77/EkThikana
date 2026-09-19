@@ -5,6 +5,8 @@
 // path. Reminder scheduling happens here too, next to the due date that
 // drives it, rather than in a separate follow-up screen.
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,13 +14,55 @@ import 'package:flutter/material.dart';
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/localization/feedback_messages.dart';
+import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
+import '../../../services/connectivity_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 
-/// Opens the add/edit task sheet. Returns true when a task was saved.
+/// Immutable result contract for the task save flow.
+///
+/// Every exit path of [showAddTaskSheet] returns this type. Cancel / back
+/// returns `null`; save returns a populated instance.
+@immutable
+class TaskSaveResult {
+  const TaskSaveResult({
+    required this.saved,
+    this.taskId,
+    this.title,
+    this.dueAt,
+    this.remindAt,
+    this.reminderScheduled = false,
+    this.reminderFailed = false,
+    this.isAssignment = false,
+  });
+
+  /// Named constructor for the cancel/dismiss case.
+  const TaskSaveResult.cancelled()
+    : saved = false,
+      taskId = null,
+      title = null,
+      dueAt = null,
+      remindAt = null,
+      reminderScheduled = false,
+      reminderFailed = false,
+      isAssignment = false;
+
+  final bool saved;
+  final String? taskId;
+  final String? title;
+  final DateTime? dueAt;
+  final DateTime? remindAt;
+  final bool reminderScheduled;
+  final bool reminderFailed;
+  final bool isAssignment;
+}
+
+/// Opens the add/edit task sheet. Returns [TaskSaveResult] when a task was
+/// saved, or null if dismissed/cancelled without saving.
 ///
 /// [type] defaults to `'task'`. Pass `'assignment'` to preselect the form
 /// as an assignment — the document is stamped with this value so the Plan
@@ -27,7 +71,7 @@ import '../../../shared/widgets/gochano_controls.dart';
 /// [initialDate] pre-fills the due date for new tasks (ignored for edits).
 /// When provided, the due time defaults to 09:00 on that date so the task
 /// appears immediately in the selected Plan day's list.
-Future<bool> showAddTaskSheet(
+Future<TaskSaveResult?> showAddTaskSheet(
   BuildContext context, {
   DocumentSnapshot<Map<String, dynamic>>? existing,
   String type = 'task',
@@ -35,7 +79,7 @@ Future<bool> showAddTaskSheet(
 }) async {
   final existingType = existing?.data()?['type']?.toString();
   final resolvedType = existingType == 'assignment' ? 'assignment' : type;
-  final saved = await showModalBottomSheet<bool>(
+  final result = await showModalBottomSheet<TaskSaveResult>(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => _TaskForm(
@@ -44,7 +88,18 @@ Future<bool> showAddTaskSheet(
       initialDate: initialDate,
     ),
   );
-  return saved ?? false;
+  if (result != null && result.saved && context.mounted) {
+    showGochanoMessage(
+      context,
+      FeedbackMessages.taskSaved(
+        isAssignment: result.isAssignment,
+        remindAt: result.remindAt,
+        reminderFailed: result.reminderFailed,
+        isOffline: !ConnectivityService.instance.online.value,
+      ),
+    );
+  }
+  return result;
 }
 
 /// Preset durations before dueAt. Index 0 = no reminder.
@@ -77,6 +132,7 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
   bool _saving = false;
   String? _error;
   bool _exactAlarmAllowed = true;
+  late bool _showMoreOptions;
 
   bool get _isEdit => widget.existing != null;
 
@@ -88,16 +144,13 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
     final data = widget.existing?.data() ?? const <String, dynamic>{};
     _title = TextEditingController(text: data['title']?.toString() ?? '');
     _dueAt = (data['dueAt'] as Timestamp?)?.toDate();
-    // For a new task, if the caller supplied a date (e.g. from Plan view's
-    // selected day), pre-fill due time to 09:00 on that date so the task
-    // shows up immediately in the correct day's list without the user having
-    // to tap the date picker.
     if (_dueAt == null && widget.initialDate != null && !_isEdit) {
       final d = widget.initialDate!;
       _dueAt = DateTime(d.year, d.month, d.day, 9, 0);
     }
     _remindAt = (data['remindAt'] as Timestamp?)?.toDate();
     _reminderPreset = _detectPreset();
+    _showMoreOptions = _isEdit && _reminderPreset > 0;
   }
 
   @override
@@ -114,8 +167,6 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
     }
   }
 
-  /// Detect which preset matches the current _remindAt relative to _dueAt.
-  /// Returns 0 (no reminder) if either is null or no preset matches.
   int _detectPreset() {
     if (_dueAt == null || _remindAt == null) return 0;
     final diff = _dueAt!.difference(_remindAt!).inMinutes;
@@ -181,12 +232,15 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
       return;
     }
 
+    if (kDebugMode) {
+      debugPrint('[OfflineSave][Task] start');
+    }
+
     setState(() {
       _saving = true;
       _error = null;
     });
 
-    // Safety net: reject reminder at or after due time.
     if (_remindAt != null && _dueAt != null && !_remindAt!.isBefore(_dueAt!)) {
       setState(() {
         _saving = false;
@@ -207,35 +261,88 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      final String taskId;
-      if (_isEdit) {
-        taskId = widget.existing!.id;
-        await widget.existing!.reference.update(payload);
-      } else {
-        final ref = await FirestoreService.addOwnerRecord('tasks', {
-          ...payload,
-          'done': false,
-        });
-        taskId = ref.id;
-      }
+      // 1. Establish stable domain ID locally & synchronously without waiting for network
+      final DocumentReference<Map<String, dynamic>> docRef = _isEdit
+          ? widget.existing!.reference
+          : FirestoreService.db.collection('tasks').doc();
+      final String taskId = docRef.id;
 
-      // `rescheduleTask` recycles the same deterministic notification ids across
-      // all reminder slots, so editing a task cannot leave stale reminders queued
-      // alongside the new one. Passing a null/cleared `when` cancels without rescheduling.
-      await NotificationService.rescheduleTask(
-        taskId: taskId,
-        title: title,
-        when: _dueAt,
-        type: widget.type,
+      // 2. Enqueue/dispatch Firestore write locally to offline cache.
+      final currentUid = FirestoreService.uid;
+      final writePayload = <String, dynamic>{
+        ...payload,
+        if (!_isEdit) 'ownerId': currentUid,
+        if (!_isEdit) 'done': false,
+        if (!_isEdit) 'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      unawaited(
+        docRef.set(writePayload, SetOptions(merge: true)).catchError((e) {
+          if (kDebugMode) {
+            debugPrint('[OfflineSave][Task] remote sync deferred/failed: $e');
+          }
+        }),
       );
 
-      if (mounted) Navigator.of(context).pop(true);
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Task] local/domain write queued id=$taskId');
+      }
+
+      final shouldScheduleReminder = _dueAt != null;
+
+      var reminderFailed = false;
+      if (shouldScheduleReminder) {
+        try {
+          await NotificationService.rescheduleTask(
+            taskId: taskId,
+            title: title,
+            when: _dueAt,
+            type: widget.type,
+          );
+          if (kDebugMode) {
+            debugPrint('[OfflineSave][Task] alarm scheduled');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('[OfflineSave][Task] alarm schedule failed: $e');
+          }
+          reminderFailed = true;
+        }
+      } else {
+        await NotificationService.cancelTask(taskId);
+      }
+
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Task] ui complete');
+      }
+
+      if (!mounted) return;
+      final effectiveRemindAt = _remindAt ?? _dueAt;
+      Navigator.of(context).pop(
+        TaskSaveResult(
+          saved: true,
+          taskId: taskId,
+          title: title,
+          dueAt: _dueAt,
+          remindAt: shouldScheduleReminder ? effectiveRemindAt : null,
+          reminderScheduled: shouldScheduleReminder && !reminderFailed,
+          reminderFailed: reminderFailed && shouldScheduleReminder,
+          isAssignment: widget.type == 'assignment',
+        ),
+      );
     } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Task] save error: $error');
+      }
       if (!mounted) return;
       setState(() {
         _saving = false;
         _error = friendlyErrorMessage(error);
       });
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -284,66 +391,9 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
                     : GochanoLanguage.text('New task', 'নতুন কাজ'),
                 style: context.type.sectionHeading,
               ),
-              if (!_exactAlarmAllowed) ...[
-                const SizedBox(height: GochanoSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.all(GochanoSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: colors.warning.withValues(alpha: 0.12),
-                    borderRadius: GochanoRadius.mdAll,
-                    border: Border.all(
-                      color: colors.warning.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.alarm_off_rounded,
-                        color: colors.warning,
-                        size: 20,
-                      ),
-                      const SizedBox(width: GochanoSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          GochanoLanguage.text(
-                            'Enable "Alarms & reminders" in settings so reminders ring when the app is closed.',
-                            'অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে সেটিংসে "অ্যালার্ম ও রিমাইন্ডার" চালু করুন।',
-                          ),
-                          style: context.type.caption.copyWith(
-                            color: colors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: GochanoSpacing.xs),
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: () async {
-                          final granted =
-                              await NotificationService.requestExactAlarmPermission();
-                          if (mounted && granted) {
-                            setState(() => _exactAlarmAllowed = true);
-                          }
-                          await NotificationService.requestExactAlarmPermission();
-                          await _checkExactAlarm();
-                        },
-                        child: Text(
-                          GochanoLanguage.text('Enable', 'চালু করুন'),
-                          style: TextStyle(
-                            color: colors.warning,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: GochanoSpacing.md),
               TextField(
+                key: const ValueKey('task_title_input'),
                 controller: _title,
                 autofocus: !_isEdit,
                 textCapitalization: TextCapitalization.sentences,
@@ -395,48 +445,148 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              if (_dueAt != null) ...[
-                const SizedBox(height: GochanoSpacing.sm),
+              const SizedBox(height: GochanoSpacing.sm),
+
+              // More options toggle (progressive disclosure)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey('task_more_options_toggle'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
+                    minimumSize: const Size(0, GochanoSizes.minTouchTarget),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () =>
+                      setState(() => _showMoreOptions = !_showMoreOptions),
+                  icon: Icon(
+                    _showMoreOptions
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 20,
+                  ),
+                  label: Text(
+                    GochanoLanguage.text('More options', 'আরও অপশন'),
+                    style: context.type.bodySecondary.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colors.brand,
+                    ),
+                  ),
+                ),
+              ),
+
+              if (_showMoreOptions) ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                if (!_exactAlarmAllowed) ...[
+                  Container(
+                    padding: const EdgeInsets.all(GochanoSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: colors.warning.withValues(alpha: 0.12),
+                      borderRadius: GochanoRadius.mdAll,
+                      border: Border.all(
+                        color: colors.warning.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.alarm_off_rounded,
+                          color: colors.warning,
+                          size: 20,
+                        ),
+                        const SizedBox(width: GochanoSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'Enable "Alarms & reminders" in settings so reminders ring when the app is closed.',
+                              'অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে সেটিংসে "অ্যালার্ম ও রিমাইন্ডার" চালু করুন।',
+                            ),
+                            style: context.type.caption.copyWith(
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () async {
+                            final granted =
+                                await NotificationService.requestExactAlarmPermission();
+                            if (mounted && granted) {
+                              setState(() => _exactAlarmAllowed = true);
+                            }
+                          },
+                          child: Text(
+                            GochanoLanguage.text('Enable', 'চালু করুন'),
+                            style: TextStyle(
+                              color: colors.warning,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: GochanoSpacing.sm),
+                ],
                 Text(
                   GochanoLanguage.text('Reminder', 'রিমাইন্ডার'),
                   style: context.type.label,
                 ),
                 const SizedBox(height: GochanoSpacing.xs),
-                Wrap(
-                  spacing: GochanoSpacing.xs,
-                  runSpacing: GochanoSpacing.xs,
-                  children: [
-                    _buildPresetChip(
-                      context,
-                      index: 0,
-                      label: GochanoLanguage.text('None', 'নেই'),
-                    ),
-                    _buildPresetChip(
-                      context,
-                      index: 1,
-                      label: GochanoLanguage.text(
-                        '10 min before',
-                        '১০ মিনিট আগে',
+                if (_dueAt != null)
+                  Wrap(
+                    spacing: GochanoSpacing.xs,
+                    runSpacing: GochanoSpacing.xs,
+                    children: [
+                      _buildPresetChip(
+                        context,
+                        index: 0,
+                        label: GochanoLanguage.text('None', 'নেই'),
                       ),
-                    ),
-                    _buildPresetChip(
-                      context,
-                      index: 2,
-                      label: GochanoLanguage.text(
-                        '30 min before',
-                        '৩০ মিনিট আগে',
+                      _buildPresetChip(
+                        context,
+                        index: 1,
+                        label: GochanoLanguage.text(
+                          '10 min before',
+                          '১০ মিনিট আগে',
+                        ),
                       ),
-                    ),
-                    _buildPresetChip(
-                      context,
-                      index: 3,
-                      label: GochanoLanguage.text(
-                        '1 hour before',
-                        '১ ঘণ্টা আগে',
+                      _buildPresetChip(
+                        context,
+                        index: 2,
+                        label: GochanoLanguage.text(
+                          '30 min before',
+                          '৩০ মিনিট আগে',
+                        ),
                       ),
+                      _buildPresetChip(
+                        context,
+                        index: 3,
+                        label: GochanoLanguage.text(
+                          '1 hour before',
+                          '১ ঘণ্টা আগে',
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    GochanoLanguage.text(
+                      'Select a due date above to set reminders.',
+                      'রিমাইন্ডার সেট করতে উপরে সময়সীমা নির্ধারণ করুন।',
                     ),
-                  ],
-                ),
+                    style: context.type.caption.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
               ],
               if (_error != null) ...[
                 const SizedBox(height: GochanoSpacing.xs),
@@ -449,6 +599,7 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
               ],
               const SizedBox(height: GochanoSpacing.md),
               PrimaryButton(
+                key: const ValueKey('task_save_button'),
                 label: widget.type == 'assignment'
                     ? GochanoLanguage.text(
                         'Save assignment',
@@ -486,6 +637,17 @@ class _TaskFormState extends State<_TaskForm> with WidgetsBindingObserver {
 }
 
 String _formatDueDate(DateTime when) {
+  if (GochanoLanguage.isBangla) {
+    final day = GochanoLanguage.toBanglaDigits(when.day);
+    final month = shortMonthLabel(when.month);
+    final year = GochanoLanguage.toBanglaDigits(when.year);
+    final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
+    final bnHour = GochanoLanguage.toBanglaDigits(hour);
+    final minute = when.minute.toString().padLeft(2, '0');
+    final bnMinute = GochanoLanguage.toBanglaDigits(minute);
+    final suffix = when.hour < 12 ? 'পূর্বাহ্ন' : 'অপরাহ্ন';
+    return '$day $month $year · $bnHour:$bnMinute $suffix';
+  }
   const months = [
     'Jan',
     'Feb',

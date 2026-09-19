@@ -21,18 +21,18 @@ import 'package:gochano/services/connectivity_service.dart';
 import 'package:gochano/widgets/offline_banner.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
-      theme: GochanoTheme.light(),
-      home: Scaffold(body: child),
-    );
+  theme: GochanoTheme.light(),
+  home: Scaffold(body: child),
+);
 
 void main() {
   setUp(() {
-      // Reset to online before every test so prior tests cannot leak
-      // state into the next one. `debugForceValue` is the test-only hook
-      // documented on ConnectivityService.
-      ConnectivityService.instance.debugForceValue(true);
-      GochanoLanguage.current.value = GochanoLocale.english;
-    });
+    // Reset to online before every test so prior tests cannot leak
+    // state into the next one. `debugForceValue` is the test-only hook
+    // documented on ConnectivityService.
+    ConnectivityService.instance.debugForceValue(true);
+    GochanoLanguage.current.value = GochanoLocale.english;
+  });
 
   testWidgets('renders zero-height placeholder when online', (tester) async {
     await tester.pumpWidget(_wrap(const OfflineBanner()));
@@ -44,8 +44,9 @@ void main() {
     expect(surface, findsNothing);
   });
 
-  testWidgets('renders orange surface with icon + text when offline',
-      (tester) async {
+  testWidgets('renders orange surface with icon + text when offline', (
+    tester,
+  ) async {
     ConnectivityService.instance.debugForceValue(false);
     await tester.pumpWidget(_wrap(const OfflineBanner()));
     await tester.pumpAndSettle();
@@ -57,8 +58,9 @@ void main() {
     expect(find.textContaining('You are offline'), findsOneWidget);
   });
 
-  testWidgets('renders Bangla copy when language is switched to বাংলা',
-      (tester) async {
+  testWidgets('renders Bangla copy when language is switched to বাংলা', (
+    tester,
+  ) async {
     ConnectivityService.instance.debugForceValue(false);
     GochanoLanguage.current.value = GochanoLocale.bangla;
     await tester.pumpWidget(_wrap(const OfflineBanner()));
@@ -70,27 +72,26 @@ void main() {
     GochanoLanguage.current.value = GochanoLocale.english;
   });
 
-  testWidgets('banner has a single Semantics container with offline label',
-      (tester) async {
+  testWidgets('banner has a single Semantics container with offline label', (
+    tester,
+  ) async {
     ConnectivityService.instance.debugForceValue(false);
     await tester.pumpWidget(_wrap(const OfflineBanner()));
     await tester.pumpAndSettle();
 
-    final semantics = tester.getSemantics(find.byKey(
-      const Key('offline-banner-surface'),
-    ));
+    final semantics = tester.getSemantics(
+      find.byKey(const Key('offline-banner-surface')),
+    );
     expect(semantics.label, contains('offline'));
   });
 
-  testWidgets('reacts to online -> offline -> online transitions',
-      (tester) async {
+  testWidgets('reacts to online -> offline -> online transitions', (
+    tester,
+  ) async {
     await tester.pumpWidget(_wrap(const OfflineBanner()));
 
     // Online: hidden placeholder only.
-    expect(
-      find.byKey(const ValueKey('offline-banner-hidden')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('offline-banner-hidden')), findsOneWidget);
 
     // Flip to offline; AnimatedSwitcher animates in.
     ConnectivityService.instance.debugForceValue(false);
@@ -103,9 +104,6 @@ void main() {
     // Flip back to online.
     ConnectivityService.instance.debugForceValue(true);
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('offline-banner-hidden')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('offline-banner-hidden')), findsOneWidget);
   });
 }

@@ -188,7 +188,7 @@ def delete_account(
     user_ref.delete()
 
     # Clean private metering/report records where practical.
-    for collection in ["ai_usage", "upload_usage"]:
+    for collection in ["ai_usage", "ai_usage_monthly", "ai_usage_active", "upload_usage"]:
         for snap in db.collection(collection).where("uid", "==", user.uid).stream():
             snap.reference.delete()
 

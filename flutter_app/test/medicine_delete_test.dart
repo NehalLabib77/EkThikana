@@ -98,7 +98,8 @@ void main() {
       expect(
         body,
         contains("where('ownerId', isEqualTo: uid)"),
-        reason: 'the dose sweep must filter by uid so no other user is '
+        reason:
+            'the dose sweep must filter by uid so no other user is '
             'affected by a stray delete',
       );
     });
@@ -109,7 +110,8 @@ void main() {
       expect(
         body,
         contains('.startAfter('),
-        reason: 'a user with more than one page of doses must still see '
+        reason:
+            'a user with more than one page of doses must still see '
             'every record removed',
       );
     });

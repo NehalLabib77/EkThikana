@@ -231,19 +231,31 @@ class ErrorState extends StatelessWidget {
             ),
             SizedBox(height: compact ? GochanoSpacing.sm : GochanoSpacing.md),
             Text(
-              title ?? GochanoLanguage.text('Something went wrong', 'কিছু একটা ভুল হয়েছে'),
+              title ??
+                  GochanoLanguage.text(
+                    'Something went wrong',
+                    'কিছু একটা ভুল হয়েছে',
+                  ),
               style: type.sectionHeading,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: GochanoSpacing.xs),
-            Text(message, style: type.bodySecondary, textAlign: TextAlign.center),
+            Text(
+              message,
+              style: type.bodySecondary,
+              textAlign: TextAlign.center,
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: GochanoSpacing.lg),
               OutlinedButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: GochanoSizes.iconSm),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: GochanoSizes.iconSm,
+                ),
                 label: Text(
-                  retryLabel ?? GochanoLanguage.text('Try again', 'আবার চেষ্টা করুন'),
+                  retryLabel ??
+                      GochanoLanguage.text('Try again', 'আবার চেষ্টা করুন'),
                 ),
               ),
             ],
@@ -305,7 +317,8 @@ String friendlyErrorMessage(Object? error, {String? fallback}) {
       lower.contains('403')) {
     // Distinguish the Firestore-permission error ("not verified" or
     // "not owner") from a generic 403 from the backend.
-    if (lower.contains('permission-denied') || lower.contains('permission denied')) {
+    if (lower.contains('permission-denied') ||
+        lower.contains('permission denied')) {
       return t(
         'Your session may have expired. Please sign in again.',
         'আপনার সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
@@ -319,10 +332,7 @@ String friendlyErrorMessage(Object? error, {String? fallback}) {
 
   // Missing resource.
   if (lower.contains('not found') || lower.contains('404')) {
-    return t(
-      'This item is no longer available.',
-      'এই আইটেমটি আর নেই।',
-    );
+    return t('This item is no longer available.', 'এই আইটেমটি আর নেই।');
   }
 
   // Firestore index / precondition (e.g. composite index missing for a query).
@@ -346,7 +356,8 @@ String friendlyErrorMessage(Object? error, {String? fallback}) {
   // Anything the backend deliberately wrote for a human: FastAPI `detail`
   // strings arrive here already phrased for the user. Accept them only when
   // they look like prose rather than like an exception dump.
-  final looksLikeInternals = lower.contains('exception') ||
+  final looksLikeInternals =
+      lower.contains('exception') ||
       lower.contains('traceback') ||
       lower.contains('stack trace') ||
       lower.contains('sqlstate') ||

@@ -30,6 +30,7 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -155,6 +156,21 @@ class _CommuteScreenState extends State<CommuteScreen> {
     final destination = _destination;
     if (origin == null || destination == null) return;
 
+    if (!ConnectivityService.instance.online.value) {
+      setState(() {
+        _searching = false;
+        _errorTitle = GochanoLanguage.text(
+          'No internet connection',
+          'ইন্টারনেট সংযোগ নেই',
+        );
+        _error = GochanoLanguage.text(
+          'Live route search requires internet. Saved trips are available offline.',
+          'লাইভ রুট খোঁজার জন্য ইন্টারনেট প্রয়োজন। সংরক্ষিত যাত্রাগুলি অফলাইনে উপলব্ধ।',
+        );
+      });
+      return;
+    }
+
     setState(() {
       _searching = true;
       _error = '';
@@ -249,10 +265,7 @@ class _CommuteScreenState extends State<CommuteScreen> {
       final resolvedDest = body['destination'] as Map<String, dynamic>?;
       final oId = resolvedOrigin?['placeId']?.toString();
       final dId = resolvedDest?['placeId']?.toString();
-      if (oId != null &&
-          oId.isNotEmpty &&
-          dId != null &&
-          dId.isNotEmpty) {
+      if (oId != null && oId.isNotEmpty && dId != null && dId.isNotEmpty) {
         _fetchDirectBuses(oId, dId);
       }
     } catch (_) {
@@ -289,7 +302,8 @@ class _CommuteScreenState extends State<CommuteScreen> {
       if (!mounted) return;
       // Distinguish between "no canonical IDs" (normal) and real errors.
       final msg = e.toString();
-      final bool isNetworkError = msg.contains('SocketException') ||
+      final bool isNetworkError =
+          msg.contains('SocketException') ||
           msg.contains('TimeoutException') ||
           msg.contains('Connection') ||
           msg.contains('503');
@@ -546,6 +560,69 @@ class _CommuteScreenState extends State<CommuteScreen> {
       body: ListView(
         padding: GochanoSpacing.scrollBody,
         children: [
+          ValueListenableBuilder<bool>(
+            valueListenable: ConnectivityService.instance.online,
+            builder: (context, isOnline, _) {
+              if (isOnline) return const SizedBox.shrink();
+              return Container(
+                key: const ValueKey('commute_offline_banner'),
+                margin: const EdgeInsets.only(bottom: GochanoSpacing.md),
+                padding: const EdgeInsets.all(GochanoSpacing.sm),
+                decoration: BoxDecoration(
+                  color: context.colors.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: context.colors.warning.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 18,
+                          color: context.colors.warning,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'No internet connection. Saved trips are available.',
+                              'ইন্টারনেট সংযোগ নেই। সংরক্ষিত যাত্রাগুলি উপলব্ধ।',
+                            ),
+                            style: context.type.bodySecondary.copyWith(
+                              color: context.colors.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        key: const ValueKey('commute_view_saved_trips_button'),
+                        icon: const Icon(
+                          Icons.bookmark_outline_rounded,
+                          size: 16,
+                        ),
+                        label: Text(
+                          GochanoLanguage.text(
+                            'View saved trips',
+                            'সংরক্ষিত যাত্রা দেখুন',
+                          ),
+                        ),
+                        onPressed: () => showPlanTripSheet(context),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           // 1. From / To Trip Planner
           _TripPlanner(
             origin: _origin,
@@ -669,12 +746,12 @@ class _CommuteScreenState extends State<CommuteScreen> {
                 selectedBusServiceId: _selectedBusServiceId,
                 selectedBusName: _selectedBusName,
                 onBusSelected: _onBusSelected,
-                onRetryDirectBuses: (_origin?.placeId != null &&
-                        _destination?.placeId != null)
+                onRetryDirectBuses:
+                    (_origin?.placeId != null && _destination?.placeId != null)
                     ? () => _fetchDirectBuses(
-                          _origin!.placeId!,
-                          _destination!.placeId!,
-                        )
+                        _origin!.placeId!,
+                        _destination!.placeId!,
+                      )
                     : null,
                 originPlaceId: _origin?.placeId,
                 destinationPlaceId: _destination?.placeId,
@@ -1062,10 +1139,7 @@ class _Results extends StatelessWidget {
                 size: GochanoSizes.iconSm,
               ),
               label: Text(
-                GochanoLanguage.text(
-                  'Report bus fare',
-                  'বাসের ভাড়া জানান',
-                ),
+                GochanoLanguage.text('Report bus fare', 'বাসের ভাড়া জানান'),
               ),
             ),
           ),
@@ -1226,8 +1300,9 @@ class _PossibleBusesSection extends StatelessWidget {
                 if (onRetry != null)
                   TextButton(
                     onPressed: onRetry,
-                    child:
-                        Text(GochanoLanguage.text('Retry', 'পুনরায় চেষ্টা')),
+                    child: Text(
+                      GochanoLanguage.text('Retry', 'পুনরায় চেষ্টা'),
+                    ),
                   ),
               ],
             ),
@@ -1352,11 +1427,11 @@ class _DirectBusRow extends StatelessWidget {
                         Text(
                           bus.crowdFareLow != null && bus.crowdFareHigh != null
                               ? (bus.crowdFareLow == bus.crowdFareHigh
-                                  ? formatTaka(bus.crowdFareLow!)
-                                  : '${formatTaka(bus.crowdFareLow!)}–${formatTaka(bus.crowdFareHigh!)}')
+                                    ? formatTaka(bus.crowdFareLow!)
+                                    : '${formatTaka(bus.crowdFareLow!)}–${formatTaka(bus.crowdFareHigh!)}')
                               : (bus.crowdFareRecommended != null
-                                  ? formatTaka(bus.crowdFareRecommended!)
-                                  : ''),
+                                    ? formatTaka(bus.crowdFareRecommended!)
+                                    : ''),
                           style: type.caption.copyWith(
                             fontWeight: FontWeight.w600,
                             color: colors.commute,
@@ -1382,11 +1457,7 @@ class _DirectBusRow extends StatelessWidget {
               ),
             ),
             if (isSelected)
-              Icon(
-                Icons.check_circle_rounded,
-                size: 20,
-                color: colors.commute,
-              ),
+              Icon(Icons.check_circle_rounded, size: 20, color: colors.commute),
           ],
         ),
       ),

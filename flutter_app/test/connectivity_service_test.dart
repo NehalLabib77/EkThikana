@@ -65,7 +65,9 @@ void main() {
 
     test('ethernet alone is online', () {
       expect(
-        ConnectivityService.debugHasInternet(const [ConnectivityResult.ethernet]),
+        ConnectivityService.debugHasInternet(const [
+          ConnectivityResult.ethernet,
+        ]),
         isTrue,
       );
     });
@@ -81,9 +83,10 @@ void main() {
       // Some OEMs report both the active transport and `none` at the
       // same time. The "any" policy correctly classifies that as online.
       expect(
-        ConnectivityService.debugHasInternet(
-          const [ConnectivityResult.none, ConnectivityResult.wifi],
-        ),
+        ConnectivityService.debugHasInternet(const [
+          ConnectivityResult.none,
+          ConnectivityResult.wifi,
+        ]),
         isTrue,
       );
     });

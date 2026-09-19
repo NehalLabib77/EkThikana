@@ -229,8 +229,7 @@ class _FareReportFormState extends State<_FareReportForm> {
             tripMinutes: widget.tripMinutes,
             routeDistanceKm: widget.distanceKm,
             busServiceId: _busNotListed ? null : _selectedBusId,
-            busNameUserEntered:
-                _busNotListed ? _unlistedBus.text.trim() : null,
+            busNameUserEntered: _busNotListed ? _unlistedBus.text.trim() : null,
             originPlaceId: widget.originPlaceId,
             destinationPlaceId: widget.destinationPlaceId,
           );
@@ -250,7 +249,7 @@ class _FareReportFormState extends State<_FareReportForm> {
               )
             : GochanoLanguage.text(
                 'Fare recorded in your expenses. It could not be shared with '
-                'other riders right now.',
+                    'other riders right now.',
                 'ভাড়া আপনার খরচে যোগ হয়েছে। এখন অন্য যাত্রীদের সাথে শেয়ার করা যায়নি।',
               ),
         isError: !sharedOk,
@@ -294,8 +293,9 @@ class _FareReportFormState extends State<_FareReportForm> {
             TextField(
               controller: _fare,
               autofocus: true,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],
@@ -303,8 +303,9 @@ class _FareReportFormState extends State<_FareReportForm> {
               decoration: InputDecoration(
                 labelText: GochanoLanguage.text('Actual fare', 'আসল ভাড়া'),
                 prefixText: '৳ ',
-                prefixStyle:
-                    type.statistic.copyWith(color: colors.textSecondary),
+                prefixStyle: type.statistic.copyWith(
+                  color: colors.textSecondary,
+                ),
                 helperText: GochanoLanguage.text(
                   'This is added to your monthly spending.',
                   'এটি আপনার মাসিক খরচে যোগ হবে।',
@@ -372,8 +373,9 @@ class _FareReportFormState extends State<_FareReportForm> {
                         Expanded(
                           child: Text(
                             _selectedBusName!,
-                            style: type.body
-                                .copyWith(fontWeight: FontWeight.w600),
+                            style: type.body.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         TextButton(
@@ -406,8 +408,7 @@ class _FareReportFormState extends State<_FareReportForm> {
                       children: [
                         for (final bus in widget.busCandidates)
                           ActionChip(
-                            avatar:
-                                const Icon(Icons.directions_bus, size: 16),
+                            avatar: const Icon(Icons.directions_bus, size: 16),
                             label: Text(bus.operatorName),
                             onPressed: () {
                               setState(() {
@@ -434,8 +435,9 @@ class _FareReportFormState extends State<_FareReportForm> {
                               height: 20,
                               child: Padding(
                                 padding: EdgeInsets.all(12),
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : null,
@@ -456,8 +458,7 @@ class _FareReportFormState extends State<_FareReportForm> {
                         itemCount: _searchResults.length,
                         itemBuilder: (context, idx) {
                           final item = _searchResults[idx];
-                          final name =
-                              item['operatorName']?.toString() ?? '';
+                          final name = item['operatorName']?.toString() ?? '';
                           final sId = item['serviceId']?.toString() ?? '';
                           return ListTile(
                             dense: true,
@@ -516,7 +517,7 @@ class _FareReportFormState extends State<_FareReportForm> {
               subtitle: Text(
                 GochanoLanguage.text(
                   'Share this fare anonymously. It is reviewed before it is '
-                  'used in anyone else’s estimate.',
+                      'used in anyone else’s estimate.',
                   'ভাড়াটি নাম ছাড়া শেয়ার করুন। অন্য কারও হিসাবে ব্যবহারের আগে এটি যাচাই করা হয়।',
                 ),
                 style: type.caption,

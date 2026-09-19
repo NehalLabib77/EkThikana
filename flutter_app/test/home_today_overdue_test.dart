@@ -104,25 +104,37 @@ void main() {
       // now = 17 Sep 2026 00:54, task dueAt = 17 Sep 2026 00:30
       final now = DateTime(2026, 9, 17, 0, 54);
       final dueAt = DateTime(2026, 9, 17, 0, 30);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
 
     test('task due exactly now is missed (dueAt == now)', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       final dueAt = DateTime(2026, 9, 17, 12, 0);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
 
     test('task due 1 second ago is missed', () {
       final now = DateTime(2026, 9, 17, 12, 0, 1);
       final dueAt = DateTime(2026, 9, 17, 12, 0);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
 
     test('task due at midnight is missed after midnight', () {
       final now = DateTime(2026, 9, 17, 0, 0, 1);
       final dueAt = DateTime(2026, 9, 17, 0, 0);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
   });
 
@@ -157,7 +169,10 @@ void main() {
       final now = DateTime(2026, 9, 17, 12, 0);
       final tasks = [
         (done: false, dueAt: DateTime(2026, 9, 17, 10, 0)), // overdue
-        (done: false, dueAt: DateTime(2026, 9, 17, 14, 0)), // open (future today)
+        (
+          done: false,
+          dueAt: DateTime(2026, 9, 17, 14, 0),
+        ), // open (future today)
       ];
       final (open, overdue) = homeTodayFilter(tasks: tasks, now: now);
       expect(open, 1);
@@ -169,18 +184,27 @@ void main() {
     test('task due tomorrow is active', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       final dueAt = DateTime(2026, 9, 18, 9, 0);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.active);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.active,
+      );
     });
 
     test('task due in 1 hour is active', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       final dueAt = DateTime(2026, 9, 17, 13, 0);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.active);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.active,
+      );
     });
 
     test('undated task is always active', () {
       final now = DateTime(2026, 9, 17, 12, 0);
-      expect(classifyTask(done: false, dueAt: null, now: now), TaskStatus.active);
+      expect(
+        classifyTask(done: false, dueAt: null, now: now),
+        TaskStatus.active,
+      );
     });
   });
 
@@ -188,18 +212,27 @@ void main() {
     test('done task with past dueAt is completed, not missed', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       final dueAt = DateTime(2026, 9, 17, 10, 0);
-      expect(classifyTask(done: true, dueAt: dueAt, now: now), TaskStatus.completed);
+      expect(
+        classifyTask(done: true, dueAt: dueAt, now: now),
+        TaskStatus.completed,
+      );
     });
 
     test('done task with future dueAt is completed', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       final dueAt = DateTime(2026, 9, 18, 9, 0);
-      expect(classifyTask(done: true, dueAt: dueAt, now: now), TaskStatus.completed);
+      expect(
+        classifyTask(done: true, dueAt: dueAt, now: now),
+        TaskStatus.completed,
+      );
     });
 
     test('done task with null dueAt is completed', () {
       final now = DateTime(2026, 9, 17, 12, 0);
-      expect(classifyTask(done: true, dueAt: null, now: now), TaskStatus.completed);
+      expect(
+        classifyTask(done: true, dueAt: null, now: now),
+        TaskStatus.completed,
+      );
     });
   });
 
@@ -209,19 +242,28 @@ void main() {
       final dueAt = DateTime(2026, 9, 17, 0, 30);
       // Assignment is just a task with type='assignment'; the missed rule
       // is type-agnostic.
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
 
     test('incomplete assignment with future dueAt is active', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       final dueAt = DateTime(2026, 9, 17, 14, 0);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.active);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.active,
+      );
     });
 
     test('completed assignment with past dueAt is completed', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       final dueAt = DateTime(2026, 9, 17, 10, 0);
-      expect(classifyTask(done: true, dueAt: dueAt, now: now), TaskStatus.completed);
+      expect(
+        classifyTask(done: true, dueAt: dueAt, now: now),
+        TaskStatus.completed,
+      );
     });
   });
 
@@ -229,47 +271,62 @@ void main() {
     test('task due at 00:00:00 is missed at 00:00:01', () {
       final now = DateTime(2026, 9, 17, 0, 0, 1);
       final dueAt = DateTime(2026, 9, 17, 0, 0, 0);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
 
     test('task due at 23:59:59 is active at 23:59:58', () {
       final now = DateTime(2026, 9, 16, 23, 59, 58);
       final dueAt = DateTime(2026, 9, 16, 23, 59, 59);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.active);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.active,
+      );
     });
 
     test('task due at 23:59:59 is missed at 00:00:00 next day', () {
       final now = DateTime(2026, 9, 17, 0, 0, 0);
       final dueAt = DateTime(2026, 9, 16, 23, 59, 59);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
 
-    test('Home endOfToday boundary — task due 23:59:59 is open, not overdue', () {
-      final now = DateTime(2026, 9, 17, 12, 0);
-      final tasks = [
-        (done: false, dueAt: DateTime(2026, 9, 17, 23, 59, 59)),
-      ];
-      final (open, overdue) = homeTodayFilter(tasks: tasks, now: now);
-      expect(open, 1);
-      expect(overdue, 0);
-    });
+    test(
+      'Home endOfToday boundary — task due 23:59:59 is open, not overdue',
+      () {
+        final now = DateTime(2026, 9, 17, 12, 0);
+        final tasks = [(done: false, dueAt: DateTime(2026, 9, 17, 23, 59, 59))];
+        final (open, overdue) = homeTodayFilter(tasks: tasks, now: now);
+        expect(open, 1);
+        expect(overdue, 0);
+      },
+    );
 
-    test('Home endOfToday boundary — task due 00:00:00 next day is NOT open', () {
-      final now = DateTime(2026, 9, 17, 12, 0);
-      final tasks = [
-        (done: false, dueAt: DateTime(2026, 9, 18, 0, 0, 0)),
-      ];
-      final (open, overdue) = homeTodayFilter(tasks: tasks, now: now);
-      expect(open, 0);
-      expect(overdue, 0);
-    });
+    test(
+      'Home endOfToday boundary — task due 00:00:00 next day is NOT open',
+      () {
+        final now = DateTime(2026, 9, 17, 12, 0);
+        final tasks = [(done: false, dueAt: DateTime(2026, 9, 18, 0, 0, 0))];
+        final (open, overdue) = homeTodayFilter(tasks: tasks, now: now);
+        expect(open, 0);
+        expect(overdue, 0);
+      },
+    );
   });
 
   group('History inclusion', () {
     test('completed task appears in History', () {
       final now = DateTime(2026, 9, 17, 12, 0);
       expect(
-        appearsInHistory(done: true, dueAt: DateTime(2026, 9, 17, 9, 0), now: now),
+        appearsInHistory(
+          done: true,
+          dueAt: DateTime(2026, 9, 17, 9, 0),
+          now: now,
+        ),
         isTrue,
       );
     });
@@ -296,7 +353,10 @@ void main() {
     test('task due on selected day appears in Plan', () {
       final selectedDay = DateTime(2026, 9, 17);
       final dueAt = DateTime(2026, 9, 17, 14, 0);
-      expect(appearsOnDay(done: false, dueAt: dueAt, selectedDay: selectedDay), isTrue);
+      expect(
+        appearsOnDay(done: false, dueAt: dueAt, selectedDay: selectedDay),
+        isTrue,
+      );
     });
 
     test('overdue task due on selected day still appears in Plan', () {
@@ -305,20 +365,32 @@ void main() {
       final now = DateTime(2026, 9, 17, 12, 0);
       final selectedDay = DateTime(2026, 9, 17);
       final dueAt = DateTime(2026, 9, 17, 9, 0); // 3 hours ago
-      expect(appearsOnDay(done: false, dueAt: dueAt, selectedDay: selectedDay), isTrue);
-      expect(classifyTask(done: false, dueAt: dueAt, now: now), TaskStatus.missed);
+      expect(
+        appearsOnDay(done: false, dueAt: dueAt, selectedDay: selectedDay),
+        isTrue,
+      );
+      expect(
+        classifyTask(done: false, dueAt: dueAt, now: now),
+        TaskStatus.missed,
+      );
     });
 
     test('task due on different day does NOT appear in Plan', () {
       final selectedDay = DateTime(2026, 9, 17);
       final dueAt = DateTime(2026, 9, 18, 9, 0);
-      expect(appearsOnDay(done: false, dueAt: dueAt, selectedDay: selectedDay), isFalse);
+      expect(
+        appearsOnDay(done: false, dueAt: dueAt, selectedDay: selectedDay),
+        isFalse,
+      );
     });
 
     test('completed task does NOT appear in Plan', () {
       final selectedDay = DateTime(2026, 9, 17);
       final dueAt = DateTime(2026, 9, 17, 14, 0);
-      expect(appearsOnDay(done: true, dueAt: dueAt, selectedDay: selectedDay), isFalse);
+      expect(
+        appearsOnDay(done: true, dueAt: dueAt, selectedDay: selectedDay),
+        isFalse,
+      );
     });
   });
 

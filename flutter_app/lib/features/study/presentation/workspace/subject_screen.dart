@@ -44,9 +44,9 @@ class SubjectScreen extends StatelessWidget {
             icon: Icons.auto_awesome_outlined,
             label: GochanoLanguage.text('Ask AI', 'এআই কে জিজ্ঞাসা'),
             accent: colors.ai,
-            onPressed: () => Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const AiAssistantScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
           ),
         ],
       ),

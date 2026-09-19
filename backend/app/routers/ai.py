@@ -1,4 +1,5 @@
 import base64
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -6,7 +7,12 @@ from pydantic import BaseModel, Field
 from app.core.auth import CurrentUser, require_student
 from app.core.config import get_settings
 from app.schemas import AiNoteRequest, PdfQuestionRequest, CommuteGuideRequest
-from app.services.ai_service import generate, generate_multimodal
+from app.services.ai_service import (
+    AiFeature,
+    generate,
+    generate_multimodal,
+    get_ai_usage,
+)
 from app.services.pdf_service import extract_pdf_text
 from app.services.ocr_service import extract_text as ocr_extract_text
 from app.services.permission_service import get_material_for_user
@@ -14,6 +20,14 @@ from app.services import storage_provider
 from app.services.storage_service import download_bytes
 
 router = APIRouter()
+
+
+@router.get("/usage")
+def get_usage(
+    user: CurrentUser = Depends(require_student),
+):
+    """Return the student's daily AI usage and remaining quota per feature."""
+    return get_ai_usage(user.uid)
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +57,22 @@ def _is_image(material: dict) -> bool:
     return any(name.endswith(ext) for ext in _ALLOWED_IMAGE_EXT)
 
 
+async def _call_generate(uid: str, prompt: str, feature: str = AiFeature.NOTE) -> str:
+    try:
+        return await generate(uid, prompt, feature=feature)
+    except TypeError:
+        return await generate(uid, prompt)
+
+
+async def _call_generate_multimodal(
+    uid: str, parts: list[dict[str, Any]], feature: str = AiFeature.IMAGE_QUESTION
+) -> str:
+    try:
+        return await generate_multimodal(uid, parts, feature=feature)
+    except TypeError:
+        return await generate_multimodal(uid, parts)
+
+
 @router.post("/note")
 async def process_note(
     body: AiNoteRequest,
@@ -55,7 +85,7 @@ async def process_note(
         "key_topics": "Extract the key study topics from the following note as a concise structured list. Do not create questions or MCQs.",
     }
     prompt = f"{instructions[body.action]}\n\nNOTE:\n{body.text}"
-    result = await generate(user.uid, prompt)
+    result = await _call_generate(user.uid, prompt, feature=AiFeature.NOTE)
     return {"result": result}
 
 
@@ -150,7 +180,7 @@ async def commute_guide(
     )
 
     try:
-        result = await generate(user.uid, prompt)
+        result = await _call_generate(user.uid, prompt, feature=AiFeature.COMMUTE_GUIDE)
         return {"explanation": result}
     except Exception:
         # AI failure must not break the feature — return empty so the
@@ -195,7 +225,7 @@ async def pdf_question(
         f"QUESTION:\n{body.question}\n\n"
         f"PDF TEXT:\n{text}"
     )
-    answer = await generate(user.uid, prompt)
+    answer = await _call_generate(user.uid, prompt, feature=AiFeature.PDF_QUESTION)
     return {"answer": answer}
 
 
@@ -252,7 +282,9 @@ async def image_question(
             )
         },
     ]
-    answer = await generate_multimodal(user.uid, parts)
+    answer = await _call_generate_multimodal(
+        user.uid, parts, feature=AiFeature.IMAGE_QUESTION
+    )
     return {"answer": answer}
 
 

@@ -34,26 +34,33 @@ void main() {
       findings.addAll(_extractCallSites(text, file.path));
     }
 
-    expect(findings, isNotEmpty,
-        reason: 'Expected to find GochanoLanguage.text() call-sites under lib/.');
+    expect(
+      findings,
+      isNotEmpty,
+      reason: 'Expected to find GochanoLanguage.text() call-sites under lib/.',
+    );
 
     final empty = findings.where((f) => f.en.isEmpty || f.bn.isEmpty).toList();
     final swapped = findings
         .where((f) => _nonSharedBengali.hasMatch(f.en))
         .toList();
     final untranslated = findings
-        .where((f) =>
-            f.bn.isNotEmpty &&
-            !_bengali.hasMatch(f.bn) &&
-            f.bn.runes.any((r) => _isAsciiAlpha(r)))
+        .where(
+          (f) =>
+              f.bn.isNotEmpty &&
+              !_bengali.hasMatch(f.bn) &&
+              f.bn.runes.any((r) => _isAsciiAlpha(r)),
+        )
         .toList();
     final identical = findings
         .where((f) => f.en.isNotEmpty && f.en == f.bn)
         .toList();
 
     final summary = StringBuffer()
-      ..writeln('Scanned ${findings.length} literal GochanoLanguage.text() '
-          'call-sites under lib/.')
+      ..writeln(
+        'Scanned ${findings.length} literal GochanoLanguage.text() '
+        'call-sites under lib/.',
+      )
       ..writeln('  empty:           ${empty.length}')
       ..writeln('  swapped (BN in EN): ${swapped.length}')
       ..writeln('  untranslated (BN ascii-only): ${untranslated.length}')
@@ -62,30 +69,40 @@ void main() {
     if (empty.isNotEmpty) {
       summary.writeln('\nEmpty side(s):');
       for (final f in empty.take(20)) {
-        summary.writeln('  ${f.path}:${f.lineNo}  '
-            'en=${_preview(f.en)}  bn=${_preview(f.bn)}');
+        summary.writeln(
+          '  ${f.path}:${f.lineNo}  '
+          'en=${_preview(f.en)}  bn=${_preview(f.bn)}',
+        );
       }
     }
     if (swapped.isNotEmpty) {
-      summary.writeln('\nEN side contains Bengali script (U+0980..09FF, '
-          'excluding ৳):');
+      summary.writeln(
+        '\nEN side contains Bengali script (U+0980..09FF, '
+        'excluding ৳):',
+      );
       for (final f in swapped.take(20)) {
-        summary.writeln('  ${f.path}:${f.lineNo}  '
-            'en=${_preview(f.en)}  bn=${_preview(f.bn)}');
+        summary.writeln(
+          '  ${f.path}:${f.lineNo}  '
+          'en=${_preview(f.en)}  bn=${_preview(f.bn)}',
+        );
       }
     }
     if (untranslated.isNotEmpty) {
       summary.writeln('\nBN side is ASCII-only (possible untranslated):');
       for (final f in untranslated.take(20)) {
-        summary.writeln('  ${f.path}:${f.lineNo}  '
-            'en=${_preview(f.en)}  bn=${_preview(f.bn)}');
+        summary.writeln(
+          '  ${f.path}:${f.lineNo}  '
+          'en=${_preview(f.en)}  bn=${_preview(f.bn)}',
+        );
       }
     }
     if (identical.isNotEmpty) {
       summary.writeln('\nEN == BN (forgotten translation):');
       for (final f in identical.take(20)) {
-        summary.writeln('  ${f.path}:${f.lineNo}  '
-            'en=${_preview(f.en)}');
+        summary.writeln(
+          '  ${f.path}:${f.lineNo}  '
+          'en=${_preview(f.en)}',
+        );
       }
     }
 
@@ -108,12 +125,9 @@ class _Finding {
 }
 
 final RegExp _bengali = RegExp(r'[\u0980-\u09FF]');
-final RegExp _nonSharedBengali =
-    RegExp(r'[\u0980-\u09F2\u09F4-\u09FF]');
+final RegExp _nonSharedBengali = RegExp(r'[\u0980-\u09F2\u09F4-\u09FF]');
 final RegExp _interp = RegExp(r'\$\{[^}]*\}');
-final RegExp _callSite = RegExp(
-  r'GochanoLanguage\.text\(',
-);
+final RegExp _callSite = RegExp(r'GochanoLanguage\.text\(');
 
 List<_Finding> _extractCallSites(String text, String path) {
   final out = <_Finding>[];
@@ -219,7 +233,8 @@ List<_Finding> _extractCallSites(String text, String path) {
 
 (String, bool) _stripQuotes(String arg) {
   final s = arg.trim();
-  if (s.length >= 2 && s[0] == s[s.length - 1] &&
+  if (s.length >= 2 &&
+      s[0] == s[s.length - 1] &&
       (s[0] == "'" || s[0] == '"')) {
     return (s.substring(1, s.length - 1), true);
   }

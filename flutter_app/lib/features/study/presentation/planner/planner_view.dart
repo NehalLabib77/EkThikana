@@ -101,14 +101,18 @@ class _PlannerViewState extends State<PlannerView> {
             EmptyState(
               compact: true,
               illustration: GochanoArt.featurePlanner,
-              title: GochanoLanguage.text('Nothing to plan', 'পরিকল্পনার কিছু নেই'),
+              title: GochanoLanguage.text(
+                'Nothing to plan',
+                'পরিকল্পনার কিছু নেই',
+              ),
               message: GochanoLanguage.text(
                 'Add a task with a due date and it will appear here in order.',
                 'সময়সীমাসহ একটি কাজ যোগ করুন, এটি ক্রম অনুসারে এখানে দেখা যাবে।',
               ),
               actionLabel: GochanoLanguage.text('Add task', 'কাজ যোগ করুন'),
               onAction: () async {
-                if (await showAddTaskSheet(context)) _loadPlan();
+                final res = await showAddTaskSheet(context);
+                if (res?.saved == true) _loadPlan();
               },
             )
           else
@@ -189,9 +193,8 @@ class _PlanRow extends StatelessWidget {
               icon: Icons.schedule_rounded,
             ),
           ] else
-            GochanoBadge(
-              label: GochanoLanguage.text('No date', 'তারিখ নেই'),
-            ),
+            GochanoBadge(label: GochanoLanguage.text('No date', 'তারিখ নেই')),
+          GochanoBadge(label: GochanoLanguage.text('No date', 'তারিখ নেই')),
         ],
       ),
     );
@@ -223,13 +226,15 @@ class _Agenda extends StatelessWidget {
           );
         }
 
-        final byDay = <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+        final byDay =
+            <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
         for (final doc in [...?snapshot.data?.docs]) {
           final data = doc.data();
           if (data['done'] == true) continue;
           final due = (data['dueAt'] as Timestamp?)?.toDate();
           if (due == null) continue;
-          final key = '${due.year}-${due.month.toString().padLeft(2, '0')}-'
+          final key =
+              '${due.year}-${due.month.toString().padLeft(2, '0')}-'
               '${due.day.toString().padLeft(2, '0')}';
           byDay.putIfAbsent(key, () => []).add(doc);
         }
@@ -238,7 +243,10 @@ class _Agenda extends StatelessWidget {
           return EmptyState(
             compact: true,
             illustration: GochanoArt.featureCalendar,
-            title: GochanoLanguage.text('Nothing scheduled', 'কিছু নির্ধারিত নেই'),
+            title: GochanoLanguage.text(
+              'Nothing scheduled',
+              'কিছু নির্ধারিত নেই',
+            ),
             message: GochanoLanguage.text(
               'Tasks with a due date appear on this agenda.',
               'সময়সীমাসহ কাজ এই সময়সূচিতে দেখা যাবে।',
@@ -267,12 +275,12 @@ class _Agenda extends StatelessWidget {
               ),
               CardGroup(
                 children: [
-                  for (final doc in byDay[day]!
-                    ..sort((a, b) {
-                      final ad = (a.data()['dueAt'] as Timestamp).toDate();
-                      final bd = (b.data()['dueAt'] as Timestamp).toDate();
-                      return ad.compareTo(bd);
-                    }))
+                  for (final doc
+                      in byDay[day]!..sort((a, b) {
+                        final ad = (a.data()['dueAt'] as Timestamp).toDate();
+                        final bd = (b.data()['dueAt'] as Timestamp).toDate();
+                        return ad.compareTo(bd);
+                      }))
                     GochanoListRow(
                       illustration: GochanoArt.featureTasks,
                       accent: context.colors.brand,
@@ -314,15 +322,27 @@ String _dayHeading(String dayKey) {
   if (parsed == null) return dayKey;
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final diff = DateTime(parsed.year, parsed.month, parsed.day)
-      .difference(today)
-      .inDays;
+  final diff = DateTime(
+    parsed.year,
+    parsed.month,
+    parsed.day,
+  ).difference(today).inDays;
   if (diff == 0) return GochanoLanguage.text('Today', 'আজ');
   if (diff == 1) return GochanoLanguage.text('Tomorrow', 'আগামীকাল');
 
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
 }

@@ -8,7 +8,9 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../core/app_config.dart';
 import '../core/localization/gochano_language.dart';
+import '../models/local_reminder.dart';
 import 'firestore_service.dart';
+import 'local_reminder_store.dart';
 
 class MedicineNotificationAction {
   const MedicineNotificationAction({
@@ -28,6 +30,32 @@ class MedicineNotificationAction {
   final double quantityPerDose;
   final double unitPrice;
   final String unit;
+}
+
+class TaskNotificationAction {
+  const TaskNotificationAction({
+    required this.action,
+    required this.taskId,
+    required this.title,
+  });
+
+  final String action;
+  final String taskId;
+  final String title;
+}
+
+class GeneralNotificationTap {
+  const GeneralNotificationTap({
+    required this.kind,
+    required this.id,
+    this.title = '',
+    this.payload = const {},
+  });
+
+  final String kind;
+  final String id;
+  final String title;
+  final Map<String, dynamic> payload;
 }
 
 class NotificationService {
@@ -63,7 +91,12 @@ class NotificationService {
   static final plugin = FlutterLocalNotificationsPlugin();
   static final ValueNotifier<MedicineNotificationAction?> medicineAction =
       ValueNotifier<MedicineNotificationAction?>(null);
+  static final ValueNotifier<TaskNotificationAction?> taskAction =
+      ValueNotifier<TaskNotificationAction?>(null);
+  static final ValueNotifier<GeneralNotificationTap?> notificationTap =
+      ValueNotifier<GeneralNotificationTap?>(null);
   static bool _ready = false;
+  static Future<void>? _initFuture;
 
   @pragma('vm:entry-point')
   static void _backgroundResponse(NotificationResponse response) {
@@ -230,9 +263,12 @@ class NotificationService {
     }
   }
 
-  static Future<void> init() async {
-    if (_ready) return;
+  static Future<void> init() {
+    if (_ready) return Future.value();
+    return _initFuture ??= _doInit();
+  }
 
+  static Future<void> _doInit() async {
     try {
       tzdata.initializeTimeZones();
       tz.setLocalLocation(tz.getLocation(AppConfig.bangladeshTimeZone));
@@ -282,13 +318,16 @@ class NotificationService {
           ),
         );
 
-        // Request POST_NOTIFICATIONS permission (Android 13+).
-        await android.requestNotificationsPermission();
+        // Asynchronously request POST_NOTIFICATIONS (Android 13+) without blocking init.
+        try {
+          android.requestNotificationsPermission().catchError((_) => null);
+        } catch (_) {}
 
         // Check exact-alarm capability on Android 12+.
         try {
-          final canExact =
-              await android.canScheduleExactNotifications() ?? false;
+          final canExact = await android
+              .canScheduleExactNotifications()
+              .timeout(const Duration(seconds: 2), onTimeout: () => false);
           if (kDebugMode) {
             debugPrint('[Reminder] exactAlarmAllowed=$canExact');
           }
@@ -304,6 +343,15 @@ class NotificationService {
       }
 
       _ready = true;
+      try {
+        await LocalReminderStore.instance.init();
+        await reconcileLocalReminders();
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[Reminder] Local reminder init/reconcile error: $e');
+          debugPrint('[Reminder] Local reminder init error: $e');
+        }
+      }
 
       // Audit pending alarms surviving from previous sessions.
       if (kDebugMode) {
@@ -333,25 +381,105 @@ class NotificationService {
   static void _onResponse(NotificationResponse response) {
     if (kDebugMode) {
       debugPrint('[Reminder] receiver:fired id=${response.id}');
+      debugPrint(
+        '[Reminder] receiver:fired id=${response.id} actionId=${response.actionId}',
+      );
     }
     final payload = response.payload;
-    if (payload == null || !payload.startsWith('{')) return;
+    final actionId = response.actionId?.trim();
+    if (payload == null || payload.isEmpty) return;
+
+    if (payload.startsWith('{')) {
+      try {
+        final data = jsonDecode(payload) as Map<String, dynamic>;
+        final kind = data['kind']?.toString() ?? '';
+
+        if (kind == 'medicine') {
+          if (actionId != null && actionId.isNotEmpty) {
+            medicineAction.value = MedicineNotificationAction(
+              action: actionId,
+              medicineId: data['medicineId']?.toString() ?? '',
+              medicineName: data['medicineName']?.toString() ?? '',
+              hhmm: data['hhmm']?.toString() ?? '',
+              quantityPerDose:
+                  (data['quantityPerDose'] as num?)?.toDouble() ?? 1,
+              unitPrice: (data['unitPrice'] as num?)?.toDouble() ?? 0,
+              unit: data['unit']?.toString() ?? 'tablet',
+            );
+          } else {
+            notificationTap.value = GeneralNotificationTap(
+              kind: 'medicine',
+              id: data['medicineId']?.toString() ?? '',
+              title: data['medicineName']?.toString() ?? '',
+              payload: data,
+            );
+          }
+          return;
+        }
+
+        if (kind == 'task' || kind == 'assignment') {
+          final taskId = data['id']?.toString() ?? '';
+          final title = data['title']?.toString() ?? '';
+          if (actionId == 'done') {
+            taskAction.value = TaskNotificationAction(
+              action: 'done',
+              taskId: taskId,
+              title: title,
+            );
+          } else {
+            notificationTap.value = GeneralNotificationTap(
+              kind: kind,
+              id: taskId,
+              title: title,
+              payload: data,
+            );
+          }
+          return;
+        }
+
+        if (kind == 'expense_due' ||
+            kind == 'commute_trip' ||
+            kind == 'custom') {
+          notificationTap.value = GeneralNotificationTap(
+            kind: kind,
+            id: data['id']?.toString() ?? '',
+            title: data['title']?.toString() ?? '',
+            payload: data,
+          );
+          return;
+        }
+      } catch (_) {
+        // Fall through to legacy parsing
+      }
+    }
+
     try {
-      final data = jsonDecode(payload) as Map<String, dynamic>;
-      if (data['kind'] != 'medicine') return;
-      final actionId = response.actionId?.trim();
-      if (actionId == null || actionId.isEmpty) return;
-      medicineAction.value = MedicineNotificationAction(
-        action: actionId,
-        medicineId: data['medicineId']?.toString() ?? '',
-        medicineName: data['medicineName']?.toString() ?? '',
-        hhmm: data['hhmm']?.toString() ?? '',
-        quantityPerDose: (data['quantityPerDose'] as num?)?.toDouble() ?? 1,
-        unitPrice: (data['unitPrice'] as num?)?.toDouble() ?? 0,
-        unit: data['unit']?.toString() ?? 'tablet',
-      );
+      // Legacy commute trip string payload
+      if (payload.startsWith('commute_trip:')) {
+        final tripId = payload.substring('commute_trip:'.length);
+        notificationTap.value = GeneralNotificationTap(
+          kind: 'commute_trip',
+          id: tripId,
+        );
+        return;
+      }
+
+      // Legacy task payload
+      if (actionId == 'done') {
+        taskAction.value = TaskNotificationAction(
+          action: 'done',
+          taskId: payload,
+          title: '',
+        );
+      } else {
+        notificationTap.value = GeneralNotificationTap(
+          kind: 'task',
+          id: payload,
+        );
+      }
     } catch (_) {
       // Ignore malformed legacy payloads.
+      return;
     }
   }
 
@@ -431,10 +559,22 @@ class NotificationService {
               channelName: kChannelRemindersName,
               channelDescription: kChannelRemindersDesc,
               category: taskCategory,
+              actions: const [
+                AndroidNotificationAction(
+                  'done',
+                  'Done',
+                  showsUserInterface: true,
+                  cancelNotification: true,
+                ),
+              ],
             ),
           ),
           androidScheduleMode: scheduleMode,
-          payload: taskId,
+          payload: jsonEncode({
+            'kind': isAssignment ? 'assignment' : 'task',
+            'id': taskId,
+            'title': title,
+          }),
         );
       } on PlatformException catch (e) {
         if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
@@ -451,10 +591,22 @@ class NotificationService {
                 channelName: kChannelRemindersName,
                 channelDescription: kChannelRemindersDesc,
                 category: taskCategory,
+                actions: const [
+                  AndroidNotificationAction(
+                    'done',
+                    'Done',
+                    showsUserInterface: true,
+                    cancelNotification: true,
+                  ),
+                ],
               ),
             ),
             androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-            payload: taskId,
+            payload: jsonEncode({
+              'kind': isAssignment ? 'assignment' : 'task',
+              'id': taskId,
+              'title': title,
+            }),
           );
         } else {
           if (kDebugMode) {
@@ -481,6 +633,41 @@ class NotificationService {
           ' timezone=Asia/Dhaka'
           ' mode=$scheduleMode',
         );
+      }
+    }
+
+    // Persist local reminder for offline availability and Notification Center
+    try {
+      await LocalReminderStore.instance.save(
+        LocalReminder(
+          id: 'task_$taskId',
+          ownerItemId: taskId,
+          type: isAssignment
+              ? LocalReminderType.assignment
+              : LocalReminderType.task,
+          title: title,
+          body: isAssignment
+              ? GochanoLanguage.text(
+                  'Assignment due at scheduled time',
+                  'নির্ধারিত সময়ে অ্যাসাইনমেন্ট জমা দিন',
+                )
+              : GochanoLanguage.text(
+                  'Task due at scheduled time',
+                  'নির্ধারিত সময়ে কাজটি সম্পন্ন করুন',
+                ),
+          scheduledAt: when,
+          offsets: _taskReminderOffsets,
+          notificationIds: scheduledIds,
+          recurrence: LocalReminderRecurrence.none,
+          status: LocalReminderStatus.pending,
+          payload: {'id': taskId, 'title': title, 'isAssignment': isAssignment},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[TaskReminderSchedule] local store save failed: $e');
       }
     }
 
@@ -518,9 +705,21 @@ class NotificationService {
         debugPrint('[Reminder] cancel id=$notifId');
       }
     }
-    if (when == null) return;
+    if (when == null) {
+      await LocalReminderStore.instance.updateStatusByOwnerItemId(
+        taskId,
+        LocalReminderStatus.cancelled,
+      );
+      return;
+    }
     final missedAt = when.add(const Duration(minutes: 30));
-    if (!missedAt.isAfter(DateTime.now())) return;
+    if (!missedAt.isAfter(DateTime.now())) {
+      await LocalReminderStore.instance.updateStatusByOwnerItemId(
+        taskId,
+        LocalReminderStatus.missed,
+      );
+      return;
+    }
     await scheduleTask(taskId: taskId, title: title, when: when, type: type);
   }
 
@@ -537,6 +736,10 @@ class NotificationService {
         debugPrint('[Reminder] cancel id=$notifId');
       }
     }
+    await LocalReminderStore.instance.updateStatusByOwnerItemId(
+      taskId,
+      LocalReminderStatus.cancelled,
+    );
   }
 
   static int _medicineNotificationId(
@@ -764,6 +967,41 @@ class NotificationService {
       }
     }
 
+    // Persist local reminder for offline availability and Notification Center
+    try {
+      await LocalReminderStore.instance.save(
+        LocalReminder(
+          id: 'medicine_${medicineId}_$hhmm',
+          ownerItemId: medicineId,
+          type: LocalReminderType.medicine,
+          title: medicineName,
+          body: instruction.trim().isEmpty
+              ? '$quantityPerDose $unit at $hhmm'
+              : '$instruction ($hhmm)',
+          scheduledAt: next,
+          offsets: _medicineFollowUpOffsets,
+          notificationIds: scheduledSlots.map((s) => s.notificationId).toList(),
+          recurrence: LocalReminderRecurrence.daily,
+          status: LocalReminderStatus.pending,
+          payload: {
+            'medicineId': medicineId,
+            'medicineName': medicineName,
+            'hhmm': hhmm,
+            'instruction': instruction,
+            'quantityPerDose': quantityPerDose,
+            'unitPrice': unitPrice,
+            'unit': unit,
+          },
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[MedicineSchedule] local store save failed: $e');
+      }
+    }
+
     await _verifyAndDiagnoseRegistration(
       entityType: 'medicine',
       entityId: '$medicineId:$hhmm',
@@ -804,7 +1042,34 @@ class NotificationService {
           debugPrint('[Reminder] cancel id=$notifId');
         }
       }
+      await LocalReminderStore.instance.updateStatus(
+        'medicine_${medicineId}_$time',
+        LocalReminderStatus.cancelled,
+      );
     }
+  }
+
+  /// Cancels all existing local reminders and notifications for [medicineId]
+  /// purely from the local device store, requiring zero network access.
+  static Future<void> cancelMedicineByOwnerId(String medicineId) async {
+    await init();
+    final all = LocalReminderStore.instance.getReconcilableReminders();
+    for (final reminder in all) {
+      if (reminder.type == LocalReminderType.medicine &&
+          reminder.ownerItemId == medicineId) {
+        final hhmm = reminder.payload['hhmm']?.toString() ?? '';
+        if (hhmm.isNotEmpty) {
+          for (final offset in _medicineFollowUpOffsets) {
+            final notifId = _medicineNotificationId(medicineId, hhmm, offset);
+            await plugin.cancel(id: notifId);
+          }
+        }
+      }
+    }
+    await LocalReminderStore.instance.updateStatusByOwnerItemId(
+      medicineId,
+      LocalReminderStatus.cancelled,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -981,9 +1246,18 @@ class NotificationService {
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
           >();
-      final canExact = await android?.canScheduleExactNotifications() ?? false;
+      final canExact =
+          await android?.canScheduleExactNotifications().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => false,
+          ) ??
+          false;
       final notificationsAllowed =
-          await android?.areNotificationsEnabled() ?? false;
+          await android?.areNotificationsEnabled().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => false,
+          ) ??
+          false;
       if (kDebugMode) {
         debugPrint('[Reminder] exactAlarmAllowed=$canExact');
         debugPrint(
@@ -1066,7 +1340,13 @@ class NotificationService {
           ),
         ),
         androidScheduleMode: scheduleMode,
-        payload: 'commute_trip:$tripId',
+        payload: jsonEncode({
+          'kind': 'commute_trip',
+          'id': tripId,
+          'title': title,
+          'reminderMinutes': reminderMinutes,
+          'departureTime': departureTime.toIso8601String(),
+        }),
       );
     } on PlatformException catch (e) {
       if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
@@ -1083,7 +1363,13 @@ class NotificationService {
             ),
           ),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          payload: 'commute_trip:$tripId',
+          payload: jsonEncode({
+            'kind': 'commute_trip',
+            'id': tripId,
+            'title': title,
+            'reminderMinutes': reminderMinutes,
+            'departureTime': departureTime.toIso8601String(),
+          }),
         );
       } else {
         if (kDebugMode) {
@@ -1104,6 +1390,36 @@ class NotificationService {
         scheduledAt: notifyAt,
       ),
     );
+
+    // Persist local reminder for offline availability and Notification Center
+    try {
+      await LocalReminderStore.instance.save(
+        LocalReminder(
+          id: 'trip_$tripId',
+          ownerItemId: tripId,
+          type: LocalReminderType.commuteTrip,
+          title: title,
+          body: '$reminderMinutes min before departure',
+          scheduledAt: notifyAt,
+          offsets: [reminderMinutes],
+          notificationIds: [notifId],
+          recurrence: LocalReminderRecurrence.none,
+          status: LocalReminderStatus.pending,
+          payload: {
+            'tripId': tripId,
+            'title': title,
+            'departureTime': departureTime.toIso8601String(),
+            'reminderMinutes': reminderMinutes,
+          },
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CommuteTripSchedule] local store save failed: $e');
+      }
+    }
 
     await _verifyAndDiagnoseRegistration(
       entityType: 'commute_trip',
@@ -1155,6 +1471,309 @@ class NotificationService {
     if (kDebugMode) {
       debugPrint('[Reminder] cancel id=$singleId');
     }
+    await LocalReminderStore.instance.updateStatusByOwnerItemId(
+      tripId,
+      LocalReminderStatus.cancelled,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Expense / Due Date Reminders (Dena / Pawna)
+  // ---------------------------------------------------------------------------
+
+  static int _expenseDueNotificationId(
+    String itemId, [
+    int offsetMinutes = 0,
+  ]) => _stableStringId('due_${itemId}_$offsetMinutes');
+
+  @visibleForTesting
+  static int debugExpenseDueNotificationId(
+    String itemId, [
+    int offsetMinutes = 0,
+  ]) => _expenseDueNotificationId(itemId, offsetMinutes);
+
+  static Future<void> scheduleExpenseDueReminder({
+    required String itemId,
+    required String personName,
+    required double amount,
+    required String type,
+    required DateTime dueDate,
+  }) async {
+    await init();
+    final now = DateTime.now();
+    // Set 09:00 AM on due date if user only specified the day
+    final scheduledAt = (dueDate.hour == 0 && dueDate.minute == 0)
+        ? DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0)
+        : dueDate;
+
+    if (!scheduledAt.isAfter(now)) return;
+
+    final scheduleMode = await _resolveScheduleMode();
+    final notifId = _expenseDueNotificationId(itemId, 0);
+
+    final isLend = type == 'lend';
+    final title = isLend
+        ? GochanoLanguage.text(
+            'Payment due: $personName',
+            'টাকা পাওয়ার তারিখ: $personName',
+          )
+        : GochanoLanguage.text(
+            'Payment due to: $personName',
+            'টাকা পরিশোধের তারিখ: $personName',
+          );
+    final body = isLend
+        ? GochanoLanguage.text(
+            'Collect ৳${amount.toStringAsFixed(0)} from $personName',
+            '$personName-এর থেকে ৳${amount.toStringAsFixed(0)} সংগ্রহ করুন',
+          )
+        : GochanoLanguage.text(
+            'Pay ৳${amount.toStringAsFixed(0)} to $personName',
+            '$personName-কে ৳${amount.toStringAsFixed(0)} পরিশোধ করুন',
+          );
+
+    final payload = jsonEncode({
+      'kind': 'expense_due',
+      'id': itemId,
+      'personName': personName,
+      'amount': amount,
+      'dueType': type,
+      'title': title,
+    });
+
+    try {
+      await plugin.zonedSchedule(
+        id: notifId,
+        title: title,
+        body: body,
+        scheduledDate: _toLocalTz(scheduledAt),
+        notificationDetails: NotificationDetails(
+          android: _details(
+            channelId: kChannelRemindersId,
+            channelName: kChannelRemindersName,
+            channelDescription: kChannelRemindersDesc,
+          ),
+        ),
+        androidScheduleMode: scheduleMode,
+        payload: payload,
+      );
+    } on PlatformException catch (e) {
+      if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
+        await plugin.zonedSchedule(
+          id: notifId,
+          title: title,
+          body: body,
+          scheduledDate: _toLocalTz(scheduledAt),
+          notificationDetails: NotificationDetails(
+            android: _details(
+              channelId: kChannelRemindersId,
+              channelName: kChannelRemindersName,
+              channelDescription: kChannelRemindersDesc,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: payload,
+        );
+      } else {
+        if (kDebugMode) {
+          debugPrint('[ExpenseDueSchedule] zonedSchedule failed: $e');
+        }
+      }
+    }
+
+    try {
+      await LocalReminderStore.instance.save(
+        LocalReminder(
+          id: 'due_$itemId',
+          ownerItemId: itemId,
+          type: LocalReminderType.expenseDue,
+          title: title,
+          body: body,
+          scheduledAt: scheduledAt,
+          offsets: const [0],
+          notificationIds: [notifId],
+          recurrence: LocalReminderRecurrence.none,
+          status: LocalReminderStatus.pending,
+          payload: {
+            'itemId': itemId,
+            'personName': personName,
+            'amount': amount,
+            'dueType': type,
+          },
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[ExpenseDueSchedule] local store save failed: $e');
+      }
+    }
+  }
+
+  static Future<void> cancelExpenseDueReminder(String itemId) async {
+    await init();
+    final notifId = _expenseDueNotificationId(itemId, 0);
+    await plugin.cancel(id: notifId);
+    await LocalReminderStore.instance.updateStatusByOwnerItemId(
+      itemId,
+      LocalReminderStatus.cancelled,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Simple Custom Reminders (lightweight)
+  // ---------------------------------------------------------------------------
+
+  static int _customReminderNotificationId(String reminderId) =>
+      _stableStringId('custom_$reminderId');
+
+  @visibleForTesting
+  static int debugCustomReminderNotificationId(String reminderId) =>
+      _customReminderNotificationId(reminderId);
+
+  static Future<String> scheduleCustomReminder({
+    String? id,
+    required String title,
+    String note = '',
+    required DateTime when,
+  }) async {
+    if (kDebugMode) {
+      debugPrint('[OfflineSave][Custom] start');
+    }
+    await init();
+    final reminderId = id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}';
+    final now = DateTime.now();
+    if (!when.isAfter(now)) return reminderId;
+
+    final scheduleMode = await _resolveScheduleMode();
+    final notifId = _customReminderNotificationId(reminderId);
+
+    // 1. Persist local reminder in local manifest store first for instant offline readiness
+    try {
+      await LocalReminderStore.instance.save(
+        LocalReminder(
+          id: reminderId,
+          ownerItemId: reminderId,
+          type: LocalReminderType.custom,
+          title: title,
+          body: note,
+          scheduledAt: when,
+          offsets: const [0],
+          notificationIds: [notifId],
+          recurrence: LocalReminderRecurrence.none,
+          status: LocalReminderStatus.pending,
+          payload: {'id': reminderId, 'title': title, 'note': note},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Custom] local reminder persisted');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Custom] local store save failed: $e');
+      }
+    }
+
+    final payload = jsonEncode({
+      'kind': 'custom',
+      'id': reminderId,
+      'title': title,
+      'note': note,
+    });
+
+    // 2. Schedule OS alarm with exact / inexact fallback
+    try {
+      await plugin.zonedSchedule(
+        id: notifId,
+        title: 'Gochano reminder',
+        body: note.trim().isEmpty ? title : '$title — $note',
+        scheduledDate: _toLocalTz(when),
+        notificationDetails: NotificationDetails(
+          android: _details(
+            channelId: kChannelRemindersId,
+            channelName: kChannelRemindersName,
+            channelDescription: kChannelRemindersDesc,
+          ),
+        ),
+        androidScheduleMode: scheduleMode,
+        payload: payload,
+      );
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Custom] alarm scheduled');
+      }
+    } on PlatformException catch (e) {
+      if (scheduleMode != AndroidScheduleMode.inexactAllowWhileIdle) {
+        try {
+          await plugin.zonedSchedule(
+            id: notifId,
+            title: 'Gochano reminder',
+            body: note.trim().isEmpty ? title : '$title — $note',
+            scheduledDate: _toLocalTz(when),
+            notificationDetails: NotificationDetails(
+              android: _details(
+                channelId: kChannelRemindersId,
+                channelName: kChannelRemindersName,
+                channelDescription: kChannelRemindersDesc,
+              ),
+            ),
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            payload: payload,
+          );
+          if (kDebugMode) {
+            debugPrint(
+              '[OfflineSave][Custom] alarm scheduled (inexact fallback)',
+            );
+          }
+        } catch (_) {}
+      } else {
+        if (kDebugMode) {
+          debugPrint('[CustomReminderSchedule] zonedSchedule failed: $e');
+        }
+      }
+    }
+
+    try {
+      await LocalReminderStore.instance.save(
+        LocalReminder(
+          id: reminderId,
+          ownerItemId: reminderId,
+          type: LocalReminderType.custom,
+          title: title,
+          body: note,
+          scheduledAt: when,
+          offsets: const [0],
+          notificationIds: [notifId],
+          recurrence: LocalReminderRecurrence.none,
+          status: LocalReminderStatus.pending,
+          payload: {'id': reminderId, 'title': title, 'note': note},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CustomReminderSchedule] local store save failed: $e');
+        debugPrint('[CustomReminderSchedule] zonedSchedule error: $e');
+      }
+    }
+
+    if (kDebugMode) {
+      debugPrint('[OfflineSave][Custom] ui complete');
+    }
+
+    return reminderId;
+  }
+
+  static Future<void> cancelCustomReminder(String reminderId) async {
+    await init();
+    final notifId = _customReminderNotificationId(reminderId);
+    await plugin.cancel(id: notifId);
+    await LocalReminderStore.instance.updateStatus(
+      reminderId,
+      LocalReminderStatus.cancelled,
+    );
   }
 
   @visibleForTesting
@@ -1417,6 +2036,120 @@ class NotificationService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[NotificationService.reconcileFromFirestore] error: $e');
+      }
+    }
+  }
+
+  /// Idempotent startup and post-reboot reconciliation to ensure AlarmManager / OS
+  /// scheduled alarms match device-local pending reminders without requiring network access.
+  static Future<void> reconcileLocalReminders() async {
+    await init();
+    try {
+      final pending = await plugin.pendingNotificationRequests();
+      final pendingIds = pending.map((r) => r.id).toSet();
+      final localReminders = LocalReminderStore.instance
+          .getReconcilableReminders();
+      final now = DateTime.now();
+
+      for (final reminder in localReminders) {
+        if (reminder.type == LocalReminderType.task ||
+            reminder.type == LocalReminderType.assignment) {
+          var missing = false;
+          for (final offset in reminder.offsets) {
+            final notifyAt = reminder.scheduledAt.subtract(
+              Duration(minutes: offset),
+            );
+            if (notifyAt.isAfter(now)) {
+              final notifId = _taskNotificationId(reminder.ownerItemId, offset);
+              if (!pendingIds.contains(notifId)) {
+                missing = true;
+                break;
+              }
+            }
+          }
+          if (missing) {
+            await scheduleTask(
+              taskId: reminder.ownerItemId,
+              title: reminder.title,
+              when: reminder.scheduledAt,
+              type: reminder.type == LocalReminderType.assignment
+                  ? 'assignment'
+                  : 'task',
+            );
+          }
+        } else if (reminder.type == LocalReminderType.medicine) {
+          final hhmm = reminder.payload['hhmm']?.toString();
+          if (hhmm != null) {
+            final baseId = _medicineNotificationId(
+              reminder.ownerItemId,
+              hhmm,
+              0,
+            );
+            if (!pendingIds.contains(baseId)) {
+              await scheduleDailyMedicine(
+                medicineId: reminder.ownerItemId,
+                medicineName: reminder.title,
+                hhmm: hhmm,
+                instruction: reminder.payload['instruction']?.toString() ?? '',
+                quantityPerDose:
+                    (reminder.payload['quantityPerDose'] as num?)?.toDouble() ??
+                    1,
+                unitPrice:
+                    (reminder.payload['unitPrice'] as num?)?.toDouble() ?? 0,
+                unit: reminder.payload['unit']?.toString() ?? 'tablet',
+              );
+            }
+          }
+        } else if (reminder.type == LocalReminderType.commuteTrip) {
+          final departureStr = reminder.payload['departureTime']?.toString();
+          final departure = departureStr != null
+              ? DateTime.tryParse(departureStr)
+              : null;
+          final mins =
+              (reminder.payload['reminderMinutes'] as num?)?.toInt() ?? 0;
+          if (departure != null && departure.isAfter(now) && mins > 0) {
+            final expectedId = _commuteTripUserReminderId(
+              reminder.ownerItemId,
+              mins,
+            );
+            if (!pendingIds.contains(expectedId)) {
+              await scheduleCommuteTripReminder(
+                tripId: reminder.ownerItemId,
+                title: reminder.title,
+                reminderMinutes: mins,
+                departureTime: departure,
+              );
+            }
+          }
+        } else if (reminder.type == LocalReminderType.expenseDue) {
+          final notifId = _expenseDueNotificationId(reminder.ownerItemId, 0);
+          if (!pendingIds.contains(notifId) &&
+              reminder.scheduledAt.isAfter(now)) {
+            await scheduleExpenseDueReminder(
+              itemId: reminder.ownerItemId,
+              personName:
+                  reminder.payload['personName']?.toString() ?? reminder.title,
+              amount: (reminder.payload['amount'] as num?)?.toDouble() ?? 0,
+              type: reminder.payload['dueType']?.toString() ?? 'lend',
+              dueDate: reminder.scheduledAt,
+            );
+          }
+        } else if (reminder.type == LocalReminderType.custom) {
+          final notifId = _customReminderNotificationId(reminder.id);
+          if (!pendingIds.contains(notifId) &&
+              reminder.scheduledAt.isAfter(now)) {
+            await scheduleCustomReminder(
+              id: reminder.id,
+              title: reminder.title,
+              note: reminder.body,
+              when: reminder.scheduledAt,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[NotificationService.reconcileLocalReminders] error: $e');
       }
     }
   }

@@ -59,18 +59,24 @@ void main() {
 
   group('monthKey and dateKey (used by month filtering)', () {
     test('monthKey is YYYY-MM zero-padded', () {
-      expect(FinancialService.monthKey(DateTime(2026, 1, 15)),
-          equals('2026-01'));
+      expect(
+        FinancialService.monthKey(DateTime(2026, 1, 15)),
+        equals('2026-01'),
+      );
     });
 
     test('monthKey for December', () {
-      expect(FinancialService.monthKey(DateTime(2026, 12, 1)),
-          equals('2026-12'));
+      expect(
+        FinancialService.monthKey(DateTime(2026, 12, 1)),
+        equals('2026-12'),
+      );
     });
 
     test('dateKey is YYYY-MM-DD zero-padded', () {
-      expect(FinancialService.dateKey(DateTime(2026, 9, 5)),
-          equals('2026-09-05'));
+      expect(
+        FinancialService.dateKey(DateTime(2026, 9, 5)),
+        equals('2026-09-05'),
+      );
     });
   });
 
@@ -124,10 +130,7 @@ void main() {
           .where((i) => i.date.month == 9 && i.date.year == 2026)
           .toList();
       expect(septItems.length, equals(2));
-      expect(
-        septItems.fold<double>(0, (s, i) => s + i.amount),
-        equals(80),
-      );
+      expect(septItems.fold<double>(0, (s, i) => s + i.amount), equals(80));
     });
 
     test('daily totals are computed per day', () {
@@ -155,14 +158,12 @@ void main() {
         _tx(source: 'daily', amount: 100, date: DateTime(2026, 9, 10)),
       ];
       final dayItems = items
-          .where((i) =>
-              i.date.day == 5 && i.date.month == 9 && i.date.year == 2026)
+          .where(
+            (i) => i.date.day == 5 && i.date.month == 9 && i.date.year == 2026,
+          )
           .toList();
       expect(dayItems.length, equals(2));
-      expect(
-        dayItems.fold<double>(0, (s, i) => s + i.amount),
-        equals(80),
-      );
+      expect(dayItems.fold<double>(0, (s, i) => s + i.amount), equals(80));
     });
   });
 
@@ -201,21 +202,20 @@ void main() {
 
   group('Bar chart daily totals', () {
     test('maxAmount is the highest daily total', () {
-      final dailyTotals = {
-        1: 100.0,
-        5: 500.0,
-        10: 200.0,
-        15: 50.0,
-      };
-      final maxAmount =
-          dailyTotals.values.fold<double>(0, (a, b) => a > b ? a : b);
+      final dailyTotals = {1: 100.0, 5: 500.0, 10: 200.0, 15: 50.0};
+      final maxAmount = dailyTotals.values.fold<double>(
+        0,
+        (a, b) => a > b ? a : b,
+      );
       expect(maxAmount, equals(500));
     });
 
     test('empty month has zero maxAmount', () {
       final dailyTotals = <int, double>{};
-      final maxAmount =
-          dailyTotals.values.fold<double>(0, (a, b) => a > b ? a : b);
+      final maxAmount = dailyTotals.values.fold<double>(
+        0,
+        (a, b) => a > b ? a : b,
+      );
       expect(maxAmount, equals(0));
     });
 
@@ -262,10 +262,8 @@ void main() {
       final augItems = [
         _tx(source: 'daily', amount: 500, date: DateTime(2026, 8, 1)),
       ];
-      final septTotal =
-          septItems.fold<double>(0, (s, i) => s + i.amount);
-      final augTotal =
-          augItems.fold<double>(0, (s, i) => s + i.amount);
+      final septTotal = septItems.fold<double>(0, (s, i) => s + i.amount);
+      final augTotal = augItems.fold<double>(0, (s, i) => s + i.amount);
       expect(septTotal, equals(300));
       expect(augTotal, equals(500));
       expect(septTotal, isNot(equals(augTotal)));
@@ -316,9 +314,9 @@ void main() {
     late String source;
 
     setUpAll(() {
-      source = File('lib/features/life/presentation/expense/overview_tab.dart')
-          .readAsStringSync()
-          .replaceAll('\r\n', '\n');
+      source = File(
+        'lib/features/life/presentation/expense/overview_tab.dart',
+      ).readAsStringSync().replaceAll('\r\n', '\n');
     });
 
     test('OverviewTab has _budgetRefreshKey for forced refresh', () {
@@ -341,9 +339,9 @@ void main() {
     late String source;
 
     setUpAll(() {
-      source = File('lib/features/life/presentation/expense/overview_tab.dart')
-          .readAsStringSync()
-          .replaceAll('\r\n', '\n');
+      source = File(
+        'lib/features/life/presentation/expense/overview_tab.dart',
+      ).readAsStringSync().replaceAll('\r\n', '\n');
     });
 
     test('has _CategoryBar widget', () {
@@ -359,11 +357,36 @@ void main() {
     });
 
     test('category bars show Daily, Grocery, Medicine, Dena paid, Pawna received', () {
-      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Daily'"));
-      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Grocery'"));
-      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Medicine'"));
-      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Dena paid'"));
-      expect(source, contains("_CategoryBar(\n                label: GochanoLanguage.text('Pawna received'"));
+      expect(
+        source,
+        contains(
+          "_CategoryBar(\n                label: GochanoLanguage.text('Daily'",
+        ),
+      );
+      expect(
+        source,
+        contains(
+          "_CategoryBar(\n                label: GochanoLanguage.text('Grocery'",
+        ),
+      );
+      expect(
+        source,
+        contains(
+          "_CategoryBar(\n                label: GochanoLanguage.text('Medicine'",
+        ),
+      );
+      expect(
+        source,
+        contains(
+          "_CategoryBar(\n                label: GochanoLanguage.text('Dena paid'",
+        ),
+      );
+      expect(
+        source,
+        contains(
+          "_CategoryBar(\n                label: GochanoLanguage.text('Pawna received'",
+        ),
+      );
     });
 
     test('Cash Flow and Day Details sections removed', () {
@@ -384,9 +407,9 @@ void main() {
     late String source;
 
     setUpAll(() {
-      source = File('lib/features/life/presentation/expense/overview_tab.dart')
-          .readAsStringSync()
-          .replaceAll('\r\n', '\n');
+      source = File(
+        'lib/features/life/presentation/expense/overview_tab.dart',
+      ).readAsStringSync().replaceAll('\r\n', '\n');
     });
 
     test('_openBudgetSheet method exists and opens monthly_budget_sheet', () {
@@ -417,7 +440,10 @@ void main() {
     });
 
     test('budgetLoading derived from FutureBuilder connection state', () {
-      expect(source, contains("budgetSnap.connectionState == ConnectionState.waiting"));
+      expect(
+        source,
+        contains("budgetSnap.connectionState == ConnectionState.waiting"),
+      );
     });
   });
 
@@ -425,36 +451,47 @@ void main() {
     late String expenseScreenSource;
 
     setUpAll(() {
-      expenseScreenSource =
-          File('lib/features/life/presentation/expense/expense_screen.dart')
-              .readAsStringSync()
-              .replaceAll('\r\n', '\n');
+      expenseScreenSource = File(
+        'lib/features/life/presentation/expense/expense_screen.dart',
+      ).readAsStringSync().replaceAll('\r\n', '\n');
     });
 
-    test('ExpenseScreen exposes exactly 4 tabs: Daily, Grocery, Dena/Pawna, Overview', () {
-      expect(expenseScreenSource, contains('TabController(length: 4'));
-      expect(expenseScreenSource, contains("'Daily'"));
-      expect(expenseScreenSource, contains("'Grocery'"));
-      expect(expenseScreenSource, contains("'Dena/Pawna'"));
-      expect(expenseScreenSource, contains("'Overview'"));
+    test(
+      'ExpenseScreen exposes exactly 4 tabs: Daily, Grocery, Dena/Pawna, Overview',
+      () {
+        expect(expenseScreenSource, contains('TabController(length: 4'));
+        expect(expenseScreenSource, contains("'Daily'"));
+        expect(expenseScreenSource, contains("'Grocery'"));
+        expect(expenseScreenSource, contains("'Dena/Pawna'"));
+        expect(expenseScreenSource, contains("'Overview'"));
 
-      expect(expenseScreenSource, isNot(contains('TabController(length: 5')));
-      expect(expenseScreenSource, isNot(contains("'History'")));
-      expect(expenseScreenSource, isNot(contains('HistoryTab')));
-    });
+        expect(expenseScreenSource, isNot(contains('TabController(length: 5')));
+        expect(expenseScreenSource, isNot(contains("'History'")));
+        expect(expenseScreenSource, isNot(contains('HistoryTab')));
+      },
+    );
 
-    test('TabBarView children match exactly Daily, Grocery, DenaPawna, Overview', () {
-      expect(expenseScreenSource, contains('_DailyTab()'));
-      expect(expenseScreenSource, contains('GroceryTab()'));
-      expect(expenseScreenSource, contains('DenaPawnaTab(onChanged: _onExpenseAdded)'));
-      expect(expenseScreenSource, contains('OverviewTab(key: _overviewKey)'));
-    });
+    test(
+      'TabBarView children match exactly Daily, Grocery, DenaPawna, Overview',
+      () {
+        expect(expenseScreenSource, contains('_DailyTab()'));
+        expect(expenseScreenSource, contains('GroceryTab()'));
+        expect(
+          expenseScreenSource,
+          contains('DenaPawnaTab(onChanged: _onExpenseAdded)'),
+        );
+        expect(expenseScreenSource, contains('OverviewTab(key: _overviewKey)'));
+      },
+    );
 
-    test('FAB returns null on Overview tab (index 3)', () {
-      expect(expenseScreenSource, contains('if (_tabs.index == 3) return null;'));
-    });
+    test(
+      'ExpenseScreen has no colliding local FAB (Universal Quick Add is sole FAB)',
+      () {
+        expect(expenseScreenSource, isNot(contains('floatingActionButton:')));
+      },
+    );
 
-    test('FAB provides distinct actions for other tabs', () {
+    test('Header provides distinct actions for tabs', () {
       expect(expenseScreenSource, contains('showDenaPawnaSheet'));
       expect(expenseScreenSource, contains('showGroceryItemSheet'));
       expect(expenseScreenSource, contains('showAddExpenseSheet'));

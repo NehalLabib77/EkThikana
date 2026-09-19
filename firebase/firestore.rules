@@ -294,6 +294,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /ai_usage_monthly/{id} {
+      allow read, write: if false;
+    }
+
+    match /ai_usage_active/{id} {
+      allow read, write: if false;
+    }
+
     match /upload_usage/{id} {
       allow read, write: if false;
     }

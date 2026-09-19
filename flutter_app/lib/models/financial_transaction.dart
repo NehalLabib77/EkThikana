@@ -49,10 +49,7 @@ class FinancialTransactionModel {
 }
 
 class FinancialSummary {
-  const FinancialSummary({
-    required this.totalSpending,
-    required this.bySource,
-  });
+  const FinancialSummary({required this.totalSpending, required this.bySource});
 
   /// Sum of every expense-only ledger entry (the only kind Gochano records).
   final double totalSpending;
@@ -74,9 +71,6 @@ class FinancialSummary {
         bySource[item.source] = (bySource[item.source] ?? 0) + item.amount;
       }
     }
-    return FinancialSummary(
-      totalSpending: spending,
-      bySource: bySource,
-    );
+    return FinancialSummary(totalSpending: spending, bySource: bySource);
   }
 }

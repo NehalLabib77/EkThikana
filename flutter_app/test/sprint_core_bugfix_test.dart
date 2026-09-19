@@ -104,8 +104,9 @@ void main() {
         _tx(source: 'daily', amount: 100, date: currentMonth),
         _tx(source: 'daily', amount: 999, date: prevMonth),
       ];
-      final currentItems =
-          items.where((t) => t.date.month == 9 && t.date.year == 2026);
+      final currentItems = items.where(
+        (t) => t.date.month == 9 && t.date.year == 2026,
+      );
       final summary = FinancialSummary.fromTransactions(currentItems);
       expect(summary.totalSpending, equals(100.0));
     });
@@ -148,50 +149,64 @@ void main() {
   // -------------------------------------------------------------------------
   // 4. Task date filter correctness (mirrors _CombinedPlannerList logic)
   // -------------------------------------------------------------------------
-  group('Task date filter: !due.isBefore(dayKey) && due.isBefore(endOfDay)', () {
-    bool taskVisibleOnDay(DateTime due, DateTime selectedDay) {
-      final dayKey =
-          DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
-      final endOfDay = dayKey.add(const Duration(days: 1));
-      return !due.isBefore(dayKey) && due.isBefore(endOfDay);
-    }
+  group(
+    'Task date filter: !due.isBefore(dayKey) && due.isBefore(endOfDay)',
+    () {
+      bool taskVisibleOnDay(DateTime due, DateTime selectedDay) {
+        final dayKey = DateTime(
+          selectedDay.year,
+          selectedDay.month,
+          selectedDay.day,
+        );
+        final endOfDay = dayKey.add(const Duration(days: 1));
+        return !due.isBefore(dayKey) && due.isBefore(endOfDay);
+      }
 
-    final sep5 = DateTime(2026, 9, 5);
+      final sep5 = DateTime(2026, 9, 5);
 
-    test('task due at 09:00 on Sep 5 is visible on Sep 5', () {
-      expect(taskVisibleOnDay(DateTime(2026, 9, 5, 9, 0), sep5), isTrue);
-    });
+      test('task due at 09:00 on Sep 5 is visible on Sep 5', () {
+        expect(taskVisibleOnDay(DateTime(2026, 9, 5, 9, 0), sep5), isTrue);
+      });
 
-    test('task due at 23:59 on Sep 5 is visible on Sep 5', () {
-      expect(taskVisibleOnDay(DateTime(2026, 9, 5, 23, 59), sep5), isTrue);
-    });
+      test('task due at 23:59 on Sep 5 is visible on Sep 5', () {
+        expect(taskVisibleOnDay(DateTime(2026, 9, 5, 23, 59), sep5), isTrue);
+      });
 
-    test('task due at midnight Sep 5 (00:00) is visible on Sep 5', () {
-      expect(taskVisibleOnDay(DateTime(2026, 9, 5, 0, 0), sep5), isTrue);
-    });
+      test('task due at midnight Sep 5 (00:00) is visible on Sep 5', () {
+        expect(taskVisibleOnDay(DateTime(2026, 9, 5, 0, 0), sep5), isTrue);
+      });
 
-    test('task due on Sep 4 is NOT visible on Sep 5', () {
-      expect(taskVisibleOnDay(DateTime(2026, 9, 4, 12, 0), sep5), isFalse);
-    });
+      test('task due on Sep 4 is NOT visible on Sep 5', () {
+        expect(taskVisibleOnDay(DateTime(2026, 9, 4, 12, 0), sep5), isFalse);
+      });
 
-    test('task due on Sep 6 is NOT visible on Sep 5', () {
-      expect(taskVisibleOnDay(DateTime(2026, 9, 6, 9, 0), sep5), isFalse);
-    });
+      test('task due on Sep 6 is NOT visible on Sep 5', () {
+        expect(taskVisibleOnDay(DateTime(2026, 9, 6, 9, 0), sep5), isFalse);
+      });
 
-    test('midnight Sep 6 is NOT visible on Sep 5', () {
-      expect(taskVisibleOnDay(DateTime(2026, 9, 6, 0, 0), sep5), isFalse);
-    });
+      test('midnight Sep 6 is NOT visible on Sep 5', () {
+        expect(taskVisibleOnDay(DateTime(2026, 9, 6, 0, 0), sep5), isFalse);
+      });
 
-    test('REGRESSION: old !isAfter condition hides 09:00 task', () {
-      final due = DateTime(2026, 9, 5, 9, 0);
-      final dayKey = DateTime(2026, 9, 5);
-      final endOfDay = dayKey.add(const Duration(days: 1));
-      final oldResult = !due.isAfter(dayKey) && due.isBefore(endOfDay);
-      final newResult = !due.isBefore(dayKey) && due.isBefore(endOfDay);
-      expect(oldResult, isFalse, reason: 'Old condition wrongly hides tasks due after midnight');
-      expect(newResult, isTrue, reason: 'Corrected condition shows tasks due during the day');
-    });
-  });
+      test('REGRESSION: old !isAfter condition hides 09:00 task', () {
+        final due = DateTime(2026, 9, 5, 9, 0);
+        final dayKey = DateTime(2026, 9, 5);
+        final endOfDay = dayKey.add(const Duration(days: 1));
+        final oldResult = !due.isAfter(dayKey) && due.isBefore(endOfDay);
+        final newResult = !due.isBefore(dayKey) && due.isBefore(endOfDay);
+        expect(
+          oldResult,
+          isFalse,
+          reason: 'Old condition wrongly hides tasks due after midnight',
+        );
+        expect(
+          newResult,
+          isTrue,
+          reason: 'Corrected condition shows tasks due during the day',
+        );
+      });
+    },
+  );
 
   // -------------------------------------------------------------------------
   // 5. initialDate pre-fill
@@ -199,8 +214,13 @@ void main() {
   group('Task form initialDate pre-fill', () {
     test('initialDate maps to 09:00 on that day', () {
       final selectedDay = DateTime(2026, 9, 5);
-      final prefilledDue =
-          DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
+      final prefilledDue = DateTime(
+        selectedDay.year,
+        selectedDay.month,
+        selectedDay.day,
+        9,
+        0,
+      );
       expect(prefilledDue.year, equals(2026));
       expect(prefilledDue.month, equals(9));
       expect(prefilledDue.day, equals(5));
@@ -210,10 +230,18 @@ void main() {
 
     test('pre-filled due falls within the selected day filter', () {
       final selectedDay = DateTime(2026, 9, 5);
-      final prefilledDue =
-          DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9, 0);
-      final dayKey =
-          DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+      final prefilledDue = DateTime(
+        selectedDay.year,
+        selectedDay.month,
+        selectedDay.day,
+        9,
+        0,
+      );
+      final dayKey = DateTime(
+        selectedDay.year,
+        selectedDay.month,
+        selectedDay.day,
+      );
       final endOfDay = dayKey.add(const Duration(days: 1));
       final visible =
           !prefilledDue.isBefore(dayKey) && prefilledDue.isBefore(endOfDay);
@@ -226,15 +254,24 @@ void main() {
   // -------------------------------------------------------------------------
   group('FinancialService key helpers', () {
     test('dateKey formats YYYY-MM-DD', () {
-      expect(FinancialService.dateKey(DateTime(2026, 9, 5)), equals('2026-09-05'));
+      expect(
+        FinancialService.dateKey(DateTime(2026, 9, 5)),
+        equals('2026-09-05'),
+      );
     });
 
     test('monthKey formats YYYY-MM', () {
-      expect(FinancialService.monthKey(DateTime(2026, 9, 5)), equals('2026-09'));
+      expect(
+        FinancialService.monthKey(DateTime(2026, 9, 5)),
+        equals('2026-09'),
+      );
     });
 
     test('dateKey pads single-digit month and day', () {
-      expect(FinancialService.dateKey(DateTime(2026, 1, 3)), equals('2026-01-03'));
+      expect(
+        FinancialService.dateKey(DateTime(2026, 1, 3)),
+        equals('2026-01-03'),
+      );
     });
   });
 }
