@@ -16,6 +16,10 @@ import '../../../../services/firestore_service.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../ai/ai_assistant_screen.dart';
+import '../ai/assignment_assistant_screen.dart';
+import '../ai/quiz_generator_screen.dart';
+import '../ai/revision_assistant_screen.dart';
+import '../ai/smart_planner_screen.dart';
 import '../materials/material_reader_screen.dart';
 import '../materials/materials_screen.dart';
 import '../materials/saved_materials_screen.dart';
@@ -112,6 +116,38 @@ class _QuickAccessState extends State<_QuickAccess> {
     ];
 
     final secondaryItems = <_QuickAccessItem>[
+      _QuickAccessItem(
+        icon: Icons.assignment_rounded,
+        label: GochanoLanguage.text('Assignment AI', 'এসাইনমেন্ট এআই'),
+        accent: colors.ai,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const AssignmentAssistantScreen())),
+      ),
+      _QuickAccessItem(
+        icon: Icons.quiz_rounded,
+        label: GochanoLanguage.text('Quiz', 'কুইজ'),
+        accent: colors.study,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const QuizGeneratorScreen())),
+      ),
+      _QuickAccessItem(
+        icon: Icons.school_rounded,
+        label: GochanoLanguage.text('Revision', 'পুনরালোচনা'),
+        accent: colors.expense,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const RevisionAssistantScreen())),
+      ),
+      _QuickAccessItem(
+        icon: Icons.psychology_rounded,
+        label: GochanoLanguage.text('Smart Plan', 'স্মার্ট প্ল্যান'),
+        accent: colors.ai,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const SmartPlannerScreen())),
+      ),
       _QuickAccessItem(
         icon: Icons.description_rounded,
         label: GochanoLanguage.text('Docs', 'ডকস'),

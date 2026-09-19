@@ -264,8 +264,8 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
                     const SizedBox(height: 2),
                     Text(
                       GochanoLanguage.text(
-                        'Track remaining calls for chat, notes, quizzes, and planner.',
-                        'চ্যাট, নোট, কুইজ এবং স্টাডি প্ল্যানারের অবশিষ্ট কোটা দেখুন।',
+                        'Track remaining calls for chat, notes, quizzes, planner, and study AI.',
+                        'চ্যাট, নোট, কুইজ, প্ল্যানার এবং স্টাডি এআই-এর অবশিষ্ট কোটা দেখুন।',
                       ),
                       style: type.caption.copyWith(color: colors.textSecondary),
                     ),
@@ -351,6 +351,44 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
                 ),
           used: planUsed,
           limit: planLimit,
+          isPlan: true,
+        ),
+
+        const SizedBox(height: GochanoSpacing.sm),
+
+        // 5. Assignment Assistant (future quota ready)
+        _FeatureUsageCard(
+          icon: Icons.assignment_rounded,
+          title: GochanoLanguage.text('Assignment Assistant', 'এসাইনমেন্ট সহকারী'),
+          resetBadge: GochanoLanguage.text(
+            'Coming soon — usage tracking ready',
+            'শীঘ্রই আসছে — ব্যবহার ট্র্যাকিং প্রস্তুত',
+          ),
+          remainingText: GochanoLanguage.text(
+            'Available for all students',
+            'সকল শিক্ষার্থীর জন্য উপলব্ধ',
+          ),
+          used: 0,
+          limit: 1,
+          isPlan: true,
+        ),
+
+        const SizedBox(height: GochanoSpacing.sm),
+
+        // 6. Revision Assistant (future quota ready)
+        _FeatureUsageCard(
+          icon: Icons.school_rounded,
+          title: GochanoLanguage.text('Revision Assistant', 'পুনরালোচনা সহকারী'),
+          resetBadge: GochanoLanguage.text(
+            'Coming soon — usage tracking ready',
+            'শীঘ্রই আসছে — ব্যবহার ট্র্যাকিং প্রস্তুত',
+          ),
+          remainingText: GochanoLanguage.text(
+            'Available for all students',
+            'সকল শিক্ষার্থীর জন্য উপলব্ধ',
+          ),
+          used: 0,
+          limit: 1,
           isPlan: true,
         ),
 

@@ -1117,4 +1117,147 @@ class ApiService {
       return data['photoURL'] as String?;
     });
   }
+
+  // ==========================================================================
+  // Phase 3B — AI Study Intelligence
+  // ==========================================================================
+
+  /// Assignment Assistant: explain what an assignment requires.
+  static Future<String> assignmentExplain({
+    required String title,
+    String description = '',
+    String instructions = '',
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/assignment/explain',
+        body: {
+          'title': title,
+          'description': description,
+          'instructions': instructions,
+        },
+      );
+      return (_decode(body)['explanation'] as String?) ?? '';
+    });
+  }
+
+  /// Assignment Assistant: break down into sections.
+  static Future<String> assignmentBreakdown({
+    required String title,
+    String description = '',
+    String instructions = '',
+    String? deadline,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/assignment/breakdown',
+        body: {
+          'title': title,
+          'description': description,
+          'instructions': instructions,
+          'deadline': deadline,
+        },
+      );
+      return (_decode(body)['breakdown'] as String?) ?? '';
+    });
+  }
+
+  /// Assignment Assistant: deadline-aware study plan.
+  static Future<String> assignmentPlan({
+    required String title,
+    String description = '',
+    String instructions = '',
+    required String deadline,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/assignment/plan',
+        body: {
+          'title': title,
+          'description': description,
+          'instructions': instructions,
+          'deadline': deadline,
+        },
+      );
+      return (_decode(body)['plan'] as String?) ?? '';
+    });
+  }
+
+  /// Quiz Generator: generate quiz questions from source material.
+  static Future<Map<String, dynamic>> quizGenerate({
+    required String source,
+    String topic = '',
+    int questionCount = 5,
+    String difficulty = 'medium',
+    String questionType = 'mcq',
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/quiz/generate',
+        body: {
+          'source': source,
+          'topic': topic,
+          'questionCount': questionCount,
+          'difficulty': difficulty,
+          'questionType': questionType,
+        },
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Revision Assistant: generate exam revision plan.
+  static Future<String> revisionPlan({
+    required String subject,
+    required String examDate,
+    List<String> topics = const [],
+    String notesSummary = '',
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/revision/plan',
+        body: {
+          'subject': subject,
+          'examDate': examDate,
+          'topics': topics,
+          'notesSummary': notesSummary,
+        },
+      );
+      return (_decode(body)['revision_plan'] as String?) ?? '';
+    });
+  }
+
+  /// Smart Study Planner: get AI daily recommendations.
+  static Future<String> smartPlannerRecommend({
+    int availableHours = 4,
+    List<String> preferredSubjects = const [],
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/planner/recommend',
+        body: {
+          'availableHours': availableHours,
+          'preferredSubjects': preferredSubjects,
+        },
+      );
+      return (_decode(body)['recommendation'] as String?) ?? '';
+    });
+  }
+
+  /// AI Context Builder: fetch user's study data for enhanced AI context.
+  static Future<Map<String, dynamic>> buildAiContext({
+    required String contextType,
+    String extraContext = '',
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/context',
+        body: {
+          'contextType': contextType,
+          'extraContext': extraContext,
+        },
+      );
+      return _decode(body);
+    });
+  }
 }
