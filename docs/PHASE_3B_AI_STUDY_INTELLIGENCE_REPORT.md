@@ -6,7 +6,7 @@
 |-------|-------|
 | Phase | 3B |
 | Status | Complete |
-| Last Updated | 2026-09-19 |
+| Last Updated | 2026-09-20 |
 
 ---
 
@@ -34,7 +34,7 @@
 | Feature | Backend | Flutter | Status |
 |---------|---------|---------|--------|
 | Assignment Assistant | Complete | Complete | Done |
-| Quiz Generator | Enhanced | Enhanced | Done |
+| Quiz Generator | Complete | Complete | Done |
 | Smart Study Planner AI | Complete | Complete | Done |
 | ~~Revision Assistant~~ | Removed | Removed | Removed |
 
@@ -74,32 +74,45 @@
 
 ## Quiz Generator Enhancement
 
-### Source Material Support
+### Supported Source Materials
 
-Users can now generate quizzes from:
-1. **Selected materials** — PDF, DOC, DOCX, JPG, PNG, TXT
-2. **Manual text input** — paste notes, textbook content, topics
-3. **Combined sources** — multiple materials + manual text
+| Source | Type | Extraction Method |
+|--------|------|-------------------|
+| PDF | Document | `extract_pdf_text()` — max 10 pages |
+| DOC/DOCX | Document | Direct UTF-8 decode |
+| TXT | Document | Direct UTF-8 decode |
+| Notes | Note | Firestore `notes` collection content |
+| Manual text | Input | User pasted text |
 
 ### Material Picker
 
-- Scrollable list of user's uploaded materials
+- Scrollable list of user's uploaded **documents only** (images excluded)
 - Search bar for filtering by title/subject
-- File type icons (PDF, DOC, IMG, TXT)
+- File type icons: PDF, DOC, TXT
 - Multi-select with chips
 - Upload date display
 
 ### Quiz Generation Flow
 
 ```
-User selects source material(s)
+Source Material
+|
+├── PDF
+├── DOC/DOCX
+├── TXT
+├── Notes
+└── Manual Text
+
         ↓
-Backend extracts content (PDF text, OCR, file read)
+
+Text Extraction
+
         ↓
-Content combined with manual input
+
+AI Quiz Generation
+
         ↓
-AI generates quiz based ONLY on source content
-        ↓
+
 Questions returned as JSON
 ```
 
@@ -118,11 +131,11 @@ Questions returned as JSON
 
 ### Content Extraction
 
-- **PDF:** `extract_pdf_text()` (limited to 10 pages)
-- **DOC/DOCX:** Direct UTF-8 decode
-- **TXT:** Direct UTF-8 decode
-- **Notes:** Firestore `notes` collection content
-- **Images:** Not supported — images excluded from quiz source picker
+- **PDF:** `extract_pdf_text()` — limited to 10 pages, max 8000 chars
+- **DOC/DOCX:** Direct UTF-8 decode, max 8000 chars
+- **TXT:** Direct UTF-8 decode, max 8000 chars
+- **Notes:** Firestore `notes` collection content, max 5000 chars per note
+- **Total source limit:** 15000 chars max
 
 ---
 
@@ -164,15 +177,15 @@ Questions returned as JSON
 
 ## Files Summary
 
-### Backend (1 file modified, 1 file created)
+### Backend
 - `backend/app/main.py` — router import + registration
-- `backend/app/routers/ai_study.py` — endpoints (6 endpoints, ~550 lines)
+- `backend/app/routers/ai_study.py` — endpoints (6 endpoints)
 
-### Flutter (4 files created, 3 files modified)
-- `flutter_app/lib/features/study/presentation/ai/assignment_assistant_screen.dart` — new file
-- `flutter_app/lib/features/study/presentation/ai/quiz_generator_screen.dart` — enhanced with materials
-- `flutter_app/lib/features/study/presentation/ai/material_picker_sheet.dart` — new file
-- `flutter_app/lib/features/study/presentation/ai/smart_planner_screen.dart` — new file
+### Flutter
+- `flutter_app/lib/features/study/presentation/ai/assignment_assistant_screen.dart`
+- `flutter_app/lib/features/study/presentation/ai/quiz_generator_screen.dart`
+- `flutter_app/lib/features/study/presentation/ai/material_picker_sheet.dart`
+- `flutter_app/lib/features/study/presentation/ai/smart_planner_screen.dart`
 - `flutter_app/lib/services/api_service.dart` — API methods
 - `flutter_app/lib/features/study/presentation/workspace/workspace_view.dart` — quick access items
 - `flutter_app/lib/features/profile/presentation/ai_usage_screen.dart` — updated description
@@ -192,14 +205,14 @@ Flutter sent `sourceIds` (camelCase) but backend `QuizGenerateRequest` used plai
 
 Changed all request classes in `ai_study.py` from `BaseModel` to `_CamelModel`:
 
-| Class | Field | Before | After |
-|-------|-------|--------|-------|
-| `QuizGenerateRequest` | `source_ids` | `BaseModel` | `_CamelModel` |
-| `AssignmentExplainRequest` | all fields | `BaseModel` | `_CamelModel` |
-| `AssignmentBreakdownRequest` | all fields | `BaseModel` | `_CamelModel` |
-| `AssignmentPlanRequest` | all fields | `BaseModel` | `_CamelModel` |
-| `SmartPlannerRecommendRequest` | all fields | `BaseModel` | `_CamelModel` |
-| `ContextBuilderRequest` | all fields | `BaseModel` | `_CamelModel` |
+| Class | Before | After |
+|-------|--------|-------|
+| `QuizGenerateRequest` | `BaseModel` | `_CamelModel` |
+| `AssignmentExplainRequest` | `BaseModel` | `_CamelModel` |
+| `AssignmentBreakdownRequest` | `BaseModel` | `_CamelModel` |
+| `AssignmentPlanRequest` | `BaseModel` | `_CamelModel` |
+| `SmartPlannerRecommendRequest` | `BaseModel` | `_CamelModel` |
+| `ContextBuilderRequest` | `BaseModel` | `_CamelModel` |
 
 `_CamelModel` config:
 - `alias_generator`: converts snake_case → camelCase
@@ -215,24 +228,18 @@ Changed all request classes in `ai_study.py` from `BaseModel` to `_CamelModel`:
 
 ### Root Cause
 
-Large source extraction (PDF read, OCR) + huge AI prompts caused Render worker timeout (502).
+Large PDF extraction + huge AI prompts caused Render worker timeout (502).
 
 ### Optimizations
 
 | Change | Before | After |
 |--------|--------|-------|
 | PDF extraction | All pages | Max 10 pages |
-| OCR in quiz | Fallback when text < 40 chars | Enabled for images (5MB limit, 5k chars) |
 | Content per source | 3000 chars | 5000 chars |
 | Total source limit | Unlimited | 15000 chars max |
 | Text file limit | 10000 chars | 8000 chars |
 | Timing logs | None | Extraction + AI timing |
 | Error handling | Crash | Graceful timeout message |
-
-### Files Changed
-
-- `backend/app/routers/ai_study.py` — quiz endpoint optimization
-- `backend/app/services/pdf_service.py` — `max_pages` parameter added
 
 ### Validation
 
@@ -246,39 +253,21 @@ Large source extraction (PDF read, OCR) + huge AI prompts caused Render worker t
 
 | File | Change |
 |------|--------|
-| `material_picker_sheet.dart` | Separated Documents/Images categories with headers |
+| `material_picker_sheet.dart` | Shows only documents (PDF, DOC, DOCX, TXT) |
 | `material_upload_screen.dart` | Added TXT to allowed extensions |
-| `ai_study.py` | Re-enabled OCR for images (5MB limit, 5k chars) |
+| `ai_study.py` | Image/OCR removed from quiz extraction |
 | `utils.py` | Added TXT detection with printable-text heuristic |
-
-### Material Picker Categories
-
-Before: Flat list of all materials.
-After: Only documents (PDF, DOC, DOCX, TXT). Images excluded.
-
-```
-lecture-notes.pdf
-chapter1.docx
-notes.txt
-```
 
 ### Quiz Source Scope
 
-Supported sources:
-- PDF (text extraction, max 10 pages)
-- DOC/DOCX (direct text read)
-- TXT (direct text read)
-- Notes (Firestore notes content)
-- Manual pasted text
-
-Not supported:
-- JPG/PNG images
-- OCR extraction
-
-### Validation
-
-- Backend pytest: 523 passed, 0 failures
-- Flutter analyze: No issues found
+| Source | Supported |
+|--------|-----------|
+| PDF | Yes |
+| DOC/DOCX | Yes |
+| TXT | Yes |
+| Notes | Yes |
+| Manual pasted text | Yes |
+| JPG/PNG images | No |
 
 ---
 
@@ -290,22 +279,12 @@ Not supported:
 4. **Learning assistance only** — prompts instruct AI not to generate cheating answers
 5. **Quiz quota enforced** — uses existing `AiFeature.QUIZ` monthly limit (3/month)
 6. **Context builder safe** — only returns user's own data, never passwords/tokens
-7. **Source material extraction** — reuses existing PDF/OCR services
 
 ---
 
-## Deployment Issue (Physical Test)
+## Deployment
 
-**Issue:** Phase 3B routes missing in production.
-
-**Root Cause:** Phase 3B code was never committed to the deployed branch.
-
-**Fix:** Committed and pushed all Phase 3B files:
-```
-commit 32ee098 feat: Phase 3B — AI Study Intelligence
-```
-
-**Validation:** Render will auto-deploy from `gochano-ui-rebuild-v1` branch.
+Phase 3B deployed via branch `gochano-ui-rebuild-v1`. Render auto-deploys on push.
 
 ---
 
