@@ -32,6 +32,7 @@ import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
+import '../../../../shared/widgets/ai_widgets.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import 'ai_context_routing.dart';
@@ -237,8 +238,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
     return GochanoScaffold(
       padBody: false,
       appBar: GochanoAppBar(
@@ -289,32 +288,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 ],
                 if (_error.isNotEmpty) ...[
                   const SizedBox(height: GochanoSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(GochanoSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: colors.errorSoft,
-                      borderRadius: GochanoRadius.mdAll,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.error_outline_rounded,
-                          size: GochanoSizes.iconSm,
-                          color: colors.error,
-                        ),
-                        const SizedBox(width: GochanoSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            _error,
-                            style: context.type.bodySecondary.copyWith(
-                              color: colors.error,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  AiErrorBanner(message: _error),
                 ],
               ],
             ),

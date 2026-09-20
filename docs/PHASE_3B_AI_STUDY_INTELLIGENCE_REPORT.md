@@ -337,6 +337,281 @@ Owner-only via existing `ApiService.deleteMaterial()`.
 
 ---
 
+## Material UX Final Update
+
+### Category Restructure
+
+| Before | After |
+|--------|-------|
+| Notes (separate) | **Documents** (combined) |
+| PDFs (separate) | **Documents** (combined) |
+| Docs (all materials) | Removed |
+| Saved Images | **Images** (separate) |
+
+### Combined Document Category
+
+Documents include all non-image materials:
+- PDF
+- DOC
+- DOCX
+- TXT
+- Notes (any text-based material)
+
+### Separate Image Category
+
+Images include:
+- JPG
+- JPEG
+- PNG
+
+### Quick Access Changes
+
+**Primary (always visible):**
+- AI Assistant
+- Documents (combined: Notes + PDF + DOC + DOCX + TXT)
+- Images (JPG, JPEG, PNG)
+
+**Secondary (expandable):**
+- Assignment AI
+- Quiz
+- Smart Plan
+- Semester
+- Shared Box
+
+### Document Quick Access
+
+Opening Documents shows all document materials with:
+- Search by title/subject
+- Sort by date/name/size
+- Upload new documents
+- Delete with confirmation
+
+### Runtime Type Detection
+
+Materials classified at runtime using mimeType + fileName:
+- `application/pdf` or `.pdf` → document
+- `application/msword` or `.doc/.docx` → document
+- `text/plain` or `.txt` → document
+- `image/*` or `.jpg/.jpeg/.png` → image
+
+No existing files are deleted. Classification is display-only.
+
+### Delete Material Support
+
+Every material item has delete option:
+1. Tap delete icon
+2. Confirmation dialog
+3. Delete Firestore record + Storage file
+4. Refresh list
+
+Owner-only via existing `ApiService.deleteMaterial()`.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `workspace_view.dart` | Quick Access restructured |
+| `materials_screen.dart` | Added `documentFilter` parameter |
+| `material_picker_sheet.dart` | Returns title in selection |
+| `quiz_generator_screen.dart` | Added upload button + named chips |
+
+---
+
+## Quiz Source Update
+
+### Three Source Methods
+
+| Method | Description |
+|--------|-------------|
+| **Select Existing** | Pick from uploaded documents (PDF, DOC, DOCX, TXT) |
+| **Upload From Mobile** | Pick file from device, upload, auto-select as source |
+| **Paste Text** | Manual text input for topics/notes |
+
+### Existing Material Selection
+
+- Opens Material Picker bottom sheet
+- Shows only documents (images excluded)
+- Multi-select with search
+- Selected materials shown as named chips
+
+### Mobile Direct Upload
+
+New upload flow in Quiz Generator:
+1. Tap "Upload" button
+2. Phone file picker (PDF, DOC, DOCX, TXT only)
+3. Title confirmation dialog
+4. Upload via existing `ApiService.uploadMaterial()`
+5. Auto-add uploaded file as selected quiz source
+6. User does NOT need to upload manually first
+
+### Source Chips
+
+Selected sources displayed as chips with:
+- Document icon
+- Material title (not ID)
+- Delete button to remove
+
+### Combined Source Generation
+
+All three sources combined for quiz generation:
+- Existing materials + uploaded materials + manual text
+- Each source extracted separately (max 5000 chars each)
+- Total limit: 15000 chars combined
+- AI generates questions from combined content
+
+### Quiz Source Restriction
+
+Quiz does NOT use images:
+- JPG/PNG filtered out from picker
+- Backend returns empty string for image extraction
+- No OCR required
+
+Supported quiz sources:
+- PDF
+- DOC/DOCX
+- TXT
+- Notes
+- Manual text
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `quiz_generator_screen.dart` | Upload button + auto-select + named chips |
+| `material_picker_sheet.dart` | Returns title in selection result |
+
+---
+
+## Quiz Source Limits
+
+### Limits Display
+
+Source Material section shows limits info:
+- Supported types: PDF, DOC, DOCX, TXT, Notes
+- Maximum PDF pages: 10
+- Maximum extracted text: 12,000 characters
+- Maximum combined files: 3
+
+### Client-Side Validation
+
+| Check | Behavior |
+|-------|----------|
+| Max 3 files | Shows error if user tries to add more |
+| Text length | Live character count (current / 12,000) |
+| Text overflow | Validation error before generation if > 12,000 |
+
+### Upload Validation
+
+When uploading a source file:
+1. File picker restricted to PDF, DOC, DOCX, TXT
+2. Max 3 files enforced before upload
+3. Uploaded file auto-added as selected source
+
+### Material Selection Validation
+
+When selecting existing materials:
+1. Max 3 files enforced
+2. Excess files skipped with warning message
+
+### Backend Error Handling
+
+| Before | After |
+|--------|-------|
+| "Quiz generation timed out" | "Source material is too large. Please reduce file size or select fewer materials." |
+
+The backend catch-all error now provides a specific, actionable message instead of a generic timeout message.
+
+### Backend Extraction Limits
+
+| Limit | Value | Applied At |
+|-------|-------|------------|
+| PDF pages | 10 | `_extract_material_text()` |
+| Per-source chars | 5,000 | `quiz_generate()` |
+| Total source chars | 15,000 | `quiz_generate()` |
+| Manual text chars | 5,000 | `QuizGenerateRequest` field |
+| Max source IDs | 3 | `QuizGenerateRequest` field |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `quiz_generator_screen.dart` | Limits info, max 3 validation, char count, friendly errors |
+| `ai_study.py` | Updated error message |
+
+---
+
+## AI Quota Exhausted UX
+
+### Quiz Quota Check
+
+Before quiz generation, frontend checks remaining quota via `GET /api/ai/usage`.
+
+If `quiz.remaining == 0`:
+
+```
+AI Quiz limit reached.
+You have used all 3 quiz generations this month.
+Your limit resets on 1st of next month.
+```
+
+AI API is NOT called when quota is exhausted.
+
+### Quota Check Flow
+
+```
+User taps Generate Quiz
+        ↓
+Check text length (max 12,000 chars)
+        ↓
+Call GET /api/ai/usage
+        ↓
+quiz.remaining == 0?  →  Show quota message
+        ↓ No
+Call POST /api/ai/quiz/generate
+```
+
+### Future AI Features
+
+Same pattern applies to future AI features:
+- Check remaining quota before API call
+- Show friendly message if exhausted
+- Do not call AI API when limit reached
+
+---
+
+## Upload Loading State
+
+### Upload Flow States
+
+| State | Behavior |
+|-------|----------|
+| Before upload | Upload button enabled, shows icon + "Upload" |
+| During upload | Button disabled, shows spinner + "Uploading…" |
+| On success | Chip auto-added, snackbar: "File uploaded" |
+| On failure | Button re-enabled, snackbar: "Upload failed. Please try again." |
+
+### Upload Button States
+
+```dart
+// Before upload
+onPressed: _uploadSource
+icon: Icon(Icons.upload_file_rounded)
+label: "Upload"
+
+// During upload
+onPressed: null  // disabled
+icon: CircularProgressIndicator(strokeWidth: 2)
+label: "Uploading…"
+```
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `quiz_generator_screen.dart` | Quota check, upload loading state |
+
+---
+
 ## Deployment
 
 Phase 3B deployed via branch `gochano-ui-rebuild-v1`. Render auto-deploys on push.

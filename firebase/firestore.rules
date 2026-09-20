@@ -103,6 +103,20 @@ service cloud.firestore {
       match /offline_materials/{materialId} {
         allow read, write: if verified() && request.auth.uid == uid;
       }
+
+      // Phase 3C: quiz results per user
+      match /quiz_results/{quizId} {
+        allow create: if isStudent() && request.auth.uid == uid;
+        allow read, delete: if isStudent() && request.auth.uid == uid;
+        allow update: if false;
+      }
+
+      // Phase 4: AI feedback per user
+      match /ai_feedback/{feedbackId} {
+        allow create: if isStudent() && request.auth.uid == uid;
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow update, delete: if false;
+      }
     }
 
     // ---------------- STUDENT-ONLY ACADEMIC DATA ----------------

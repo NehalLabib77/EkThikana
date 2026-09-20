@@ -25,13 +25,21 @@ import 'material_upload_screen.dart';
 enum MaterialSort { newest, oldest, name, size }
 
 class MaterialsScreen extends StatefulWidget {
-  const MaterialsScreen({super.key, this.subjectFilter, this.mimeFilter});
+  const MaterialsScreen({
+    super.key,
+    this.subjectFilter,
+    this.mimeFilter,
+    this.documentFilter = false,
+  });
 
   /// When set, only materials filed under this subject are shown.
   final String? subjectFilter;
 
   /// When set, only materials whose MIME type starts with this prefix are shown.
   final String? mimeFilter;
+
+  /// When true, shows only document materials (PDF, DOC, DOCX, TXT).
+  final bool documentFilter;
 
   @override
   State<MaterialsScreen> createState() => _MaterialsScreenState();
@@ -53,14 +61,17 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
     return GochanoScaffold(
       padBody: false,
       appBar: GochanoAppBar(
-        title:
-            widget.subjectFilter ??
-            (widget.mimeFilter != null
-                ? _mimeFilterTitle(widget.mimeFilter!)
-                : GochanoLanguage.text('Materials', 'উপকরণ')),
-        subtitle: widget.subjectFilter == null && widget.mimeFilter == null
-            ? null
-            : GochanoLanguage.text('Subject materials', 'বিষয়ের উপকরণ'),
+        title: widget.documentFilter
+            ? GochanoLanguage.text('Documents', 'ডকুমেন্ট')
+            : widget.subjectFilter ??
+                (widget.mimeFilter != null
+                    ? _mimeFilterTitle(widget.mimeFilter!)
+                    : GochanoLanguage.text('Materials', 'উপকরণ')),
+        subtitle: widget.documentFilter
+            ? GochanoLanguage.text('All document materials', 'সমস্ত ডকুমেন্ট উপকরণ')
+            : widget.subjectFilter == null && widget.mimeFilter == null
+                ? null
+                : GochanoLanguage.text('Subject materials', 'বিষয়ের উপকরণ'),
         actions: [
           PopupMenuButton<MaterialSort>(
             icon: const Icon(Icons.sort_rounded),
@@ -170,6 +181,18 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
               .toList();
         }
 
+        if (widget.documentFilter) {
+          docs = docs.where((d) {
+            final data = d.data();
+            final mime = (data['mimeType'] ?? '').toString().toLowerCase();
+            final name = (data['fileName'] ?? '').toString().toLowerCase();
+            // Document: PDF, DOC, DOCX, TXT — any non-image file
+            if (mime.startsWith('image/')) return false;
+            if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return false;
+            return true;
+          }).toList();
+        }
+
         if (_query.isNotEmpty) {
           final needle = _query.toLowerCase();
           docs = docs.where((d) {
@@ -207,7 +230,9 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
 
         if (docs.isEmpty) {
           final bool isFiltered =
-              widget.mimeFilter != null || widget.subjectFilter != null;
+              widget.mimeFilter != null ||
+              widget.subjectFilter != null ||
+              widget.documentFilter;
           final String emptyTitle;
           final String emptyMessage;
 
@@ -216,6 +241,15 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
             emptyMessage = GochanoLanguage.text(
               'Try a different word.',
               'অন্য একটি শব্দ চেষ্টা করুন।',
+            );
+          } else if (widget.documentFilter) {
+            emptyTitle = GochanoLanguage.text(
+              'No documents yet',
+              'এখনো কোনো ডকুমেন্ট নেই',
+            );
+            emptyMessage = GochanoLanguage.text(
+              'Upload documents (PDF, DOC, TXT) using the + button.',
+              '+ বোতাম দিয়ে ডকুমেন্ট (PDF, DOC, TXT) আপলোড করুন।',
             );
           } else if (widget.mimeFilter?.startsWith('image/') == true) {
             emptyTitle = GochanoLanguage.text(

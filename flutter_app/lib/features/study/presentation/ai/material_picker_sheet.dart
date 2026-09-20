@@ -60,6 +60,7 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
   String _searchQuery = '';
   final Set<String> _selectedIds = {};
   bool _refreshKey = false;
+  final Map<String, String> _docTitles = {};
 
   @override
   void dispose() {
@@ -79,7 +80,7 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
 
   void _confirm() {
     Navigator.of(context).pop(
-      _selectedIds.map((id) => {'id': id}).toList(),
+      _selectedIds.map((id) => {'id': id, 'title': _docTitles[id] ?? id}).toList(),
     );
   }
 
@@ -276,6 +277,10 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                       return ErrorState(compact: true, message: friendlyErrorMessage(snapshot.error));
                     }
                     final docs = [...?snapshot.data?.docs];
+                    // Cache doc titles for confirm callback
+                    for (final doc in docs) {
+                      _docTitles[doc.id] = _titleFromData(doc.data());
+                    }
                     if (docs.isEmpty) {
                       return EmptyState(
                         compact: true,

@@ -1,10 +1,13 @@
-// The Gochano application shell — five primary destinations (spec §26).
+// The Gochano application shell — four primary destinations for students.
 //
-//   Home | Study | Life | Community | Profile
+//   Today | Study | Commute | Money | Profile
+//
+// Community is no longer a bottom-tab destination; it lives as a Study top
+// tab instead (see study_screen.dart).
 //
 // Role note
 // ---------
-// Gochano has two account roles. `student` gets all five destinations.
+// Gochano has two account roles. `student` gets all four destinations.
 // `general` gets four: Study, Study Groups, AI and Materials are all gated
 // behind `require_student` on the backend (see `app/core/auth.py`), so a
 // general account tapping Study or Community would meet a 403 on every
@@ -21,7 +24,6 @@ import 'package:flutter/material.dart';
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
-import '../../community/presentation/community_screen.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../life/presentation/life_screen.dart';
 import '../../life/presentation/commute/commute_screen.dart';
@@ -84,7 +86,7 @@ class _GochanoShellState extends State<GochanoShell> {
         const StudyScreen(),
         const CommuteScreen(),
         const ExpenseScreen(),
-        const CommunityScreen(),
+        ProfileScreen(role: widget.role),
       ];
     }
 
@@ -129,9 +131,9 @@ class _GochanoShellState extends State<GochanoShell> {
           selectedIcon: Icons.account_balance_wallet_rounded,
         ),
         _Destination(
-          label: GochanoLanguage.text('Community', 'কমিউনিটি'),
-          icon: Icons.groups_outlined,
-          selectedIcon: Icons.groups_rounded,
+          label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
+          icon: Icons.person_outline_rounded,
+          selectedIcon: Icons.person_rounded,
         ),
       ];
     }

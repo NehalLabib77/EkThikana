@@ -4,9 +4,8 @@
 //              at the top so the common case is one tap, not three (spec §29).
 //   Plan       Combined dashboard: schedule, deadlines, tasks, reminders,
 //              and study goal — the single screen for "what now?"
-// Groups are not a fifth tab here. They are the Community destination in the
-// bottom bar; putting them in both places would be the duplication spec §86
-// asks to remove.
+//   Community  Study groups — the same screen that was formerly a bottom-tab
+//              destination, now surfaced as a Study top tab.
 //
 // AI is an app-bar action rather than a tab, because it is contextual: the
 // useful entry points are "ask about *this* material" from the reader and a
@@ -21,6 +20,7 @@ import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../search/presentation/universal_search_screen.dart';
+import '../../community/presentation/community_view.dart';
 import 'ai/ai_assistant_screen.dart';
 import 'planner/plan_view.dart' show PlanView, openPlanHistory;
 import 'workspace/workspace_view.dart';
@@ -39,7 +39,7 @@ class _StudyScreenState extends State<StudyScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _tabs.addListener(_onTabChange);
     GochanoLanguage.current.addListener(_onLanguageChange);
   }
@@ -98,12 +98,13 @@ class _StudyScreenState extends State<StudyScreen>
           tabs: [
             Tab(text: GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')),
             Tab(text: GochanoLanguage.text('Plan', 'পরিকল্পনা')),
+            Tab(text: GochanoLanguage.text('Community', 'কমিউনিটি')),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [WorkspaceView(), PlanView()],
+        children: const [WorkspaceView(), PlanView(), CommunityView()],
       ),
     );
   }

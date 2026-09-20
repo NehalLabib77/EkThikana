@@ -348,7 +348,7 @@ async def assignment_plan(
 
 class QuizGenerateRequest(_CamelModel):
     source: str = Field(default="", max_length=5000)
-    source_ids: list[str] = Field(default_factory=list, max_length=5)
+    source_ids: list[str] = Field(default_factory=list, max_length=3)
     topic: str = Field(default="", max_length=500)
     question_count: int = Field(default=5, ge=1, le=20)
     difficulty: str = Field(default="medium", pattern=r"^(easy|medium|hard)$")
@@ -500,7 +500,7 @@ async def quiz_generate(
         return {
             "quiz": [],
             "raw": "",
-            "error": "Quiz generation timed out. Please try again with fewer or smaller source materials.",
+            "error": "Source material is too large. Please reduce file size or select fewer materials.",
         }
 
     t_ai = time.monotonic()
@@ -605,6 +605,171 @@ async def smart_planner_recommend(
 # AI Context Builder — Enhanced context for all AI features
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Quiz Results Persistence
+# ---------------------------------------------------------------------------
+
+class QuizResultRequest(_CamelModel):
+    subject_id: str | None = Field(default=None, max_length=120)
+    material_id: str | None = Field(default=None, max_length=120)
+    questions: list[dict[str, Any]] = Field(..., min_length=1, max_length=50)
+    user_answers: list[str] = Field(..., min_length=1, max_length=50)
+    correct_answers: list[str] = Field(..., min_length=1, max_length=50)
+    score: int = Field(..., ge=0, le=100)
+    topic_scores: dict[str, int] = Field(default_factory=dict)
+    difficulty: str = Field(default="medium", max_length=20)
+    time_spent_seconds: int = Field(default=0, ge=0, le=86400)
+
+
+@router.post("/quiz/save-result")
+async def quiz_save_result(
+    body: QuizResultRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    """Persist a completed quiz result to the user's Firestore subcollection.
+
+    Stores: questions, user answers, correct answers, score, topic breakdown,
+    difficulty, and time spent. Only the owner can write their own results.
+    """
+    db = get_firestore()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+
+    total = len(body.questions)
+    correct_count = sum(
+        1 for i, qa in enumerate(body.user_answers)
+        if i < len(body.correct_answers) and qa.strip().lower() == body.correct_answers[i].strip().lower()
+    )
+
+    doc_ref = (
+        db.collection("users")
+        .document(user.uid)
+        .collection("quiz_results")
+        .document()
+    )
+
+    now = datetime.now(timezone.utc)
+    result_data = {
+        "ownerId": user.uid,
+        "subjectId": body.subject_id or "",
+        "materialId": body.material_id or "",
+        "questions": body.questions,
+        "userAnswers": body.user_answers,
+        "correctAnswers": body.correct_answers,
+        "totalQuestions": total,
+        "correctCount": correct_count,
+        "score": body.score,
+        "topicScores": body.topic_scores,
+        "difficulty": body.difficulty,
+        "timeSpentSeconds": body.time_spent_seconds,
+        "createdAt": now,
+        "dayKey": now.strftime("%Y-%m-%d"),
+        "monthKey": now.strftime("%Y-%m"),
+    }
+
+    doc_ref.set(result_data)
+
+    logger.info(
+        "Quiz result saved: uid=%s score=%d/%d difficulty=%s",
+        user.uid, correct_count, total, body.difficulty,
+    )
+
+    return {
+        "quizId": doc_ref.id,
+        "score": body.score,
+        "correctCount": correct_count,
+        "totalQuestions": total,
+    }
+
+
+@router.get("/quiz/history")
+async def quiz_history(
+    limit: int = 20,
+    user: CurrentUser = Depends(require_student),
+):
+    """Fetch the user's quiz history, newest first.
+
+    Returns quiz results with scores and topic breakdowns for
+    learning progress tracking.
+    """
+    db = get_firestore()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+
+    docs = (
+        db.collection("users")
+        .document(user.uid)
+        .collection("quiz_results")
+        .order_by("createdAt", direction="DESCENDING")
+        .limit(min(limit, 100))
+        .stream()
+    )
+
+    results = []
+    for snap in docs:
+        data = snap.to_dict() or {}
+        results.append({
+            "quizId": snap.id,
+            "subjectId": data.get("subjectId", ""),
+            "materialId": data.get("materialId", ""),
+            "totalQuestions": data.get("totalQuestions", 0),
+            "correctCount": data.get("correctCount", 0),
+            "score": data.get("score", 0),
+            "topicScores": data.get("topicScores", {}),
+            "difficulty": data.get("difficulty", "medium"),
+            "timeSpentSeconds": data.get("timeSpentSeconds", 0),
+            "createdAt": data.get("createdAt"),
+            "dayKey": data.get("dayKey", ""),
+        })
+
+    return {"results": results, "count": len(results)}
+
+
+@router.get("/quiz/history/{quiz_id}")
+async def quiz_history_detail(
+    quiz_id: str,
+    user: CurrentUser = Depends(require_student),
+):
+    """Fetch a single quiz result with full question details."""
+    db = get_firestore()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+
+    doc = (
+        db.collection("users")
+        .document(user.uid)
+        .collection("quiz_results")
+        .document(quiz_id)
+        .get()
+    )
+
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Quiz result not found")
+
+    data = doc.to_dict() or {}
+    return {
+        "quizId": doc.id,
+        "ownerId": data.get("ownerId", ""),
+        "subjectId": data.get("subjectId", ""),
+        "materialId": data.get("materialId", ""),
+        "questions": data.get("questions", []),
+        "userAnswers": data.get("userAnswers", []),
+        "correctAnswers": data.get("correctAnswers", []),
+        "totalQuestions": data.get("totalQuestions", 0),
+        "correctCount": data.get("correctCount", 0),
+        "score": data.get("score", 0),
+        "topicScores": data.get("topicScores", {}),
+        "difficulty": data.get("difficulty", "medium"),
+        "timeSpentSeconds": data.get("timeSpentSeconds", 0),
+        "createdAt": data.get("createdAt"),
+        "dayKey": data.get("dayKey", ""),
+    }
+
+
+# ---------------------------------------------------------------------------
+# AI Context Builder — Enhanced context for all AI features
+# ---------------------------------------------------------------------------
+
 class ContextBuilderRequest(_CamelModel):
     context_type: str = Field(
         ...,
@@ -642,3 +807,144 @@ async def build_context(
         context["extra"] = body.extra_context
 
     return context
+
+
+# ---------------------------------------------------------------------------
+# Phase 3C-2 — Learning Insights / Weak Topic Detection
+# ---------------------------------------------------------------------------
+
+@router.get("/learning/weak-topics")
+async def learning_weak_topics(
+    threshold: int = 60,
+    user: CurrentUser = Depends(require_student),
+):
+    """Identify topics where the student needs improvement.
+
+    Aggregates topicScores across quiz history and returns topics
+    with average score below the threshold. Only the authenticated
+    user's own quiz data is analyzed.
+    """
+    from app.services.weak_topic_service import get_weak_topics
+
+    weak = get_weak_topics(user.uid, threshold=threshold)
+    return {
+        "weak_topics": weak,
+        "count": len(weak),
+        "threshold": threshold,
+    }
+
+
+@router.get("/learning/summary")
+async def learning_summary(
+    user: CurrentUser = Depends(require_student),
+):
+    """Get a summary of the user's learning performance.
+
+    Returns overall stats: total quizzes, average score, topic counts,
+    strong topics, and weak topics.
+    """
+    from app.services.weak_topic_service import get_learning_summary
+
+    summary = get_learning_summary(user.uid)
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Phase 3C-3 — AI Study Recommendation
+# ---------------------------------------------------------------------------
+
+@router.get("/learning/recommendations")
+async def learning_recommendations(
+    user: CurrentUser = Depends(require_student),
+):
+    """Get personalized AI study recommendations.
+
+    Analyzes weak topics, tasks, assignments, and recent quiz performance
+    to generate actionable study recommendations. Results are cached
+    daily to minimize AI quota usage.
+    """
+    from app.services.ai_recommendation_service import generate_study_recommendation
+
+    result = await generate_study_recommendation(user.uid)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Phase 4-1 — AI Recommendation Feedback
+# ---------------------------------------------------------------------------
+
+ALLOWED_FEATURES = {"study_recommendation"}
+ALLOWED_FEEDBACK = {"helpful", "not_helpful"}
+
+
+class AiFeedbackRequest(_CamelModel):
+    feature: str = Field(..., min_length=1, max_length=50)
+    recommendation_id: str = Field(default="", max_length=200)
+    feedback: str = Field(..., pattern=r"^(helpful|not_helpful)$")
+
+
+@router.post("/feedback")
+async def submit_feedback(
+    body: AiFeedbackRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    """Submit feedback on an AI recommendation.
+
+    Stores feedback in the user's ai_feedback subcollection.
+    Only the authenticated user can create their own feedback.
+    Duplicate feedback on the same recommendation is prevented.
+    """
+    if body.feature not in ALLOWED_FEATURES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Feature '{body.feature}' is not allowed. Allowed: {sorted(ALLOWED_FEATURES)}",
+        )
+
+    db = get_firestore()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firestore unavailable")
+
+    # Check for duplicate feedback on same recommendation
+    existing = (
+        db.collection("users")
+        .document(user.uid)
+        .collection("ai_feedback")
+        .where("feature", "==", body.feature)
+        .where("recommendationId", "==", body.recommendation_id)
+        .limit(1)
+        .stream()
+    )
+    for snap in existing:
+        if snap.exists:
+            return {
+                "status": "already_submitted",
+                "message": "Feedback already submitted for this recommendation.",
+            }
+
+    # Create feedback document
+    doc_ref = (
+        db.collection("users")
+        .document(user.uid)
+        .collection("ai_feedback")
+        .document()
+    )
+
+    now = datetime.now(timezone.utc)
+    doc_ref.set({
+        "ownerId": user.uid,
+        "feature": body.feature,
+        "recommendationId": body.recommendation_id,
+        "feedback": body.feedback,
+        "createdAt": now,
+        "dayKey": now.strftime("%Y-%m-%d"),
+    })
+
+    logger.info(
+        "AI feedback submitted: uid=%s feature=%s feedback=%s",
+        user.uid, body.feature, body.feedback,
+    )
+
+    return {
+        "status": "submitted",
+        "feedbackId": doc_ref.id,
+    }

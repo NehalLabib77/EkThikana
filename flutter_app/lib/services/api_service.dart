@@ -1241,4 +1241,104 @@ class ApiService {
       return _decode(body);
     });
   }
+
+  /// Save quiz result to Firestore via backend.
+  static Future<Map<String, dynamic>> saveQuizResult({
+    required List<Map<String, dynamic>> questions,
+    required List<String> userAnswers,
+    required List<String> correctAnswers,
+    required int score,
+    Map<String, int> topicScores = const {},
+    String subjectId = '',
+    String materialId = '',
+    String difficulty = 'medium',
+    int timeSpentSeconds = 0,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/quiz/save-result',
+        body: {
+          'questions': questions,
+          'userAnswers': userAnswers,
+          'correctAnswers': correctAnswers,
+          'score': score,
+          'topicScores': topicScores,
+          'subjectId': subjectId,
+          'materialId': materialId,
+          'difficulty': difficulty,
+          'timeSpentSeconds': timeSpentSeconds,
+        },
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Get quiz history (newest first).
+  static Future<Map<String, dynamic>> getQuizHistory({int limit = 20}) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ai/quiz/history?limit=$limit',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Get a single quiz result with full question details.
+  static Future<Map<String, dynamic>> getQuizResult(String quizId) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ai/quiz/history/$quizId',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Get weak topics from quiz history analysis.
+  static Future<Map<String, dynamic>> getWeakTopics({int threshold = 60}) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ai/learning/weak-topics?threshold=$threshold',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Get learning summary (overall stats, strong/weak topics).
+  static Future<Map<String, dynamic>> getLearningSummary() async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ai/learning/summary',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Get AI study recommendations.
+  static Future<Map<String, dynamic>> getStudyRecommendations() async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ai/learning/recommendations',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Submit feedback on an AI recommendation.
+  static Future<Map<String, dynamic>> submitAiFeedback({
+    required String feature,
+    required String feedback,
+    String recommendationId = '',
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/feedback',
+        body: {
+          'feature': feature,
+          'feedback': feedback,
+          'recommendationId': recommendationId,
+        },
+      );
+      return _decode(body);
+    });
+  }
 }

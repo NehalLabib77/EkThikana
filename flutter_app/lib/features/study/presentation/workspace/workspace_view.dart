@@ -17,12 +17,12 @@ import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../ai/ai_assistant_screen.dart';
 import '../ai/assignment_assistant_screen.dart';
+import '../ai/learning_insights_screen.dart';
 import '../ai/quiz_generator_screen.dart';
 import '../ai/smart_planner_screen.dart';
 import '../materials/material_reader_screen.dart';
 import '../materials/materials_screen.dart';
 import '../materials/saved_materials_screen.dart';
-import '../notes/notes_screen.dart';
 import 'semester_list_screen.dart';
 import '../../../../features/community/presentation/shared_box_screen.dart';
 
@@ -86,36 +86,6 @@ class _QuickAccessState extends State<_QuickAccess> {
         ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
       ),
       _QuickAccessItem(
-        icon: Icons.notes_rounded,
-        label: GochanoLanguage.text('Notes', 'নোট'),
-        accent: colors.study,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const NotesScreen())),
-      ),
-      _QuickAccessItem(
-        icon: Icons.picture_as_pdf_rounded,
-        label: GochanoLanguage.text('PDFs', 'পিডিএফ'),
-        accent: colors.error,
-        onTap: () => Navigator.of(context).push(
-          GochanoRoute.to(
-            builder: (_) =>
-                const MaterialsScreen(mimeFilter: 'application/pdf'),
-          ),
-        ),
-      ),
-      _QuickAccessItem(
-        icon: Icons.photo_library_rounded,
-        label: GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি'),
-        accent: colors.commute,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const SavedMaterialsScreen())),
-      ),
-    ];
-
-    final secondaryItems = <_QuickAccessItem>[
-      _QuickAccessItem(
         icon: Icons.assignment_rounded,
         label: GochanoLanguage.text('Assignment AI', 'এসাইনমেন্ট এআই'),
         accent: colors.ai,
@@ -132,20 +102,43 @@ class _QuickAccessState extends State<_QuickAccess> {
         ).push(GochanoRoute.to(builder: (_) => const QuizGeneratorScreen())),
       ),
       _QuickAccessItem(
+        icon: Icons.insights_rounded,
+        label: GochanoLanguage.text('Insights', 'ইনসাইটস'),
+        accent: colors.study,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const LearningInsightsScreen())),
+      ),
+    ];
+
+    final secondaryItems = <_QuickAccessItem>[
+      _QuickAccessItem(
+        icon: Icons.description_rounded,
+        label: GochanoLanguage.text('Documents', 'ডকুমেন্ট'),
+        accent: colors.brand,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => const MaterialsScreen(documentFilter: true),
+          ),
+        ),
+      ),
+      _QuickAccessItem(
+        icon: Icons.photo_library_rounded,
+        label: GochanoLanguage.text('Images', 'ছবি'),
+        accent: colors.commute,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => const MaterialsScreen(mimeFilter: 'image/'),
+          ),
+        ),
+      ),
+      _QuickAccessItem(
         icon: Icons.psychology_rounded,
         label: GochanoLanguage.text('Smart Plan', 'স্মার্ট প্ল্যান'),
         accent: colors.ai,
         onTap: () => Navigator.of(
           context,
         ).push(GochanoRoute.to(builder: (_) => const SmartPlannerScreen())),
-      ),
-      _QuickAccessItem(
-        icon: Icons.description_rounded,
-        label: GochanoLanguage.text('Docs', 'ডকস'),
-        accent: colors.brand,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const MaterialsScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.school_rounded,
@@ -182,8 +175,8 @@ class _QuickAccessState extends State<_QuickAccess> {
               physics: const NeverScrollableScrollPhysics(),
               padding: EdgeInsets.zero,
               itemCount: primaryItems.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: constraints.maxWidth < 360 ? 3 : 4,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
                 mainAxisExtent: 84,
                 crossAxisSpacing: GochanoSpacing.xs,
                 mainAxisSpacing: GochanoSpacing.xs,

@@ -13,6 +13,7 @@ import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
+import '../../../../shared/widgets/ai_widgets.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 
@@ -166,28 +167,16 @@ class _SmartPlannerScreenState extends State<SmartPlannerScreen> {
             label: GochanoLanguage.text('Get Recommendation', 'সুপারিশ পান'),
             icon: Icons.auto_awesome_rounded,
             busy: _busy,
-            busyLabel: GochanoLanguage.text('Planning…', 'পরিকল্পনা হচ্ছে…'),
+            busyLabel: GochanoLanguage.text(
+              'AI is analyzing…',
+              'এআই বিশ্লেষণ করছে…',
+            ),
             onPressed: _getRecommendation,
           ),
 
           if (_error.isNotEmpty) ...[
             const SizedBox(height: GochanoSpacing.sm),
-            Container(
-              padding: const EdgeInsets.all(GochanoSpacing.sm),
-              decoration: BoxDecoration(
-                color: colors.errorSoft,
-                borderRadius: GochanoRadius.mdAll,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline_rounded, size: 18, color: colors.error),
-                  const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: Text(_error, style: context.type.bodySecondary.copyWith(color: colors.error)),
-                  ),
-                ],
-              ),
-            ),
+            AiErrorBanner(message: _error),
           ],
 
           if (_recommendation.isNotEmpty) ...[
