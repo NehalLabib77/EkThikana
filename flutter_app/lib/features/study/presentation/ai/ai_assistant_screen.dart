@@ -20,20 +20,7 @@
 // Nothing here animates. Processing is a static labelled progress bar with a
 // sentence saying what is happening — no typing dots, no glowing orb
 // (spec §35).
-//
-// ATTACHMENT SUPPORT:
-// Users can now attach files (PDF, images, DOCX, TXT) to their questions.
-// Attachments are uploaded to the backend, which extracts text and includes
-// it in the AI prompt. Supported formats:
-//   - PDF: text extraction via backend
-//   - Images (JPG, JPEG, PNG, WEBP): OCR via backend
-//   - DOCX: paragraph/table extraction via backend
-//   - TXT: direct text inclusion
-// Legacy .doc files are NOT supported (binary format unreliable for extraction).
 
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -43,11 +30,9 @@ import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
-import '../../../../core/student/student.dart';
-import '../../../../core/student/student_ai_context.dart';
 import '../../../../services/api_service.dart';
-import '../../../../services/connectivity_service.dart';
 import '../../../../shared/states/gochano_states.dart';
+import '../../../../shared/widgets/ai_widgets.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import 'ai_context_routing.dart';
@@ -58,43 +43,11 @@ class _Turn {
     required this.question,
     required this.answer,
     required this.usedMaterial,
-    this.usedAttachment,
   });
 
   final String question;
   final String answer;
   final String? usedMaterial;
-  final String? usedAttachment;
-}
-
-/// Represents an attached file pending upload.
-class _Attachment {
-  _Attachment({
-    required this.file,
-    required this.name,
-    required this.size,
-    required this.mimeType,
-  });
-
-  final File file;
-  final String name;
-  final int size;
-  final String? mimeType;
-
-  /// Whether this attachment is currently being uploaded/processed.
-  bool isUploading = false;
-
-  /// Upload progress (0.0 to 1.0).
-  double progress = 0.0;
-
-  /// Error message if upload failed.
-  String? error;
-
-  /// Whether upload completed successfully.
-  bool isComplete = false;
-
-  /// The extracted text from the backend (if applicable).
-  String? extractedText;
 }
 
 class AiAssistantScreen extends StatefulWidget {
@@ -105,8 +58,6 @@ class AiAssistantScreen extends StatefulWidget {
     this.contextMimeType,
     this.contextFileName,
     this.contextPage,
-    this.prefilledQuestion,
-    this.enableContext = false,
   });
 
   /// When set, answers are grounded in this material.
@@ -120,12 +71,6 @@ class AiAssistantScreen extends StatefulWidget {
   /// Current page, so "explain this page" can scope the question.
   final int? contextPage;
 
-  /// Optional prefilled question shown in the text field on open.
-  final String? prefilledQuestion;
-
-  /// Whether to enable Gochano context on open.
-  final bool enableContext;
-
   @override
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
 }
@@ -135,15 +80,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final _scroll = ScrollController();
 
   final List<_Turn> _turns = [];
-  final List<_Attachment> _attachments = [];
   bool _busy = false;
   String _error = '';
-
-  /// Whether to include StudentContext in AI requests (Phase 6).
-  bool _useGochanoContext = false;
-
-  /// Cached StudentAiContext for the current session.
-  StudentAiContext? _cachedAiContext;
 
   /// Null once the student removes the context (spec §34).
   String? _materialId;
@@ -157,14 +95,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   /// the file name together, so a material with a missing `mimeType` still
   /// reaches the right endpoint (see `ai_context_routing.dart`).
   AiContextRoute get _route => AiContextRouting.routeFor(
-        mimeType: _mimeType,
-        fileName: _fileName ?? _materialTitle,
-      );
-
-  /// Supported file extensions.
-  static const Set<String> _supportedExtensions = {
-    'pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'txt',
-  };
+    mimeType: _mimeType,
+    fileName: _fileName ?? _materialTitle,
+  );
 
   @override
   void initState() {
@@ -173,12 +106,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _materialTitle = widget.contextMaterialTitle;
     _mimeType = widget.contextMimeType;
     _fileName = widget.contextFileName;
-    if (widget.prefilledQuestion != null) {
-      _question.text = widget.prefilledQuestion!;
-    }
-    if (widget.enableContext) {
-      _useGochanoContext = true;
-    }
   }
 
   @override
@@ -190,9 +117,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   /// The processing message, chosen to describe what is actually happening.
   String get _busyMessage {
-    if (_attachments.isNotEmpty && _attachments.any((a) => a.isUploading)) {
-      return GochanoLanguage.text('Processing attachment…', 'সংযুক্তি প্রক্রিয়াকরণ হচ্ছে…');
-    }
     if (!_hasContext) {
       return GochanoLanguage.text('Preparing answer…', 'উত্তর তৈরি হচ্ছে…');
     }
@@ -200,109 +124,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       'Reading your material…',
       'আপনার উপকরণ পড়া হচ্ছে…',
     );
-  }
-
-  /// Pick files for attachment.
-  Future<void> _pickAttachment() async {
-    // Check connectivity
-    if (!ConnectivityService.instance.online.value) {
-      if (mounted) {
-        setState(() {
-          _error = GochanoLanguage.text(
-            'This feature needs an internet connection.',
-            'এই বৈশিষ্ট্যের জন্য ইন্টারনেট সংযোগ প্রয়োজন।',
-          );
-        });
-      }
-      return;
-    }
-
-    try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: _supportedExtensions.toList(),
-      );
-
-      if (result.isEmpty) return;
-
-      final file = result.first;
-      if (file.path == null) return;
-
-      // Validate file extension
-      final ext = file.name.split('.').last.toLowerCase();
-      if (!_supportedExtensions.contains(ext)) {
-        if (mounted) {
-          setState(() {
-            _error = GochanoLanguage.text(
-              'Unsupported file type. Please use PDF, JPG, PNG, WEBP, DOCX, or TXT.',
-              'অসমর্থিত ফাইল ধরন। PDF, JPG, PNG, WEBP, DOCX, বা TXT ব্যবহার করুন।',
-            );
-          });
-        }
-        return;
-      }
-
-      // Check for duplicate
-      if (_attachments.any((a) => a.name == file.name)) {
-        if (mounted) {
-          setState(() {
-            _error = GochanoLanguage.text(
-              'This file is already attached.',
-              'এই ফাইলটি ইতিমধ্যে সংযুক্ত আছে।',
-            );
-          });
-        }
-        return;
-      }
-
-      // Determine MIME type
-      String? mimeType;
-      if (ext == 'pdf') {
-        mimeType = 'application/pdf';
-      } else if (ext == 'jpg' || ext == 'jpeg') {
-        mimeType = 'image/jpeg';
-      } else if (ext == 'png') {
-        mimeType = 'image/png';
-      } else if (ext == 'webp') {
-        mimeType = 'image/webp';
-      } else if (ext == 'docx') {
-        mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      } else if (ext == 'txt') {
-        mimeType = 'text/plain';
-      }
-
-      final attachment = _Attachment(
-        file: File(file.path!),
-        name: file.name,
-        size: 0, // Size not available in file_picker v12
-        mimeType: mimeType,
-      );
-
-      if (mounted) {
-        setState(() {
-          _attachments.add(attachment);
-          _error = '';
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = GochanoLanguage.text(
-            'Could not pick file. Please try again.',
-            'ফাইল নির্বাচন করা যায়নি। আবার চেষ্টা করুন।',
-          );
-        });
-      }
-    }
-  }
-
-  /// Remove an attachment.
-  void _removeAttachment(int index) {
-    if (mounted) {
-      setState(() {
-        _attachments.removeAt(index);
-      });
-    }
   }
 
   Future<void> _ask(String rawQuestion) async {
@@ -317,37 +138,21 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     try {
       final String answer;
       final materialId = _materialId;
-      final ctx = _useGochanoContext ? _cachedAiContext : null;
-      final contextJson = ctx?.toJsonScoped(question);
 
-      if (materialId == null && _attachments.isEmpty) {
-        // General academic question — include StudentContext if toggle is ON.
-        answer = await ApiService.askWithContext(
-          question: question,
-          studentContext: contextJson,
-        );
-      } else if (_attachments.isNotEmpty) {
-        // Has attachments — upload and get answer (with optional context).
-        answer = await _askWithAttachment(question, studentContext: contextJson);
-      } else if (_route == AiContextRoute.attachmentQuestion) {
-        // DOCX/TXT material — use attachment-question endpoint.
-        answer = await ApiService.askMaterialAttachment(
-          materialId: materialId!,
-          question: question,
-          studentContext: contextJson,
-        );
+      if (materialId == null) {
+        // General academic question. `explain` is the instruction that maps
+        // to "answer this for a university student" on the backend.
+        answer = await ApiService.aiNote('explain', question);
       } else if (_route == AiContextRoute.imageQuestion) {
         answer = await ApiService.askImage(
-          materialId: materialId!,
+          materialId: materialId,
           question: question,
-          studentContext: contextJson,
         );
       } else {
         answer = await ApiService.askPdf(
-          materialId: materialId!,
+          materialId: materialId,
           question: question,
           page: widget.contextPage,
-          studentContext: contextJson,
         );
       }
 
@@ -355,19 +160,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       setState(() {
         _busy = false;
         _question.clear();
-        _attachments.clear();
         _turns.add(
           _Turn(
             question: question,
             answer: answer.trim().isEmpty
                 ? GochanoLanguage.text(
                     'The AI service returned an empty answer. Try rephrasing '
-                    'your question.',
+                        'your question.',
                     'এআই সার্ভিস কোনো উত্তর দেয়নি। প্রশ্নটি অন্যভাবে লিখে দেখুন।',
                   )
                 : answer,
             usedMaterial: _materialTitle,
-            usedAttachment: _attachments.isNotEmpty ? _attachments.first.name : null,
           ),
         );
       });
@@ -378,43 +181,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         _busy = false;
         _error = _aiErrorMessage(error);
       });
-    }
-  }
-
-  /// Upload attachment and get AI answer (with optional StudentContext).
-  Future<String> _askWithAttachment(
-    String question, {
-    Map<String, dynamic>? studentContext,
-  }) async {
-    if (_attachments.isEmpty) {
-      throw Exception('No attachment to process');
-    }
-
-    final attachment = _attachments.first;
-    attachment.isUploading = true;
-    if (mounted) setState(() {});
-
-    try {
-      // Upload file to backend
-      final result = await ApiService.uploadAiAttachment(
-        file: attachment.file.path,
-        fileName: attachment.name,
-        mimeType: attachment.mimeType ?? 'application/octet-stream',
-        question: question,
-        studentContext: studentContext,
-      );
-
-      attachment.isUploading = false;
-      attachment.isComplete = true;
-      attachment.extractedText = result['extractedText'];
-      if (mounted) setState(() {});
-
-      return result['answer'] ?? '';
-    } catch (e) {
-      attachment.isUploading = false;
-      attachment.error = e.toString();
-      if (mounted) setState(() {});
-      rethrow;
     }
   }
 
@@ -433,7 +199,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     if (raw.contains('no extractable pdf text')) {
       return GochanoLanguage.text(
         'This appears to be a scanned PDF and OCR could not extract enough '
-        'text to answer from.',
+            'text to answer from.',
         'এটি সম্ভবত স্ক্যান করা পিডিএফ এবং ওসিআর যথেষ্ট লেখা বের করতে পারেনি।',
       );
     }
@@ -447,18 +213,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       return GochanoLanguage.text(
         'The selected material is no longer available.',
         'নির্বাচিত উপকরণটি আর নেই।',
-      );
-    }
-    if (raw.contains('unsupported') || raw.contains('not supported')) {
-      return GochanoLanguage.text(
-        'This file type is not supported. Please use PDF, JPG, PNG, WEBP, DOCX, or TXT.',
-        'এই ফাইল ধরন সমর্থিত নয়। PDF, JPG, PNG, WEBP, DOCX, বা TXT ব্যবহার করুন।',
-      );
-    }
-    if (raw.contains('.doc') && !raw.contains('.docx')) {
-      return GochanoLanguage.text(
-        'Legacy .doc files are not supported yet. Please use .docx.',
-        'পুরাতন .doc ফাইল এখনো সমর্থিত নয়। .docx ব্যবহার করুন।',
       );
     }
     if (raw.contains('ai service configuration') ||
@@ -476,75 +230,40 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
+      // Jump, not animate: this is a state change, not a decoration
+      // (spec §11).
       _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
     return GochanoScaffold(
       padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Study AI', 'স্টাডি এআই'),
         subtitle: _hasContext
-            ? GochanoLanguage.text('Answering from your material', 'আপনার উপকরণ থেকে উত্তর')
-            : GochanoLanguage.text('General academic questions', 'সাধারণ একাডেমিক প্রশ্ন'),
+            ? GochanoLanguage.text(
+                'Answering from your material',
+                'আপনার উপকরণ থেকে উত্তর',
+              )
+            : GochanoLanguage.text(
+                'General academic questions',
+                'সাধারণ একাডেমিক প্রশ্ন',
+              ),
       ),
-      bottomBar: _Composer(
-        controller: _question,
-        busy: _busy,
-        onSubmit: _ask,
-        onAttach: _pickAttachment,
-        attachments: _attachments,
-        onRemoveAttachment: _removeAttachment,
-      ),
+      bottomBar: _Composer(controller: _question, busy: _busy, onSubmit: _ask),
       body: Column(
         children: [
-          if (_hasContext) _ContextChip(
-            title: _materialTitle ?? '',
-            onRemove: () => setState(() {
-              _materialId = null;
-              _materialTitle = null;
-              _mimeType = null;
-              _fileName = null;
-            }),
-          ),
-          // Phase 6: Gochano context toggle — available when no shell material context.
-          // Shown with user-uploaded attachments so context + attachment work together.
-          if (!_hasContext)
-            _GochanoContextToggle(
-              enabled: _useGochanoContext,
-              onChanged: (value) async {
-                setState(() {
-                  _useGochanoContext = value;
-                  if (value && _cachedAiContext == null) {
-                    _busy = true;
-                  }
-                });
-                if (value && _cachedAiContext == null) {
-                  // Build context on first enable.
-                  try {
-                    final ctx = await StudentContextService.build(
-                      day: DateTime.now(),
-                    );
-                    if (mounted) {
-                      setState(() {
-                        _cachedAiContext = StudentAiContext.fromContext(ctx);
-                        _busy = false;
-                      });
-                    }
-                  } catch (_) {
-                    if (mounted) {
-                      setState(() {
-                        _useGochanoContext = false;
-                        _busy = false;
-                      });
-                    }
-                  }
-                }
-              },
+          if (_hasContext)
+            _ContextChip(
+              title: _materialTitle ?? '',
+              onRemove: () => setState(() {
+                _materialId = null;
+                _materialTitle = null;
+                _mimeType = null;
+                _fileName = null;
+              }),
             ),
           Expanded(
             child: ListView(
@@ -569,31 +288,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 ],
                 if (_error.isNotEmpty) ...[
                   const SizedBox(height: GochanoSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(GochanoSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: colors.errorSoft,
-                      borderRadius: GochanoRadius.mdAll,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.error_outline_rounded,
-                          size: GochanoSizes.iconSm,
-                          color: colors.error,
-                        ),
-                        const SizedBox(width: GochanoSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            _error,
-                            style: context.type.bodySecondary
-                                .copyWith(color: colors.error),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  AiErrorBanner(message: _error),
                 ],
               ],
             ),
@@ -670,84 +365,6 @@ class _ContextChip extends StatelessWidget {
   }
 }
 
-/// Phase 6: Toggle for including StudentContext in AI requests.
-class _GochanoContextToggle extends StatelessWidget {
-  const _GochanoContextToggle({
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        GochanoSpacing.md,
-        GochanoSpacing.xs,
-        GochanoSpacing.md,
-        0,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: GochanoSpacing.sm,
-        vertical: GochanoSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: enabled
-            ? colors.ai.withValues(alpha: context.isDark ? 0.18 : 0.10)
-            : colors.surfaceVariant,
-        borderRadius: GochanoRadius.mdAll,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            enabled ? Icons.school_rounded : Icons.school_outlined,
-            size: 20,
-            color: enabled ? colors.ai : colors.textTertiary,
-          ),
-          const SizedBox(width: GochanoSpacing.xs),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  GochanoLanguage.text(
-                    'Use Gochano context',
-                    'গোছানো কনটেক্সট ব্যবহার করুন',
-                  ),
-                  style: context.type.caption.copyWith(
-                    color: enabled ? colors.ai : colors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  GochanoLanguage.text(
-                    'AI knows your schedule & deadlines',
-                    'এআই আপনার সময়সূচী ও সময়সীমা জানে',
-                  ),
-                  style: context.type.caption.copyWith(
-                    color: colors.textTertiary,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: enabled,
-            onChanged: onChanged,
-            activeTrackColor: colors.ai,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// The contextual actions from spec §34.
 class _Suggestions extends StatelessWidget {
   const _Suggestions({
@@ -774,10 +391,7 @@ class _Suggestions extends StatelessWidget {
               'Extract the key points',
               'মূল পয়েন্টগুলো বের করো',
             ),
-            GochanoLanguage.text(
-              'Explain this simply',
-              'সহজ করে ব্যাখ্যা করো',
-            ),
+            GochanoLanguage.text('Explain this simply', 'সহজ করে ব্যাখ্যা করো'),
             if (hasPage)
               GochanoLanguage.text(
                 'Explain what is on this page',
@@ -850,9 +464,7 @@ class _Suggestions extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(suggestion, style: context.type.body),
-                  ),
+                  Expanded(child: Text(suggestion, style: context.type.body)),
                   Icon(
                     Icons.arrow_outward_rounded,
                     size: GochanoSizes.iconSm,
@@ -878,13 +490,13 @@ class _TurnCard extends StatelessWidget {
     // Remove fenced code blocks (```...```) — keep content
     result = result.replaceAllMapped(
       RegExp(r'```[\s\S]*?```', multiLine: true),
-      (m) => m.group(0)!.replaceFirst(RegExp(r'^```\w*\n?'), '').replaceFirst(RegExp(r'\n?```$'), ''),
+      (m) => m
+          .group(0)!
+          .replaceFirst(RegExp(r'^```\w*\n?'), '')
+          .replaceFirst(RegExp(r'\n?```$'), ''),
     );
     // Remove inline code backticks
-    result = result.replaceAllMapped(
-      RegExp(r'`([^`]+)`'),
-      (m) => m.group(1)!,
-    );
+    result = result.replaceAllMapped(RegExp(r'`([^`]+)`'), (m) => m.group(1)!);
     // Remove heading markers (### Heading)
     result = result.replaceAllMapped(
       RegExp(r'^#{1,6}\s+', multiLine: true),
@@ -1020,216 +632,54 @@ class _Composer extends StatelessWidget {
     required this.controller,
     required this.busy,
     required this.onSubmit,
-    required this.onAttach,
-    required this.attachments,
-    required this.onRemoveAttachment,
   });
 
   final TextEditingController controller;
   final bool busy;
   final ValueChanged<String> onSubmit;
-  final VoidCallback onAttach;
-  final List<_Attachment> attachments;
-  final void Function(int index) onRemoveAttachment;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(
-        GochanoSpacing.md,
-        GochanoSpacing.xs,
-        GochanoSpacing.md,
-        GochanoSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(
-          top: BorderSide(color: colors.border, width: 0.5),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            enabled: !busy,
+            minLines: 1,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.send,
+            decoration: InputDecoration(
+              hintText: GochanoLanguage.text(
+                'Ask a question…',
+                'একটি প্রশ্ন করুন…',
+              ),
+              isDense: true,
+            ),
+            onSubmitted: onSubmit,
+          ),
         ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Attachment chips
-            if (attachments.isNotEmpty)
-              SizedBox(
-                height: 40,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: attachments.length,
-                  separatorBuilder: (ctx, idx) => const SizedBox(width: GochanoSpacing.xs),
-                  itemBuilder: (context, index) {
-                    final att = attachments[index];
-                    return _AttachmentChip(
-                      attachment: att,
-                      onRemove: () => onRemoveAttachment(index),
-                    );
-                  },
-                ),
-              ),
-            if (attachments.isNotEmpty)
-              const SizedBox(height: GochanoSpacing.xs),
-            // Composer row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Attachment button
-                IconButton(
-                  onPressed: busy ? null : onAttach,
-                  icon: Icon(
-                    Icons.attach_file_rounded,
-                    color: busy ? colors.disabled : colors.textSecondary,
-                    size: 22,
-                  ),
-                  tooltip: GochanoLanguage.text(
-                    'Attach file',
-                    'ফাইল সংযুক্ত করুন',
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    enabled: !busy,
-                    minLines: 1,
-                    maxLines: 4,
-                    textCapitalization: TextCapitalization.sentences,
-                    textInputAction: TextInputAction.send,
-                    decoration: InputDecoration(
-                      hintText: GochanoLanguage.text(
-                        'Ask something…',
-                        'কিছু জিজ্ঞাসা করুন…',
-                      ),
-                      isDense: true,
-                    ),
-                    onSubmitted: onSubmit,
-                  ),
-                ),
-                const SizedBox(width: GochanoSpacing.xs),
-                FilledButton(
-                  onPressed: busy ? null : () => onSubmit(controller.text),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(
-                      GochanoSizes.buttonHeight,
-                      GochanoSizes.buttonHeight,
-                    ),
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: Icon(
-                    busy ? Icons.hourglass_empty_rounded : Icons.send_rounded,
-                    size: GochanoSizes.iconMd,
-                    semanticLabel: GochanoLanguage.text('Send', 'পাঠান'),
-                  ),
-                ),
-              ],
+        const SizedBox(width: GochanoSpacing.xs),
+        // Disabled while a request is in flight, which is what prevents a
+        // double submit burning two AI quota units (spec §12, §77).
+        FilledButton(
+          onPressed: busy ? null : () => onSubmit(controller.text),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(
+              GochanoSizes.buttonHeight,
+              GochanoSizes.buttonHeight,
             ),
-          ],
+            padding: EdgeInsets.zero,
+          ),
+          child: Icon(
+            busy ? Icons.hourglass_empty_rounded : Icons.send_rounded,
+            size: GochanoSizes.iconMd,
+            semanticLabel: GochanoLanguage.text('Send', 'পাঠান'),
+          ),
         ),
-      ),
-    );
-  }
-}
-
-/// Compact chip showing an attached file with remove button.
-class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({
-    required this.attachment,
-    required this.onRemove,
-  });
-
-  final _Attachment attachment;
-  final VoidCallback onRemove;
-
-  IconData _fileIcon() {
-    final name = attachment.name.toLowerCase();
-    if (name.endsWith('.pdf')) return Icons.picture_as_pdf_rounded;
-    if (name.endsWith('.jpg') || name.endsWith('.jpeg') ||
-        name.endsWith('.png') || name.endsWith('.webp')) {
-      return Icons.image_rounded;
-    }
-    if (name.endsWith('.docx')) return Icons.description_rounded;
-    if (name.endsWith('.txt')) return Icons.text_snippet_rounded;
-    return Icons.insert_drive_file_rounded;
-  }
-
-  Color _fileColor(BuildContext context) {
-    final name = attachment.name.toLowerCase();
-    if (name.endsWith('.pdf')) return context.colors.error;
-    if (name.endsWith('.jpg') || name.endsWith('.jpeg') ||
-        name.endsWith('.png') || name.endsWith('.webp')) {
-      return context.colors.study;
-    }
-    if (name.endsWith('.docx')) return context.colors.brand;
-    return context.colors.textSecondary;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: GochanoSpacing.sm,
-        vertical: GochanoSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: colors.surfaceVariant,
-        borderRadius: GochanoRadius.smAll,
-        border: Border.all(color: colors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _fileIcon(),
-            size: 16,
-            color: _fileColor(context),
-          ),
-          const SizedBox(width: GochanoSpacing.xxs),
-          Flexible(
-            child: Text(
-              attachment.name,
-              style: context.type.caption.copyWith(
-                color: colors.textPrimary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (attachment.isUploading) ...[
-            const SizedBox(width: GochanoSpacing.xs),
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
-              ),
-            ),
-          ] else if (attachment.error != null) ...[
-            const SizedBox(width: GochanoSpacing.xs),
-            Icon(
-              Icons.error_outline_rounded,
-              size: 14,
-              color: colors.error,
-            ),
-          ],
-          const SizedBox(width: GochanoSpacing.xxs),
-          GestureDetector(
-            onTap: onRemove,
-            child: Icon(
-              Icons.close_rounded,
-              size: 14,
-              color: colors.textTertiary,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

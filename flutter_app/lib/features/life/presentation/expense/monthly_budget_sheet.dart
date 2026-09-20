@@ -138,7 +138,7 @@ class _BudgetFormState extends State<_BudgetForm> {
               Text(
                 GochanoLanguage.text(
                   'How much you have to spend this month. Gochano subtracts your '
-                  'recorded expenses from it.',
+                      'recorded expenses from it.',
                   'এই মাসে আপনার কাছে কত টাকা আছে। গোছানো এটি থেকে আপনার রেকর্ড করা খরচ বাদ দেবে।',
                 ),
                 style: type.bodySecondary,
@@ -150,22 +150,24 @@ class _BudgetFormState extends State<_BudgetForm> {
               // Save -- which is exactly what "it will not take any value"
               // looks like. Reading the current amount only prefills it.
               TextField(
-                  controller: _amount,
-                  autofocus: true,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                  style: type.statistic,
-                  decoration: InputDecoration(
-                    labelText: GochanoLanguage.text('Available', 'উপলব্ধ'),
-                    prefixText: '৳ ',
-                    prefixStyle:
-                        type.statistic.copyWith(color: colors.textSecondary),
-                  ),
-                  onSubmitted: (_) => _save(),
+                controller: _amount,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
                 ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                style: type.statistic,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text('Available', 'উপলব্ধ'),
+                  prefixText: '৳ ',
+                  prefixStyle: type.statistic.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+                onSubmitted: (_) => _save(),
+              ),
               if (_error != null) ...[
                 const SizedBox(height: GochanoSpacing.xs),
                 Text(

@@ -69,31 +69,6 @@ class TelecomAuthException implements Exception {
   String toString() => 'TelecomAuthException: $message';
 }
 
-/// Transient state persisted after carrier OTP verification succeeds.
-///
-/// This prevents the "OTP already consumed" problem: once the carrier has
-/// accepted the OTP, we NEVER re-verify it. If the subsequent Firebase
-/// exchange fails, we retry from subscription check + exchange, not from
-/// OTP verification.
-class OtpVerifiedState {
-  /// The phone number that was verified.
-  final String phone;
-
-  /// When the OTP was verified (for traceability, not for security).
-  final DateTime verifiedAt;
-
-  const OtpVerifiedState({
-    required this.phone,
-    required this.verifiedAt,
-  });
-
-  /// How long this state remains valid for automatic recovery.
-  /// After this window, the user must re-enter their phone number.
-  static const Duration maxAge = Duration(minutes: 10);
-
-  bool get isExpired => DateTime.now().difference(verifiedAt) > maxAge;
-}
-
 enum TelecomSubscriptionStatus {
   registered,
   initialChargingPending,
@@ -129,12 +104,12 @@ class TelecomSubscriptionResult {
   /// so call sites read as their intent rather than as a flag.
   bool get isAlreadySubscribed => shouldEnterApp;
 
-  /// True only when the carrier explicitly reported `NOT SUBSCRIBED`.
-  /// Blocked, unknown, malformed, and network-failure states must never
-  /// be treated as permission to request an OTP.
-  bool get maySendOtp => status == TelecomSubscriptionStatus.notSubscribed;
+  /// True when the user's subscription is in a TEMPORARY BLOCKED state.
+  /// The user must not enter the app and must not be routed to OTP enrollment.
+  bool get isTemporarilyBlocked =>
+      status == TelecomSubscriptionStatus.temporaryBlocked;
 
-  /// The raw subscriptionStatus field as the carrier returned it,
+  /// The raw subscriptionStatus field as the backend returned it,
   /// normalised with trim() + toUpperCase(). Empty when no field was
   /// present.
   final String rawStatus;
@@ -160,7 +135,7 @@ class TelecomSubscriptionResult {
   static const notSubscribed = TelecomSubscriptionResult(
     status: TelecomSubscriptionStatus.notSubscribed,
     shouldEnterApp: false,
-    rawStatus: 'NOT SUBSCRIBED',
+    rawStatus: '',
   );
 
   /// The /send_otp.php endpoint reported "E1351 already registered"
@@ -173,16 +148,8 @@ class TelecomSubscriptionResult {
     rawStatus: 'ALREADY REGISTERED',
   );
 
-  /// Unknown or malformed carrier response — fail closed.
-  static const unknown = TelecomSubscriptionResult(
-    status: TelecomSubscriptionStatus.unknown,
-    shouldEnterApp: false,
-    rawStatus: '',
-  );
-
-  /// Carrier reports the subscription as TEMPORARY BLOCKED.
-  /// User is a known subscriber but service is suspended.
-  /// Do NOT send OTP. Do NOT authenticate. Show recovery message.
+  /// The carrier reports TEMPORARY BLOCKED. The account is registered with the
+  /// carrier but suspended/blocked. Must NOT route to OTP or enter app.
   static const temporaryBlocked = TelecomSubscriptionResult(
     status: TelecomSubscriptionStatus.temporaryBlocked,
     shouldEnterApp: false,
@@ -232,21 +199,6 @@ class TelecomAuthService {
   TelecomAuthService._();
 
   // -------------------------------------------------------------------
-  // Debug logging — guarded by kReleaseMode
-  // -------------------------------------------------------------------
-
-  static void _debugLog(String message) {
-    if (!kDebugMode) return;
-    debugPrint('[TelecomAuth] $message');
-  }
-
-  /// Mask phone for logging: shows first 3 and last 2 digits.
-  static String _maskPhone(String phone) {
-    if (phone.length <= 5) return '***';
-    return '${phone.substring(0, 3)}***${phone.substring(phone.length - 2)}';
-  }
-
-  // -------------------------------------------------------------------
   // Endpoint configuration
   // -------------------------------------------------------------------
 
@@ -288,17 +240,6 @@ class TelecomAuthService {
   // forcing a re-login.
   static const String prefIsLoggedIn = 'isLoggedIn';
   static const String prefUserPhone = 'userPhone';
-
-  /// Transient state keys for OTP recovery.
-  static const String _prefOtpVerifiedPhone = 'otp_verified_phone';
-  static const String _prefOtpVerifiedAt = 'otp_verified_at';
-
-  /// Routing/propagation metadata keys (NOT auth proof).
-  /// Set after a successful OTP verification to prevent re-sending OTP
-  /// during carrier propagation delay. Must NEVER be accepted as
-  /// authentication or subscription proof.
-  static const String prefRecentlyVerifiedPhone = 'recently_verified_phone';
-  static const String prefRecentlyVerifiedAt = 'recently_verified_at';
 
   /// Legacy keys from PART 16. Read on restore for backward
   /// compatibility; cleared on logout to leave one authoritative
@@ -346,33 +287,19 @@ class TelecomAuthService {
       );
     }
 
-    final endpoint = Uri.parse('$baseUrl/check_subscription.php');
-
-    _debugLog('checkSubscription: POST $endpoint '
-        'user_mobile="${_maskPhone(normalized)}" '
-        'timeout=${checkSubscriptionTimeout.inSeconds}s');
+    debugPrint('[TelecomAuth] checkSubscription: phone="$normalized"');
 
     final response = await _safeFormPost(
-      endpoint,
+      Uri.parse('$baseUrl/check_subscription.php'),
       {'user_mobile': normalized},
       checkSubscriptionTimeout,
     );
 
-    _debugLog('checkSubscription: HTTP ${response.statusCode} '
-        'body_len=${response.body.length}');
-
-    // Diagnostic: log first 200 chars of raw body for carrier contract identification
-    if (kDebugMode && response.body.length <= 500) {
-      _debugLog('checkSubscription: raw_body="${response.body}"');
-    }
-
     final result = _parseSubscriptionResponse(response.body);
-
-    _debugLog('checkSubscription: status=${result.status} '
-        'shouldEnterApp=${result.shouldEnterApp} '
-        'maySendOtp=${result.maySendOtp} '
-        'rawStatus="${result.rawStatus}"');
-
+    debugPrint(
+      '[TelecomAuth] checkSubscription result: status=${result.status}, '
+      'shouldEnterApp=${result.shouldEnterApp}, rawStatus="${result.rawStatus}"',
+    );
     return result;
   }
 
@@ -435,219 +362,71 @@ class TelecomAuthService {
   static TelecomSubscriptionResult _parseSubscriptionResponse(String body) {
     final raw = _readSubscriptionStatus(body);
 
-    // Only the subscriptionStatus field value itself determines the
-    // subscription state. HTTP 200, S1000, isSubscribed, and other
-    // metadata must never override it.
+    // Do NOT treat HTTP 200, success=true, S1000, empty status,
+    // unknown status, or any other signal as "already subscribed".
+    // Only the subscriptionStatus field value itself determines
+    // whether the user enters without OTP.
+    //
+    // Previously, statusCode S1000/E1351 shortcuts were checked here
+    // and returned `registered` — this bypassed the actual
+    // subscriptionStatus check and routed non-subscribed users
+    // straight into the app without OTP.
+
     if (raw == null || raw.isEmpty) {
-      _debugLog(
-        'checkSubscription: empty/null subscriptionStatus → UNKNOWN (fail closed)',
+      debugPrint(
+        '[TelecomAuth] checkSubscription: empty/null subscriptionStatus → NOT_SUBSCRIBED (OTP required)',
       );
-      return TelecomSubscriptionResult.unknown;
+      return TelecomSubscriptionResult.notSubscribed;
     }
     final normalized = _normalizeSubscriptionStatus(raw);
 
-    _debugLog(
-      'checkSubscription: subscriptionStatus="$normalized"',
+    debugPrint(
+      '[TelecomAuth] checkSubscription: subscriptionStatus="$normalized"',
     );
 
     if (normalized == 'REGISTERED') {
-      _debugLog('checkSubscription: branch: REGISTERED → enter app');
-      return TelecomSubscriptionResult(
-        status: TelecomSubscriptionStatus.registered,
-        shouldEnterApp: true,
-        rawStatus: normalized,
-      );
+      debugPrint('[TelecomAuth] branch: REGISTERED → skip OTP, enter app');
+      return TelecomSubscriptionResult.registered;
     }
     if (normalized.contains('INITIAL CHARGING PENDING')) {
-      _debugLog(
-        'checkSubscription: branch: INITIAL_CHARGING_PENDING → enter app',
+      debugPrint(
+        '[TelecomAuth] branch: INITIAL_CHARGING_PENDING → skip OTP, enter app',
       );
-      return TelecomSubscriptionResult(
-        status: TelecomSubscriptionStatus.initialChargingPending,
-        shouldEnterApp: true,
-        rawStatus: normalized,
-      );
+      return TelecomSubscriptionResult.initialChargingPending;
     }
-    if (normalized == 'TEMPORARY BLOCKED') {
-      _debugLog(
-        'checkSubscription: branch: TEMPORARY_BLOCKED → no OTP, no auth',
+    if (normalized == 'TEMPORARY BLOCKED' ||
+        normalized.contains('TEMPORARY BLOCKED')) {
+      debugPrint(
+        '[TelecomAuth] branch: TEMPORARY_BLOCKED → block login, no OTP, no app entry',
       );
       return TelecomSubscriptionResult.temporaryBlocked;
     }
-    if (normalized == 'NOT SUBSCRIBED') {
-      _debugLog('checkSubscription: branch: NOT_SUBSCRIBED → OTP allowed');
-      return TelecomSubscriptionResult(
-        status: TelecomSubscriptionStatus.notSubscribed,
-        shouldEnterApp: false,
-        rawStatus: normalized,
-      );
-    }
 
-    _debugLog(
-      'checkSubscription: branch: "$normalized" → UNKNOWN (fail closed, no OTP)',
-    );
-    return TelecomSubscriptionResult(
-      status: TelecomSubscriptionStatus.unknown,
-      shouldEnterApp: false,
-      rawStatus: normalized,
-    );
-  }
-
-  /// Diagnostic logging for subscription response structure.
-  ///
-  /// Logs only sanitized structural information to identify the carrier
-  /// response contract. Never logs full phone, OTP, tokens, or secrets.
-  /// Only active in debug mode.
-  static void _logResponseStructure(String body) {
-    if (!kDebugMode) return;
-    try {
-      final decoded = json.decode(body.trim());
-      if (decoded is! Map) {
-        _debugLog('responseStructure: decoded is ${decoded.runtimeType}, not Map');
-        return;
-      }
-
-      // Log top-level keys and their types
-      final keys = <String>[];
-      for (final entry in decoded.entries) {
-        keys.add('${entry.key}:${entry.value.runtimeType}');
-      }
-      _debugLog('responseKeys=$keys');
-
-      // If there is a 'data' nested object, log its keys too
-      final data = decoded['data'];
-      if (data is Map) {
-        final dataKeys = <String>[];
-        for (final entry in data.entries) {
-          dataKeys.add('${entry.key}:${entry.value.runtimeType}');
-        }
-        _debugLog('dataKeys=$dataKeys');
-      }
-
-      // If there is a 'response' nested object, log its keys too
-      final resp = decoded['response'];
-      if (resp is Map) {
-        final respKeys = <String>[];
-        for (final entry in resp.entries) {
-          respKeys.add('${entry.key}:${entry.value.runtimeType}');
-        }
-        _debugLog('responseWrapperKeys=$respKeys');
-      }
-
-      // Log candidate subscription-classification fields
-      final candidates = <String, dynamic>{
-        'subscriptionStatus': decoded['subscriptionStatus'],
-        'subscription_status': decoded['subscription_status'],
-        'status': decoded['status'],
-        'statusCode': decoded['statusCode'],
-        'statusDetail': decoded['statusDetail'],
-        'isSubscribed': decoded['isSubscribed'],
-        'message': decoded['message'],
-        'result': decoded['result'],
-        'state': decoded['state'],
-        'serviceStatus': decoded['serviceStatus'],
-        'subscriberStatus': decoded['subscriberStatus'],
-        'registrationStatus': decoded['registrationStatus'],
-        'responseStatus': decoded['responseStatus'],
-      };
-
-      // Also check inside 'data' and 'response' if present
-      if (data is Map) {
-        candidates['data.subscriptionStatus'] = data['subscriptionStatus'];
-        candidates['data.subscription_status'] = data['subscription_status'];
-        candidates['data.status'] = data['status'];
-        candidates['data.statusCode'] = data['statusCode'];
-        candidates['data.statusDetail'] = data['statusDetail'];
-        candidates['data.result'] = data['result'];
-        candidates['data.state'] = data['state'];
-        candidates['data.serviceStatus'] = data['serviceStatus'];
-        candidates['data.subscriberStatus'] = data['subscriberStatus'];
-        candidates['data.registrationStatus'] = data['registrationStatus'];
-        candidates['data.responseStatus'] = data['responseStatus'];
-      }
-      if (resp is Map) {
-        candidates['response.subscriptionStatus'] = resp['subscriptionStatus'];
-        candidates['response.subscription_status'] = resp['subscription_status'];
-        candidates['response.status'] = resp['status'];
-        candidates['response.statusCode'] = resp['statusCode'];
-        candidates['response.statusDetail'] = resp['statusDetail'];
-        candidates['response.result'] = resp['result'];
-        candidates['response.state'] = resp['state'];
-        candidates['response.serviceStatus'] = resp['serviceStatus'];
-        candidates['response.subscriberStatus'] = resp['subscriberStatus'];
-        candidates['response.registrationStatus'] = resp['registrationStatus'];
-        candidates['response.responseStatus'] = resp['responseStatus'];
-        candidates['response.subscription_state'] = resp['subscription_state'];
-        candidates['response.carrierStatus'] = resp['carrierStatus'];
-        candidates['response.carrier_status'] = resp['carrier_status'];
-      }
-
-      for (final entry in candidates.entries) {
-        final v = entry.value;
-        if (v != null) {
-          final display = v is String ? '"$v"' : '$v';
-          _debugLog('candidate field="${entry.value}" value=$display');
-        }
-      }
-    } catch (e) {
-      _debugLog('responseStructure: parse error: $e');
-    }
+    // NOT SUBSCRIBED / UNREGISTERED / any other state → OTP required.
+    debugPrint('[TelecomAuth] branch: "$normalized" → OTP required');
+    return TelecomSubscriptionResult.notSubscribed;
   }
 
   /// Reads the `subscriptionStatus` field from a JSON body. Returns the
   /// trimmed+uppercased value, or null when the body is not JSON or the
   /// field is absent.
-  ///
-  /// Only proven semantic fields are checked. A generic `status`, `result`,
-  /// `message`, `statusCode`, or `statusDetail` field is NOT treated as
-  /// a subscription state because those may represent request-level
-  /// success/failure rather than the user's subscription semantic state.
-  ///
-  /// Proven field paths (in priority order):
-  ///   - `subscriptionStatus` (top-level, canonical — Robi 018)
-  ///   - `data.subscriptionStatus` (nested)
-  ///   - `subscription_status` (snake_case variant)
-  ///   - `data.subscription_status` (nested snake_case)
-  ///
-  /// When a carrier (e.g. Cirkle 016) proves a different field/path on a
-  /// physical device, add ONLY that exact proven path here. Do NOT add
-  /// speculative candidates.
   static String? _readSubscriptionStatus(String body) {
     final trimmed = body.trim();
-    if (trimmed.isEmpty) {
-      _debugLog('_readSubscriptionStatus: EMPTY body');
-      return null;
-    }
+    if (trimmed.isEmpty) return null;
     try {
       final decoded = json.decode(trimmed);
-
       if (decoded is Map) {
-        final data = decoded['data'];
-        final dataMap = data is Map ? data : null;
-
-        // Authoritative path: subscriptionStatus is the only known
-        // semantic field. Check top-level first, then nested data.
-        final candidates = <(String, dynamic)>[
-          ('decoded.subscriptionStatus', decoded['subscriptionStatus']),
-          ('data.subscriptionStatus', dataMap?['subscriptionStatus']),
-          ('decoded.subscription_status', decoded['subscription_status']),
-          ('data.subscription_status', dataMap?['subscription_status']),
+        // Defensive: look in both top-level and under `data`.
+        final candidates = <dynamic>[
+          decoded['subscriptionStatus'],
+          if (decoded['data'] is Map) decoded['data']['subscriptionStatus'],
         ];
-
-        for (final (path, c) in candidates) {
-          if (c is String && c.trim().isNotEmpty) {
-            final normalized = c.trim().toUpperCase();
-            _debugLog('_readSubscriptionStatus: matched $path → "$normalized"');
-            return normalized;
-          }
+        for (final c in candidates) {
+          if (c is String && c.trim().isNotEmpty) return c.trim().toUpperCase();
         }
-        _debugLog('_readSubscriptionStatus: no subscriptionStatus field found');
-        _logResponseStructure(body);
-      } else {
-        _debugLog('_readSubscriptionStatus: decoded is not a Map');
       }
-    } catch (e) {
-      _debugLog('_readSubscriptionStatus: JSON decode FAILED: $e');
+    } catch (_) {
+      // Non-JSON body — fall through.
     }
     return null;
   }
@@ -809,21 +588,17 @@ class TelecomAuthService {
       // the PART 17 unsubscribe flow).
       final recheck = await pollSubscription(normalized);
       if (recheck.shouldEnterApp) {
+        // Sentinel — caller checks against
+        // [kAlreadySubscribedSentinel] to know it can skip OTP and
+        // call the Firebase exchange immediately.
         return kAlreadySubscribedSentinel;
       }
-      if (recheck.status == TelecomSubscriptionStatus.temporaryBlocked) {
-        throw TelecomAuthException(
-          GochanoLanguage.text(
-            'Your subscription is temporarily blocked. Please try again later or check your carrier subscription.',
-            'আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা অপারেটরের সাবস্ক্রিপশন অবস্থা যাচাই করুন।',
-          ),
-        );
-      }
       throw TelecomAuthException(
-        GochanoLanguage.text(
-          'Your subscription is already being activated. Please try again shortly.',
-          'আপনার সাবস্ক্রিপশন সক্রিয় হচ্ছে। একটু পরে আবার চেষ্টা করুন।',
-        ),
+        parsed.message ??
+            GochanoLanguage.text(
+              'Your number is already registered. Please contact support.',
+              'আপনার নম্বর ইতোমধ্যে নিবন্ধিত। সাপোর্টের সাথে যোগাযোগ করুন।',
+            ),
       );
     }
 
@@ -1142,19 +917,15 @@ class TelecomAuthService {
   ) async {
     final auth = FirebaseAuth.instance;
     try {
-      debugPrint('[TelecomAuth] signInWithCustomToken: starting');
       final cred = await auth.signInWithCustomToken(exchange.customToken);
-      _debugLog('signInWithCustomToken: uid=${cred.user != null ? "non-null" : "null"}');
       // Force a token refresh so the ID token includes fresh custom claims
       // (telecom_verified, email_verified) set server-side via
       // set_custom_user_claims() / update_user().  Without this, the
       // Firestore rules' verified() helper may not see the claims until
       // the token naturally expires.
       await cred.user?.getIdToken(true);
-      debugPrint('[TelecomAuth] signInWithCustomToken: token refresh done');
       return cred;
     } on FirebaseAuthException catch (e) {
-      debugPrint('[TelecomAuth] signInWithCustomToken FAIL: ${e.message}');
       throw TelecomAuthException(
         e.message ??
             GochanoLanguage.text(
@@ -1201,13 +972,17 @@ class TelecomAuthService {
     }
 
     final uri = Uri.parse('$backendBaseUrl/v1/auth/telecom/exchange');
-    _debugLog('exchangeSubscription: url=$uri, phone=${_maskPhone(cleanPhone)}');
+    debugPrint(
+      '[TelecomAuth] exchangeSubscription: url=$uri, phone=$cleanPhone',
+    );
     final response = await _safeJsonPost(uri, {
       'phone': cleanPhone,
       'already_subscribed': true,
       'subscription_status': subscriptionStatus,
     }, exchangeTimeout);
-    debugPrint('[TelecomAuth] exchangeSubscription: status=${response.statusCode}');
+    debugPrint(
+      '[TelecomAuth] exchangeSubscription: status=${response.statusCode}',
+    );
 
     return _parseExchangeResponse(response.body, phone: cleanPhone);
   }
@@ -1216,7 +991,9 @@ class TelecomAuthService {
     String body, {
     required String phone,
   }) {
-    debugPrint('[TelecomAuth] _parseExchangeResponse: body length=${body.length}');
+    debugPrint(
+      '[TelecomAuth] _parseExchangeResponse: body length=${body.length}',
+    );
     Map<String, dynamic> decoded;
     try {
       final value = json.decode(body);
@@ -1267,18 +1044,6 @@ class TelecomAuthService {
     required TelecomFirebaseExchange exchange,
   }) async {
     await signInToFirebaseWithCustomToken(exchange);
-    // SAFETY: Verify Firebase user actually exists before persisting session.
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      debugPrint('[TelecomAuth] enterSession FAIL: currentUser null after signIn');
-      throw TelecomAuthException(
-        GochanoLanguage.text(
-          'Could not sign you in. Please try again.',
-          'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
-        ),
-      );
-    }
-    _debugLog('enterSession: currentUser=non-null');
     await persistSession(phone: phone);
   }
 
@@ -1298,34 +1063,13 @@ class TelecomAuthService {
     await prefs.remove(_legacyPrefUserId);
   }
 
-  /// Clears ONLY local SharedPreferences session state.
-  ///
-  /// Used by AuthGate's authStateChanges listener when the Firebase user
-  /// becomes null. Must NOT call FirebaseAuth.signOut() to avoid the
-  /// recursive loop: signOut → authStateChanges(null) → clearSession → signOut → …
-  static Future<void> clearLocalSession() async {
+  static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(prefIsLoggedIn);
     await prefs.remove(prefUserPhone);
     await prefs.remove(_legacyPrefIsLoggedIn);
     await prefs.remove(_legacyPrefUserPhone);
     await prefs.remove(_legacyPrefUserId);
-    await clearOtpVerified();
-    await clearRecentlyVerified();
-  }
-
-  /// Full session clear: Firebase signOut once + local session clear.
-  ///
-  /// Used by explicit logout/unsubscribe paths. The Firebase signOut
-  /// fires authStateChanges(null), which AuthGate handles via
-  /// clearLocalSession() — NOT this method — so there is no loop.
-  static Future<void> clearSession() async {
-    try {
-      await FirebaseAuth.instance.signOut();
-    } catch (_) {
-      // Non-fatal: signOut() is best-effort.
-    }
-    await clearLocalSession();
   }
 
   /// Reads the local "am I logged in" flag. Returns true when EITHER
@@ -1348,159 +1092,6 @@ class TelecomAuthService {
 
   /// Convenience alias for [readUserPhone].
   static Future<String?> readPhone() => readUserPhone();
-
-  // -------------------------------------------------------------------
-  // OTP recovery state — prevents re-verifying a consumed OTP
-  // -------------------------------------------------------------------
-
-  /// Persist the fact that the carrier has accepted this phone's OTP.
-  /// This is NOT the OTP itself — it is a signal that Stage 1 succeeded
-  /// and any subsequent failure must retry from subscription check +
-  /// Firebase exchange, NOT from OTP verification.
-  static Future<void> persistOtpVerified({required String phone}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefOtpVerifiedPhone, normalize(phone));
-    await prefs.setString(
-      _prefOtpVerifiedAt,
-      DateTime.now().toIso8601String(),
-    );
-  }
-
-  /// Read the transient OTP-verified state. Returns null if no state
-  /// exists or if it has expired (older than [OtpVerifiedState.maxAge]).
-  static Future<OtpVerifiedState?> readOtpVerifiedState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final phone = prefs.getString(_prefOtpVerifiedPhone);
-    final atStr = prefs.getString(_prefOtpVerifiedAt);
-    if (phone == null || phone.isEmpty || atStr == null) return null;
-    final at = DateTime.tryParse(atStr);
-    if (at == null) return null;
-    final state = OtpVerifiedState(phone: phone, verifiedAt: at);
-    if (state.isExpired) {
-      await clearOtpVerified();
-      return null;
-    }
-    return state;
-  }
-
-  /// Clear the OTP-verified state. Called after successful session entry
-  /// or after the state expires.
-  static Future<void> clearOtpVerified() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefOtpVerifiedPhone);
-    await prefs.remove(_prefOtpVerifiedAt);
-  }
-
-  // -------------------------------------------------------------------
-  // Recently-verified marker — routing/propagation metadata ONLY.
-  //
-  // After a successful OTP verification, we store the phone and
-  // timestamp so the login screen can detect carrier propagation
-  // delay and avoid re-sending OTP. This is NOT authentication proof
-  // and must NEVER be used to grant access to the app.
-  // -------------------------------------------------------------------
-
-  /// Maximum age of the recently-verified marker before it expires.
-  static const Duration recentlyVerifiedMaxAge = Duration(minutes: 5);
-
-  /// Store the recently-verified marker after OTP success.
-  /// This is routing metadata only — never authentication proof.
-  static Future<void> setRecentlyVerified({required String phone}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(prefRecentlyVerifiedPhone, normalize(phone));
-    await prefs.setString(
-      prefRecentlyVerifiedAt,
-      DateTime.now().toIso8601String(),
-    );
-  }
-
-  /// Read the recently-verified marker. Returns the normalized phone
-  /// if the marker exists and has not expired. Returns null otherwise.
-  static Future<String?> readRecentlyVerifiedPhone() async {
-    final prefs = await SharedPreferences.getInstance();
-    final phone = prefs.getString(prefRecentlyVerifiedPhone);
-    final atStr = prefs.getString(prefRecentlyVerifiedAt);
-    if (phone == null || phone.isEmpty || atStr == null) return null;
-    final at = DateTime.tryParse(atStr);
-    if (at == null) return null;
-    if (DateTime.now().difference(at) > recentlyVerifiedMaxAge) {
-      await clearRecentlyVerified();
-      return null;
-    }
-    return phone;
-  }
-
-  /// Clear the recently-verified marker. Called on successful REGISTERED
-  /// login or on expiry.
-  static Future<void> clearRecentlyVerified() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(prefRecentlyVerifiedPhone);
-    await prefs.remove(prefRecentlyVerifiedAt);
-  }
-
-  /// Attempt to complete sign-in from a previously verified OTP state.
-  ///
-  /// This is the recovery path: the OTP was accepted by the carrier, but
-  /// the Firebase exchange failed. Instead of re-verifying the OTP (which
-  /// would fail with "OTP already consumed"), we:
-  ///   1. Check subscription status
-  ///   2. Exchange for Firebase session
-  ///   3. Enter the app
-  ///
-  /// Returns true if recovery succeeded, false if the user needs to
-  /// start over (no state, expired, or all retries failed).
-  static Future<bool> attemptPostOtpRecovery({
-    required String phone,
-    required void Function(String message)? onStatus,
-  }) async {
-    final state = await readOtpVerifiedState();
-    if (state == null || state.phone != normalize(phone)) {
-      return false;
-    }
-
-    onStatus?.call(GochanoLanguage.text(
-      'Verification succeeded. Finishing sign-in…',
-      'যাচাই সফল হয়েছে। সাইন-ইন সম্পন্ন হচ্ছে…',
-    ));
-
-    try {
-      // Step 1: Check current subscription status
-      final subscription = await checkSubscription(phone);
-      if (!subscription.shouldEnterApp) {
-        // Subscription not yet active — this can happen if the carrier
-        // is still processing. We clear the state and return false so
-        // the UI can show an appropriate message.
-        await clearOtpVerified();
-        return false;
-      }
-
-      onStatus?.call(GochanoLanguage.text(
-        'Subscription confirmed. Signing you in…',
-        'সাবস্ক্রিপশন নিশ্চিত। সাইন ইন করা হচ্ছে…',
-      ));
-
-      // Step 2: Exchange for Firebase session
-      final exchange = await exchangeSubscriptionForFirebaseSession(
-        phone: phone,
-        subscriptionStatus: subscription.rawStatus,
-      );
-
-      // Step 3: Enter session
-      await enterSession(phone: phone, exchange: exchange);
-
-      // Step 4: Clear recovery state
-      await clearOtpVerified();
-
-      return true;
-    } on TelecomAuthException catch (e) {
-      debugPrint('[TelecomAuth] post-otp recovery failed: ${e.message}');
-      // Do NOT clear the state here — allow retry
-      return false;
-    } catch (e) {
-      debugPrint('[TelecomAuth] post-otp recovery unexpected error: $e');
-      return false;
-    }
-  }
 
   // -------------------------------------------------------------------
   // HTTP helpers
@@ -1559,7 +1150,10 @@ class TelecomAuthService {
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      _debugLog('_safeJsonPost: HTTP ${response.statusCode} on $uri body_len=${response.body.length}');
+      debugPrint(
+        '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri '
+        'body=${response.body.length > 200 ? "${response.body.substring(0, 200)}..." : response.body}',
+      );
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Server is not responding. Please try again in a moment.',

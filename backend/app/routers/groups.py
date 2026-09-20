@@ -10,6 +10,7 @@ from app.core.auth import CurrentUser, require_student
 from app.core.firebase import get_firestore
 from app.schemas import (
     GroupChatMessageRequest,
+    GroupChatReactionRequest,
     GroupChatToggleRequest,
     GroupCreate,
     GroupJoin,
@@ -274,6 +275,7 @@ def list_chat_messages(
                 "attachmentFilename": d.get("attachmentFilename"),
                 "attachmentMime": d.get("attachmentMime"),
                 "attachmentSize": d.get("attachmentSize"),
+                "reactions": d.get("reactions") or {},
                 "createdAt": (d.get("createdAt").isoformat()
                               if hasattr(d.get("createdAt"), "isoformat")
                               else None),
@@ -359,3 +361,78 @@ def post_chat_message(
         },
         "createdAtIso": now.isoformat(),
     }
+
+
+SUPPORTED_CHAT_REACTIONS: set[str] = {"👍", "❤️", "💡", "🔥", "👏", "🤔"}
+
+
+@router.post("/{group_id}/chat/{message_id}/react")
+def post_chat_reaction(
+    group_id: str,
+    message_id: str,
+    body: GroupChatReactionRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    """Member-only reaction toggle with Firestore transaction.
+
+    Validates:
+    - emoji is in supported reaction catalogue
+    - group exists and user is a member
+    - message exists inside transaction and belongs to group
+    - atomically updates reactions map, preventing lost updates
+    """
+    emoji = body.emoji.strip()
+    if not emoji:
+        raise HTTPException(status_code=400, detail="Emoji cannot be empty")
+    if emoji not in SUPPORTED_CHAT_REACTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported reaction. Allowed: {sorted(SUPPORTED_CHAT_REACTIONS)}",
+        )
+
+    db = get_firestore()
+    group_ref = db.collection("groups").document(group_id)
+    msg_ref = db.collection("group_messages").document(message_id)
+
+    tx = db.transaction()
+
+    @firestore.transactional
+    def _mutate_reaction(transaction):
+        # 1. Verify group membership
+        group_snap = group_ref.get(transaction=transaction)
+        if not group_snap.exists:
+            raise HTTPException(status_code=404, detail="Group not found")
+        group_data = group_snap.to_dict() or {}
+        if not _is_member(group_data, user.uid):
+            raise HTTPException(status_code=403, detail="Members only")
+
+        # 2. Verify message exists and belongs to group
+        msg_snap = msg_ref.get(transaction=transaction)
+        if not msg_snap.exists:
+            raise HTTPException(status_code=404, detail="Message not found")
+        msg_data = msg_snap.to_dict() or {}
+        if msg_data.get("groupId") != group_id:
+            raise HTTPException(status_code=400, detail="Message does not belong to group")
+
+        # 3. Read current reactions inside transaction
+        reactions = dict(msg_data.get("reactions") or {})
+        current_uids = list(reactions.get(emoji) or [])
+
+        # 4. Toggle authenticated user's UID (no duplicates, no fake identities)
+        if user.uid in current_uids:
+            current_uids = [u for u in current_uids if u != user.uid]
+            if current_uids:
+                reactions[emoji] = current_uids
+            else:
+                reactions.pop(emoji, None)
+        else:
+            current_uids.append(user.uid)
+            # Ensure uniqueness
+            reactions[emoji] = list(dict.fromkeys(current_uids))
+
+        # 5. Write updated reactions inside the same transaction
+        transaction.update(msg_ref, {"reactions": reactions})
+        return reactions
+
+    committed_reactions = _mutate_reaction(tx)
+    return {"messageId": message_id, "reactions": committed_reactions}

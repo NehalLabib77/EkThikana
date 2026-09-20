@@ -11,11 +11,11 @@ import 'core/settings/gochano_appearance.dart';
 import 'firebase_options.dart';
 import 'services/connectivity_service.dart';
 import 'services/notification_service.dart';
+import 'services/sync_coordinator.dart';
 
 const String _kLogoAsset = 'assets/branding/gochano1.png';
 
 Future<void> main() async {
-  debugPrint('[Boot] main:start');
   WidgetsFlutterBinding.ensureInitialized();
   pdfrxFlutterInitialize();
 
@@ -34,22 +34,16 @@ Future<void> main() async {
   }
 
   try {
-    debugPrint('[Boot] firebase:start');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('[Boot] firebase:done');
 
     // Restore the saved language and appearance *before* the first frame, so
     // the app does not paint in English/system and then visibly flip to the
     // student's choice. Both restores swallow their own failures and fall
     // back to the default, so neither can block startup.
-    await Future.wait([
-      GochanoLanguage.restore(),
-      GochanoAppearance.restore(),
-    ]);
+    await Future.wait([GochanoLanguage.restore(), GochanoAppearance.restore()]);
 
-    debugPrint('[Boot] runApp');
     runApp(const GochanoApp());
     // Defer non-critical platform setup so the first frame paints sooner.
     // Notifications aren't required for the app to be usable, and the
@@ -64,9 +58,11 @@ Future<void> main() async {
         // platform channel is unavailable, so the app stays usable.
         return Future<void>.value();
       });
+      SyncCoordinator.instance.init().catchError((_) {
+        return Future<void>.value();
+      });
     });
   } catch (e) {
-    debugPrint('[Boot] firebase:error=${e.runtimeType}');
     runApp(_SetupRequiredApp(error: e));
   }
 }

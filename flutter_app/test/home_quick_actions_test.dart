@@ -1,11 +1,8 @@
-// Static guards for the Home "Quick actions" section.
+// Static guards for the Home Quick Actions removal (spec §27, §86).
 //
-// The Home quick-actions grid must:
-//
-//   * show exactly four actions (Ask AI, Add Expense, Medicine, CommuteBD)
-//     in a 4-column grid;
-//   * be always visible (no collapse/expand toggle needed for exactly 4);
-//   * localize all labels in English and Bangla.
+// Home Quick Access was removed. These tests verify it is absent from the
+// Home screen. Workspace Quick Access is tested separately in
+// study_rebuild_test.dart and profile_structure_test.dart.
 //
 // Everything below is a string-level guard so it runs without an emulator.
 
@@ -17,56 +14,27 @@ String _read(String path) =>
     File(path).readAsStringSync().replaceAll('\r\n', '\n');
 
 void main() {
-  final homeScreen =
-      _read('lib/features/home/presentation/home_screen.dart');
+  final homeScreen = _read('lib/features/home/presentation/home_screen.dart');
 
-  group('Quick Actions', () {
-    test('shows exactly four actions', () {
-      const expected = [
-        'AiAssistantScreen',
-        'showAddExpenseSheet',
-        'MedicineScreen',
-        'CommuteScreen',
-      ];
-      for (final symbol in expected) {
-        expect(
-          homeScreen.contains(symbol),
-          isTrue,
-          reason: 'Quick Actions no longer wires $symbol',
-        );
-      }
+  group('Home Quick Actions removed', () {
+    test('does not contain _QuickActions widget class', () {
+      expect(homeScreen, isNot(contains('class _QuickActions')));
     });
 
-    test('uses a 4-column grid', () {
-      expect(
-        homeScreen.contains('crossAxisCount: 4'),
-        isTrue,
-        reason: 'Quick Actions grid must use 4 columns',
-      );
+    test('does not contain _QuickActionsState class', () {
+      expect(homeScreen, isNot(contains('class _QuickActionsState')));
     });
 
-    test('tile height is compact', () {
-      final match =
-          RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(homeScreen);
-      expect(match, isNotNull,
-          reason: 'Quick Actions grid must declare a finite mainAxisExtent');
-      final value = int.parse(match!.group(1)!);
-      expect(value, greaterThan(0));
-      expect(value, lessThan(104),
-          reason: 'Tile height must be compact (under 104px)');
+    test('does not reference AiAssistantScreen', () {
+      expect(homeScreen, isNot(contains('AiAssistantScreen')));
     });
 
-    test('does not contain old actions that were removed', () {
-      expect(
-        homeScreen.contains('showAddTaskSheet'),
-        isFalse,
-        reason: 'Add task was removed from quick actions',
-      );
-      expect(
-        homeScreen.contains('PrescriptionScanScreen'),
-        isFalse,
-        reason: 'Scan prescription was removed from quick actions',
-      );
+    test('does not reference showAddExpenseSheet', () {
+      expect(homeScreen, isNot(contains('showAddExpenseSheet')));
+    });
+
+    test('does not mount _QuickActions in build method', () {
+      expect(homeScreen, isNot(contains('_QuickActions(')));
     });
   });
 }

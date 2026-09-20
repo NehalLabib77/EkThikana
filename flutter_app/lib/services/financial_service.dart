@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
@@ -165,7 +167,6 @@ class FinancialService {
       'createdAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
-    notifyBudgetChanged();
     return sourceRef.id;
   }
 
@@ -208,7 +209,6 @@ class FinancialService {
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     await batch.commit();
-    notifyBudgetChanged();
   }
 
   static Future<void> deleteDailyExpense(String id) async {
@@ -218,7 +218,6 @@ class FinancialService {
       db.collection('financial_transactions').doc(transactionId('daily', id)),
     );
     await batch.commit();
-    notifyBudgetChanged();
   }
 
   static String bazarSessionId(DateTime date) {
@@ -313,7 +312,6 @@ class FinancialService {
     // performance cost violated spec §83 and the log contents violated §82.
     try {
       await batch.commit();
-      notifyBudgetChanged();
     } on FirebaseException catch (fe) {
       // Keep the diagnosis in the log without the identity: the rule that
       // rejected the write is the useful part.
@@ -351,7 +349,6 @@ class FinancialService {
       db.collection('financial_transactions').doc(transactionId('bazar', id)),
     );
     await batch.commit();
-    notifyBudgetChanged();
   }
 
   static String doseId(String medicineId, DateTime date, String hhmm) {
@@ -425,7 +422,6 @@ class FinancialService {
     }
 
     await batch.commit();
-    notifyBudgetChanged();
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> medicineDoseHistory(
@@ -601,7 +597,6 @@ class FinancialService {
     });
 
     await batch.commit();
-    notifyBudgetChanged();
     return tripRef.id;
   }
 
@@ -612,7 +607,6 @@ class FinancialService {
       db.collection('financial_transactions').doc(transactionId('commute', id)),
     );
     await batch.commit();
-    notifyBudgetChanged();
   }
 
   static FinancialSummary summary(
@@ -671,7 +665,7 @@ class FinancialService {
         ? db.collection('dena_pawna_items').doc()
         : db.collection('dena_pawna_items').doc(id);
 
-    await ref.set({
+    final data = {
       'ownerId': uid,
       'personName': personName.trim(),
       'amount': amount,
@@ -688,28 +682,24 @@ class FinancialService {
       if (dueDate != null) 'dueDateKey': dateKey(dueDate),
       if (id == null) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    };
+
+    unawaited(
+      ref.set(data, SetOptions(merge: true)).catchError((e) {
+        if (kDebugMode) {
+          debugPrint(
+            '[FinancialService.saveDenaPawna] sync deferred/failed: $e',
+          );
+        }
+      }),
+    );
     return ref.id;
   }
 
   /// Partial or full settlement of a Dena/Pawna record.
   ///
   /// Settlement history is stored inline in the dena_pawna_items document.
-  /// A full settlement gets a stable per-record ID for idempotency. Partial
-  /// settlements remain distinct events because the same amount can be paid
-  /// more than once over the life of a record.
-  ///
-  /// CRITICAL ACCOUNTING RULE:
-  /// - Dena (borrow) settlement = money I PAY → must increase Total Spent
-  ///   AND decrease Remaining (exactly once each)
-  /// - Pawna (lend) settlement = money I RECEIVE → increases Remaining
-  ///   but does NOT increase Total Spent (it's income, not expense)
-  ///
-  /// To satisfy both rules:
-  /// - For Dena settlements, we write to financial_transactions (source:
-  ///   'dena_paid') so Total Spent includes it
-  /// - For Pawna settlements, we do NOT write to financial_transactions
-  ///   (it's already handled by the UI's adjusted remaining calculation)
+  /// Each settlement gets a deterministic ID for idempotency.
   static Future<void> settleDenaPawna(
     String id, {
     required double settleAmount,
@@ -729,15 +719,8 @@ class FinancialService {
     }
 
     final amount = (data['amount'] as num?)?.toDouble() ?? 0;
-    final type = data['type']?.toString() ?? 'lend';
-    final personName = data['personName']?.toString() ?? '';
     final currentOutstanding =
         (data['outstandingAmount'] as num?)?.toDouble() ?? amount;
-
-    // A repeated Mark Paid action after the first commit is a successful
-    // no-op. This matters when the app is closed between the Firestore commit
-    // and the UI refresh.
-    if (currentOutstanding <= 0.001) return;
 
     if (settleAmount > currentOutstanding + 0.001) {
       throw Exception('Settlement amount cannot exceed outstanding amount.');
@@ -749,30 +732,19 @@ class FinancialService {
     );
     final isFullySettled = newOutstanding <= 0.001;
     final newStatus = isFullySettled ? 'settled' : 'partially_settled';
-
-    final settledAt = DateTime.now();
-    final settlementDateKey = dateKey(DateTime.now());
-    final isFullRequest = settleAmount >= currentOutstanding - 0.001;
-    final settlementId = isFullRequest
-        ? '${id}_full'
-        : '${id}_${dateKey(settledAt)}_${settledAt.millisecondsSinceEpoch}';
+    final settlementId =
+        'settlement_${id}_${DateTime.now().millisecondsSinceEpoch}';
 
     final settlementRecord = {
       'id': settlementId,
       'amount': settleAmount,
-      'date': Timestamp.fromDate(settledAt),
-      'dateKey': settlementDateKey,
+      'date': Timestamp.fromDate(DateTime.now()),
+      'dateKey': dateKey(DateTime.now()),
     };
 
     final existingSettlements = (data['settlements'] as List<dynamic>?) ?? [];
 
-    final batch = db.batch();
-
-    // Update the dena_pawna_items document with new settlement.
-    // ownerId must be included so the Firestore security rule
-    // (request.resource.data.ownerId == resource.data.ownerId) passes.
-    batch.update(db.collection('dena_pawna_items').doc(id), {
-      'ownerId': currentUid,
+    await db.collection('dena_pawna_items').doc(id).update({
       'outstandingAmount': isFullySettled ? 0.0 : newOutstanding,
       'status': newStatus,
       'settled': isFullySettled,
@@ -780,39 +752,6 @@ class FinancialService {
       if (isFullySettled) 'settledAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-
-    // CRITICAL: Only Dena (borrow) settlements increase Total Spent.
-    // type == 'borrow' means "I owe money" → paying it = cash outflow = expense
-    // type == 'lend' means "someone owes me" → receiving = cash inflow = NOT expense
-    if (type == 'borrow') {
-      // Write to financial_transactions so Total Spent includes this payment.
-      // Uses a deterministic ID based on settlement to prevent duplicates.
-      // NOTE: source must be 'dena_paid' to match the Firestore security rule
-      // at firestore.rules line 243. Using 'dena_payment' causes the entire
-      // batch to roll back with permission-denied.
-      final financialRef = db
-          .collection('financial_transactions')
-          .doc(transactionId('dena_paid', settlementId));
-
-      batch.set(financialRef, {
-        ..._financialData(
-          type: 'expense',
-          source: 'dena_paid',
-          sourceRecordId: settlementId,
-          category: 'Dena Paid',
-          title: 'Paid $personName',
-          amount: settleAmount,
-          date: DateTime.now(),
-        ),
-        'denaPawnaId': id,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-
-    await batch.commit();
-
-    // Trigger budget refresh so Overview updates immediately
-    notifyBudgetChanged();
   }
 
   static Future<void> deleteDenaPawna(String id) async {

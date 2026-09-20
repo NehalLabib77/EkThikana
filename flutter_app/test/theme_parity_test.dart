@@ -27,10 +27,14 @@ double _contrast(Color a, Color b) {
 void main() {
   group('Both themes define every role', () {
     test('the extension is registered on light and dark', () {
-      expect(GochanoTheme.light().extension<GochanoColors>(),
-          same(GochanoColors.light));
-      expect(GochanoTheme.dark().extension<GochanoColors>(),
-          same(GochanoColors.dark));
+      expect(
+        GochanoTheme.light().extension<GochanoColors>(),
+        same(GochanoColors.light),
+      );
+      expect(
+        GochanoTheme.dark().extension<GochanoColors>(),
+        same(GochanoColors.dark),
+      );
     });
 
     test('light and dark differ on every surface and text role', () {
@@ -49,8 +53,11 @@ void main() {
         'illustrationPaper': (l.illustrationPaper, d.illustrationPaper),
       };
       for (final entry in pairs.entries) {
-        expect(entry.value.$1, isNot(entry.value.$2),
-            reason: '${entry.key} is identical in both themes');
+        expect(
+          entry.value.$1,
+          isNot(entry.value.$2),
+          reason: '${entry.key} is identical in both themes',
+        );
       }
     });
   });
@@ -58,9 +65,17 @@ void main() {
   group('Contrast floors', () {
     test('primary and secondary text clear 4.5:1 on every surface', () {
       for (final c in [GochanoColors.light, GochanoColors.dark]) {
-        for (final surface in [c.background, c.surface, c.surfaceVariant, c.surfaceElevated]) {
+        for (final surface in [
+          c.background,
+          c.surface,
+          c.surfaceVariant,
+          c.surfaceElevated,
+        ]) {
           expect(_contrast(c.textPrimary, surface), greaterThanOrEqualTo(4.5));
-          expect(_contrast(c.textSecondary, surface), greaterThanOrEqualTo(4.5));
+          expect(
+            _contrast(c.textSecondary, surface),
+            greaterThanOrEqualTo(4.5),
+          );
         }
       }
     });
@@ -89,8 +104,11 @@ void main() {
           c.commute,
           c.community,
         ]) {
-          expect(_contrast(accent, c.surface), greaterThanOrEqualTo(3.0),
-              reason: 'accent $accent on ${c.surface}');
+          expect(
+            _contrast(accent, c.surface),
+            greaterThanOrEqualTo(3.0),
+            reason: 'accent $accent on ${c.surface}',
+          );
         }
       }
     });
@@ -99,18 +117,26 @@ void main() {
   group('Surface ordering', () {
     test('dark surfaces step up from the background (spec §18)', () {
       const d = GochanoColors.dark;
-      expect(d.background.computeLuminance(),
-          lessThan(d.surface.computeLuminance()));
-      expect(d.surface.computeLuminance(),
-          lessThan(d.surfaceElevated.computeLuminance()));
+      expect(
+        d.background.computeLuminance(),
+        lessThan(d.surface.computeLuminance()),
+      );
+      expect(
+        d.surface.computeLuminance(),
+        lessThan(d.surfaceElevated.computeLuminance()),
+      );
     });
 
-    test('light scaffold is tinted so white cards read as raised (spec §17)',
-        () {
-      const l = GochanoColors.light;
-      expect(l.background.computeLuminance(),
-          lessThan(l.surface.computeLuminance()));
-    });
+    test(
+      'light scaffold is tinted so white cards read as raised (spec §17)',
+      () {
+        const l = GochanoColors.light;
+        expect(
+          l.background.computeLuminance(),
+          lessThan(l.surface.computeLuminance()),
+        );
+      },
+    );
   });
 
   group('Static guards', () {
@@ -141,8 +167,11 @@ void main() {
           offenders.add(entity.path);
         }
       }
-      expect(offenders, isEmpty,
-          reason: 'use GochanoShadows.color instead of the literal: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'use GochanoShadows.color instead of the literal: $offenders',
+      );
       expect(GochanoShadows.color, const Color(0x14000000));
     });
 

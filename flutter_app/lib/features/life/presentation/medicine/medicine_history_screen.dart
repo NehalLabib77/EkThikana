@@ -60,7 +60,8 @@ class MedicineHistoryScreen extends StatelessWidget {
           }
 
           // Group by the date the dose was scheduled for.
-          final byDay = <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+          final byDay =
+              <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
           for (final doc in docs) {
             final day = doc.data()['scheduledDate']?.toString() ?? '';
             if (day.isEmpty) continue;
@@ -74,8 +75,10 @@ class MedicineHistoryScreen extends StatelessWidget {
             itemBuilder: (context, i) {
               final day = days[i];
               final entries = byDay[day]!
-                ..sort((a, b) => (a.data()['scheduledTime']?.toString() ?? '')
-                    .compareTo(b.data()['scheduledTime']?.toString() ?? ''));
+                ..sort(
+                  (a, b) => (a.data()['scheduledTime']?.toString() ?? '')
+                      .compareTo(b.data()['scheduledTime']?.toString() ?? ''),
+                );
               final taken = entries
                   .where((d) => d.data()['status'] == 'taken')
                   .length;
@@ -98,7 +101,9 @@ class MedicineHistoryScreen extends StatelessWidget {
                     ),
                   ),
                   CardGroup(
-                    children: [for (final doc in entries) _HistoryRow(doc: doc)],
+                    children: [
+                      for (final doc in entries) _HistoryRow(doc: doc),
+                    ],
                   ),
                 ],
               );
@@ -124,31 +129,31 @@ class _HistoryRow extends StatelessWidget {
 
     final (illustration, accent, badge) = switch (status) {
       DoseStatus.taken => (
-          GochanoArt.stateTaken,
-          colors.success,
-          GochanoBadge(
-            label: GochanoLanguage.text('Taken', 'নেওয়া হয়েছে'),
-            tone: GochanoBadgeTone.success,
-            icon: Icons.check_rounded,
-          ),
+        GochanoArt.stateTaken,
+        colors.success,
+        GochanoBadge(
+          label: GochanoLanguage.text('Taken', 'নেওয়া হয়েছে'),
+          tone: GochanoBadgeTone.success,
+          icon: Icons.check_rounded,
         ),
+      ),
       DoseStatus.skipped => (
-          GochanoArt.stateSkipped,
-          colors.textSecondary,
-          GochanoBadge(
-            label: GochanoLanguage.text('Skipped', 'বাদ দেওয়া'),
-            icon: Icons.remove_rounded,
-          ),
+        GochanoArt.stateSkipped,
+        colors.textSecondary,
+        GochanoBadge(
+          label: GochanoLanguage.text('Skipped', 'বাদ দেওয়া'),
+          icon: Icons.remove_rounded,
         ),
+      ),
       _ => (
-          GochanoArt.featureReminder,
-          colors.warning,
-          GochanoBadge(
-            label: GochanoLanguage.text('Missed', 'মিস'),
-            tone: GochanoBadgeTone.warning,
-            icon: Icons.schedule_rounded,
-          ),
+        GochanoArt.featureReminder,
+        colors.warning,
+        GochanoBadge(
+          label: GochanoLanguage.text('Missed', 'মিস'),
+          tone: GochanoBadgeTone.warning,
+          icon: Icons.schedule_rounded,
         ),
+      ),
     };
 
     return GochanoListRow(
@@ -168,13 +173,25 @@ String _dayLabel(String dateKey) {
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final diff = today.difference(DateTime(parsed.year, parsed.month, parsed.day)).inDays;
+  final diff = today
+      .difference(DateTime(parsed.year, parsed.month, parsed.day))
+      .inDays;
   if (diff == 0) return GochanoLanguage.text('Today', 'আজ');
   if (diff == 1) return GochanoLanguage.text('Yesterday', 'গতকাল');
 
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
 }

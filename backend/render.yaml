@@ -55,6 +55,22 @@ services:
         value: "900"
       - key: AI_DAILY_LIMIT
         value: "30"
+      # Phase 3A: OpenRouter emergency fallback provider.
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: "qwen/qwen-2.5-72b-instruct:free"
+      - key: OPENROUTER_BASE_URL
+        value: "https://openrouter.ai/api/v1"
+      # Phase 3A: Per-feature AI usage limits.
+      - key: AI_LIMIT_CHAT_DAILY
+        value: "20"
+      - key: AI_LIMIT_NOTE_MONTHLY
+        value: "5"
+      - key: AI_LIMIT_QUIZ_MONTHLY
+        value: "3"
+      - key: AI_LIMIT_STUDY_PLAN_ACTIVE
+        value: "1"
       - key: ROUTING_PROVIDER
         value: osrm
       - key: OSRM_BASE_URL
@@ -62,6 +78,8 @@ services:
       - key: NOMINATIM_BASE_URL
         value: https://nominatim.openstreetmap.org
       - key: ROUTING_USER_AGENT
+        sync: false
+      - key: GOOGLE_MAPS_SERVER_API_KEY
         sync: false
       - key: COMMUTE_ML_MIN_TOTAL_REPORTS
         value: "500"

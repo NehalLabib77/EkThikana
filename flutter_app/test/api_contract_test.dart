@@ -82,7 +82,10 @@ Set<Endpoint> _flutterCalls() {
   // _get('/path') / _post('/path') / _patch(...) / _delete(...)
   final helperRe = RegExp(r"_(get|post|put|patch|delete)\(\s*'([^']+)'");
   for (final m in helperRe.allMatches(src)) {
-    calls.add((method: m.group(1)!.toUpperCase(), path: _normalise(m.group(2)!)));
+    calls.add((
+      method: m.group(1)!.toUpperCase(),
+      path: _normalise(m.group(2)!),
+    ));
   }
 
   // http.verb(_uri('/path')) and _client.verb(_uri('/path'))
@@ -90,7 +93,10 @@ Set<Endpoint> _flutterCalls() {
     r"(?:http|_client)\s*\.\s*(get|post|put|patch|delete)\(\s*\n?\s*_uri\(\s*'([^']+)'",
   );
   for (final m in directRe.allMatches(src)) {
-    calls.add((method: m.group(1)!.toUpperCase(), path: _normalise(m.group(2)!)));
+    calls.add((
+      method: m.group(1)!.toUpperCase(),
+      path: _normalise(m.group(2)!),
+    ));
   }
 
   // MultipartRequest('POST', _uri('/path'))
@@ -98,7 +104,10 @@ Set<Endpoint> _flutterCalls() {
     r"MultipartRequest\(\s*'(\w+)'\s*,\s*_uri\(\s*'([^']+)'",
   );
   for (final m in multipartRe.allMatches(src)) {
-    calls.add((method: m.group(1)!.toUpperCase(), path: _normalise(m.group(2)!)));
+    calls.add((
+      method: m.group(1)!.toUpperCase(),
+      path: _normalise(m.group(2)!),
+    ));
   }
 
   return calls;
@@ -128,7 +137,10 @@ void main() {
       // Distinguish "wrong verb" from "no such path" — the first is a live
       // 405 in production, the second is a typo or a removed route.
       final sameP =
-          backend.where((e) => e.path == call.path).map((e) => e.method).toList()
+          backend
+              .where((e) => e.path == call.path)
+              .map((e) => e.method)
+              .toList()
             ..sort();
       mismatches.add(
         sameP.isEmpty
@@ -140,17 +152,17 @@ void main() {
     expect(
       mismatches,
       isEmpty,
-      reason: 'Flutter would receive 404/405 for:\n  ${mismatches.join('\n  ')}',
+      reason:
+          'Flutter would receive 404/405 for:\n  ${mismatches.join('\n  ')}',
     );
   });
 
   test('health is the only unauthenticated call', () {
     // Everything else must send the Firebase ID token (spec §82).
     final src = File('lib/services/api_service.dart').readAsStringSync();
-    final unauthenticated = RegExp(r"_(?:get|post|put|patch|delete)\(\s*'([^']+)'[^;]*?auth:\s*false")
-        .allMatches(src)
-        .map((m) => m.group(1)!)
-        .toSet();
+    final unauthenticated = RegExp(
+      r"_(?:get|post|put|patch|delete)\(\s*'([^']+)'[^;]*?auth:\s*false",
+    ).allMatches(src).map((m) => m.group(1)!).toSet();
     expect(unauthenticated, {'/api/health'});
   });
 }

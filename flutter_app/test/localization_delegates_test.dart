@@ -78,8 +78,9 @@ void main() {
         expect(find.byType(TextField), findsOneWidget);
       });
 
-      testWidgets('MaterialLocalizations resolves for this locale',
-          (tester) async {
+      testWidgets('MaterialLocalizations resolves for this locale', (
+        tester,
+      ) async {
         // The direct assertion. Everything above is a symptom of this.
         late BuildContext captured;
         await tester.pumpWidget(
@@ -132,8 +133,9 @@ void main() {
         expect(find.byType(AlertDialog), findsOneWidget);
       });
 
-      testWidgets('a modal bottom sheet with a TextField opens',
-          (tester) async {
+      testWidgets('a modal bottom sheet with a TextField opens', (
+        tester,
+      ) async {
         // The second screenshot: the composer inside a bottom sheet.
         await tester.pumpWidget(
           _app(
@@ -178,8 +180,11 @@ void main() {
         'GlobalWidgetsLocalizations.delegate',
         'GlobalCupertinoLocalizations.delegate',
       ]) {
-        expect(source, contains(delegate),
-            reason: '$delegate must stay registered in app.dart');
+        expect(
+          source,
+          contains(delegate),
+          reason: '$delegate must stay registered in app.dart',
+        );
       }
     });
 

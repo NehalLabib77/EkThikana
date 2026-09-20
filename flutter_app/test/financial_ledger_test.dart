@@ -69,8 +69,11 @@ void main() {
         _tx(source: 'legacy', type: 'saving', amount: 500),
       ]);
       expect(summary.totalSpending, equals(200));
-      expect(summary.bySource.containsKey('legacy'), isFalse,
-          reason: 'non-expense rows must never appear in spending breakdown');
+      expect(
+        summary.bySource.containsKey('legacy'),
+        isFalse,
+        reason: 'non-expense rows must never appear in spending breakdown',
+      );
     });
 
     test('mixed sources aggregate correctly', () {
@@ -80,8 +83,10 @@ void main() {
         _tx(source: 'daily', amount: 60),
       ]);
       expect(summary.totalSpending, equals(175));
-      expect(summary.bySource.keys.toSet(),
-          equals({'medicine', 'commute', 'daily'}));
+      expect(
+        summary.bySource.keys.toSet(),
+        equals({'medicine', 'commute', 'daily'}),
+      );
     });
 
     test('empty input is a clean zero summary', () {
@@ -93,13 +98,17 @@ void main() {
 
   group('monthKey/dateKey (used by ledger filters)', () {
     test('dateKey is YYYY-MM-DD zero-padded', () {
-      expect(FinancialService.dateKey(DateTime(2026, 1, 9)),
-          equals('2026-01-09'));
+      expect(
+        FinancialService.dateKey(DateTime(2026, 1, 9)),
+        equals('2026-01-09'),
+      );
     });
 
     test('monthKey is YYYY-MM zero-padded', () {
-      expect(FinancialService.monthKey(DateTime(2026, 11, 30)),
-          equals('2026-11'));
+      expect(
+        FinancialService.monthKey(DateTime(2026, 11, 30)),
+        equals('2026-11'),
+      );
     });
   });
 }

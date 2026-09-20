@@ -55,8 +55,9 @@ void main() {
     expect(calls, 1);
   });
 
-  testWidgets('fires onReady even if the first post-frame is missed',
-      (tester) async {
+  testWidgets('fires onReady even if the first post-frame is missed', (
+    tester,
+  ) async {
     var calls = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -68,8 +69,7 @@ void main() {
     expect(calls, 1, reason: 'the 1.5s ceiling guarantees a hand-off');
   });
 
-  testWidgets('the splash itself does not animate (spec §11)',
-      (tester) async {
+  testWidgets('the splash itself does not animate (spec §11)', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: GochanoTheme.light(),

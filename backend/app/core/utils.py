@@ -40,4 +40,14 @@ def detect_supported_file_type(data: bytes) -> tuple[str, str]:
     # Classic DOC: OLE Compound File header "D0 CF 11 E0".
     if data.startswith(b"\xd0\xcf\x11\xe0"):
         return "application/msword", ".doc"
-    raise ValueError("Only PDF, PNG, JPEG, DOC and DOCX files are allowed")
+    # Plain text files — reject binary (null bytes or non-printable).
+    if b"\x00" not in data[:4096]:
+        try:
+            text = data.decode("utf-8")
+            # At least 80% printable characters
+            printable = sum(1 for c in text[:4096] if c.isprintable() or c in "\n\r\t")
+            if printable / max(len(text[:4096]), 1) >= 0.8:
+                return "text/plain", ".txt"
+        except (UnicodeDecodeError, ValueError):
+            pass
+    raise ValueError("Only PDF, PNG, JPEG, DOC, DOCX and TXT files are allowed")

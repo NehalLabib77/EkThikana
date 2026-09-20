@@ -1,9 +1,19 @@
-// The Gochano application shell — five student destinations.
+// The Gochano application shell — four primary destinations for students.
 //
-//   Today | Study | Money | Commute | Community
+//   Today | Study | Commute | Money | Profile
 //
-// Profile is accessible from the Today header avatar, NOT from the bottom bar.
-// Screens and business logic are NOT deleted.
+// Community is no longer a bottom-tab destination; it lives as a Study top
+// tab instead (see study_screen.dart).
+//
+// Role note
+// ---------
+// Gochano has two account roles. `student` gets all four destinations.
+// `general` gets four: Study, Study Groups, AI and Materials are all gated
+// behind `require_student` on the backend (see `app/core/auth.py`), so a
+// general account tapping Study or Community would meet a 403 on every
+// action. Showing a destination that can only fail is worse than not showing
+// it — spec §90 forbids hiding *broken* features, but this is a working
+// feature correctly scoped to an account type, which is different.
 //
 // State between destinations is preserved with an IndexedStack, so switching
 // tabs does not reset a half-typed expense or a scrolled material list
@@ -13,13 +23,16 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/localization/gochano_language.dart';
-import '../../../core/navigation.dart';
-import '../../community/presentation/community_screen.dart';
+import '../../../core/page_route.dart';
 import '../../home/presentation/home_screen.dart';
+import '../../life/presentation/life_screen.dart';
 import '../../life/presentation/commute/commute_screen.dart';
 import '../../life/presentation/expense/expense_screen.dart';
-import '../../study/presentation/ai/ai_assistant_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../../study/presentation/study_screen.dart';
+import '../../tasks/presentation/tasks_screen.dart';
+import '../../../services/notification_service.dart';
+import 'quick_add_sheet.dart';
 
 class GochanoShell extends StatefulWidget {
   const GochanoShell({
@@ -37,7 +50,6 @@ class GochanoShell extends StatefulWidget {
 
 class _GochanoShellState extends State<GochanoShell> {
   int _index = 0;
-  int _studyTab = 0;
 
   bool get _isStudent => widget.role == 'student';
 
@@ -45,6 +57,9 @@ class _GochanoShellState extends State<GochanoShell> {
   void initState() {
     super.initState();
     GochanoLanguage.current.addListener(_onLanguageChange);
+    NotificationService.reconcileFromFirestore().catchError((_) {
+      return Future<void>.value();
+    });
   }
 
   @override
@@ -64,13 +79,14 @@ class _GochanoShellState extends State<GochanoShell> {
           role: widget.role,
           displayName: widget.displayName,
           onOpenDestination: _select,
-          onOpenStudyTab: _openStudyTab,
-          onOpenAiAssistant: _openAiAssistant,
+          onOpenProfile: () => Navigator.of(context).push(
+            GochanoRoute.to(builder: (_) => ProfileScreen(role: widget.role)),
+          ),
         ),
-        StudyScreen(initialTab: _studyTab),
-        const ExpenseScreen(),
+        const StudyScreen(),
         const CommuteScreen(),
-        CommunityScreen(),
+        const ExpenseScreen(),
+        ProfileScreen(role: widget.role),
       ];
     }
 
@@ -79,10 +95,13 @@ class _GochanoShellState extends State<GochanoShell> {
         role: widget.role,
         displayName: widget.displayName,
         onOpenDestination: _select,
-        onOpenStudyTab: _openStudyTab,
-        onOpenAiAssistant: _openAiAssistant,
+        onOpenProfile: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => ProfileScreen(role: widget.role)),
+        ),
       ),
-      const ExpenseScreen(),
+      const LifeScreen(),
+      const TasksScreen(),
+      ProfileScreen(role: widget.role),
     ];
   }
 
@@ -102,54 +121,61 @@ class _GochanoShellState extends State<GochanoShell> {
           selectedIcon: Icons.menu_book_rounded,
         ),
         _Destination(
-          label: GochanoLanguage.text('Money', 'টাকা'),
-          icon: Icons.receipt_long_outlined,
-          selectedIcon: Icons.receipt_long_rounded,
-        ),
-        _Destination(
           label: GochanoLanguage.text('Commute', 'যাতায়াত'),
-          icon: Icons.directions_bus_outlined,
-          selectedIcon: Icons.directions_bus_rounded,
+          icon: Icons.directions_transit_outlined,
+          selectedIcon: Icons.directions_transit_rounded,
         ),
         _Destination(
-          label: GochanoLanguage.text('Community', 'কমিউনিটি'),
-          icon: Icons.groups_outlined,
-          selectedIcon: Icons.groups_rounded,
+          label: GochanoLanguage.text('Money', 'টাকা'),
+          icon: Icons.account_balance_wallet_outlined,
+          selectedIcon: Icons.account_balance_wallet_rounded,
+        ),
+        _Destination(
+          label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
+          icon: Icons.person_outline_rounded,
+          selectedIcon: Icons.person_rounded,
         ),
       ];
     }
 
     return [
       _Destination(
-        label: GochanoLanguage.text('Today', 'আজ'),
+        label: GochanoLanguage.text('Home', 'হোম'),
         icon: Icons.home_outlined,
         selectedIcon: Icons.home_rounded,
       ),
       _Destination(
-        label: GochanoLanguage.text('Money', 'টাকা'),
-        icon: Icons.receipt_long_outlined,
-        selectedIcon: Icons.receipt_long_rounded,
+        label: GochanoLanguage.text('Life', 'জীবন'),
+        icon: Icons.favorite_outline_rounded,
+        selectedIcon: Icons.favorite_rounded,
+      ),
+      _Destination(
+        label: GochanoLanguage.text('Tasks', 'কাজ'),
+        icon: Icons.check_circle_outline_rounded,
+        selectedIcon: Icons.check_circle_rounded,
+      ),
+      _Destination(
+        label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
+        icon: Icons.person_outline_rounded,
+        selectedIcon: Icons.person_rounded,
       ),
     ];
   }
 
   void _select(int index) {
-    final count = _buildDestinations().length;
+    final count = _isStudent ? 5 : 4;
     if (index < 0 || index >= count || index == _index) return;
     setState(() => _index = index);
   }
 
-  void _openStudyTab(int tab) {
-    setState(() {
-      _studyTab = tab;
-      _index = StudentArea.study.tabIndex;
-    });
-  }
-
-  void _openAiAssistant() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AiAssistantScreen()),
-    );
+  /// Opens Quick Add sheet, waits for the result, then dispatches the
+  /// selected action AFTER the sheet has fully closed. This avoids
+  ///Navigator !_debugLocked by never pushing a second route inside
+  /// the sheet's pop callback.
+  Future<void> _openQuickAdd() async {
+    final action = await showQuickAddSheet(context);
+    if (!mounted || action == null) return;
+    await launchQuickAddAction(context, action);
   }
 
   @override
@@ -160,6 +186,15 @@ class _GochanoShellState extends State<GochanoShell> {
     return Scaffold(
       backgroundColor: context.colors.background,
       body: IndexedStack(index: index, children: _buildPages()),
+      floatingActionButton: _isStudent
+          ? FloatingActionButton(
+              key: const ValueKey('universal_quick_add_fab'),
+              heroTag: 'universal_quick_add_fab',
+              tooltip: GochanoLanguage.text('Quick Add', 'দ্রুত যোগ করুন'),
+              onPressed: _openQuickAdd,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: _select,

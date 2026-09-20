@@ -16,10 +16,13 @@ import '../../../../services/firestore_service.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../ai/ai_assistant_screen.dart';
+import '../ai/assignment_assistant_screen.dart';
+import '../ai/learning_insights_screen.dart';
+import '../ai/quiz_generator_screen.dart';
+import '../ai/smart_planner_screen.dart';
 import '../materials/material_reader_screen.dart';
 import '../materials/materials_screen.dart';
 import '../materials/saved_materials_screen.dart';
-import '../notes/notes_screen.dart';
 import 'semester_list_screen.dart';
 import '../../../../features/community/presentation/shared_box_screen.dart';
 
@@ -51,18 +54,7 @@ class _QuickAccess extends StatefulWidget {
 }
 
 class _QuickAccessState extends State<_QuickAccess> {
-  static const _crossAxisCount = 4;
-  static const _collapsedCount = 4;
-  static const _mainAxisExtent = 96.0;
-  static const _mainAxisSpacing = GochanoSpacing.xs;
-  static const _flingThreshold = 450.0;
-  static const _dragDampening = 0.4;
-
   bool _expanded = false;
-  double _dragOffset = 0;
-
-  double get _collapsedHeight => _mainAxisExtent;
-  double get _expandedHeight => _mainAxisExtent * 2 + _mainAxisSpacing;
 
   @override
   void initState() {
@@ -80,45 +72,11 @@ class _QuickAccessState extends State<_QuickAccess> {
     if (mounted) setState(() {});
   }
 
-  void _toggle() {
-    setState(() => _expanded = !_expanded);
-  }
-
-  void _onVerticalDragUpdate(DragUpdateDetails details) {
-    final dy = details.primaryDelta ?? 0;
-    setState(() {
-      _dragOffset = (_dragOffset + dy * _dragDampening).clamp(
-        0.0,
-        _expandedHeight - _collapsedHeight,
-      );
-    });
-  }
-
-  void _onVerticalDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final offset = _dragOffset;
-
-    bool shouldExpand;
-    if (velocity > _flingThreshold) {
-      shouldExpand = true;
-    } else if (velocity < -_flingThreshold) {
-      shouldExpand = false;
-    } else {
-      final midpoint = (_expandedHeight - _collapsedHeight) / 2;
-      shouldExpand = offset > midpoint;
-    }
-
-    setState(() {
-      _expanded = shouldExpand;
-      _dragOffset = 0;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    final items = <_QuickAccessItem>[
+    final primaryItems = <_QuickAccessItem>[
       _QuickAccessItem(
         icon: Icons.auto_awesome_rounded,
         label: GochanoLanguage.text('AI Assistant', 'এআই সহকারী'),
@@ -128,27 +86,45 @@ class _QuickAccessState extends State<_QuickAccess> {
         ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
       ),
       _QuickAccessItem(
-        icon: Icons.notes_rounded,
-        label: GochanoLanguage.text('Notes', 'নোট'),
+        icon: Icons.assignment_rounded,
+        label: GochanoLanguage.text('Assignment AI', 'এসাইনমেন্ট এআই'),
+        accent: colors.ai,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const AssignmentAssistantScreen())),
+      ),
+      _QuickAccessItem(
+        icon: Icons.quiz_rounded,
+        label: GochanoLanguage.text('Quiz', 'কুইজ'),
         accent: colors.study,
         onTap: () => Navigator.of(
           context,
-        ).push(GochanoRoute.to(builder: (_) => const NotesScreen())),
+        ).push(GochanoRoute.to(builder: (_) => const QuizGeneratorScreen())),
       ),
       _QuickAccessItem(
-        icon: Icons.picture_as_pdf_rounded,
-        label: GochanoLanguage.text('PDFs', 'পিডিএফ'),
-        accent: colors.error,
+        icon: Icons.insights_rounded,
+        label: GochanoLanguage.text('Insights', 'ইনসাইটস'),
+        accent: colors.study,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const LearningInsightsScreen())),
+      ),
+    ];
+
+    final secondaryItems = <_QuickAccessItem>[
+      _QuickAccessItem(
+        icon: Icons.description_rounded,
+        label: GochanoLanguage.text('Documents', 'ডকুমেন্ট'),
+        accent: colors.brand,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(
-            builder: (_) =>
-                const MaterialsScreen(mimeFilter: 'application/pdf'),
+            builder: (_) => const MaterialsScreen(documentFilter: true),
           ),
         ),
       ),
       _QuickAccessItem(
         icon: Icons.photo_library_rounded,
-        label: GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি'),
+        label: GochanoLanguage.text('Images', 'ছবি'),
         accent: colors.commute,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(
@@ -157,14 +133,12 @@ class _QuickAccessState extends State<_QuickAccess> {
         ),
       ),
       _QuickAccessItem(
-        icon: Icons.description_rounded,
-        label: GochanoLanguage.text('Docs', 'ডকস'),
-        accent: colors.brand,
-        onTap: () => Navigator.of(context).push(
-          GochanoRoute.to(
-            builder: (_) => const MaterialsScreen(mimeFilter: 'doc/'),
-          ),
-        ),
+        icon: Icons.psychology_rounded,
+        label: GochanoLanguage.text('Smart Plan', 'স্মার্ট প্ল্যান'),
+        accent: colors.ai,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const SmartPlannerScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.school_rounded,
@@ -184,15 +158,6 @@ class _QuickAccessState extends State<_QuickAccess> {
       ),
     ];
 
-    final hasMore = items.length > _collapsedCount;
-
-    final double clipHeight;
-    if (_dragOffset > 0) {
-      clipHeight = _collapsedHeight + _dragOffset;
-    } else {
-      clipHeight = _expanded ? _expandedHeight : _collapsedHeight;
-    }
-
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,94 +169,111 @@ class _QuickAccessState extends State<_QuickAccess> {
               bottom: GochanoSpacing.xs,
             ),
           ),
+          LayoutBuilder(
+            builder: (context, constraints) => GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: primaryItems.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisExtent: 84,
+                crossAxisSpacing: GochanoSpacing.xs,
+                mainAxisSpacing: GochanoSpacing.xs,
+              ),
+              itemBuilder: (context, i) => _QuickAccessCell(
+                icon: primaryItems[i].icon,
+                label: primaryItems[i].label,
+                accent: primaryItems[i].accent,
+                onTap: primaryItems[i].onTap,
+              ),
+            ),
+          ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 380),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              height: clipHeight,
-              child: ClipRect(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: items.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: _crossAxisCount,
-                    mainAxisExtent: _mainAxisExtent,
-                    crossAxisSpacing: GochanoSpacing.xs,
-                    mainAxisSpacing: _mainAxisSpacing,
-                  ),
-                  itemBuilder: (context, i) => _QuickAccessCell(
-                    icon: items[i].icon,
-                    label: items[i].label,
-                    accent: items[i].accent,
-                    onTap: items[i].onTap,
-                  ),
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOutCubic,
+            child: _expanded
+                ? Column(
+                    children: [
+                      const SizedBox(height: GochanoSpacing.xs),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemCount: secondaryItems.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisExtent: 84,
+                              crossAxisSpacing: GochanoSpacing.xs,
+                              mainAxisSpacing: GochanoSpacing.xs,
+                            ),
+                        itemBuilder: (context, i) => _QuickAccessCell(
+                          icon: secondaryItems[i].icon,
+                          label: secondaryItems[i].label,
+                          accent: secondaryItems[i].accent,
+                          onTap: secondaryItems[i].onTap,
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(height: GochanoSpacing.xs),
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            onVerticalDragEnd: (details) {
+              final vy = details.primaryVelocity ?? 0;
+              if (vy > 100 && !_expanded) {
+                // Drag down to expand
+                setState(() => _expanded = true);
+              } else if (vy < -100 && _expanded) {
+                // Drag up to collapse
+                setState(() => _expanded = false);
+              }
+            },
+            onVerticalDragUpdate: (details) {
+              if (details.primaryDelta != null) {
+                if (details.primaryDelta! > 8 && !_expanded) {
+                  setState(() => _expanded = true);
+                } else if (details.primaryDelta! < -8 && _expanded) {
+                  setState(() => _expanded = false);
+                }
+              }
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: GochanoSpacing.xs,
+                  horizontal: GochanoSpacing.md,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _expanded
+                          ? GochanoLanguage.text('See less', 'কম দেখুন')
+                          : GochanoLanguage.text('See more', 'আরও দেখুন'),
+                      style: context.type.caption.copyWith(
+                        color: colors.brand,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: GochanoSpacing.xxs),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 16,
+                      color: colors.brand,
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          if (hasMore)
-            _DragExpandHandle(
-              expanded: _expanded,
-              onToggle: _toggle,
-              onVerticalDragUpdate: _onVerticalDragUpdate,
-              onVerticalDragEnd: _onVerticalDragEnd,
-            ),
         ],
-      ),
-    );
-  }
-}
-
-/// Centered draggable handle for expanding/collapsing Workspace Quick Access.
-/// Drag down → expand, drag up → collapse, tap → toggle.
-class _DragExpandHandle extends StatelessWidget {
-  const _DragExpandHandle({
-    required this.expanded,
-    required this.onToggle,
-    required this.onVerticalDragUpdate,
-    required this.onVerticalDragEnd,
-  });
-
-  final bool expanded;
-  final VoidCallback onToggle;
-  final GestureDragUpdateCallback onVerticalDragUpdate;
-  final GestureDragEndCallback onVerticalDragEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return GestureDetector(
-      onTap: onToggle,
-      onVerticalDragUpdate: onVerticalDragUpdate,
-      onVerticalDragEnd: onVerticalDragEnd,
-      behavior: HitTestBehavior.opaque,
-      child: Center(
-        child: Container(
-          width: 36,
-          height: 24,
-          margin: const EdgeInsets.only(top: GochanoSpacing.xxs),
-          decoration: BoxDecoration(
-            color: colors.surfaceVariant,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 3,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Icon(
-            expanded
-                ? Icons.keyboard_arrow_up_rounded
-                : Icons.keyboard_arrow_down_rounded,
-            size: 18,
-            color: colors.textTertiary,
-          ),
-        ),
       ),
     );
   }
@@ -341,13 +323,13 @@ class _QuickAccessCell extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 28, color: accent),
+                child: Icon(icon, size: 24, color: accent),
               ),
               const SizedBox(height: GochanoSpacing.xxs),
               Flexible(
@@ -494,6 +476,7 @@ class _RecentMaterials extends StatelessWidget {
                           materialId: doc.id,
                           title: _materialTitle(doc.data()),
                           mimeType: doc.data()['mimeType']?.toString() ?? '',
+                          fileName: doc.data()['fileName']?.toString() ?? '',
                         ),
                       ),
                     ),

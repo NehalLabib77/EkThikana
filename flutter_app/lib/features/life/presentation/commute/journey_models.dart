@@ -29,6 +29,9 @@ class JourneyLeg {
     this.fromLon,
     this.toLat,
     this.toLon,
+    this.fareAvailable = true,
+    this.fareLow = 0,
+    this.fareHigh = 0,
   });
 
   /// Backend mode id: walk, rickshaw, cng, bus, metro, train, boat.
@@ -70,7 +73,17 @@ class JourneyLeg {
   final double? toLat;
   final double? toLon;
 
-  bool get isFree => fareTk <= 0;
+  /// Whether fare data is available for this leg. When `false`, the UI
+  /// should show "Fare unavailable" instead of "Free" or ৳0.
+  final bool fareAvailable;
+
+  /// Fare range low/high from the canonical single-fare API. When both are
+  /// > 0, the UI shows the range (e.g. ৳280–320). When only `fareTk` is
+  /// set, the UI shows a single value.
+  final double fareLow;
+  final double fareHigh;
+
+  bool get isFree => fareTk <= 0 && fareAvailable;
 
   bool get isMappable =>
       fromLat != null && fromLon != null && toLat != null && toLon != null;
@@ -102,6 +115,9 @@ class JourneyLeg {
       fromLon: (json['fromLon'] as num?)?.toDouble(),
       toLat: (json['toLat'] as num?)?.toDouble(),
       toLon: (json['toLon'] as num?)?.toDouble(),
+      fareAvailable: json['fareAvailable'] != false,
+      fareLow: asDouble(json['fareLow']),
+      fareHigh: asDouble(json['fareHigh']),
     );
   }
 }
@@ -165,6 +181,9 @@ class Journey {
   bool get isCheapest => objectives.contains('cheapest');
   bool get isFastest => objectives.contains('fastest');
 
+  /// Whether any leg in this journey has fare data available.
+  bool get hasFareData => legs.any((l) => l.fareAvailable);
+
   static Journey fromJson(Map<String, dynamic> json) {
     double asDouble(Object? value) =>
         value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
@@ -190,11 +209,15 @@ class Journey {
       fareCertaintyLabel: json['fareCertaintyLabel']?.toString() ?? '',
       legs: ((json['legs'] as List?) ?? const [])
           .whereType<Map>()
-          .map((e) => JourneyLeg.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+          .map(
+            (e) =>
+                JourneyLeg.fromJson(e.map((k, v) => MapEntry(k.toString(), v))),
+          )
           .toList(),
       fareDeltaTk: asDouble(json['fareDeltaTk']),
       durationDeltaMinutes: asInt(json['durationDeltaMinutes']),
-      whyRecommended: (json['whyRecommended']?.toString().trim().isEmpty ?? true)
+      whyRecommended:
+          (json['whyRecommended']?.toString().trim().isEmpty ?? true)
           ? null
           : json['whyRecommended'].toString(),
     );
@@ -241,13 +264,17 @@ class JourneyPlan {
       status == JourneyPlanningStatus.available && journeys.isEmpty;
 
   static JourneyPlan fromResponse(Map<String, dynamic> body) {
-    final envelope = (body['journeyPlanning'] as Map?)
-            ?.map((k, v) => MapEntry(k.toString(), v)) ??
+    final envelope =
+        (body['journeyPlanning'] as Map?)?.map(
+          (k, v) => MapEntry(k.toString(), v),
+        ) ??
         const <String, dynamic>{};
 
     final journeys = ((body['journeys'] as List?) ?? const [])
         .whereType<Map>()
-        .map((e) => Journey.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+        .map(
+          (e) => Journey.fromJson(e.map((k, v) => MapEntry(k.toString(), v))),
+        )
         .toList();
 
     final available = envelope['available'] == true;
@@ -268,6 +295,425 @@ class JourneyPlan {
           .map((e) => e.toString())
           .toList(),
       coverageRadiusKm: (envelope['coverageRadiusKm'] as num?)?.toDouble(),
+    );
+  }
+
+  /// Build an estimated fallback plan from road route data when the public-
+  /// transit planner is unavailable but a road route exists.
+  ///
+  /// Returns `null` when there is not enough road data to construct even a
+  /// single honest estimated journey.
+  ///
+  /// [selectedMode] is the user-selected transport mode from the Choose
+  /// transport chips (bus, cng, rickshaw, auto, metro). When provided, the
+  /// fallback journey uses that mode; otherwise a neutral "road" label is used.
+  ///
+  /// [singleFareResult] is the canonical fare result from
+  /// `POST /api/commute/single-fare`. When provided and `supported == true`,
+  /// the fallback leg reuses that fare (fareLow, fareHigh, fareType, source)
+  /// instead of discarding it.
+  static JourneyPlan? roadFallback(
+    Map<String, dynamic> body, {
+    String? selectedMode,
+    Map<String, dynamic>? singleFareResult,
+  }) {
+    final distanceKm = (body['distanceKm'] as num?)?.toDouble() ?? 0;
+    final drivingMinutes = (body['estimatedDurationMin'] as num?)?.toInt() ?? 0;
+    if (distanceKm <= 0 && drivingMinutes <= 0) return null;
+
+    final originMap = body['origin'] as Map?;
+    final destMap = body['destination'] as Map?;
+    final originName = originMap?['name']?.toString() ?? '';
+    final destName = destMap?['name']?.toString() ?? '';
+    if (originName.isEmpty && destName.isEmpty) return null;
+
+    final originLat = (originMap?['lat'] as num?)?.toDouble();
+    final originLon = (originMap?['lon'] as num?)?.toDouble();
+    final destLat = (destMap?['lat'] as num?)?.toDouble();
+    final destLon = (destMap?['lon'] as num?)?.toDouble();
+
+    final mode = selectedMode ?? 'road';
+    final modeLabel = _modeLabel(mode);
+    final isWalk = mode == 'walk' || mode == 'walking' || mode == 'foot';
+
+    // Use raw OSRM road duration — no unjustified multiplier.
+    // The UI labels this as "minimum road time" / "without traffic" so
+    // the user understands it is not a real-world traffic-aware ETA.
+    final durationMinutes = drivingMinutes;
+
+    // Propagate fare from the canonical single-fare API when available.
+    final fareSupported =
+        singleFareResult != null &&
+        (singleFareResult['supported'] as bool? ?? false);
+    final fare = fareSupported
+        ? (singleFareResult['fare'] as Map<String, dynamic>? ?? {})
+        : <String, dynamic>{};
+
+    final fareLow = (fare['fareLow'] as num?)?.toDouble() ?? 0;
+    final fareHigh = (fare['fareHigh'] as num?)?.toDouble() ?? 0;
+    final fareType = isWalk
+        ? 'none'
+        : (fare['fareType']?.toString() ?? 'estimated');
+    final fareSource = isWalk ? '' : (fare['source']?.toString() ?? '');
+    final hasFare = !isWalk && fareLow > 0 && fareHigh > 0;
+
+    final leg = JourneyLeg(
+      mode: mode,
+      modeLabel: modeLabel,
+      from: originName,
+      to: destName,
+      distanceKm: distanceKm,
+      durationMinutes: durationMinutes,
+      fareTk: hasFare ? fareLow : 0,
+      fareType: fareType,
+      fareLabel: hasFare ? 'Estimated' : (isWalk ? 'Free' : 'Estimated'),
+      fareSource: fareSource,
+      instruction: '',
+      isTransfer: false,
+      transferMinutes: 0,
+      fareAvailable: isWalk || hasFare,
+      fareLow: hasFare ? fareLow : 0,
+      fareHigh: hasFare ? fareHigh : 0,
+      fromLat: originLat,
+      fromLon: originLon,
+      toLat: destLat,
+      toLon: destLon,
+    );
+
+    final journey = Journey(
+      objectives: const ['estimated'],
+      category: 'estimated',
+      origin: originName,
+      destination: destName,
+      totalFareTk: hasFare ? fareLow : 0,
+      totalDurationMinutes: durationMinutes,
+      totalDistanceKm: distanceKm,
+      totalWalkKm: 0,
+      transfers: 0,
+      modeSummary: [modeLabel],
+      fareCertainty: isWalk ? 'none' : (fareType),
+      fareCertaintyLabel: isWalk ? '' : 'Estimated',
+      legs: [leg],
+      fareDeltaTk: 0,
+      durationDeltaMinutes: 0,
+    );
+
+    return JourneyPlan(
+      status: JourneyPlanningStatus.available,
+      journeys: [journey],
+    );
+  }
+
+  static String _modeLabel(String mode) {
+    return switch (mode) {
+      'walk' || 'walking' || 'foot' => 'Walk',
+      'bus' || 'brta' || 'minibus' => 'Bus',
+      'metro' || 'mrt' || 'metrorail' => 'Metro',
+      'rickshaw' => 'Rickshaw',
+      'cng' || 'auto' || 'autorickshaw' || 'auto_rickshaw' => 'CNG',
+      'car' || 'taxi' || 'ride' || 'rideshare' => 'Car',
+      'train' || 'rail' => 'Train',
+      'boat' || 'launch' || 'ferry' => 'Boat',
+      _ => 'By road',
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Smart Journey Guide — structured verified facts
+// ---------------------------------------------------------------------------
+
+/// Lightweight value object that collects all verified journey facts needed
+/// by the Smart Journey Guide. Built from existing authoritative objects;
+/// never invents data.
+@immutable
+class JourneyGuideFacts {
+  const JourneyGuideFacts({
+    required this.originName,
+    required this.destinationName,
+    this.distanceKm,
+    this.durationMinutes,
+    this.durationProvenance = 'osrm',
+    this.selectedMode,
+    this.modeLabel,
+    this.fareLow,
+    this.fareHigh,
+    this.fareType,
+    this.fareSource,
+    this.fareAvailable = true,
+    this.verifiedWaypoints = const [],
+    this.isMultimodal = false,
+    this.transfers = 0,
+    this.selectedBusOperator,
+    this.selectedBusBoardStop,
+    this.selectedBusExitStop,
+    this.selectedBusStopCount,
+  });
+
+  final String originName;
+  final String destinationName;
+  final double? distanceKm;
+  final int? durationMinutes;
+
+  /// 'osrm' (without live traffic), 'multimodal' (real backend journey time),
+  /// 'single_fare' (from fare API).
+  final String durationProvenance;
+
+  final String? selectedMode;
+  final String? modeLabel;
+  final double? fareLow;
+  final double? fareHigh;
+  final String? fareType;
+  final String? fareSource;
+  final bool fareAvailable;
+
+  /// Only named waypoints confirmed by the backend or route data.
+  final List<String> verifiedWaypoints;
+  final bool isMultimodal;
+  final int transfers;
+  final String? selectedBusOperator;
+  final String? selectedBusBoardStop;
+  final String? selectedBusExitStop;
+  final int? selectedBusStopCount;
+
+  bool get hasDistance => distanceKm != null && distanceKm! > 0;
+  bool get hasDuration => durationMinutes != null && durationMinutes! > 0;
+  bool get hasFare => fareAvailable && fareLow != null && fareHigh != null;
+  bool get isFree => !fareAvailable && selectedMode == 'walk';
+  bool get hasWaypoints => verifiedWaypoints.isNotEmpty;
+
+  /// Build from the currently selected journey (real multimodal data).
+  factory JourneyGuideFacts.fromJourney(
+    Journey journey, {
+    required String? selectedMode,
+    Map<String, dynamic>? singleFareResult,
+    String? selectedBusOperator,
+    String? selectedBusBoardStop,
+    String? selectedBusExitStop,
+    int? selectedBusStopCount,
+  }) {
+    final mode = selectedMode ?? journey.modeSummary.firstOrNull?.toLowerCase();
+    final modeLabel = selectedMode != null ? _modeLabel(selectedMode) : null;
+
+    // Collect verified waypoint names from non-first legs' from-fields
+    // and the last leg's to-field, filtering duplicates.
+    final waypoints = <String>[];
+    for (final leg in journey.legs) {
+      if (leg != journey.legs.first && leg.from.isNotEmpty) {
+        if (!waypoints.contains(leg.from)) waypoints.add(leg.from);
+      }
+    }
+    if (journey.legs.isNotEmpty) {
+      final lastTo = journey.legs.last.to;
+      if (lastTo.isNotEmpty && !waypoints.contains(lastTo)) {
+        waypoints.add(lastTo);
+      }
+    }
+
+    // Use single-fare result when available and supported.
+    final fareSupported =
+        singleFareResult != null &&
+        (singleFareResult['supported'] as bool? ?? false);
+    final fare = fareSupported
+        ? (singleFareResult['fare'] as Map<String, dynamic>? ?? {})
+        : <String, dynamic>{};
+
+    final fareLow = (fare['fareLow'] as num?)?.toDouble();
+    final fareHigh = (fare['fareHigh'] as num?)?.toDouble();
+    final fareType = fare['fareType']?.toString();
+    final fareSource = fare['source']?.toString();
+
+    return JourneyGuideFacts(
+      originName: journey.origin,
+      destinationName: journey.destination,
+      distanceKm: journey.totalDistanceKm > 0 ? journey.totalDistanceKm : null,
+      durationMinutes: journey.totalDurationMinutes > 0
+          ? journey.totalDurationMinutes
+          : null,
+      durationProvenance: 'multimodal',
+      selectedMode: mode,
+      modeLabel: modeLabel,
+      fareLow: fareLow,
+      fareHigh: fareHigh,
+      fareType: fareType,
+      fareSource: fareSource,
+      fareAvailable: journey.hasFareData,
+      verifiedWaypoints: waypoints,
+      isMultimodal: journey.legs.length > 1,
+      transfers: journey.transfers,
+      selectedBusOperator: selectedBusOperator,
+      selectedBusBoardStop: selectedBusBoardStop,
+      selectedBusExitStop: selectedBusExitStop,
+      selectedBusStopCount: selectedBusStopCount,
+    );
+  }
+
+  /// Build from road-route data when no real multimodal journey exists.
+  factory JourneyGuideFacts.fromRoadRoute({
+    required Map<String, dynamic> result,
+    String? selectedMode,
+    Map<String, dynamic>? singleFareResult,
+    String? selectedBusOperator,
+    String? selectedBusBoardStop,
+    String? selectedBusExitStop,
+    int? selectedBusStopCount,
+  }) {
+    final originMap = result['origin'] as Map?;
+    final destMap = result['destination'] as Map?;
+    final originName = originMap?['name']?.toString() ?? '';
+    final destName = destMap?['name']?.toString() ?? '';
+    final distanceKm = (result['distanceKm'] as num?)?.toDouble();
+    final drivingMinutes = (result['estimatedDurationMin'] as num?)?.toInt();
+
+    final mode = selectedMode;
+    final modeLabel = mode != null ? _modeLabel(mode) : null;
+
+    final fareSupported =
+        singleFareResult != null &&
+        (singleFareResult['supported'] as bool? ?? false);
+    final fare = fareSupported
+        ? (singleFareResult['fare'] as Map<String, dynamic>? ?? {})
+        : <String, dynamic>{};
+
+    return JourneyGuideFacts(
+      originName: originName,
+      destinationName: destName,
+      distanceKm: distanceKm,
+      durationMinutes: drivingMinutes,
+      durationProvenance: 'osrm',
+      selectedMode: mode,
+      modeLabel: modeLabel,
+      fareLow: (fare['fareLow'] as num?)?.toDouble(),
+      fareHigh: (fare['fareHigh'] as num?)?.toDouble(),
+      fareType: fare['fareType']?.toString(),
+      fareSource: fare['source']?.toString(),
+      fareAvailable: fareSupported,
+      selectedBusOperator: selectedBusOperator,
+      selectedBusBoardStop: selectedBusBoardStop,
+      selectedBusExitStop: selectedBusExitStop,
+      selectedBusStopCount: selectedBusStopCount,
+    );
+  }
+
+  static String _modeLabel(String mode) {
+    return switch (mode) {
+      'walk' || 'walking' || 'foot' => 'Walk',
+      'bus' || 'brta' || 'minibus' => 'Bus',
+      'metro' || 'mrt' || 'metrorail' => 'Metro',
+      'rickshaw' => 'Rickshaw',
+      'cng' || 'auto' || 'autorickshaw' || 'auto_rickshaw' => 'CNG',
+      'car' || 'taxi' || 'ride' || 'rideshare' => 'Car',
+      'train' || 'rail' => 'Train',
+      'boat' || 'launch' || 'ferry' => 'Boat',
+      _ => 'By road',
+    };
+  }
+
+  /// Serialise to a JSON map suitable for the AI backend.
+  Map<String, dynamic> toJson() {
+    return {
+      'origin': originName,
+      'destination': destinationName,
+      if (hasDistance) 'distance_km': distanceKm!.toStringAsFixed(1),
+      if (hasDuration) 'duration_minutes': durationMinutes,
+      'duration_provenance': durationProvenance,
+      if (selectedMode != null) 'selected_mode': selectedMode,
+      if (modeLabel != null) 'mode_label': modeLabel,
+      'fare': {
+        if (hasFare) ...{
+          'low': fareLow!.toInt(),
+          'high': fareHigh!.toInt(),
+          'type': fareType ?? 'estimated',
+          'source': fareSource ?? '',
+        },
+        'available': fareAvailable,
+      },
+      if (verifiedWaypoints.isNotEmpty) 'verified_waypoints': verifiedWaypoints,
+      'is_multimodal': isMultimodal,
+      'transfers': transfers,
+      if (selectedBusOperator != null)
+        'selected_bus_operator': selectedBusOperator,
+      if (selectedBusBoardStop != null)
+        'selected_bus_board_stop': selectedBusBoardStop,
+      if (selectedBusExitStop != null)
+        'selected_bus_exit_stop': selectedBusExitStop,
+      if (selectedBusStopCount != null)
+        'selected_bus_stop_count': selectedBusStopCount,
+    };
+  }
+}
+
+/// A direct bus service matching an origin-destination stop pair.
+///
+/// The operator/service name displayed may reflect the backend-provided
+/// selected operator/service name with its actual provenance.  Seed
+/// operator/service information is community/reference data and the
+/// service_route_matches are not automatically verified.
+@immutable
+class DirectBusCandidate {
+  const DirectBusCandidate({
+    required this.serviceId,
+    required this.operatorName,
+    this.operatorNameBn,
+    this.serviceType = 'regular',
+    required this.originStopName,
+    required this.destinationStopName,
+    required this.originSequence,
+    required this.destinationSequence,
+    this.verified = true,
+    this.confidence = 'High',
+    this.source = '',
+    this.crowdFare,
+  });
+
+  final String serviceId;
+  final String operatorName;
+  final String? operatorNameBn;
+  final String serviceType;
+  final String originStopName;
+  final String destinationStopName;
+  final int originSequence;
+  final int destinationSequence;
+  final bool verified;
+  final String confidence;
+  final String source;
+  final Map<String, dynamic>? crowdFare;
+
+  /// Number of stops traveled between boarding and exit stops.
+  int get stopCount => (destinationSequence - originSequence).abs();
+
+  /// Whether there is a qualified crowd fare from real community reports.
+  bool get hasQualifiedCrowdFare =>
+      crowdFare != null &&
+      (crowdFare!['hasQualifiedFare'] == true ||
+          (crowdFare!['sampleCount'] is num &&
+              (crowdFare!['sampleCount'] as num) >= 3));
+
+  double? get crowdFareLow => (crowdFare?['fareLow'] as num?)?.toDouble();
+  double? get crowdFareHigh => (crowdFare?['fareHigh'] as num?)?.toDouble();
+  double? get crowdFareRecommended =>
+      (crowdFare?['recommendedFare'] as num?)?.toDouble();
+  int get crowdSampleCount => (crowdFare?['sampleCount'] as num?)?.toInt() ?? 0;
+  String? get crowdFareLabel => crowdFare?['label']?.toString();
+  String? get crowdFareLabelBn => crowdFare?['labelBn']?.toString();
+
+  static DirectBusCandidate fromJson(Map<String, dynamic> json) {
+    int asInt(Object? value) =>
+        value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+
+    return DirectBusCandidate(
+      serviceId: json['serviceId']?.toString() ?? '',
+      operatorName: json['operatorName']?.toString() ?? '',
+      operatorNameBn: json['operatorNameBn']?.toString(),
+      serviceType: json['serviceType']?.toString() ?? 'regular',
+      originStopName: json['originStopName']?.toString() ?? '',
+      destinationStopName: json['destinationStopName']?.toString() ?? '',
+      originSequence: asInt(json['originSequence']),
+      destinationSequence: asInt(json['destinationSequence']),
+      verified: json['verified'] != false,
+      confidence: json['confidence']?.toString() ?? 'High',
+      source: json['source']?.toString() ?? '',
+      crowdFare: json['crowdFare'] as Map<String, dynamic>?,
     );
   }
 }

@@ -354,6 +354,8 @@ Future<void> _setDone(
   final data = doc.data();
   final title = data['title']?.toString() ?? '';
   final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
+  final dueAt = (data['dueAt'] as Timestamp?)?.toDate();
+  final type = data['type']?.toString() ?? 'task';
 
   try {
     await doc.reference.update({
@@ -365,6 +367,16 @@ Future<void> _setDone(
       title: title,
       when: done ? null : remindAt,
     );
+    if (done) {
+      await NotificationService.cancelTask(doc.id);
+    } else {
+      await NotificationService.rescheduleTask(
+        taskId: doc.id,
+        title: title,
+        when: dueAt,
+        type: type,
+      );
+    }
   } catch (error) {
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);

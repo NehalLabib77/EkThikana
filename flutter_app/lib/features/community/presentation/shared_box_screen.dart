@@ -52,8 +52,11 @@ class SharedBoxScreen extends StatelessWidget {
           }
 
           final groups = [...?groupsSnapshot.data?.docs]
-            ..sort((a, b) => (a.data()['name']?.toString() ?? '')
-                .compareTo(b.data()['name']?.toString() ?? ''));
+            ..sort(
+              (a, b) => (a.data()['name']?.toString() ?? '').compareTo(
+                b.data()['name']?.toString() ?? '',
+              ),
+            );
 
           if (groups.isEmpty) {
             return EmptyState(
@@ -64,9 +67,9 @@ class SharedBoxScreen extends StatelessWidget {
               ),
               message: GochanoLanguage.text(
                 'Join or create a study group to share resources with '
-                'classmates.',
+                    'classmates.',
                 'সহপাঠীদের সাথে উপকরণ শেয়ার করতে একটি স্টাডি গ্রুপে যোগ '
-                'দিন বা তৈরি করুন।',
+                    'দিন বা তৈরি করুন।',
               ),
               actionLabel: GochanoLanguage.text(
                 'Go to Community',
@@ -159,8 +162,7 @@ class _GroupResourcesSection extends StatelessWidget {
               stream: FirestoreService.groupNotes(groupId),
               builder: (context, notesSnapshot) {
                 final notes = [...?notesSnapshot.data?.docs];
-                final hasResources =
-                    materials.isNotEmpty || notes.isNotEmpty;
+                final hasResources = materials.isNotEmpty || notes.isNotEmpty;
 
                 if (!hasResources) {
                   return Padding(
@@ -179,10 +181,8 @@ class _GroupResourcesSection extends StatelessWidget {
 
                 return CardGroup(
                   children: [
-                    for (final doc in materials)
-                      _ResourceRow(doc: doc),
-                    for (final doc in notes)
-                      _NoteRow(doc: doc),
+                    for (final doc in materials) _ResourceRow(doc: doc),
+                    for (final doc in notes) _NoteRow(doc: doc),
                   ],
                 );
               },
@@ -239,7 +239,10 @@ class _ResourceRow extends StatelessWidget {
     }
 
     return GochanoListRow(
-      illustration: GochanoArt.fileIdFor(fileName: fileName, mimeType: mimeType),
+      illustration: GochanoArt.fileIdFor(
+        fileName: fileName,
+        mimeType: mimeType,
+      ),
       accent: context.colors.community,
       title: title,
       subtitle: sharedBy,
@@ -280,10 +283,7 @@ class _NoteRow extends StatelessWidget {
       subtitle: sharedBy,
       onTap: () => Navigator.of(context).push(
         GochanoRoute.to(
-          builder: (_) => NoteEditorScreen(
-            noteId: doc.id,
-            initialData: data,
-          ),
+          builder: (_) => NoteEditorScreen(noteId: doc.id, initialData: data),
         ),
       ),
     );

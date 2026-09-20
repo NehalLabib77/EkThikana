@@ -1,38 +1,29 @@
 // OTP verification for the Robi / Cirkle telecom login.
 //
-// Behavior contract (spec §6 + PART 30 — corrected):
-//   * The user came here from `LoginScreen` AFTER sendOtp successfully
-//     returned a valid referenceNo. The OTP screen is ONLY pushed when
-//     a real OTP has been issued — never before.
+// Behavior contract (spec §6):
+//   * The user came here from `LoginScreen` because their subscription
+//     was not yet REGISTERED. They must enter the code that was sent to
+//     the phone they just typed.
 //   * The page is full-screen with a back arrow in the app bar so the
 //     user can go back to the phone screen with one tap.
 //   * A 240s countdown tells them when they can resend the code.
 //   * The user can tap "Wrong number? Change number" to go back without
 //     re-typing the phone number.
-//   * On success (PART 30 — corrected): the OTP is permanently consumed.
-//     We immediately attempt the normal authenticated entry flow:
-//       1. check_subscription → REGISTERED/INITIAL CHARGING PENDING
-//       2. exchangeSubscriptionForFirebaseSession
-//       3. signInWithCustomToken + getIdToken(true)
-//       4. profile check → Home/ProfileSetup
-//     If ALL post-OTP steps succeed, enter the app directly.
-//     If ANY post-OTP step fails (network, Firebase, backend, profile):
-//       - NEVER retry the consumed OTP
-//       - Store recentlyVerified routing marker
-//       - Clear OTP UI state
-//       - Navigate to clean LoginScreen with message:
-//         EN: "Number verified. Please sign in again."
-//         BN: "নম্বর যাচাই হয়েছে। আবার সাইন ইন করুন।"
+//   * Shortcut: if /send_otp.php returns "already registered" AND a
+//     follow-up /check_subscription.php confirms the number is in a
+//     subscribed state (REGISTERED or INITIAL CHARGING PENDING), we
+//     take the user straight into GochanoShell with no OTP — see
+//     [TelecomAuthService.kAlreadySubscribedSentinel] and
+//     [_OtpVerifyScreenState._enterShellFromSubscription]. This
+//     covers the case where LoginScreen saw "not subscribed" but the
+//     carrier has since confirmed the subscription.
+//   * On success we persist the session and pop the entire auth stack so
+//     the user lands on the home shell (and so the Back button does not
+//     return them to OTP).
 //   * On failure we keep them on this screen with an inline error.
-//
-// NOTE: "user already registered" recovery is handled by LoginScreen
-// BEFORE this screen is ever pushed. LoginScreen calls sendOtp() and
-// if the carrier returns "already registered", LoginScreen performs
-// the authenticated entry directly. This screen never sees that case.
 
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -46,22 +37,12 @@ import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../shell/presentation/gochano_shell.dart';
-import 'login_screen.dart';
 import 'profile_setup_screen.dart';
 
 class OtpVerifyScreen extends StatefulWidget {
-  const OtpVerifyScreen({
-    super.key,
-    required this.phone,
-    required this.referenceNo,
-  });
+  const OtpVerifyScreen({super.key, required this.phone});
 
   final String phone;
-
-  /// The referenceNo obtained from a successful sendOtp call.
-  /// The OTP screen is ONLY pushed after sendOtp succeeds, so this
-  /// is always non-null and valid.
-  final String referenceNo;
 
   @override
   State<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
@@ -76,16 +57,16 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
 
   String? _referenceNo;
   String? _errorText;
+  bool _sending = false;
   bool _verifying = false;
+  bool _signingIn = false;
   Timer? _ticker;
   Duration _remaining = _otpTimer;
 
   @override
   void initState() {
     super.initState();
-    _referenceNo = widget.referenceNo;
-    _startTimer();
-    _otpFocus.requestFocus();
+    _requestOtp();
   }
 
   @override
@@ -94,6 +75,129 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     _otpController.dispose();
     _otpFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _requestOtp() async {
+    if (_sending) return;
+    setState(() {
+      _sending = true;
+      _errorText = null;
+    });
+    try {
+      final ref = await TelecomAuthService.sendOtp(widget.phone);
+      if (ref == TelecomAuthService.kAlreadySubscribedSentinel) {
+        // The carrier reports the number as already subscribed —
+        // either REGISTERED (paying) or INITIAL CHARGING PENDING
+        // (subscribe-tap accepted, first charge settling). Spec §3
+        // lets the user in either way with no OTP step. We keep
+        // _sending = true so the form stays disabled while we mint
+        // the Firebase session, then flip to _signingIn so the status
+        // text reflects what is actually happening.
+        //
+        // Re-fetch the canonical subscription status so we can pass
+        // the right hint to the backend (it routes the request
+        // through the subscription verification path and mints the
+        // Firebase custom token with the matching claims). If the
+        // status has flipped back to not-subscribed in the meantime
+        // we surface a clear message instead of looping on /send_otp.
+        final result = await TelecomAuthService.checkSubscription(widget.phone);
+        if (!mounted) return;
+        if (!result.isAlreadySubscribed) {
+          throw TelecomAuthException(
+            GochanoLanguage.text(
+              'Subscription state is changing. Please tap "Resend code".',
+              'সাবস্ক্রিপশন অবস্থা বদলে যাচ্ছে। "আবার কোড পাঠান" চাপুন।',
+            ),
+          );
+        }
+        setState(() => _signingIn = true);
+        await _enterShellFromSubscription(subscriptionStatus: result.rawStatus);
+        return;
+      }
+      _referenceNo = ref;
+      _startTimer();
+      _otpFocus.requestFocus();
+    } on TelecomAuthException catch (e) {
+      _errorText = e.message;
+    } catch (_) {
+      _errorText = GochanoLanguage.text(
+        'Could not send the verification code. Please try again.',
+        'ভেরিফিকেশন কোড পাঠানো যায়নি। আবার চেষ্টা করুন।',
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  /// Mirrors the `isAlreadySubscribed` branch in `LoginScreen._continue`:
+  /// mints a Firebase custom token via the backend, signs in with it,
+  /// and pushes the home shell so the user lands inside Gochano without
+  /// ever having to type an OTP. Used when the carrier reports the
+  /// number as REGISTERED or INITIAL CHARGING PENDING before the
+  /// user has finished the OTP flow.
+  Future<void> _enterShellFromSubscription({
+    required String subscriptionStatus,
+  }) async {
+    final TelecomFirebaseExchange exchange;
+    try {
+      exchange =
+          await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
+            phone: widget.phone,
+            subscriptionStatus: subscriptionStatus,
+          );
+    } on TelecomAuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = e.message;
+        _signingIn = false;
+      });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = GochanoLanguage.text(
+          'Could not link your number to Gochano. Please try again later.',
+          'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+        );
+        _signingIn = false;
+      });
+      return;
+    }
+    if (!mounted) return;
+    try {
+      await TelecomAuthService.enterSession(
+        phone: widget.phone,
+        exchange: exchange,
+      );
+    } on TelecomAuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = e.message;
+        _signingIn = false;
+      });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = GochanoLanguage.text(
+          'Could not sign you in. Please try again.',
+          'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
+        );
+        _signingIn = false;
+      });
+      return;
+    }
+    if (!mounted) return;
+    final hasProfile = await FirestoreService.hasProfile();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => hasProfile
+            ? GochanoShell(role: 'student', displayName: widget.phone)
+            : ProfileSetupScreen(phone: widget.phone),
+      ),
+      (_) => false,
+    );
   }
 
   void _startTimer() {
@@ -141,117 +245,51 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
       );
       if (!mounted) return;
       if (ok) {
-        // PART 30 — corrected: OTP verified by carrier. The OTP is now
-        // permanently consumed — treat as one-shot. Immediately attempt
-        // the normal authenticated entry flow.
-
-        // 1. Check subscription status
-        final TelecomSubscriptionResult subResult;
-        try {
-          subResult = await TelecomAuthService.checkSubscription(widget.phone);
-        } catch (e) {
-          // Post-OTP failure: OTP consumed, cannot retry
-          await _handlePostOtpFailure('Subscription check failed');
-          return;
-        }
-        if (!mounted) return;
-
-        // 2. If NOT SUBSCRIBED after OTP verification — propagation delay
-        //    Return to LoginScreen with marker; user can retry later
-        if (!subResult.isAlreadySubscribed) {
-          await _handlePostOtpFailure('Subscription not yet active');
-          return;
-        }
-
-        // 3. Exchange subscription for Firebase session
+        // PART 16.1: after a successful OTP we MUST establish a real
+        // Firebase identity before persisting the local session and
+        // entering GochanoShell. AuthGate refuses to enter the shell
+        // unless FirebaseAuth.instance.currentUser is non-null, so the
+        // custom-token exchange + signInWithCustomToken is what keeps
+        // every Firestore read/write alive (Notes/Tasks/Expense/
+        // Medicine/Dena-Pawna/Materials all require
+        // request.auth.token.email_verified == true).
         final TelecomFirebaseExchange exchange;
         try {
-          exchange = await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
+          exchange = await TelecomAuthService.exchangeOtpForFirebaseSession(
             phone: widget.phone,
-            subscriptionStatus: subResult.rawStatus,
+            referenceNo: _referenceNo!,
           );
-        } catch (e) {
-          await _handlePostOtpFailure('Firebase exchange failed');
+        } on TelecomAuthException catch (e) {
+          setState(() {
+            _errorText = e.message;
+            _verifying = false;
+          });
           return;
         }
         if (!mounted) return;
-
-        // 4. Sign in to Firebase + refresh token
         try {
-          debugPrint('[AuthFlow] firebase signIn started');
           await TelecomAuthService.enterSession(
             phone: widget.phone,
             exchange: exchange,
           );
-          debugPrint('[AuthFlow] firebase user=${FirebaseAuth.instance.currentUser != null ? "non-null" : "null"}');
-        } catch (e) {
-          debugPrint('[AuthFlow] FAIL: firebase sign-in exception: ${e.runtimeType}');
-          await _handlePostOtpFailure('Firebase sign-in failed');
+        } on TelecomAuthException catch (e) {
+          setState(() {
+            _errorText = e.message;
+            _verifying = false;
+          });
           return;
         }
         if (!mounted) return;
-
-        // SAFETY: Verify Firebase user actually exists before profile lookup.
-        final currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser == null) {
-          debugPrint('[AuthFlow] FAIL: currentUser is null after enterSession');
-          await _handlePostOtpFailure('Firebase user null after sign-in');
-          return;
-        }
-
-        // 5. Profile check → resolve destination BEFORE "Taking you in".
-        debugPrint('[AuthFlow] token refresh started');
-        try {
-          await currentUser.getIdToken(true);
-          debugPrint('[AuthFlow] token refresh success=true');
-        } catch (_) {
-          debugPrint('[AuthFlow] token refresh success=false');
-        }
-        debugPrint('[AuthFlow] profile check started');
-        final profileState = await FirestoreService.checkProfileState();
-        debugPrint('[AuthFlow] destination=${profileState.name}');
+        final hasProfile = await FirestoreService.hasProfile();
         if (!mounted) return;
-
-        // 6. Destination is resolved — show "Taking you in" for ~1.2s
-        //    ONLY after all auth + profile work is complete.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              GochanoLanguage.text(
-                'Taking you in…',
-                'আপনাকে প্রবেশ করানো হচ্ছে…',
-              ),
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(milliseconds: 1200),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => hasProfile
+                ? GochanoShell(role: 'student', displayName: widget.phone)
+                : ProfileSetupScreen(phone: widget.phone),
           ),
+          (_) => false,
         );
-        await Future.delayed(const Duration(milliseconds: 1200));
-        if (!mounted) return;
-
-        switch (profileState) {
-          case ProfileCheckResult.exists:
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => GochanoShell(
-                  role: 'student',
-                  displayName: widget.phone,
-                ),
-              ),
-              (_) => false,
-            );
-          case ProfileCheckResult.missing:
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => ProfileSetupScreen(phone: widget.phone),
-              ),
-              (_) => false,
-            );
-          case ProfileCheckResult.error:
-            // Profile lookup failed — OTP is consumed; route to
-            // LoginScreen recovery.
-            await _handlePostOtpFailure('Profile lookup failed');
-        }
         return;
       }
       setState(() {
@@ -272,53 +310,6 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
-  }
-
-  /// Handle post-OTP failure: OTP is consumed, cannot retry.
-  /// Roll back any partially-created auth/session state, store routing
-  /// marker, clear OTP state, navigate to LoginScreen.
-  Future<void> _handlePostOtpFailure(String reason) async {
-    debugPrint('[OtpVerify] post-OTP failure: $reason');
-    if (!mounted) return;
-
-    // Roll back any partially-created auth session. enterSession()
-    // may have already set isLoggedIn + userPhone in SharedPreferences
-    // and signed in to Firebase. clearSession() signs out of Firebase
-    // first, then clears SharedPreferences, so AuthGate never sees a
-    // stale currentUser.
-    await TelecomAuthService.clearSession();
-
-    // Store routing marker (NOT auth proof) for propagation detection.
-    // Must happen AFTER clearSession() (which calls clearRecentlyVerified)
-    // but BEFORE clearing OTP UI state.
-    await TelecomAuthService.setRecentlyVerified(phone: widget.phone);
-
-    // Clear OTP UI state
-    _otpController.clear();
-    _referenceNo = null;
-    _ticker?.cancel();
-
-    if (!mounted) return;
-
-    // Show recovery message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          GochanoLanguage.text(
-            'Number verified. Please sign in again.',
-            'নম্বর যাচাই হয়েছে। আবার সাইন ইন করুন।',
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-
-    // Navigate to clean LoginScreen
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
   }
 
   String? _validateOtp(String? value) {
@@ -350,14 +341,11 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     final colors = context.colors;
     final type = context.type;
 
-    final canResend = _remaining <= Duration.zero;
+    final canResend = _remaining <= Duration.zero && !_sending;
 
     return GochanoScaffold(
       appBar: GochanoAppBar(
-        title: GochanoLanguage.text(
-          'Verify your number',
-          'নম্বর যাচাই করুন',
-        ),
+        title: GochanoLanguage.text('Verify your number', 'নম্বর যাচাই করুন'),
         actions: const [
           LanguageToggle(),
           SizedBox(width: GochanoSpacing.xs),
@@ -380,7 +368,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                 subtitle: GochanoLanguage.text(
                   'We sent a code to ${_maskedPhone()}. It may take a moment to arrive.',
                   'আমরা ${_maskedPhone()} নম্বরে একটি কোড পাঠিয়েছি। '
-                  'কিছুক্ষণ সময় লাগতে পারে।',
+                      'কিছুক্ষণ সময় লাগতে পারে।',
                 ),
               ),
               const SizedBox(height: GochanoSpacing.lg),
@@ -401,7 +389,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     TextFormField(
                       controller: _otpController,
                       focusNode: _otpFocus,
-                      enabled: !_verifying,
+                      enabled: !_verifying && !_sending && !_signingIn,
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -425,43 +413,93 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                       onFieldSubmitted: (_) => _verify(),
                     ),
                     const SizedBox(height: GochanoSpacing.sm),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.timer_outlined,
-                          size: 16,
-                          color: colors.textSecondary,
-                        ),
-                        const SizedBox(width: GochanoSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            canResend
-                                ? GochanoLanguage.text(
-                                    'You can resend the code now.',
-                                    'আপনি এখন নতুন কোড চাইতে পারেন।',
-                                  )
-                                : GochanoLanguage.text(
-                                    'Resend code in ${_remainingLabel()}',
-                                    '${_remainingLabel()} পর আবার কোড নিন',
-                                  ),
+                    if (_signingIn)
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: GochanoSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              GochanoLanguage.text(
+                                'Your subscription is being confirmed. '
+                                    'Signing you in…',
+                                'আপনার সাবস্ক্রিপশন নিশ্চিত হচ্ছে। '
+                                    'সাইন ইন করা হচ্ছে…',
+                              ),
+                              style: type.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (_sending)
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: GochanoSpacing.xs),
+                          Text(
+                            GochanoLanguage.text(
+                              'Sending code…',
+                              'কোড পাঠানো হচ্ছে…',
+                            ),
                             style: type.caption.copyWith(
                               color: colors.textSecondary,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.timer_outlined,
+                            size: 16,
+                            color: colors.textSecondary,
+                          ),
+                          const SizedBox(width: GochanoSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              canResend
+                                  ? GochanoLanguage.text(
+                                      'You can resend the code now.',
+                                      'আপনি এখন নতুন কোড চাইতে পারেন।',
+                                    )
+                                  : GochanoLanguage.text(
+                                      'Resend code in ${_remainingLabel()}',
+                                      '${_remainingLabel()} পর আবার কোড নিন',
+                                    ),
+                              style: type.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
               const SizedBox(height: GochanoSpacing.lg),
               PrimaryButton(
-                label: _verifying
+                label: _signingIn
                     ? GochanoLanguage.text(
-                        'Verifying…', 'যাচাই হচ্ছে…')
-                    : GochanoLanguage.text(
-                        'Verify', 'যাচাই করুন'),
-                onPressed: _verifying ? null : _verify,
+                        'Signing you in…',
+                        'সাইন ইন করা হচ্ছে…',
+                      )
+                    : _verifying
+                    ? GochanoLanguage.text('Verifying…', 'যাচাই হচ্ছে…')
+                    : GochanoLanguage.text('Verify', 'যাচাই করুন'),
+                onPressed: (_verifying || _sending || _signingIn)
+                    ? null
+                    : _verify,
                 icon: Icons.check_circle_outline_rounded,
               ),
               const SizedBox(height: GochanoSpacing.md),
@@ -469,13 +507,20 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                 children: [
                   Flexible(
                     child: TextButton.icon(
-                      onPressed: _verifying
+                      onPressed: (_sending || _verifying || _signingIn)
                           ? null
-                          : () {
-                              // Pop back to LoginScreen — user can retry
-                              // the full flow (checkSubscription + sendOtp)
-                              Navigator.of(context).pop();
-                            },
+                          : _requestOtp,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(
+                        GochanoLanguage.text('Resend code', 'আবার কোড পাঠান'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: Text(
                         GochanoLanguage.text(

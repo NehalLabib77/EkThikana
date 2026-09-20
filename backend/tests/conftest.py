@@ -441,6 +441,15 @@ class FakeTransaction:
     def __init__(self, db: FakeFirestore):
         self.db = db
 
+    def get(self, ref: _FakeDocRef):
+        return ref.get(transaction=self)
+
+    def set(self, ref: _FakeDocRef, data: dict, merge: bool = False):
+        ref.set(data, merge=merge)
+
+    def update(self, ref: _FakeDocRef, data: dict):
+        ref.update(data)
+
     @staticmethod
     def transactional(func: Callable) -> Callable:
         return func
@@ -506,8 +515,13 @@ class FakeSupabaseStorage:
 
 
 @pytest.fixture()
-def fake_db() -> FakeFirestore:
-    return FakeFirestore()
+def fake_db(monkeypatch) -> FakeFirestore:
+    db = FakeFirestore()
+    import app.core.firebase as fb_mod
+    import app.services.ai_service as ai_mod
+    monkeypatch.setattr(fb_mod, "get_firestore", lambda: db)
+    monkeypatch.setattr(ai_mod, "get_firestore", lambda: db)
+    return db
 
 
 @pytest.fixture()
@@ -672,10 +686,10 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     # --- AI service: deterministic, no quota side-effects unless we want ---
     import app.services.ai_service as ai_mod
 
-    async def _fake_generate(uid: str, prompt: str) -> str:
+    async def _fake_generate(uid: str, prompt: str, *args, **kwargs) -> str:
         return f"echo({len(prompt)})"
 
-    async def _fake_generate_multimodal(uid: str, parts: list) -> str:
+    async def _fake_generate_multimodal(uid: str, parts: list, *args, **kwargs) -> str:
         # Echo back enough to verify the caller shape (which parts were sent,
         # whether inline_data was attached) without leaking to real Gemini.
         text_parts = [p.get("text", "") for p in parts if isinstance(p, dict) and "text" in p]
@@ -684,6 +698,7 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
 
     monkeypatch.setattr(ai_mod, "generate", _fake_generate)
     monkeypatch.setattr(ai_mod, "generate_multimodal", _fake_generate_multimodal)
+    monkeypatch.setattr(ai_mod, "get_firestore", lambda: fake_db)
     # The AI router bound both helpers at import time, so patch those too.
     import app.routers.ai as _ai_router_mod
     if hasattr(_ai_router_mod, "generate"):
@@ -692,7 +707,7 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
         monkeypatch.setattr(_ai_router_mod, "generate_multimodal", _fake_generate_multimodal)
 
     # Avoid Gemini quota document mutations from polluting the fake db.
-    monkeypatch.setattr(ai_mod, "_consume_quota", lambda uid: None)
+    monkeypatch.setattr(ai_mod, "_consume_quota", lambda *a, **k: None)
     from app.routers import materials as mat_router_mod
     from app.routers import account as account_router_mod
     from app.routers import groups as groups_router_mod

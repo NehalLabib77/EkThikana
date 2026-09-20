@@ -29,11 +29,11 @@ enum DoseStatus {
   missed;
 
   static DoseStatus parse(String? raw) => switch (raw) {
-        'taken' => DoseStatus.taken,
-        'skipped' => DoseStatus.skipped,
-        'missed' => DoseStatus.missed,
-        _ => DoseStatus.pending,
-      };
+    'taken' => DoseStatus.taken,
+    'skipped' => DoseStatus.skipped,
+    'missed' => DoseStatus.missed,
+    _ => DoseStatus.pending,
+  };
 
   String get id => name;
 }
@@ -97,8 +97,8 @@ class ScheduledDose {
 /// Builds today's dose list from the student's medicines and dose records.
 abstract final class MedicineSchedule {
   /// A dose still showing `pending` this long after its time is treated as
-  /// missed. One hour matches the reminder grace period.
-  static const Duration missedAfter = Duration(hours: 1);
+  /// missed. 120 minutes matches the 5th follow-up reminder grace period.
+  static const Duration missedAfter = Duration(minutes: 120);
 
   /// Expands [medicines] into the doses scheduled for [now]'s calendar day.
   ///
@@ -127,15 +127,17 @@ abstract final class MedicineSchedule {
       final end = data['endDate'] is Timestamp
           ? (data['endDate'] as Timestamp).toDate()
           : null;
-      if (end != null && today.isAfter(DateTime(end.year, end.month, end.day))) {
+      if (end != null &&
+          today.isAfter(DateTime(end.year, end.month, end.day))) {
         continue;
       }
 
-      final times = ((data['times'] as List?) ?? const [])
-          .map((e) => e.toString())
-          .where((e) => e.isNotEmpty)
-          .toList()
-        ..sort();
+      final times =
+          ((data['times'] as List?) ?? const [])
+              .map((e) => e.toString())
+              .where((e) => e.isNotEmpty)
+              .toList()
+            ..sort();
 
       for (final hhmm in times) {
         final record = byId[FinancialService.doseId(med.id, at, hhmm)];
@@ -145,8 +147,7 @@ abstract final class MedicineSchedule {
           final parts = hhmm.split(':');
           final hour = int.tryParse(parts.first) ?? 0;
           final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-          final scheduled =
-              DateTime(at.year, at.month, at.day, hour, minute);
+          final scheduled = DateTime(at.year, at.month, at.day, hour, minute);
           if (scheduled.isBefore(at.subtract(missedAfter))) {
             status = DoseStatus.missed;
           }

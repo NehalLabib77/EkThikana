@@ -57,8 +57,11 @@ class SemesterListScreen extends StatelessWidget {
           }
 
           final semesters = [...?semesterSnapshot.data?.docs]
-            ..sort((a, b) => (a.data()['name']?.toString() ?? '')
-                .compareTo(b.data()['name']?.toString() ?? ''));
+            ..sort(
+              (a, b) => (a.data()['name']?.toString() ?? '').compareTo(
+                b.data()['name']?.toString() ?? '',
+              ),
+            );
 
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirestoreService.ownerStream('subjects', limit: 300),
@@ -83,7 +86,7 @@ class SemesterListScreen extends StatelessWidget {
                   ),
                   message: GochanoLanguage.text(
                     'Create a semester to organize your subjects and study '
-                    'materials.',
+                        'materials.',
                     'আপনার বিষয় ও পড়ার উপকরণ গোছাতে একটি সেমিস্টার তৈরি করুন।',
                   ),
                   actionLabel: GochanoLanguage.text(
@@ -312,10 +315,7 @@ Future<void> _addSubject(BuildContext context, String semesterId) async {
     context,
     title: GochanoLanguage.text('New subject', 'নতুন বিষয়'),
     label: GochanoLanguage.text('Subject name', 'বিষয়ের নাম'),
-    hint: GochanoLanguage.text(
-      'Database Management',
-      'ডাটাবেজ ম্যানেজমেন্ট',
-    ),
+    hint: GochanoLanguage.text('Database Management', 'ডাটাবেজ ম্যানেজমেন্ট'),
   );
   if (name == null || !context.mounted) return;
   try {
@@ -336,10 +336,7 @@ Future<void> _renameSemester(
 ) async {
   final name = await _promptForName(
     context,
-    title: GochanoLanguage.text(
-      'Rename semester',
-      'সেমিস্টারের নাম পরিবর্তন',
-    ),
+    title: GochanoLanguage.text('Rename semester', 'সেমিস্টারের নাম পরিবর্তন'),
     label: GochanoLanguage.text('Semester name', 'সেমিস্টারের নাম'),
     initial: semester.data()['name']?.toString() ?? '',
   );
@@ -382,9 +379,9 @@ Future<void> _deleteSemester(
           )
         : GochanoLanguage.text(
             'Its ${subjects.length} subjects will be removed too. Your uploaded '
-            'materials are kept and stay available in your material library.',
+                'materials are kept and stay available in your material library.',
             'এর ${subjects.length} টি বিষয়ও মুছে যাবে। আপনার আপলোড করা উপকরণ '
-            'থেকে যাবে এবং লাইব্রেরিতে পাওয়া যাবে।',
+                'থেকে যাবে এবং লাইব্রেরিতে পাওয়া যাবে।',
           ),
     confirmLabel: GochanoLanguage.text('Delete', 'মুছুন'),
   );
@@ -413,7 +410,7 @@ Future<void> _deleteSubject(
     title: GochanoLanguage.text('Delete this subject?', 'বিষয়টি মুছবেন?'),
     message: GochanoLanguage.text(
       'Your uploaded materials are kept and stay available in your material '
-      'library.',
+          'library.',
       'আপনার আপলোড করা উপকরণ থেকে যাবে এবং লাইব্রেরিতে পাওয়া যাবে।',
     ),
     confirmLabel: GochanoLanguage.text('Delete', 'মুছুন'),
@@ -446,8 +443,7 @@ Future<String?> _promptForName(
           autofocus: true,
           textCapitalization: TextCapitalization.words,
           decoration: InputDecoration(labelText: label, hintText: hint),
-          onSubmitted: (value) =>
-              Navigator.of(dialogContext).pop(value.trim()),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
         ),
         actions: [
           TextButton(

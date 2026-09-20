@@ -70,7 +70,9 @@ void main() {
     test('deleteNote shows error via showGochanoMessage on failure', () {
       expect(
         editorSource,
-        contains('showGochanoMessage(context, friendlyErrorMessage(error), isError: true)'),
+        contains(
+          'showGochanoMessage(context, friendlyErrorMessage(error), isError: true)',
+        ),
         reason: 'deletion failures must be shown to the user',
       );
     });
@@ -222,11 +224,7 @@ void main() {
         'lib/features/study/presentation/materials/materials_screen.dart',
       );
       final fabCount = 'FloatingActionButton'.allMatches(source).length;
-      expect(
-        fabCount,
-        1,
-        reason: 'MaterialsScreen must have exactly one FAB',
-      );
+      expect(fabCount, 1, reason: 'MaterialsScreen must have exactly one FAB');
     });
   });
 }

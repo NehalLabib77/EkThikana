@@ -714,7 +714,9 @@ class _ProjectCard extends StatelessWidget {
           final tasks = [...?snapshot.data?.docs];
           final total = tasks.length;
           final completed = tasks
-              .where((t) => t.data()['completed'] == true)
+              .where((t) =>
+                  t.data()['completed'] == true ||
+                  t.data()['status']?.toString() == 'completed')
               .length;
           final progress = total > 0 ? completed / total : 0.0;
           final progressPercent = (progress * 100).round();
@@ -1133,12 +1135,19 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
             );
           }
 
-          // Separate into incomplete and completed
+          // Separate into incomplete and completed.
+          // Check both 'completed' bool and 'status' string for backward
+          // compatibility with tasks created before the status field existed.
+          bool isCompleted(Map<String, dynamic> data) {
+            if (data['completed'] == true) return true;
+            return data['status']?.toString() == 'completed';
+          }
+
           final incomplete = docs
-              .where((d) => d.data()['completed'] != true)
+              .where((d) => !isCompleted(d.data()))
               .toList();
           final completed = docs
-              .where((d) => d.data()['completed'] == true)
+              .where((d) => isCompleted(d.data()))
               .toList();
 
           return ListView(
@@ -1211,133 +1220,227 @@ class _TaskTile extends StatelessWidget {
     final title = taskData['title']?.toString() ?? '';
     final description = taskData['description']?.toString() ?? '';
     final assigneeId = taskData['assigneeId']?.toString();
+    final createdByName = taskData['createdByName']?.toString() ?? '';
+    final createdAt = taskData['createdAt'];
     final completed = taskData['completed'] == true;
     final deadline = taskData['deadline'];
     final currentUid = FirestoreService.uid;
     final isMyTask =
         assigneeId != null && currentUid != null && assigneeId == currentUid;
+    final canToggle = isAdmin || isMyTask;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
       child: AppCard(
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (assigneeId != null)
-              GestureDetector(
-                onTap: (isAdmin || isMyTask)
-                    ? () => _toggleTaskComplete(
-                        context,
-                        groupId,
-                        projectId,
-                        taskId,
-                        !completed,
-                      )
-                    : null,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  margin: const EdgeInsets.only(top: 2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: completed ? colors.success : colors.border,
-                    border: Border.all(
-                      color: completed ? colors.success : colors.textTertiary,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (assigneeId != null)
+                  GestureDetector(
+                    onTap: canToggle
+                        ? () => _toggleTaskComplete(
+                            context,
+                            groupId,
+                            projectId,
+                            taskId,
+                            !completed,
+                          )
+                        : null,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: completed ? colors.success : colors.border,
+                        border: Border.all(
+                          color: completed ? colors.success : colors.textTertiary,
+                        ),
+                      ),
+                      child: completed
+                          ? Icon(
+                              Icons.check_rounded,
+                              size: 16,
+                              color: colors.onBrand,
+                            )
+                          : null,
                     ),
                   ),
-                  child: completed
-                      ? Icon(
-                          Icons.check_rounded,
-                          size: 16,
-                          color: colors.onBrand,
-                        )
-                      : null,
-                ),
-              ),
-            const SizedBox(width: GochanoSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: context.type.body.copyWith(
-                      decoration: completed ? TextDecoration.lineThrough : null,
-                      color: completed ? colors.textTertiary : null,
-                    ),
-                  ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: GochanoSpacing.xxs),
-                    Text(
-                      description,
-                      style: context.type.caption,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: GochanoSpacing.xxs),
-                  Wrap(
-                    spacing: GochanoSpacing.xs,
-                    runSpacing: GochanoSpacing.xxs,
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (assigneeId != null)
-                        _FutureChip(
-                          uid: assigneeId,
-                          icon: Icons.person_outline_rounded,
+                      Text(
+                        title,
+                        style: context.type.body.copyWith(
+                          decoration: completed ? TextDecoration.lineThrough : null,
+                          color: completed ? colors.textTertiary : null,
                         ),
-                      if (deadline != null)
+                      ),
+                      if (description.isNotEmpty) ...[
+                        const SizedBox(height: GochanoSpacing.xxs),
                         Text(
-                          _formatDeadline(deadline),
-                          style: context.type.caption.copyWith(
-                            color: _deadlineColor(context, deadline, completed),
-                          ),
+                          description,
+                          style: context.type.caption,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ],
+                      const SizedBox(height: GochanoSpacing.xxs),
+                      Wrap(
+                        spacing: GochanoSpacing.xs,
+                        runSpacing: GochanoSpacing.xxs,
+                        children: [
+                          if (createdByName.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.person_outline_rounded, size: 12, color: colors.textTertiary),
+                                const SizedBox(width: 2),
+                                Text(
+                                  GochanoLanguage.text('by $createdByName', '$createdByName দ্বারা'),
+                                  style: context.type.caption.copyWith(
+                                    color: colors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (createdAt is Timestamp)
+                            Text(
+                              formatShortDate(createdAt.toDate()),
+                              style: context.type.caption.copyWith(
+                                color: colors.textTertiary,
+                              ),
+                            ),
+                          if (assigneeId != null)
+                            _FutureChip(
+                              uid: assigneeId,
+                              icon: Icons.person_outline_rounded,
+                            ),
+                          if (deadline != null)
+                            Text(
+                              _formatDeadline(deadline),
+                              style: context.type.caption.copyWith(
+                                color: _deadlineColor(context, deadline, completed),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            if (isAdmin)
-              PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_vert_rounded,
-                  size: 18,
-                  color: colors.textTertiary,
                 ),
-                onSelected: (action) => _handleTaskAction(
-                  context,
-                  action,
-                  groupId,
-                  projectId,
-                  taskId,
-                  taskData,
-                  memberIds,
-                ),
-                itemBuilder: (_) => [
-                  if (isMyTask)
-                    PopupMenuItem(
-                      value: 'reminder',
-                      child: Text(
-                        GochanoLanguage.text('Set reminder', 'রিমাইন্ডার সেট'),
+                if (isAdmin)
+                  PopupMenuButton<String>(
+                    icon: Icon(
+                      Icons.more_vert_rounded,
+                      size: 18,
+                      color: colors.textTertiary,
+                    ),
+                    onSelected: (action) => _handleTaskAction(
+                      context,
+                      action,
+                      groupId,
+                      projectId,
+                      taskId,
+                      taskData,
+                      memberIds,
+                    ),
+                    itemBuilder: (_) => [
+                      if (isMyTask)
+                        PopupMenuItem(
+                          value: 'reminder',
+                          child: Text(
+                            GochanoLanguage.text('Set reminder', 'রিমাইন্ডার সেট'),
+                          ),
+                        ),
+                      PopupMenuItem(
+                        value: 'assign',
+                        child: Text(GochanoLanguage.text('Assign', 'নির্ধারণ')),
                       ),
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text(GochanoLanguage.text('Edit', 'সম্পাদনা')),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(
+                          GochanoLanguage.text('Delete', 'মুছুন'),
+                          style: TextStyle(color: colors.error),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: GochanoSpacing.xs),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: GochanoSpacing.xs,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: completed
+                        ? colors.success.withValues(alpha: 0.15)
+                        : colors.warning.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    completed
+                        ? GochanoLanguage.text('Completed', 'সম্পন্ন')
+                        : GochanoLanguage.text('Pending', 'অপেক্ষমাণ'),
+                    style: context.type.caption.copyWith(
+                      color: completed ? colors.success : colors.warning,
+                      fontWeight: FontWeight.w600,
                     ),
-                  PopupMenuItem(
-                    value: 'assign',
-                    child: Text(GochanoLanguage.text('Assign', 'নির্ধারণ')),
                   ),
-                  PopupMenuItem(
-                    value: 'edit',
-                    child: Text(GochanoLanguage.text('Edit', 'সম্পাদনা')),
-                  ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text(
-                      GochanoLanguage.text('Delete', 'মুছুন'),
-                      style: TextStyle(color: colors.error),
+                ),
+                const Spacer(),
+                if (!completed && canToggle)
+                  TextButton.icon(
+                    onPressed: () => _toggleTaskComplete(
+                      context,
+                      groupId,
+                      projectId,
+                      taskId,
+                      true,
+                    ),
+                    icon: Icon(Icons.check_circle_outline_rounded, size: 16),
+                    label: Text(
+                      GochanoLanguage.text('Mark as Done', 'সম্পন্ন করুন'),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.success,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: GochanoSpacing.xs,
+                        vertical: 0,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-                ],
-              ),
+                if (completed)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_rounded, size: 14, color: colors.success),
+                      const SizedBox(width: 2),
+                      Text(
+                        GochanoLanguage.text('Completed', 'সম্পন্ন'),
+                        style: context.type.caption.copyWith(
+                          color: colors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1425,24 +1528,29 @@ Future<void> _toggleTaskComplete(
   bool completed,
 ) async {
   try {
+    final currentUid = FirestoreService.uid;
+    final fields = <String, dynamic>{
+      'completed': completed,
+      'status': completed ? 'completed' : 'pending',
+      'completedAt': completed ? FieldValue.serverTimestamp() : null,
+      'completedBy': completed ? currentUid : null,
+    };
+
     await FirestoreService.updateTask(
       groupId: groupId,
       projectId: projectId,
       taskId: taskId,
-      fields: {'completed': completed},
+      fields: fields,
     );
 
     // Cancel the assignee's reminder when they complete the task.
-    if (completed) {
-      final currentUid = FirestoreService.uid;
-      if (currentUid != null) {
-        await NotificationService.cancelCommunityTaskReminder(
-          groupId: groupId,
-          projectId: projectId,
-          taskId: taskId,
-          userId: currentUid,
-        );
-      }
+    if (completed && currentUid != null) {
+      await NotificationService.cancelCommunityTaskReminder(
+        groupId: groupId,
+        projectId: projectId,
+        taskId: taskId,
+        userId: currentUid,
+      );
     }
   } catch (error) {
     if (context.mounted) {

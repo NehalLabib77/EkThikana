@@ -23,45 +23,66 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  final resDir = Directory(
-    'android/app/src/main/res',
-  );
+  final resDir = Directory('android/app/src/main/res');
   final manifest = File('android/app/src/main/AndroidManifest.xml');
 
   test('Adaptive launcher icon is present (mipmap-anydpi-v26)', () {
     final adaptive = File('${resDir.path}/mipmap-anydpi-v26/ic_launcher.xml');
-    final adaptiveRound =
-        File('${resDir.path}/mipmap-anydpi-v26/ic_launcher_round.xml');
+    final adaptiveRound = File(
+      '${resDir.path}/mipmap-anydpi-v26/ic_launcher_round.xml',
+    );
     // The foreground is now a raster PNG (from gochano1.png), not a vector.
     // Check that at least one density-specific foreground PNG exists.
-    final foregroundMdpi =
-        File('${resDir.path}/drawable-mdpi/ic_launcher_foreground.png');
-    final foregroundXhdpi =
-        File('${resDir.path}/drawable-xhdpi/ic_launcher_foreground.png');
-    expect(adaptive.existsSync(), isTrue,
-        reason: 'Expected ${adaptive.path} to exist for Android 8+ adaptive icon.');
-    expect(adaptiveRound.existsSync(), isTrue,
-        reason: 'Expected ${adaptiveRound.path} to exist for round launchers.');
+    final foregroundMdpi = File(
+      '${resDir.path}/drawable-mdpi/ic_launcher_foreground.png',
+    );
+    final foregroundXhdpi = File(
+      '${resDir.path}/drawable-xhdpi/ic_launcher_foreground.png',
+    );
     expect(
-        foregroundMdpi.existsSync() || foregroundXhdpi.existsSync(), isTrue,
-        reason: 'Expected raster ic_launcher_foreground.png in drawable-* directories.');
+      adaptive.existsSync(),
+      isTrue,
+      reason:
+          'Expected ${adaptive.path} to exist for Android 8+ adaptive icon.',
+    );
+    expect(
+      adaptiveRound.existsSync(),
+      isTrue,
+      reason: 'Expected ${adaptiveRound.path} to exist for round launchers.',
+    );
+    expect(
+      foregroundMdpi.existsSync() || foregroundXhdpi.existsSync(),
+      isTrue,
+      reason:
+          'Expected raster ic_launcher_foreground.png in drawable-* directories.',
+    );
 
     final adaptiveXml = adaptive.readAsStringSync();
     expect(adaptiveXml, contains('@color/ic_launcher_background'));
     expect(adaptiveXml, contains('@drawable/ic_launcher_foreground'));
     // Android 13 themed icons use the monochrome layer.
-    expect(adaptiveXml, contains('android:drawable="@drawable/ic_launcher_foreground"'),
-        reason: 'Expected monochrome layer for Android 13 themed icons.');
+    expect(
+      adaptiveXml,
+      contains('android:drawable="@drawable/ic_launcher_foreground"'),
+      reason: 'Expected monochrome layer for Android 13 themed icons.',
+    );
   });
 
   test('Adaptive icon background colour matches gochano1.png hue (#B3F1ED)', () {
     final colors = File('${resDir.path}/values/ic_launcher_background.xml');
     expect(colors.existsSync(), isTrue);
     final content = colors.readAsStringSync();
-    expect(content, contains('#B3F1ED'),
-        reason: 'Background colour must match gochano1.png dominant background hue.');
-    expect(content, contains('ic_launcher_background'),
-        reason: 'Resource must be named ic_launcher_background.');
+    expect(
+      content,
+      contains('#B3F1ED'),
+      reason:
+          'Background colour must match gochano1.png dominant background hue.',
+    );
+    expect(
+      content,
+      contains('ic_launcher_background'),
+      reason: 'Resource must be named ic_launcher_background.',
+    );
   });
 
   test('Splash-screen background colours exist for light + dark', () {
@@ -82,20 +103,32 @@ void main() {
 
     for (final f in [light, dark]) {
       final xml = f.readAsStringSync();
-      expect(xml, contains('windowSplashScreenBackground'),
-          reason: '${f.path} must declare windowSplashScreenBackground');
-      expect(xml, contains('@color/splash_background_'),
-          reason: '${f.path} must reference splash_background_* colour resource');
-      expect(xml, contains('@drawable/ic_launcher_foreground'),
-          reason: '${f.path} must use brand foreground for splash icon');
+      expect(
+        xml,
+        contains('windowSplashScreenBackground'),
+        reason: '${f.path} must declare windowSplashScreenBackground',
+      );
+      expect(
+        xml,
+        contains('@color/splash_background_'),
+        reason: '${f.path} must reference splash_background_* colour resource',
+      );
+      expect(
+        xml,
+        contains('@drawable/ic_launcher_foreground'),
+        reason: '${f.path} must use brand foreground for splash icon',
+      );
     }
   });
 
   test('Legacy raster ic_launcher.png still present for pre-O launchers', () {
     for (final d in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
       final png = File('${resDir.path}/mipmap-$d/ic_launcher.png');
-      expect(png.existsSync(), isTrue,
-          reason: 'Expected $png for Android 7 and earlier.');
+      expect(
+        png.existsSync(),
+        isTrue,
+        reason: 'Expected $png for Android 7 and earlier.',
+      );
     }
   });
 
@@ -109,8 +142,11 @@ void main() {
 
   test('Unused app_icon.xml is removed', () {
     final old = File('${resDir.path}/drawable/app_icon.xml');
-    expect(old.existsSync(), isFalse,
-        reason: 'Old Material home icon should be deleted.');
+    expect(
+      old.existsSync(),
+      isFalse,
+      reason: 'Old Material home icon should be deleted.',
+    );
   });
 
   test('Notification small icon is still present and monochrome', () {
@@ -119,20 +155,26 @@ void main() {
     final content = icon.readAsStringSync();
     // Notification small icons MUST be white-on-transparent. No #RRGGBB
     // colours other than #FFFFFFFF should appear in any fillColor.
-    final hexColors = RegExp(r'android:fillColor="(#[0-9A-Fa-f]+)"')
-        .allMatches(content)
-        .map((m) => m.group(1)!.toUpperCase());
+    final hexColors = RegExp(
+      r'android:fillColor="(#[0-9A-Fa-f]+)"',
+    ).allMatches(content).map((m) => m.group(1)!.toUpperCase());
     for (final c in hexColors) {
-      expect(c, '#FFFFFFFF',
-          reason:
-              'Notification icon must be monochrome white.  Found $c in $icon');
+      expect(
+        c,
+        '#FFFFFFFF',
+        reason:
+            'Notification icon must be monochrome white.  Found $c in $icon',
+      );
     }
   });
 
   test('Brand master artwork exists in assets/branding', () {
     final master = File('assets/branding/Gochano.png');
     expect(master.existsSync(), isTrue);
-    expect(master.lengthSync(), greaterThan(1024),
-        reason: 'Master artwork is suspiciously small; expected real PNG.');
+    expect(
+      master.lengthSync(),
+      greaterThan(1024),
+      reason: 'Master artwork is suspiciously small; expected real PNG.',
+    );
   });
 }

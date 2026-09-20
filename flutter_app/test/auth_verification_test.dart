@@ -36,8 +36,9 @@ void main() {
   group('AuthGate wiring (PART 16.1 dual gate)', () {
     late String gateSource;
 
-    setUpAll(() => gateSource =
-        _read('lib/features/auth/presentation/auth_gate.dart'));
+    setUpAll(
+      () => gateSource = _read('lib/features/auth/presentation/auth_gate.dart'),
+    );
 
     test('subscribes to FirebaseAuth.authStateChanges', () {
       // PART 16.1: the live gate watches FirebaseAuth (not the legacy
@@ -47,7 +48,8 @@ void main() {
       expect(
         gateSource,
         contains('authStateChanges'),
-        reason: 'AuthGate must watch FirebaseAuth.authStateChanges so '
+        reason:
+            'AuthGate must watch FirebaseAuth.authStateChanges so '
             'signInWithCustomToken (telecom login path) ticks the gate.',
       );
       expect(gateSource, contains('FirebaseAuth.instance'));
@@ -71,7 +73,8 @@ void main() {
       expect(
         gateSource,
         contains('clearSession'),
-        reason: 'Stale flags (Firebase restored null on cold start) '
+        reason:
+            'Stale flags (Firebase restored null on cold start) '
             'must be wiped so the user is re-prompted cleanly.',
       );
     });
@@ -90,8 +93,7 @@ void main() {
   group('AuthService.login reloads before reading emailVerified', () {
     late String serviceSource;
 
-    setUpAll(() => serviceSource =
-        _read('lib/services/auth_service.dart'));
+    setUpAll(() => serviceSource = _read('lib/services/auth_service.dart'));
 
     test('login calls reload() and re-reads auth.currentUser', () {
       expect(serviceSource, contains('reload()'));

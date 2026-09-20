@@ -1,34 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Tri-state result for [FirestoreService.checkProfileState].
-///
-/// Distinguishes "profile exists" from "profile missing" from
-/// "profile lookup error" — critical for the post-OTP auth
-/// completion path (PART 30) where a network error must NOT be
-/// misinterpreted as "no profile → ProfileSetupScreen".
-enum ProfileCheckResult {
-  /// Profile document exists with a non-empty `displayName`.
-  /// Route to Home.
-  exists,
-
-  /// No `users/{uid}` document, or `displayName` is empty/null.
-  /// Route to ProfileSetupScreen.
-  missing,
-
-  /// Firestore read failed (network, permission, timeout).
-  /// Treat as a recoverable post-auth failure — do NOT route
-  /// to ProfileSetupScreen.
-  error,
-}
-
 class FirestoreService {
   FirestoreService._();
 
   static final db = FirebaseFirestore.instance;
 
   static String? get uid {
-    return FirebaseAuth.instance.currentUser?.uid;
+    try {
+      return FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
   }
 
   static List<String> keywords(String text, {int limit = 100}) {
@@ -80,10 +63,10 @@ class FirestoreService {
     if (patch.isEmpty) return;
     final currentUid = uid;
     if (currentUid == null) return;
-    await db.collection('users').doc(currentUid).set(
-          patch,
-          SetOptions(merge: true),
-        );
+    await db
+        .collection('users')
+        .doc(currentUid)
+        .set(patch, SetOptions(merge: true));
   }
 
   static Future<Map<String, dynamic>> profile() async {
@@ -97,11 +80,6 @@ class FirestoreService {
   /// document with a non-empty `displayName`.  Used after telecom
   /// authentication to decide whether to show the home shell or the
   /// profile-setup screen.
-  ///
-  /// NOTE: This method conflates "profile genuinely missing" with
-  /// "network/permission error" — both return `false`. For the
-  /// post-OTP auth completion path (PART 30), use [checkProfileState]
-  /// instead, which distinguishes the three cases.
   static Future<bool> hasProfile() async {
     final currentUid = uid;
     if (currentUid == null) return false;
@@ -117,49 +95,23 @@ class FirestoreService {
     }
   }
 
-  /// Tri-state profile check for the post-OTP auth completion path.
-  ///
-  /// Unlike [hasProfile], this method distinguishes:
-  /// - [ProfileCheckResult.exists] — profile document has a non-empty
-  ///   `displayName`. Route to Home.
-  /// - [ProfileCheckResult.missing] — no `users/{uid}` document, or
-  ///   `displayName` is empty/null. Route to ProfileSetupScreen.
-  /// - [ProfileCheckResult.error] — Firestore read failed (network,
-  ///   permission, timeout). Treat as a recoverable post-auth failure;
-  ///   do NOT route to ProfileSetupScreen.
-  static Future<ProfileCheckResult> checkProfileState() async {
-    final currentUid = uid;
-    if (currentUid == null) return ProfileCheckResult.error;
-    try {
-      final snap = await db.collection('users').doc(currentUid).get();
-      if (!snap.exists) return ProfileCheckResult.missing;
-      final data = snap.data();
-      if (data == null) return ProfileCheckResult.missing;
-      final name = data['displayName']?.toString().trim();
-      if (name != null && name.isNotEmpty) {
-        return ProfileCheckResult.exists;
-      }
-      return ProfileCheckResult.missing;
-    } catch (_) {
-      return ProfileCheckResult.error;
-    }
-  }
-
   static Stream<QuerySnapshot<Map<String, dynamic>>> ownerStream(
     String collection, {
     int limit = 100,
   }) {
     final currentUid = uid;
     if (currentUid == null) {
-      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
-        db.collection(collection).limit(0).get(),
-      );
+      return const Stream.empty();
     }
-    return db
-        .collection(collection)
-        .where('ownerId', isEqualTo: currentUid)
-        .limit(limit)
-        .snapshots();
+    try {
+      return db
+          .collection(collection)
+          .where('ownerId', isEqualTo: currentUid)
+          .limit(limit)
+          .snapshots();
+    } catch (_) {
+      return const Stream.empty();
+    }
   }
 
   static Future<DocumentReference<Map<String, dynamic>>> addOwnerRecord(
@@ -192,7 +144,9 @@ class FirestoreService {
         .snapshots();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMaterials(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMaterials(
+    String groupId,
+  ) {
     return db
         .collection('materials')
         .where('groupId', isEqualTo: groupId)
@@ -201,7 +155,9 @@ class FirestoreService {
         .snapshots();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupNotes(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupNotes(
+    String groupId,
+  ) {
     return db
         .collection('notes')
         .where('groupId', isEqualTo: groupId)
@@ -210,7 +166,9 @@ class FirestoreService {
         .snapshots();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMessages(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupMessages(
+    String groupId,
+  ) {
     return db
         .collection('group_messages')
         .where('groupId', isEqualTo: groupId)
@@ -223,7 +181,9 @@ class FirestoreService {
   // Group Projects
   // ---------------------------------------------------------------------------
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> groupProjects(String groupId) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> groupProjects(
+    String groupId,
+  ) {
     return db
         .collection('groups')
         .doc(groupId)
@@ -252,11 +212,7 @@ class FirestoreService {
     String? description,
   }) async {
     final userProfile = await profile();
-    return db
-        .collection('groups')
-        .doc(groupId)
-        .collection('projects')
-        .add({
+    return db.collection('groups').doc(groupId).collection('projects').add({
       'name': name.trim(),
       'description': description?.trim() ?? '',
       'createdBy': uid,
@@ -276,10 +232,7 @@ class FirestoreService {
         .doc(groupId)
         .collection('projects')
         .doc(projectId)
-        .update({
-      ...fields,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+        .update({...fields, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteProject({
@@ -321,17 +274,20 @@ class FirestoreService {
         .doc(projectId)
         .collection('tasks')
         .add({
-      'title': title.trim(),
-      'description': description?.trim() ?? '',
-      'assigneeId': assigneeId,
-      'completed': false,
-      'createdBy': uid,
-      'createdByName': userProfile['displayName']?.toString() ?? '',
-      'deadline': deadline,
-      'reminderByUser': <String, dynamic>{},
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+          'title': title.trim(),
+          'description': description?.trim() ?? '',
+          'assigneeId': assigneeId,
+          'completed': false,
+          'status': 'pending',
+          'completedAt': null,
+          'completedBy': null,
+          'createdBy': uid,
+          'createdByName': userProfile['displayName']?.toString() ?? '',
+          'deadline': deadline,
+          'reminderByUser': <String, dynamic>{},
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
   }
 
   static Future<void> updateTask({
@@ -347,10 +303,7 @@ class FirestoreService {
         .doc(projectId)
         .collection('tasks')
         .doc(taskId)
-        .update({
-      ...fields,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+        .update({...fields, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteTask({
@@ -388,10 +341,7 @@ class FirestoreService {
         .doc(projectId)
         .collection('tasks')
         .doc(taskId)
-        .update({
-      field: reminderAt,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+        .update({field: reminderAt, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   static Future<void> saveNote({
@@ -402,8 +352,6 @@ class FirestoreService {
     String? groupId,
     String? semesterId,
     String? subjectId,
-    String? relatedTaskId,
-    String? relatedMaterialId,
   }) async {
     final currentUid = uid;
     if (currentUid == null) {
@@ -425,11 +373,6 @@ class FirestoreService {
       'keywords': keywords('$title $content'),
       'updatedAt': FieldValue.serverTimestamp(),
     };
-    // Optional cross-module relationships (Phase 5).
-    if (relatedTaskId != null) data['relatedTaskId'] = relatedTaskId;
-    if (relatedMaterialId != null) {
-      data['relatedMaterialId'] = relatedMaterialId;
-    }
     if (id == null) {
       await db.collection('notes').add({
         ...data,
@@ -438,6 +381,32 @@ class FirestoreService {
     } else {
       await db.collection('notes').doc(id).update(data);
     }
+  }
+
+  /// Reads the user's study-goal preferences from their profile document.
+  ///
+  /// Returns `{ dailyGoalMinutes: int?, weeklyGoalMinutes: int? }` where
+  /// `null` means the user has never set that goal.  The caller must
+  /// handle the unset case (e.g. show "Set study goal") rather than
+  /// falling back to fabricated defaults.
+  static Future<Map<String, int?>> studyGoals() async {
+    final snap = await db.collection('users').doc(uid).get();
+    final data = snap.data();
+    return {
+      'dailyGoalMinutes': (data?['dailyGoalMinutes'] as num?)?.toInt(),
+      'weeklyGoalMinutes': (data?['weeklyGoalMinutes'] as num?)?.toInt(),
+    };
+  }
+
+  /// Persists the user's study-goal preferences onto their profile document.
+  static Future<void> saveStudyGoals({
+    required int dailyGoalMinutes,
+    required int weeklyGoalMinutes,
+  }) async {
+    await db.collection('users').doc(uid).set({
+      'dailyGoalMinutes': dailyGoalMinutes,
+      'weeklyGoalMinutes': weeklyGoalMinutes,
+    }, SetOptions(merge: true));
   }
 
   static Future<void> deleteOwnerDocument(String collection, String id) {

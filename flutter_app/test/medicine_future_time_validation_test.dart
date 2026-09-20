@@ -18,11 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// Returns `true` when at least one (startDate, time) pair is strictly after
 /// [now].  A future start date is always valid; today's date requires each
 /// time to be in the future.
-bool hasFutureTime(
-  DateTime startDate,
-  List<String> times, {
-  DateTime? now,
-}) {
+bool hasFutureTime(DateTime startDate, List<String> times, {DateTime? now}) {
   final clock = now ?? DateTime.now();
   for (final hhmm in times) {
     final parts = hhmm.split(':');
@@ -78,10 +74,7 @@ void main() {
     test('mixed times: one past, one future → true', () {
       final now = DateTime(2026, 9, 5, 11, 30);
       final start = DateTime(2026, 9, 5);
-      expect(
-        hasFutureTime(start, ['11:00', '12:00'], now: now),
-        isTrue,
-      );
+      expect(hasFutureTime(start, ['11:00', '12:00'], now: now), isTrue);
     });
 
     test('mixed times: all past → false', () {
@@ -152,22 +145,24 @@ void main() {
       expect(source, contains('ভবিষ্যতের একটি সময় নির্বাচন করুন।'));
     });
 
-    test('candidate is built from full DateTime (year, month, day, hour, minute)',
-        () {
-      expect(
-        source,
-        contains(
-          'DateTime(\n'
-          '        _startDate.year,\n'
-          '        _startDate.month,\n'
-          '        _startDate.day,\n'
-          '        hour,\n'
-          '        minute,\n'
-          '      )',
-        ),
-        reason: 'validation must use full DateTime, not TimeOfDay alone',
-      );
-    });
+    test(
+      'candidate is built from full DateTime (year, month, day, hour, minute)',
+      () {
+        expect(
+          source,
+          contains(
+            'DateTime(\n'
+            '        _startDate.year,\n'
+            '        _startDate.month,\n'
+            '        _startDate.day,\n'
+            '        hour,\n'
+            '        minute,\n'
+            '      )',
+          ),
+          reason: 'validation must use full DateTime, not TimeOfDay alone',
+        );
+      },
+    );
 
     test('isAfter(DateTime.now()) is the comparison operator', () {
       expect(source, contains('isAfter('));
@@ -190,8 +185,11 @@ void main() {
       final addTimeStart = source.indexOf('Future<void> _addTime()');
       final addTimeEnd = source.indexOf('\n  Future<void> _pickDate');
       final addTimeBody = source.substring(addTimeStart, addTimeEnd);
-      expect(addTimeBody, contains('return;'),
-          reason: '_addTime must return without adding on past time');
+      expect(
+        addTimeBody,
+        contains('return;'),
+        reason: '_addTime must return without adding on past time',
+      );
     });
 
     test('form values are NOT cleared on validation failure', () {
@@ -204,8 +202,11 @@ void main() {
       final validationBlock = saveBody.substring(problemCheck, savingState);
       // Should not contain any controller.clear() or _times = [] in the
       // validation path.
-      expect(validationBlock, isNot(contains('.clear()')),
-          reason: 'form values must be preserved on validation failure');
+      expect(
+        validationBlock,
+        isNot(contains('.clear()')),
+        reason: 'form values must be preserved on validation failure',
+      );
     });
 
     test('edit mode also runs the future-time check', () {
@@ -215,9 +216,11 @@ void main() {
       final saveBody = source.substring(saveStart);
       final futureCheck = saveBody.indexOf('_hasFutureTime()');
       final editBranch = saveBody.indexOf('widget.medicineId == null');
-      expect(futureCheck, lessThan(editBranch),
-          reason:
-              'future-time check must run before the create/edit branch');
+      expect(
+        futureCheck,
+        lessThan(editBranch),
+        reason: 'future-time check must run before the create/edit branch',
+      );
     });
   });
 }

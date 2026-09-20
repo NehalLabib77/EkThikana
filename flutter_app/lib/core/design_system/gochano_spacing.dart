@@ -37,8 +37,12 @@ abstract final class GochanoSpacing {
 
   /// Scroll-view padding that clears the bottom navigation bar so the last
   /// item is never trapped underneath it (spec §23).
-  static const EdgeInsets scrollBody =
-      EdgeInsets.fromLTRB(md, xs, md, xxxl + xxl);
+  static const EdgeInsets scrollBody = EdgeInsets.fromLTRB(
+    md,
+    xs,
+    md,
+    xxxl + xxl,
+  );
 
   /// Default padding inside an [AppCard].
   static const EdgeInsets card = EdgeInsets.all(md);

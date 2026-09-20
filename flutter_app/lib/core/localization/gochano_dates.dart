@@ -20,13 +20,33 @@ import 'gochano_language.dart';
 /// 1-based so callers cannot accidentally drift if the month is changed in
 /// place.
 const List<String> _englishShortMonths = <String>[
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 const List<String> _banglaShortMonths = <String>[
-  'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রি', 'মে', 'জুন',
-  'জুলা', 'আগ', 'সেপ্ট', 'অক্টো', 'নভে', 'ডিসে',
+  'জানু',
+  'ফেব্রু',
+  'মার্চ',
+  'এপ্রি',
+  'মে',
+  'জুন',
+  'জুলা',
+  'আগ',
+  'সেপ্ট',
+  'অক্টো',
+  'নভে',
+  'ডিসে',
 ];
 
 /// Returns the localized short month label for an existing month number
@@ -34,8 +54,9 @@ const List<String> _banglaShortMonths = <String>[
 /// than throwing, since these helpers are usually called on dates that
 /// already came from a server-validated ISO string.
 String shortMonthLabel(int month) {
-  final list =
-      GochanoLanguage.isBangla ? _banglaShortMonths : _englishShortMonths;
+  final list = GochanoLanguage.isBangla
+      ? _banglaShortMonths
+      : _englishShortMonths;
   if (month < 1 || month > list.length) {
     return _englishShortMonths[(month.clamp(1, 12)) - 1];
   }
@@ -65,6 +86,22 @@ String formatClock12(DateTime date) {
   }
   final period = hour24 < 12 ? 'am' : 'pm';
   return '$hour12:$minute $period';
+}
+
+/// Formats a [DateTime] as a planned-trip display string:
+/// `13 Sep 2026, 2:30 PM`.
+///
+/// Always uses English month abbreviations and 12-hour AM/PM regardless of
+/// the active language, matching the spec requirement for this specific UI.
+String formatPlannedTripDateTime(DateTime date) {
+  final day = date.day.toString().padLeft(2, '0');
+  final month = _englishShortMonths[date.month - 1];
+  final year = date.year;
+  final hour24 = date.hour;
+  final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+  final minute = date.minute.toString().padLeft(2, '0');
+  final period = hour24 < 12 ? 'AM' : 'PM';
+  return '$day $month $year, $hour12:$minute $period';
 }
 
 /// Converts a 24-hour `HH:mm` string to 12-hour format with AM/PM.

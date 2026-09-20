@@ -12,10 +12,6 @@
 // Historical data is NOT deleted when the History tab is removed — it remains
 // accessible through the Overview tab's Recent section and all financial
 // calculations (monthStream, dayStream, etc.) continue to include it.
-//
-// TAB SWITCHING FIX: Uses AutomaticKeepAliveClientMixin for tab bodies
-// to prevent state loss during tab switches. Each tab preserves its own
-// scroll position and data when switching between tabs.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -57,14 +53,10 @@ class _ExpenseScreenState extends State<ExpenseScreen>
   }
 
   void _onTabChanged() {
-    // Refresh overview when switching to it to ensure latest data
     if (_tabs.index == 3) {
       _overviewKey.currentState?.refresh();
     }
-    // Use addPostFrameCallback to avoid setState during animation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
+    setState(() {});
   }
 
   void _onLanguageChange() {
@@ -89,6 +81,51 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Expense', 'খরচ'),
+        actions: [
+          if (_tabs.index == 0)
+            IconButton(
+              key: const ValueKey('expense_header_add_button'),
+              icon: const Icon(Icons.add_rounded),
+              tooltip: GochanoLanguage.text('Add expense', 'খরচ যোগ করুন'),
+              onPressed: () async {
+                final saved = await showAddExpenseSheet(context);
+                if (saved) _onExpenseAdded();
+              },
+            )
+          else if (_tabs.index == 1)
+            IconButton(
+              key: const ValueKey('expense_header_add_grocery_button'),
+              icon: const Icon(Icons.add_rounded),
+              tooltip: GochanoLanguage.text(
+                'Add grocery item',
+                'বাজারের আইটেম যোগ করুন',
+              ),
+              onPressed: () async {
+                final sessionId = FinancialService.bazarSessionId(
+                  DateTime.now(),
+                );
+                final saved = await showGroceryItemSheet(
+                  context,
+                  sessionId: sessionId,
+                );
+                if (saved) _onExpenseAdded();
+              },
+            )
+          else if (_tabs.index == 2)
+            IconButton(
+              key: const ValueKey('expense_header_add_dena_pawna_button'),
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              tooltip: GochanoLanguage.text('Add record', 'রেকর্ড যোগ করুন'),
+              onPressed: () async {
+                final saved = await showDenaPawnaSheet(
+                  context,
+                  onChanged: _onExpenseAdded,
+                );
+                if (saved) _onExpenseAdded();
+              },
+            ),
+          const SizedBox(width: GochanoSpacing.xs),
+        ],
         bottom: TabBar(
           controller: _tabs,
           isScrollable: true,
@@ -104,77 +141,13 @@ class _ExpenseScreenState extends State<ExpenseScreen>
       body: TabBarView(
         controller: _tabs,
         children: [
-          _KeepAliveTab(child: _DailyTab()),
-          _KeepAliveTab(child: GroceryTab()),
-          _KeepAliveTab(child: DenaPawnaTab(onChanged: _onExpenseAdded)),
-          _KeepAliveTab(child: OverviewTab(key: _overviewKey)),
+          _DailyTab(),
+          GroceryTab(),
+          DenaPawnaTab(onChanged: _onExpenseAdded),
+          OverviewTab(key: _overviewKey),
         ],
       ),
-      floatingActionButton: _buildFab(),
     );
-  }
-
-  Widget? _buildFab() {
-    final isOverview = _tabs.index == 3;
-    if (isOverview) return null;
-
-    final isDenaPawna = _tabs.index == 2;
-    final isGrocery = _tabs.index == 1;
-
-    if (isDenaPawna) {
-      return FloatingActionButton.extended(
-        heroTag: 'expense-fab',
-        onPressed: () async {
-          final saved = await showDenaPawnaSheet(
-            context,
-            onChanged: _onExpenseAdded,
-          );
-          if (saved) _onExpenseAdded();
-        },
-        icon: const Icon(Icons.people_rounded),
-        label: Text(GochanoLanguage.text('Add record', 'রেকর্ড যোগ করুন')),
-      );
-    }
-
-    return FloatingActionButton.extended(
-      heroTag: 'expense-fab',
-      onPressed: () async {
-        if (isGrocery) {
-          final sessionId = FinancialService.bazarSessionId(DateTime.now());
-          final saved = await showGroceryItemSheet(
-            context,
-            sessionId: sessionId,
-          );
-          if (saved) _onExpenseAdded();
-        } else {
-          final saved = await showAddExpenseSheet(context);
-          if (saved) _onExpenseAdded();
-        }
-      },
-      icon: const Icon(Icons.receipt_long_rounded),
-      label: Text(GochanoLanguage.text('Add expense', 'খরচ যোগ করুন')),
-    );
-  }
-}
-
-/// Wrapper that preserves child state during tab switches.
-class _KeepAliveTab extends StatefulWidget {
-  const _KeepAliveTab({required this.child});
-  final Widget child;
-
-  @override
-  State<_KeepAliveTab> createState() => _KeepAliveTabState();
-}
-
-class _KeepAliveTabState extends State<_KeepAliveTab>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
   }
 }
 

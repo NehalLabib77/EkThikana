@@ -28,16 +28,20 @@ import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../core/settings/gochano_appearance.dart';
-
 import '../../../services/api_service.dart';
+import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
+
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../auth/presentation/auth_gate.dart';
 import '../../home/presentation/home_screen.dart' show formatTaka;
 import '../../life/presentation/expense/monthly_budget_sheet.dart';
+import '../../../services/sync_coordinator.dart';
+import '../../../widgets/sync_status_sheet.dart';
+import 'ai_usage_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.role});
@@ -49,19 +53,11 @@ class ProfileScreen extends StatelessWidget {
     return ValueListenableBuilder<GochanoLocale>(
       valueListenable: GochanoLanguage.current,
       builder: (context, locale, child) {
-        final canPop = Navigator.canPop(context);
         return GochanoScaffold(
           padBody: false,
           appBar: GochanoAppBar(
             title: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-            automaticallyImplyLeading: false,
-            leading: canPop
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    onPressed: () => Navigator.of(context).pop(),
-                    tooltip: GochanoLanguage.text('Back', 'পেছনে'),
-                  )
-                : null,
+            automaticallyImplyLeading: Navigator.of(context).canPop(),
           ),
           body: ListView(
             padding: GochanoSpacing.scrollBody,
@@ -69,10 +65,8 @@ class ProfileScreen extends StatelessWidget {
               _IdentityHeader(),
               _RoleBadge(role: role),
 
-              if (role == 'student') ...[
-                SectionHeader(title: GochanoLanguage.text('Study', 'পড়াশোনা')),
-                _StudyStatsRow(),
-              ],
+              const SizedBox(height: GochanoSpacing.sm),
+              const _SyncStatusCard(),
 
               const SizedBox(height: GochanoSpacing.sm),
               _SettingsCard(isStudent: role == 'student'),
@@ -111,6 +105,7 @@ class ProfileScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// Avatar, name, email and where the student studies.
+/// Avatar, name, phone/email and where the student studies.
 class _IdentityHeader extends StatelessWidget {
   const _IdentityHeader();
 
@@ -124,6 +119,7 @@ class _IdentityHeader extends StatelessWidget {
         final data = snapshot.data?.data() ?? const <String, dynamic>{};
         final name = data['displayName']?.toString().trim() ?? '';
         final email = data['email']?.toString().trim() ?? '';
+        final phone = data['phone']?.toString().trim() ?? '';
         final university = data['university']?.toString().trim() ?? '';
         final department = data['department']?.toString().trim() ?? '';
         final photoUrl = data['photoURL']?.toString().trim() ?? '';
@@ -163,6 +159,40 @@ class _IdentityHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+            FutureBuilder<String?>(
+              future: phone.isNotEmpty
+                  ? Future<String?>.value(phone)
+                  : TelecomAuthService.readUserPhone(),
+              builder: (context, phoneSnap) {
+                final displayPhone = phoneSnap.data?.trim() ?? phone;
+                // Never show internal placeholders or roles like "student" as phone
+                final validPhone =
+                    displayPhone.isNotEmpty &&
+                        displayPhone.toLowerCase() != 'student'
+                    ? displayPhone
+                    : '';
+
+                if (validPhone.isNotEmpty) {
+                  return Text(
+                    validPhone,
+                    style: context.type.bodySecondary,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }
+                if (email.isNotEmpty) {
+                  return Text(
+                    email,
+                    style: context.type.bodySecondary,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             if (university.isNotEmpty || department.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -481,95 +511,68 @@ class _RoleBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Study statistics
+// Sync Status
 // ---------------------------------------------------------------------------
 
-class _StudyStatsRow extends StatefulWidget {
-  const _StudyStatsRow();
-
-  @override
-  State<_StudyStatsRow> createState() => _StudyStatsRowState();
-}
-
-class _StudyStatsRowState extends State<_StudyStatsRow> {
-  Map<String, dynamic>? _stats;
-  String _error = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final stats = await ApiService.getStudyStats();
-      if (mounted) setState(() => _stats = stats);
-    } catch (error) {
-      if (mounted) setState(() => _error = friendlyErrorMessage(error));
-    }
-  }
+class _SyncStatusCard extends StatelessWidget {
+  const _SyncStatusCard();
 
   @override
   Widget build(BuildContext context) {
-    if (_error.isNotEmpty && _stats == null) {
-      return ErrorState(compact: true, message: _error, onRetry: _load);
-    }
-    if (_stats == null) {
-      return StaticLoadingState(
-        compact: true,
-        message: GochanoLanguage.text(
-          'Loading your study stats…',
-          'আপনার পড়ার পরিসংখ্যান লোড হচ্ছে…',
-        ),
-      );
-    }
+    return ValueListenableBuilder<SyncState>(
+      valueListenable: SyncCoordinator.instance.syncState,
+      builder: (context, state, _) {
+        final colors = context.colors;
 
-    // Backend returns `todaySeconds`/`monthSeconds`/`streakDays` as
-    // canonical keys, with `accumulatedSeconds` already coerced server-side
-    // (a 24h ceiling rejects poisoned rows). Aliases are kept for older
-    // responses so a stale shape still renders something.
-    int read(String camel, String snake) {
-      final raw = _stats![camel] ?? _stats![snake];
-      return raw is num ? raw.toInt() : 0;
-    }
+        Color iconColor;
+        IconData icon;
+        String text;
 
-    final todayMinutes = (read('todaySeconds', 'today_seconds') / 60).round();
-    final monthMinutes = (read('monthSeconds', 'month_seconds') / 60).round();
-    final streak = read('streakDays', 'streak_days');
+        switch (state.status) {
+          case SyncStatus.synced:
+            iconColor = colors.success;
+            icon = Icons.cloud_done_rounded;
+            text = GochanoLanguage.text('Synced', 'সিঙ্ক সম্পন্ন');
+            break;
+          case SyncStatus.offline:
+            iconColor = colors.warning;
+            icon = Icons.cloud_off_rounded;
+            text = GochanoLanguage.text('Offline mode', 'অফলাইন মোড');
+            break;
+          case SyncStatus.pending:
+            iconColor = colors.warning;
+            icon = Icons.sync_problem_rounded;
+            final count = state.pendingCount;
+            final bnCount = GochanoLanguage.toBanglaDigits(count);
+            text = GochanoLanguage.text(
+              '$count ${count == 1 ? "item" : "items"} waiting to sync',
+              '$bnCountটি পরিবর্তন সিঙ্ক অপেক্ষায়',
+            );
+            break;
+          case SyncStatus.syncing:
+            iconColor = colors.brand;
+            icon = Icons.sync_rounded;
+            text = GochanoLanguage.text('Syncing…', 'সিঙ্ক হচ্ছে…');
+            break;
+          case SyncStatus.error:
+            iconColor = colors.error;
+            icon = Icons.error_outline_rounded;
+            text = GochanoLanguage.text('Sync paused', 'সিঙ্ক স্থগিত');
+            break;
+        }
 
-    return Row(
-      children: [
-        Expanded(
-          child: StatCard(
-            compact: true,
-            label: GochanoLanguage.text('Study today', 'আজ পড়াশোনা'),
-            value: GochanoLanguage.text(
-              '$todayMinutes min',
-              '$todayMinutes মি',
+        return CardGroup(
+          children: [
+            _SettingsRow(
+              icon: icon,
+              iconColor: iconColor,
+              title: GochanoLanguage.text('Sync Status', 'সিঙ্ক স্ট্যাটাস'),
+              value: text,
+              onTap: () => showSyncStatusSheet(context),
             ),
-          ),
-        ),
-        const SizedBox(width: GochanoSpacing.sm),
-        Expanded(
-          child: StatCard(
-            compact: true,
-            label: GochanoLanguage.text('This month', 'এই মাস'),
-            value: GochanoLanguage.text(
-              '$monthMinutes min',
-              '$monthMinutes মি',
-            ),
-          ),
-        ),
-        const SizedBox(width: GochanoSpacing.sm),
-        Expanded(
-          child: StatCard(
-            compact: true,
-            label: GochanoLanguage.text('Streak', 'ধারাবাহিকতা'),
-            value: GochanoLanguage.text('$streak d', '$streak দি'),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -671,6 +674,7 @@ class _SettingsCard extends StatefulWidget {
 class _SettingsCardState extends State<_SettingsCard>
     with WidgetsBindingObserver {
   bool? _notificationsEnabled;
+  bool? _exactAlarmsAllowed;
 
   /// The month's amount, or null while unread. Kept separate from "zero" so
   /// a failed read is never shown as "not set".
@@ -678,12 +682,31 @@ class _SettingsCardState extends State<_SettingsCard>
   bool _budgetFailed = false;
   bool _loaded = false;
 
+  Map<String, dynamic>? _aiUsage;
+  bool _aiUsageFailed = false;
+  bool _aiUsageLoaded = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkNotifications();
-    if (widget.isStudent) _loadBudget();
+    _checkExactAlarm();
+    if (widget.isStudent) {
+      _loadBudget();
+      _loadAiUsage();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkNotifications();
+      _checkExactAlarm();
+      if (widget.isStudent) {
+        _loadAiUsage();
+      }
+    }
   }
 
   @override
@@ -692,9 +715,9 @@ class _SettingsCardState extends State<_SettingsCard>
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Intentionally unused — usage access removal.
+  Future<void> _checkExactAlarm() async {
+    final allowed = await NotificationService.isExactAlarmPermissionGranted();
+    if (mounted) setState(() => _exactAlarmsAllowed = allowed);
   }
 
   Future<void> _loadBudget() async {
@@ -736,6 +759,58 @@ class _SettingsCardState extends State<_SettingsCard>
     return formatTaka(amount);
   }
 
+  Future<void> _loadAiUsage() async {
+    try {
+      final body = await ApiService.getAiUsage();
+      if (!mounted) return;
+      setState(() {
+        _aiUsage = body;
+        _aiUsageFailed = false;
+        _aiUsageLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _aiUsageFailed = true;
+        _aiUsageLoaded = true;
+      });
+    }
+  }
+
+  String get _aiUsageLabel {
+    if (_aiUsageFailed) {
+      return GochanoLanguage.text(
+        'Could not check usage. Tap to retry.',
+        'ব্যবহার জানা যায়নি। আবার দেখতে চাপ দিন।',
+      );
+    }
+    if (!_aiUsageLoaded) {
+      return GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…');
+    }
+    final chat = _aiUsage?['chat'] as Map<String, dynamic>?;
+    if (chat != null) {
+      final remaining = chat['remaining'] as int? ?? 0;
+      final limit = chat['limit'] as int? ?? 20;
+      return GochanoLanguage.text(
+        '$remaining of $limit chat remaining today',
+        'আজ চ্যাট বাকি $remaining/$limit বার',
+      );
+    }
+    final total = _aiUsage?['total'] as Map<String, dynamic>?;
+    if (total == null) {
+      return GochanoLanguage.text('Usage unavailable', 'ব্যবহার অনুপলব্ধ');
+    }
+    final remaining = total['remaining'] as int? ?? 0;
+    final limit = total['limit'] as int? ?? 0;
+    if (limit <= 0) {
+      return GochanoLanguage.text('Unlimited access', 'সীমাহীন ব্যবহার');
+    }
+    return GochanoLanguage.text(
+      '$remaining of $limit remaining today',
+      'আজ আর $remaining/$limit বার বাকি',
+    );
+  }
+
   Future<void> _checkNotifications() async {
     final enabled = await NotificationService.areNotificationsEnabled();
     if (mounted) setState(() => _notificationsEnabled = enabled);
@@ -756,7 +831,7 @@ class _SettingsCardState extends State<_SettingsCard>
           builder: (context, mode, _) {
             return CardGroup(
               children: [
-                if (widget.isStudent)
+                if (widget.isStudent) ...[
                   _SettingsRow(
                     icon: Icons.account_balance_wallet_outlined,
                     title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
@@ -770,6 +845,20 @@ class _SettingsCardState extends State<_SettingsCard>
                       if (changed) await _loadBudget();
                     },
                   ),
+                  _SettingsRow(
+                    icon: Icons.auto_awesome_rounded,
+                    title: GochanoLanguage.text('AI usage', 'এআই ব্যবহার'),
+                    value: _aiUsageLabel,
+                    onTap: () async {
+                      if (_aiUsageFailed || !_aiUsageLoaded) {
+                        await _loadAiUsage();
+                      }
+                      if (!context.mounted) return;
+                      await _showAiUsageSheet(context, _aiUsage ?? {});
+                      if (mounted) _loadAiUsage();
+                    },
+                  ),
+                ],
                 _SettingsRow(
                   icon: Icons.language_rounded,
                   title: GochanoLanguage.text('Language', 'ভাষা'),
@@ -829,72 +918,54 @@ class _SettingsCardState extends State<_SettingsCard>
                       : null,
                 ),
                 _SettingsRow(
-                  icon: NotificationService.isReminderEnabled(ReminderType.medicine)
-                      ? Icons.medication_outlined
-                      : Icons.medication_outlined,
+                  icon: Icons.alarm_rounded,
+                  iconColor: _exactAlarmsAllowed == false
+                      ? colors.warning
+                      : null,
                   title: GochanoLanguage.text(
-                    'Medicine reminders',
-                    'ওষুধের রিমাইন্ডার',
+                    'Alarms & reminders',
+                    'অ্যালার্ম ও রিমাইন্ডার',
                   ),
-                  value: NotificationService.isReminderEnabled(ReminderType.medicine)
-                      ? GochanoLanguage.text('On', 'চালু')
-                      : GochanoLanguage.text('Off', 'বন্ধ'),
+                  value: GochanoLanguage.text(
+                    'Allow exact reminders when the app is closed',
+                    'অ্যাপ বন্ধ থাকলেও সঠিক সময়ে রিমাইন্ডার পেতে অনুমতি দিন',
+                  ),
                   onTap: () async {
-                    final current = NotificationService.isReminderEnabled(ReminderType.medicine);
-                    await NotificationService.toggleReminder(ReminderType.medicine, enabled: !current);
-                    if (context.mounted) setState(() {});
+                    await NotificationService.openExactAlarmSettings();
+                    await _checkExactAlarm();
                   },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_exactAlarmsAllowed != null)
+                        Text(
+                          _exactAlarmsAllowed == true
+                              ? GochanoLanguage.text('Enabled', 'চালু')
+                              : GochanoLanguage.text('Disabled', 'বন্ধ'),
+                          style: context.type.caption.copyWith(
+                            color: _exactAlarmsAllowed == true
+                                ? colors.success
+                                : colors.warning,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: colors.textTertiary,
+                      ),
+                    ],
+                  ),
                 ),
                 _SettingsRow(
-                  icon: NotificationService.isReminderEnabled(ReminderType.task)
-                      ? Icons.task_alt
-                      : Icons.task_outlined,
-                  title: GochanoLanguage.text(
-                    'Task reminders',
-                    'কাজের রিমাইন্ডার',
+                  icon: Icons.restart_alt_rounded,
+                  title: GochanoLanguage.text('Auto-start', 'অটো-স্টার্ট'),
+                  value: GochanoLanguage.text(
+                    'Allow Gochano to start for reminders after swipe-away or reboot',
+                    'সোয়াইপ-অ্যাওয়ে বা রিবুটের পর রিমাইন্ডারের জন্য Gochano চালু হতে দিন',
                   ),
-                  value: NotificationService.isReminderEnabled(ReminderType.task)
-                      ? GochanoLanguage.text('On', 'চালু')
-                      : GochanoLanguage.text('Off', 'বন্ধ'),
-                  onTap: () async {
-                    final current = NotificationService.isReminderEnabled(ReminderType.task);
-                    await NotificationService.toggleReminder(ReminderType.task, enabled: !current);
-                    if (context.mounted) setState(() {});
-                  },
+                  onTap: () => NotificationService.openAutoStartSettings(),
                 ),
-                _SettingsRow(
-                  icon: Icons.vibration,
-                  title: GochanoLanguage.text(
-                    'Reminder vibration',
-                    'রিমাইন্ডার কম্পন',
-                  ),
-                  value: NotificationService.isVibrationEnabled
-                      ? GochanoLanguage.text('On', 'চালু')
-                      : GochanoLanguage.text('Off', 'বন্ধ'),
-                  onTap: () async {
-                    await NotificationService.toggleVibration(
-                      enabled: !NotificationService.isVibrationEnabled,
-                    );
-                    if (context.mounted) setState(() {});
-                  },
-                ),
-                _SettingsRow(
-                  icon: Icons.volume_up_outlined,
-                  title: GochanoLanguage.text(
-                    'Reminder sound',
-                    'রিমাইন্ডার শব্দ',
-                  ),
-                  value: NotificationService.isSoundEnabled
-                      ? GochanoLanguage.text('On', 'চালু')
-                      : GochanoLanguage.text('Off', 'বন্ধ'),
-                  onTap: () async {
-                    await NotificationService.toggleSound(
-                      enabled: !NotificationService.isSoundEnabled,
-                    );
-                    if (context.mounted) setState(() {});
-                  },
-                ),
-
               ],
             );
           },
@@ -982,7 +1053,7 @@ class _DangerCardState extends State<_DangerCard> {
       await ApiService.deleteAccount();
       // AuthGate listens to Firebase auth state and immediately replaces the
       // profile shell with Login after this successful deletion.
-      await TelecomAuthService.clearSession();
+      await AuthService.logout();
     } catch (error) {
       if (!mounted) return;
       setState(() => _deleting = false);
@@ -1096,6 +1167,15 @@ Future<void> _pickAppearance(BuildContext context) async {
   if (chosen != null) await GochanoAppearance.select(chosen);
 }
 
+Future<void> _showAiUsageSheet(
+  BuildContext context,
+  Map<String, dynamic> usage,
+) async {
+  await Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const AiUsageScreen()));
+}
+
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
@@ -1118,8 +1198,11 @@ Future<void> _logout(BuildContext context) async {
   );
   if (!confirmed || !context.mounted) return;
 
-  // 1. Clear telecom/local session + Firebase signOut (single call).
+  // 1. Clear telecom/local session (does NOT call unsubscribe.php)
   await TelecomAuthService.clearSession();
+
+  // 2. Firebase signOut — does NOT delete account or data
+  await AuthService.logout();
 
   if (!context.mounted) return;
 
@@ -1239,8 +1322,11 @@ Future<void> _unsubscribe(BuildContext context) async {
   }
 
   // Authoritative session termination (only on server success):
-  // 1. Clear telecom session storage + Firebase signOut (single call).
+  // 1. Clear telecom session storage completely
   await TelecomAuthService.clearSession();
+
+  // 2. Sign out Firebase session without deleting account/data
+  await AuthService.logout();
 
   if (!context.mounted) return;
 

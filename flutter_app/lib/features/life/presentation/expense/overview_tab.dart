@@ -13,6 +13,7 @@ import '../../../../core/localization/gochano_language.dart';
 import '../../../../models/financial_transaction.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/financial_service.dart';
+import 'monthly_budget_sheet.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../home/presentation/home_screen.dart' show formatTaka;
@@ -56,6 +57,11 @@ class OverviewTabState extends State<OverviewTab> {
     if (mounted) setState(() => _budgetRefreshKey++);
   }
 
+  Future<void> _openBudgetSheet() async {
+    final saved = await showMonthlyBudgetSheet(context);
+    if (saved && mounted) refresh();
+  }
+
   void _prevMonth() {
     setState(() {
       _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
@@ -64,7 +70,10 @@ class OverviewTabState extends State<OverviewTab> {
 
   void _nextMonth() {
     final now = DateTime.now();
-    final nextCandidate = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
+    final nextCandidate = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + 1,
+    );
     if (nextCandidate.isAfter(DateTime(now.year, now.month))) return;
     setState(() {
       _selectedMonth = nextCandidate;
@@ -73,7 +82,10 @@ class OverviewTabState extends State<OverviewTab> {
 
   bool get _canGoNext {
     final now = DateTime.now();
-    final nextCandidate = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
+    final nextCandidate = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + 1,
+    );
     return !nextCandidate.isAfter(DateTime(now.year, now.month));
   }
 
@@ -83,8 +95,8 @@ class OverviewTabState extends State<OverviewTab> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final daysInMonth = getDaysInMonth(_selectedMonth);
-    final isCurrentMonth = _selectedMonth.year == now.year &&
-        _selectedMonth.month == now.month;
+    final isCurrentMonth =
+        _selectedMonth.year == now.year && _selectedMonth.month == now.month;
 
     return StreamBuilder<List<FinancialTransactionModel>>(
       stream: FinancialService.monthStream(_selectedMonth),
@@ -120,7 +132,8 @@ class OverviewTabState extends State<OverviewTab> {
         // Source breakdown
         final sourceTotals = <String, double>{};
         for (final item in items) {
-          sourceTotals[item.source] = (sourceTotals[item.source] ?? 0) + item.amount;
+          sourceTotals[item.source] =
+              (sourceTotals[item.source] ?? 0) + item.amount;
         }
 
         // Dena/Pawna settlement totals for the selected month
@@ -129,30 +142,28 @@ class OverviewTabState extends State<OverviewTab> {
             _selectedMonth,
           ),
           builder: (context, settlementSnap) {
-            final settlements = settlementSnap.data ??
+            final settlements =
+                settlementSnap.data ??
                 const {'pawnaReceived': 0, 'denaPaid': 0};
             final pawnaReceived = settlements['pawnaReceived'] ?? 0;
             final denaPaid = settlements['denaPaid'] ?? 0;
 
             // Budget for the selected month — keyed to force re-fetch on refresh()
             return FutureBuilder<Map<String, dynamic>>(
-              key: ValueKey('budget-${_selectedMonth.year}-${_selectedMonth.month}-$_budgetRefreshKey'),
+              key: ValueKey(
+                'budget-${_selectedMonth.year}-${_selectedMonth.month}-$_budgetRefreshKey',
+              ),
               future: ApiService.getRemaining(_selectedMonth),
               builder: (context, budgetSnap) {
-                final available =
-                    (budgetSnap.data?['available'] as num?)?.toDouble();
-                final backendRemaining =
-                    (budgetSnap.data?['remaining'] as num?)?.toDouble();
+                final available = (budgetSnap.data?['available'] as num?)
+                    ?.toDouble();
+                final backendRemaining = (budgetSnap.data?['remaining'] as num?)
+                    ?.toDouble();
                 final hasBudget = available != null && available > 0;
-
-                // IMPORTANT: denaPaid is NOW in financial_transactions (added
-                // when settlement occurs), so backendRemaining already accounts
-                // for it. We only add pawnaReceived (income, not in ledger).
-                // Previous code subtracted denaPaid here, which double-counted
-                // it since the backend already deducted it from remaining.
                 final adjustedRemaining =
                     (backendRemaining ?? (available ?? 0)) +
-                        pawnaReceived;
+                    pawnaReceived -
+                    denaPaid;
 
                 // Category breakdown
                 final groceryTotal = sourceTotals['bazar'] ?? 0;
@@ -160,6 +171,8 @@ class OverviewTabState extends State<OverviewTab> {
                 final dailyTotal = sourceTotals['daily'] ?? 0;
                 final commuteTotal = sourceTotals['commute'] ?? 0;
 
+                final budgetLoading =
+                    budgetSnap.connectionState == ConnectionState.waiting;
                 return _OverviewBody(
                   selectedMonth: _selectedMonth,
                   daysInMonth: daysInMonth,
@@ -168,6 +181,7 @@ class OverviewTabState extends State<OverviewTab> {
                   dailyTotals: dailyTotals,
                   sourceTotals: sourceTotals,
                   hasBudget: hasBudget,
+                  budgetLoading: budgetLoading,
                   monthlyMoney: available,
                   adjustedRemaining: adjustedRemaining,
                   totalSpent: summary.totalSpending,
@@ -180,7 +194,7 @@ class OverviewTabState extends State<OverviewTab> {
                   pawnaReceived: pawnaReceived,
                   onPrevMonth: _canGoPrev ? _prevMonth : null,
                   onNextMonth: _canGoNext ? _nextMonth : null,
-                  onSetBudget: refresh,
+                  onSetBudget: _openBudgetSheet,
                 );
               },
             );
@@ -212,6 +226,7 @@ class _OverviewBody extends StatelessWidget {
     required this.dailyTotals,
     required this.sourceTotals,
     required this.hasBudget,
+    required this.budgetLoading,
     required this.monthlyMoney,
     required this.adjustedRemaining,
     required this.totalSpent,
@@ -234,6 +249,7 @@ class _OverviewBody extends StatelessWidget {
   final Map<int, double> dailyTotals;
   final Map<String, double> sourceTotals;
   final bool hasBudget;
+  final bool budgetLoading;
   final double? monthlyMoney;
   final double adjustedRemaining;
   final double totalSpent;
@@ -251,12 +267,7 @@ class _OverviewBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        GochanoSpacing.md,
-        GochanoSpacing.xl,
-        GochanoSpacing.md,
-        GochanoSpacing.xxxl + GochanoSpacing.xxl,
-      ),
+      padding: GochanoSpacing.scrollBody,
       children: [
         // A. Month Selector
         _MonthSelector(
@@ -283,7 +294,7 @@ class _OverviewBody extends StatelessWidget {
         ),
 
         // Set budget prompt if not set
-        if (!hasBudget) ...[
+        if (!hasBudget && !budgetLoading) ...[
           const SizedBox(height: GochanoSpacing.sm),
           _SetBudgetPrompt(onSet: onSetBudget),
         ],
@@ -325,8 +336,19 @@ class _MonthSelector extends StatelessWidget {
   ];
 
   static const _monthsBn = [
-    '', 'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
-    'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর',
+    '',
+    'জানুয়ারি',
+    'ফেব্রুয়ারি',
+    'মার্চ',
+    'এপ্রিল',
+    'মে',
+    'জুন',
+    'জুলাই',
+    'আগস্ট',
+    'সেপ্টেম্বর',
+    'অক্টোবর',
+    'নভেম্বর',
+    'ডিসেম্বর',
   ];
 
   String _monthLabel() {
@@ -425,7 +447,9 @@ class _SummaryGrid extends StatelessWidget {
               // Monthly Money
               _SummaryRow(
                 label: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
-                value: hasBudget ? formatTaka(budget) : GochanoLanguage.text('Not set', 'সেট করা নেই'),
+                value: hasBudget
+                    ? formatTaka(budget)
+                    : GochanoLanguage.text('Not set', 'সেট করা নেই'),
                 color: colors.brand,
               ),
               if (hasBudget) ...[
@@ -622,10 +646,16 @@ class _CategoryBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xxs),
       child: Row(
         children: [
-          SizedBox(
-            width: 90,
-            child: Text(label, style: type.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 64, maxWidth: 104),
+            child: Text(
+              label,
+              style: type.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          const SizedBox(width: GochanoSpacing.xs),
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
@@ -645,12 +675,16 @@ class _CategoryBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: GochanoSpacing.sm),
-          SizedBox(
-            width: 72,
-            child: Text(
-              formatTaka(value),
-              style: type.body.copyWith(fontWeight: FontWeight.w600),
-              textAlign: TextAlign.end,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 56, maxWidth: 96),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatTaka(value),
+                style: type.body.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.end,
+              ),
             ),
           ),
         ],
@@ -723,7 +757,10 @@ class _DailyBarChart extends StatelessWidget {
     final type = context.type;
     final now = DateTime.now();
 
-    final maxAmount = dailyTotals.values.fold<double>(0, (a, b) => a > b ? a : b);
+    final maxAmount = dailyTotals.values.fold<double>(
+      0,
+      (a, b) => a > b ? a : b,
+    );
 
     return AppCard(
       padding: const EdgeInsets.all(GochanoSpacing.md),
@@ -806,7 +843,9 @@ class _Bar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    final fraction = maxAmount > 0 ? (amount / maxAmount).clamp(0.05, 1.0) : 0.0;
+    final fraction = maxAmount > 0
+        ? (amount / maxAmount).clamp(0.05, 1.0)
+        : 0.0;
     final barHeight = maxAmount > 0 ? fraction * 120.0 : 0.0;
 
     Color barColor;
@@ -828,9 +867,7 @@ class _Bar extends StatelessWidget {
           height: barHeight.clamp(2.0, 120.0),
           decoration: BoxDecoration(
             color: barColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(3),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
           ),
         ),
         const SizedBox(height: 5),

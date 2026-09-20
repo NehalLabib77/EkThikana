@@ -103,6 +103,20 @@ service cloud.firestore {
       match /offline_materials/{materialId} {
         allow read, write: if verified() && request.auth.uid == uid;
       }
+
+      // Phase 3C: quiz results per user
+      match /quiz_results/{quizId} {
+        allow create: if isStudent() && request.auth.uid == uid;
+        allow read, delete: if isStudent() && request.auth.uid == uid;
+        allow update: if false;
+      }
+
+      // Phase 4: AI feedback per user
+      match /ai_feedback/{feedbackId} {
+        allow create: if isStudent() && request.auth.uid == uid;
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow update, delete: if false;
+      }
     }
 
     // ---------------- STUDENT-ONLY ACADEMIC DATA ----------------
@@ -234,6 +248,12 @@ service cloud.firestore {
         && request.resource.data.actualFare > 0;
     }
 
+    match /planned_commute_trips/{id} {
+      allow create: if ownedCreate();
+      allow read, delete: if ownedReadDelete();
+      allow update: if ownedUpdate();
+    }
+
     // Central expense ledger. IDs are deterministic by source + sourceRecordId.
     match /financial_transactions/{id} {
       allow create: if verified()
@@ -285,6 +305,14 @@ service cloud.firestore {
 
     // Backend-only metering/moderation.
     match /ai_usage/{id} {
+      allow read, write: if false;
+    }
+
+    match /ai_usage_monthly/{id} {
+      allow read, write: if false;
+    }
+
+    match /ai_usage_active/{id} {
       allow read, write: if false;
     }
 

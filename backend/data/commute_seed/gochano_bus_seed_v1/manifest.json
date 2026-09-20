@@ -1,0 +1,14 @@
+{
+  "package": "gochano_bus_seed_v1",
+  "bus_services": 156,
+  "bus_service_stops": 3190,
+  "canonical_matched_stops": 2518,
+  "canonical_match_rate": 0.7893,
+  "manual_review_aliases": 130,
+  "service_route_match_candidates": 156,
+  "verified_service_route_matches": 0,
+  "place_coordinate_candidates": 42,
+  "stable_service_ids_preserved": true,
+  "community_routes_promoted_to_verified": false,
+  "osm_candidates_auto_applied": false
+}

@@ -228,6 +228,143 @@ def test_chat_list_non_member_forbidden(client, fake_db, fake_auth):
     assert resp.status_code == 403, resp.text
 
 
+def test_chat_reaction_toggle_persists_and_derives_correct_state(client, fake_db, fake_auth):
+    owner = "owner-rx"
+    member = "member-rx"
+    seed_profile(fake_db, owner, role="student")
+    seed_profile(fake_db, member, role="student")
+    _seed_group(fake_db, owner=owner, admin=[owner], members=[owner, member], chat_enabled=True)
+
+    fake_db.seed(
+        "group_messages",
+        "msg-rx-1",
+        {"groupId": "grp-chat", "senderId": owner, "text": "let's study", "reactions": {}},
+    )
+
+    # First user adds reaction
+    resp = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-1/react",
+        json={"emoji": "👍"},
+        headers=bearer(fake_auth.issue(owner)),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["reactions"]["👍"] == [owner]
+
+    # Two different users reacting to same message: existing reaction survives, second user added
+    resp2 = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-1/react",
+        json={"emoji": "👍"},
+        headers=bearer(fake_auth.issue(member)),
+    )
+    assert resp2.status_code == 200, resp2.text
+    assert set(resp2.json()["reactions"]["👍"]) == {owner, member}
+    assert len(resp2.json()["reactions"]["👍"]) == 2  # no duplicates
+
+    # Fetch chat list and verify reactions are in the payload
+    chat_resp = client.get(
+        "/api/groups/grp-chat/chat",
+        headers=bearer(fake_auth.issue(member)),
+    )
+    assert chat_resp.status_code == 200
+    msg = next(m for m in chat_resp.json()["messages"] if m["id"] == "msg-rx-1")
+    assert set(msg["reactions"]["👍"]) == {owner, member}
+
+    # Same user toggles reaction off
+    resp3 = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-1/react",
+        json={"emoji": "👍"},
+        headers=bearer(fake_auth.issue(member)),
+    )
+    assert resp3.status_code == 200
+    assert resp3.json()["reactions"]["👍"] == [owner]
+
+    # Owner toggles off -> emoji key removed when list empty
+    resp4 = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-1/react",
+        json={"emoji": "👍"},
+        headers=bearer(fake_auth.issue(owner)),
+    )
+    assert resp4.status_code == 200
+    assert "👍" not in resp4.json()["reactions"]
+
+
+def test_chat_reaction_validation_and_security(client, fake_db, fake_auth):
+    owner = "owner-rx2"
+    member = "member-rx2"
+    outsider = "outsider-rx2"
+    seed_profile(fake_db, owner, role="student")
+    seed_profile(fake_db, member, role="student")
+    seed_profile(fake_db, outsider, role="student")
+    _seed_group(fake_db, owner=owner, admin=[owner], members=[owner, member], chat_enabled=True)
+
+    # Message with no reactions field works
+    fake_db.seed(
+        "group_messages",
+        "msg-rx-2",
+        {"groupId": "grp-chat", "senderId": owner, "text": "hello"},
+    )
+    # Message from another group
+    fake_db.seed(
+        "group_messages",
+        "msg-other-grp",
+        {"groupId": "other-grp", "senderId": owner, "text": "wrong group"},
+    )
+
+    h_member = bearer(fake_auth.issue(member))
+    h_outsider = bearer(fake_auth.issue(outsider))
+
+    # Message with no reactions field works cleanly
+    resp_init = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-2/react",
+        json={"emoji": "💡"},
+        headers=h_member,
+    )
+    assert resp_init.status_code == 200
+    assert resp_init.json()["reactions"]["💡"] == [member]
+
+    # Empty emoji rejected
+    resp_empty = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-2/react",
+        json={"emoji": "   "},
+        headers=h_member,
+    )
+    assert resp_empty.status_code == 400
+
+    # Unsupported emoji rejected
+    resp_unsupported = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-2/react",
+        json={"emoji": "🍕"},
+        headers=h_member,
+    )
+    assert resp_unsupported.status_code == 400
+    assert "Unsupported reaction" in resp_unsupported.text
+
+    # Non-member rejected (403)
+    resp_non_member = client.post(
+        "/api/groups/grp-chat/chat/msg-rx-2/react",
+        json={"emoji": "👍"},
+        headers=h_outsider,
+    )
+    assert resp_non_member.status_code == 403
+
+    # Message from another group rejected (400)
+    resp_wrong_group = client.post(
+        "/api/groups/grp-chat/chat/msg-other-grp/react",
+        json={"emoji": "👍"},
+        headers=h_member,
+    )
+    assert resp_wrong_group.status_code == 400
+    assert "Message does not belong to group" in resp_wrong_group.text
+
+    # Missing message rejected (404)
+    resp_missing = client.post(
+        "/api/groups/grp-chat/chat/non-existent-msg/react",
+        json={"emoji": "👍"},
+        headers=h_member,
+    )
+    assert resp_missing.status_code == 404
+
+
 # ---------------------------------------------------------------------------
 # DOC / DOCX upload mime detection
 # ---------------------------------------------------------------------------

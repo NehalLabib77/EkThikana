@@ -62,6 +62,7 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
     'jpeg',
     'doc',
     'docx',
+    'txt',
   ];
 
   late final TextEditingController _title;
@@ -197,7 +198,10 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
                       Text(
                         hasFile
                             ? _fileName
-                            : GochanoLanguage.text('Choose a file', 'একটি ফাইল বাছুন'),
+                            : GochanoLanguage.text(
+                                'Choose a file',
+                                'একটি ফাইল বাছুন',
+                              ),
                         style: type.cardHeading,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

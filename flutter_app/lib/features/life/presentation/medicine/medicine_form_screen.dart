@@ -9,15 +9,22 @@
 // printed on the paper; a schedule is a medical decision, so at least one
 // time must be entered by the student before the form will save.
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
+import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../services/connectivity_service.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../services/notification_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -30,14 +37,23 @@ class MedicineFormScreen extends StatefulWidget {
     super.key,
     this.medicineId,
     this.initialData,
+    this.ocrSourceText = '',
+    this.ocrSuggested = false,
   });
 
   /// Edit an existing medicine. When set and [initialData] is null the
   /// document is fetched on open.
   final String? medicineId;
 
-  /// Pre-filled values.
+  /// Pre-filled values — used by the prescription review step.
   final Map<String, dynamic>? initialData;
+
+  /// The OCR text these values came from, stored for provenance so a student
+  /// can later see what the suggestion was based on.
+  final String ocrSourceText;
+
+  /// True when the values arrived from OCR rather than from typing.
+  final bool ocrSuggested;
 
   @override
   State<MedicineFormScreen> createState() => _MedicineFormScreenState();
@@ -63,6 +79,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
   bool _loading = false;
   bool _saving = false;
   String? _error;
+  bool _showMoreOptions = false;
 
   bool get _isEdit => widget.medicineId != null;
 
@@ -111,15 +128,25 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
     _unitsInPack.text = unitsInPack == 0 ? '' : _trim(unitsInPack);
     _unit = _units.contains(d['unit']) ? d['unit'].toString() : 'tablet';
     _priceMode = d['priceMode']?.toString() == 'pack' ? 'pack' : 'unit';
-    _times = ((d['times'] as List?) ?? const [])
-        .map((e) => e.toString())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
+    _times =
+        ((d['times'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
     final start = d['startDate'];
     _startDate = start is Timestamp ? start.toDate() : DateTime.now();
     final end = d['endDate'];
     _endDate = end is Timestamp ? end.toDate() : null;
+
+    final hasSecondary =
+        _strength.text.trim().isNotEmpty ||
+        _instruction.text.trim().isNotEmpty ||
+        _quantity.text != '1' ||
+        _endDate != null ||
+        unitPrice > 0 ||
+        packPrice > 0;
+    _showMoreOptions = _isEdit && hasSecondary;
   }
 
   @override
@@ -178,7 +205,8 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
       ),
     );
     if (picked == null) return;
-    final value = '${picked.hour.toString().padLeft(2, '0')}:'
+    final value =
+        '${picked.hour.toString().padLeft(2, '0')}:'
         '${picked.minute.toString().padLeft(2, '0')}';
     if (_times.contains(value)) return;
 
@@ -248,7 +276,7 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
       // The rule that keeps Gochano out of medical decisions.
       problem = GochanoLanguage.text(
         'Add at least one reminder time. Gochano will not guess when to take '
-        'a medicine.',
+            'a medicine.',
         'অন্তত একটি রিমাইন্ডারের সময় যোগ করুন। কখন ওষুধ খেতে হবে গোছানো তা অনুমান করবে না।',
       );
     } else if (!_hasFutureTime()) {
@@ -263,6 +291,10 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
       return;
     }
 
+    if (kDebugMode) {
+      debugPrint('[OfflineSave][Medicine] start');
+    }
+
     setState(() {
       _saving = true;
       _error = null;
@@ -273,53 +305,67 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
       final ref = widget.medicineId == null
           ? db.collection('medicines').doc()
           : db.collection('medicines').doc(widget.medicineId);
+      final medicineId = ref.id;
 
       // Clear the old schedule before writing the new one, or an edited
       // medicine keeps firing at times the student removed.
+      // 1. Clear old schedule locally before writing new one (offline-safe)
       if (widget.medicineId != null) {
-        final old = await ref.get();
-        final oldTimes = ((old.data()?['times'] as List?) ?? const [])
-            .map((e) => e.toString())
-            .toList();
-        await NotificationService.cancelMedicineTimes(ref.id, oldTimes);
+        await NotificationService.cancelMedicineByOwnerId(medicineId);
+        await NotificationService.cancelMedicineTimes(medicineId, _times);
       }
 
-      await ref.set(
-        {
-          'ownerId': FirestoreService.uid,
-          'name': name,
-          'strength': _strength.text.trim(),
-          'instruction': _instruction.text.trim(),
-          // `dose` is the legacy field name; both are written so older
-          // reads keep working.
-          'dose': _instruction.text.trim(),
-          'quantityPerDose': quantity,
-          'unit': _unit,
-          'priceMode': _priceMode,
-          'unitPrice': price,
-          'packPrice': _priceMode == 'pack'
-              ? double.tryParse(_packPrice.text.trim()) ?? 0
-              : null,
-          'unitsInPack': _priceMode == 'pack'
-              ? double.tryParse(_unitsInPack.text.trim()) ?? 0
-              : null,
-          'times': _times,
-          'schedule': _times.join(', '),
-          'startDate': Timestamp.fromDate(_startDate),
-          'endDate': _endDate == null ? null : Timestamp.fromDate(_endDate!),
-          'active': true,
-          'paused': false,
-          'confirmedByUser': true,
-          if (widget.medicineId == null)
-            'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
+      // 2. Enqueue/dispatch Firestore write locally to offline cache
+      final medicineData = {
+        'ownerId': FirestoreService.uid,
+        'name': name,
+        'strength': _strength.text.trim(),
+        'instruction': _instruction.text.trim(),
+        'dose': _instruction.text.trim(),
+        'quantityPerDose': quantity,
+        'unit': _unit,
+        'priceMode': _priceMode,
+        'unitPrice': price,
+        'packPrice': _priceMode == 'pack'
+            ? double.tryParse(_packPrice.text.trim()) ?? 0
+            : null,
+        'unitsInPack': _priceMode == 'pack'
+            ? double.tryParse(_unitsInPack.text.trim()) ?? 0
+            : null,
+        'times': _times,
+        'schedule': _times.join(', '),
+        'startDate': Timestamp.fromDate(_startDate),
+        'endDate': _endDate == null ? null : Timestamp.fromDate(_endDate!),
+        'active': true,
+        'paused': false,
+        'confirmedByUser': true,
+        'ocrSuggested': widget.ocrSuggested,
+        'ocrSourceText': widget.ocrSourceText,
+        if (widget.medicineId == null)
+          'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      unawaited(
+        ref.set(medicineData, SetOptions(merge: true)).catchError((e) {
+          if (kDebugMode) {
+            debugPrint(
+              '[OfflineSave][Medicine] remote sync deferred/failed: $e',
+            );
+          }
+        }),
       );
 
+      if (kDebugMode) {
+        debugPrint(
+          '[OfflineSave][Medicine] local/domain write queued id=$medicineId',
+        );
+      }
+
+      // 3. Schedule daily medicine local alarms immediately
       for (final hhmm in _times) {
         await NotificationService.scheduleDailyMedicine(
-          medicineId: ref.id,
+          medicineId: medicineId,
           medicineName: name,
           hhmm: hhmm,
           instruction: _instruction.text.trim(),
@@ -332,28 +378,51 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
       // If the OS denied notification permission the schedule calls above
       // silently do nothing, so say so rather than letting the student
       // believe reminders are armed.
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Medicine] alarm scheduled');
+      }
+
       final notificationsEnabled =
           await NotificationService.areNotificationsEnabled();
 
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Medicine] ui complete');
+      }
+
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      final firstTime = _times.isNotEmpty ? _times.first : null;
+      final isOffline = !ConnectivityService.instance.online.value;
       if (notificationsEnabled == false) {
         showGochanoMessage(
           context,
-          GochanoLanguage.text(
-            'Saved. Reminders will not appear until notifications are enabled '
-            'for Gochano in system settings.',
-            'সংরক্ষিত হয়েছে। সিস্টেম সেটিংসে নোটিফিকেশন চালু না করা পর্যন্ত রিমাইন্ডার দেখা যাবে না।',
+          FeedbackMessages.medicineSaved(
+            notificationsDenied: true,
+            isOffline: isOffline,
           ),
-          isError: true,
+        );
+      } else {
+        showGochanoMessage(
+          context,
+          FeedbackMessages.medicineSaved(
+            firstTime: firstTime,
+            isOffline: isOffline,
+          ),
         );
       }
+      Navigator.of(context).pop(true);
     } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[OfflineSave][Medicine] error: $error');
+      }
       if (!mounted) return;
       setState(() {
         _saving = false;
         _error = friendlyErrorMessage(error);
       });
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -391,6 +460,11 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
+          if (widget.ocrSuggested) ...[
+            const _OcrReviewNotice(),
+            const SizedBox(height: GochanoSpacing.md),
+          ],
+
           TextField(
             controller: _name,
             textCapitalization: TextCapitalization.words,
@@ -400,63 +474,6 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
             ),
           ),
           const SizedBox(height: GochanoSpacing.sm),
-          TextField(
-            controller: _strength,
-            decoration: InputDecoration(
-              labelText: GochanoLanguage.text(
-                'Strength (optional)',
-                'শক্তি (ঐচ্ছিক)',
-              ),
-              hintText: '500 mg',
-            ),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          TextField(
-            controller: _instruction,
-            decoration: InputDecoration(
-              labelText: GochanoLanguage.text(
-                'Instruction (optional)',
-                'নির্দেশনা (ঐচ্ছিক)',
-              ),
-              hintText: GochanoLanguage.text('After food', 'খাবারের পরে'),
-            ),
-          ),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Each dose', 'প্রতি ডোজ'),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _quantity,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                  decoration: InputDecoration(
-                    labelText: GochanoLanguage.text('How many', 'কতটি'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: GochanoSpacing.xs),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _unit,
-                  decoration: InputDecoration(
-                    labelText: GochanoLanguage.text('Form', 'ধরন'),
-                  ),
-                  items: [
-                    for (final unit in _units)
-                      DropdownMenuItem(value: unit, child: Text(unit)),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _unit = value ?? 'tablet'),
-                ),
-              ),
-            ],
-          ),
 
           SectionHeader(
             title: GochanoLanguage.text('Reminder times', 'রিমাইন্ডারের সময়'),
@@ -491,115 +508,219 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
               ),
             ],
           ),
+          const SizedBox(height: GochanoSpacing.sm),
 
-          SectionHeader(
-            title: GochanoLanguage.text('Course dates', 'কোর্সের তারিখ'),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: _DateField(
-                  label: GochanoLanguage.text('Start', 'শুরু'),
-                  value: _formatDate(_startDate),
-                  onTap: () => _pickDate(isStart: true),
+          // More options toggle (progressive disclosure)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const ValueKey('medicine_more_options_toggle'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                minimumSize: const Size(0, GochanoSizes.minTouchTarget),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  setState(() => _showMoreOptions = !_showMoreOptions),
+              icon: Icon(
+                _showMoreOptions
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                size: 20,
+              ),
+              label: Text(
+                GochanoLanguage.text('More options', 'আরও অপশন'),
+                style: type.bodySecondary.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colors.brand,
                 ),
               ),
-              const SizedBox(width: GochanoSpacing.xs),
-              Expanded(
-                child: _DateField(
-                  label: GochanoLanguage.text('End (optional)', 'শেষ (ঐচ্ছিক)'),
-                  value: _endDate == null
-                      ? GochanoLanguage.text('Ongoing', 'চলমান')
-                      : _formatDate(_endDate!),
-                  onTap: () => _pickDate(isStart: false),
-                  onClear: _endDate == null
-                      ? null
-                      : () => setState(() => _endDate = null),
-                ),
-              ),
-            ],
-          ),
-
-          SectionHeader(
-            title: GochanoLanguage.text('Cost (optional)', 'খরচ (ঐচ্ছিক)'),
-            subtitle: GochanoLanguage.text(
-              'Used to add a taken dose to your monthly spending.',
-              'নেওয়া ডোজ আপনার মাসিক খরচে যোগ করতে ব্যবহৃত হয়।',
             ),
           ),
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment(
-                value: 'unit',
-                label: Text(GochanoLanguage.text('Per unit', 'প্রতি একক')),
-              ),
-              ButtonSegment(
-                value: 'pack',
-                label: Text(GochanoLanguage.text('Per pack', 'প্রতি প্যাক')),
-              ),
-            ],
-            selected: {_priceMode},
-            onSelectionChanged: (value) =>
-                setState(() => _priceMode = value.first),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          if (_priceMode == 'unit')
+
+          if (_showMoreOptions) ...[
+            const SizedBox(height: GochanoSpacing.xs),
             TextField(
-              controller: _unitPrice,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-              ],
+              controller: _strength,
               decoration: InputDecoration(
-                labelText: GochanoLanguage.text('Price per $_unit', 'প্রতি $_unit দাম'),
-                prefixText: '৳ ',
+                labelText: GochanoLanguage.text(
+                  'Strength (optional)',
+                  'শক্তি (ঐচ্ছিক)',
+                ),
+                hintText: '500 mg',
               ),
-              onChanged: (_) => setState(() {}),
-            )
-          else
+            ),
+            const SizedBox(height: GochanoSpacing.sm),
+            TextField(
+              controller: _instruction,
+              decoration: InputDecoration(
+                labelText: GochanoLanguage.text(
+                  'Instruction (optional)',
+                  'নির্দেশনা (ঐচ্ছিক)',
+                ),
+                hintText: GochanoLanguage.text('After food', 'খাবারের পরে'),
+              ),
+            ),
+            SectionHeader(
+              title: GochanoLanguage.text('Each dose', 'প্রতি ডোজ'),
+            ),
             Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _packPrice,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    controller: _quantity,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                     ],
                     decoration: InputDecoration(
-                      labelText: GochanoLanguage.text('Pack price', 'প্যাকের দাম'),
-                      prefixText: '৳ ',
+                      labelText: GochanoLanguage.text('How many', 'কতটি'),
                     ),
-                    onChanged: (_) => setState(() {}),
                   ),
                 ),
                 const SizedBox(width: GochanoSpacing.xs),
                 Expanded(
-                  child: TextField(
-                    controller: _unitsInPack,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _unit,
                     decoration: InputDecoration(
-                      labelText: GochanoLanguage.text('Units in pack', 'প্যাকে কতটি'),
+                      labelText: GochanoLanguage.text('Form', 'ধরন'),
                     ),
-                    onChanged: (_) => setState(() {}),
+                    items: [
+                      for (final unit in _units)
+                        DropdownMenuItem(value: unit, child: Text(unit)),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _unit = value ?? 'tablet'),
                   ),
                 ),
               ],
             ),
-          if (_resolvedUnitPrice > 0) ...[
-            const SizedBox(height: GochanoSpacing.xs),
-            Text(
-              GochanoLanguage.text(
-                '${formatTaka(_resolvedUnitPrice)} per $_unit',
-                'প্রতি $_unit ${formatTaka(_resolvedUnitPrice)}',
-              ),
-              style: type.caption,
+            SectionHeader(
+              title: GochanoLanguage.text('Course dates', 'কোর্সের তারিখ'),
             ),
+            Row(
+              children: [
+                Expanded(
+                  child: _DateField(
+                    label: GochanoLanguage.text('Start', 'শুরু'),
+                    value: _formatDate(_startDate),
+                    onTap: () => _pickDate(isStart: true),
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.xs),
+                Expanded(
+                  child: _DateField(
+                    label: GochanoLanguage.text(
+                      'End (optional)',
+                      'শেষ (ঐচ্ছিক)',
+                    ),
+                    value: _endDate == null
+                        ? GochanoLanguage.text('Ongoing', 'চলমান')
+                        : _formatDate(_endDate!),
+                    onTap: () => _pickDate(isStart: false),
+                    onClear: _endDate == null
+                        ? null
+                        : () => setState(() => _endDate = null),
+                  ),
+                ),
+              ],
+            ),
+            SectionHeader(
+              title: GochanoLanguage.text('Cost (optional)', 'খরচ (ঐচ্ছিক)'),
+              subtitle: GochanoLanguage.text(
+                'Used to add a taken dose to your monthly spending.',
+                'নেওয়া ডোজ আপনার মাসিক খরচে যোগ করতে ব্যবহৃত হয়।',
+              ),
+            ),
+            SegmentedButton<String>(
+              segments: [
+                ButtonSegment(
+                  value: 'unit',
+                  label: Text(GochanoLanguage.text('Per unit', 'প্রতি একক')),
+                ),
+                ButtonSegment(
+                  value: 'pack',
+                  label: Text(GochanoLanguage.text('Per pack', 'প্রতি প্যাক')),
+                ),
+              ],
+              selected: {_priceMode},
+              onSelectionChanged: (value) =>
+                  setState(() => _priceMode = value.first),
+            ),
+            const SizedBox(height: GochanoSpacing.sm),
+            if (_priceMode == 'unit')
+              TextField(
+                controller: _unitPrice,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text(
+                    'Price per $_unit',
+                    'প্রতি $_unit দাম',
+                  ),
+                  prefixText: '৳ ',
+                ),
+                onChanged: (_) => setState(() {}),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _packPrice,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: GochanoLanguage.text(
+                          'Pack price',
+                          'প্যাকের দাম',
+                        ),
+                        prefixText: '৳ ',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: TextField(
+                      controller: _unitsInPack,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: GochanoLanguage.text(
+                          'Units in pack',
+                          'প্যাকে কতটি',
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ],
+              ),
+            if (_resolvedUnitPrice > 0) ...[
+              const SizedBox(height: GochanoSpacing.xs),
+              Text(
+                GochanoLanguage.text(
+                  '${formatTaka(_resolvedUnitPrice)} per $_unit',
+                  'প্রতি $_unit ${formatTaka(_resolvedUnitPrice)}',
+                ),
+                style: type.caption,
+              ),
+            ],
           ],
 
           if (_error != null) ...[
@@ -629,6 +750,45 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when the form was reached from a prescription scan (spec §58).
+class _OcrReviewNotice extends StatelessWidget {
+  const _OcrReviewNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.all(GochanoSpacing.sm),
+      decoration: BoxDecoration(
+        color: colors.warningSoft,
+        borderRadius: GochanoRadius.mdAll,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GochanoIllustration(
+            GochanoArt.featurePrescription,
+            size: 32,
+            accent: colors.warning,
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          Expanded(
+            child: Text(
+              GochanoLanguage.text(
+                'These values were read from your prescription image and may '
+                    'be wrong. Check the name, strength and dose, and set the '
+                    'reminder times yourself before saving.',
+                'এই তথ্যগুলো আপনার প্রেসক্রিপশনের ছবি থেকে পড়া হয়েছে এবং ভুল হতে পারে। সংরক্ষণের আগে নাম, শক্তি ও ডোজ যাচাই করুন এবং রিমাইন্ডারের সময় নিজে নির্ধারণ করুন।',
+              ),
+              style: context.type.bodySecondary.copyWith(color: colors.warning),
+            ),
+          ),
         ],
       ),
     );
@@ -681,8 +841,18 @@ String _trim(double value) => value == value.roundToDouble()
 
 String _formatDate(DateTime when) {
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${when.day} ${months[when.month - 1]} ${when.year}';
 }

@@ -18,11 +18,7 @@ void main() {
   group('Dena/Pawna data model', () {
     late String source;
 
-    setUpAll(
-      () => source = _read(
-        'lib/services/financial_service.dart',
-      ),
-    );
+    setUpAll(() => source = _read('lib/services/financial_service.dart'));
 
     test('saveDenaPawna writes outstandingAmount and status fields', () {
       expect(source, contains("'outstandingAmount': amount"));
@@ -45,13 +41,19 @@ void main() {
     });
 
     test('settleDenaPawna computes new outstanding and status', () {
-      expect(source, contains('newOutstanding = (currentOutstanding - settleAmount).clamp'));
+      expect(
+        source,
+        contains('newOutstanding = (currentOutstanding - settleAmount).clamp'),
+      );
       expect(source, contains('isFullySettled = newOutstanding <= 0'));
       expect(source, contains("'partially_settled'"));
     });
 
     test('settleDenaPawna stores settlement record inline', () {
-      expect(source, contains("'settlements': [...existingSettlements, settlementRecord]"));
+      expect(
+        source,
+        contains("'settlements': [...existingSettlements, settlementRecord]"),
+      );
       expect(source, contains("'id': settlementId"));
     });
 
@@ -88,11 +90,18 @@ void main() {
     });
 
     test('computes outstanding from outstandingAmount, not amount', () {
-      expect(source, contains("(data['outstandingAmount'] as num?)?.toDouble()"));
+      expect(
+        source,
+        contains("(data['outstandingAmount'] as num?)?.toDouble()"),
+      );
     });
 
     test('supports edit via existing parameter', () {
       expect(source, contains('showDenaPawnaSheet(context, existing: doc'));
+      expect(
+        source,
+        matches(RegExp(r'showDenaPawnaSheet\(\s*context,\s*existing:\s*doc')),
+      );
     });
 
     test('supports partial settlement', () {
@@ -116,18 +125,24 @@ void main() {
   });
 
   group('Cash-flow rule', () {
-    test('settlements stored in dena_pawna_items, not financial_transactions', () {
-      final financialService = _read(
-        'lib/services/financial_service.dart',
-      );
-      // settleDenaPawna should NOT create financial_transactions records
-      expect(financialService, isNot(contains("collection('financial_transactions').doc(transactionId(source, id))")));
-    });
+    test(
+      'settlements stored in dena_pawna_items, not financial_transactions',
+      () {
+        final financialService = _read('lib/services/financial_service.dart');
+        // settleDenaPawna should NOT create financial_transactions records
+        expect(
+          financialService,
+          isNot(
+            contains(
+              "collection('financial_transactions').doc(transactionId(source, id))",
+            ),
+          ),
+        );
+      },
+    );
 
     test('Monthly Money is never modified by Dena/Pawna', () {
-      final financialService = _read(
-        'lib/services/financial_service.dart',
-      );
+      final financialService = _read('lib/services/financial_service.dart');
       // saveDenaPawna should NOT touch monthly_budget collection
       expect(financialService, isNot(contains("collection('monthly_budget')")));
     });
@@ -144,16 +159,22 @@ void main() {
   });
 
   group('Firestore rules', () {
-    test('financial_transactions allows dena_paid and pawna_received sources', () {
-      final rules = _read('../firebase/firestore.rules');
-      expect(rules, contains("'dena_paid'"));
-      expect(rules, contains("'pawna_received'"));
-    });
+    test(
+      'financial_transactions allows dena_paid and pawna_received sources',
+      () {
+        final rules = _read('../firebase/firestore.rules');
+        expect(rules, contains("'dena_paid'"));
+        expect(rules, contains("'pawna_received'"));
+      },
+    );
 
     test('dena_pawna_items has owner-only CRUD rules', () {
       final rules = _read('../firebase/firestore.rules');
       expect(rules, contains('match /dena_pawna_items/{id}'));
-      expect(rules, contains("request.resource.data.ownerId == request.auth.uid"));
+      expect(
+        rules,
+        contains("request.resource.data.ownerId == request.auth.uid"),
+      );
       expect(rules, contains("resource.data.ownerId == request.auth.uid"));
     });
 
@@ -164,7 +185,10 @@ void main() {
         rules.indexOf('match /dena_pawna_items/{id}'),
         rules.indexOf('match /ai_usage'),
       );
-      expect(section, contains('request.resource.data.ownerId == resource.data.ownerId'));
+      expect(
+        section,
+        contains('request.resource.data.ownerId == resource.data.ownerId'),
+      );
     });
   });
 
@@ -187,7 +211,10 @@ void main() {
     });
 
     test('onChanged is passed to showDenaPawnaSheet', () {
-      expect(source, contains('showDenaPawnaSheet(context, onChanged: onChanged)'));
+      expect(
+        source,
+        contains('showDenaPawnaSheet(context, onChanged: onChanged)'),
+      );
     });
 
     test('onChanged is passed to _DenaPawnaRow', () {

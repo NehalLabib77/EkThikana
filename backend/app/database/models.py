@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
+import uuid
 from uuid import UUID
 
 from sqlalchemy import (
@@ -336,7 +337,10 @@ class UserFareReport(Base):
     __tablename__ = "user_fare_reports"
 
     report_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
     )
     user_id_hash: Mapped[Optional[str]] = mapped_column(Text)
     trip_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -417,6 +421,9 @@ class CrowdFareAggregate(Base):
     destination_place_id: Mapped[Optional[str]] = mapped_column(
         Text, ForeignKey("places.place_id")
     )
+    bus_service_id: Mapped[Optional[str]] = mapped_column(
+        Text, ForeignKey("bus_services.service_id")
+    )
     distance_bucket_km: Mapped[Optional[float]] = mapped_column(Numeric(10, 3))
     sample_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     p25_fare_tk: Mapped[Optional[float]] = mapped_column(Numeric(10, 2))
@@ -433,6 +440,13 @@ class CrowdFareAggregate(Base):
         Index(
             "idx_crowd_fare_lookup",
             "transport_mode",
+            "origin_place_id",
+            "destination_place_id",
+        ),
+        Index(
+            "idx_crowd_fare_bus_service_lookup",
+            "transport_mode",
+            "bus_service_id",
             "origin_place_id",
             "destination_place_id",
         ),

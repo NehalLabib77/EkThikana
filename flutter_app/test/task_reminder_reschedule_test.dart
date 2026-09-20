@@ -34,23 +34,43 @@ void main() {
       expect(a, equals(b));
     });
 
-    test('different taskIds at the same logical slot produce different ids',
-        () {
-      final a = NotificationService.debugTaskNotificationId('taskA');
-      final b = NotificationService.debugTaskNotificationId('taskB');
-      expect(a, isNot(equals(b)));
-    });
+    test(
+      'different taskIds at the same logical slot produce different ids',
+      () {
+        final a = NotificationService.debugTaskNotificationId('taskA');
+        final b = NotificationService.debugTaskNotificationId('taskB');
+        expect(a, isNot(equals(b)));
+      },
+    );
 
     test('task ids never collide with medicine ids at the same string', () {
       // The id functions are independent, but we want to be loud if anyone
       // ever unifies them - a task id and a medicine string id hashing to
       // the same value would be a cross-channel collision.
       final task = NotificationService.debugTaskNotificationId('foo');
-      final med = NotificationService.debugMedicineNotificationId('foo', '08:30');
+      final med = NotificationService.debugMedicineNotificationId(
+        'foo',
+        '08:30',
+      );
       // Allowed to collide in theory; disallowed in practice for the
       // channels to remain independent. We assert they never collide for the
       // names we ship.
       expect(task, isNot(equals(med)));
     });
+
+    test(
+      'task reminder slots [90, 60, 30, 10, 0, -30] produce 6 distinct non-negative IDs',
+      () {
+        const offsets = [90, 60, 30, 10, 0, -30];
+        final ids = offsets
+            .map((o) => NotificationService.debugTaskNotificationId('taskA', o))
+            .toList();
+        for (final id in ids) {
+          expect(id, isNonNegative);
+          expect(id, lessThan(0x80000000));
+        }
+        expect(ids.toSet().length, equals(6));
+      },
+    );
   });
 }

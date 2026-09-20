@@ -122,9 +122,7 @@ class _SavedRow extends StatelessWidget {
             fileName: fileName,
             mimeType: mimeType,
           ),
-          accent: missing
-              ? context.colors.textTertiary
-              : context.colors.study,
+          accent: missing ? context.colors.textTertiary : context.colors.study,
           title: title,
           subtitle: material?['subject']?.toString(),
           badge: missing
@@ -137,18 +135,21 @@ class _SavedRow extends StatelessWidget {
           onTap: missing
               ? null
               : () => Navigator.of(context).push(
-                    GochanoRoute.to(
-                      builder: (_) => MaterialReaderScreen(
-                        materialId: materialId,
-                        title: title,
-                        mimeType: mimeType,
-                        fileName: fileName,
-                      ),
+                  GochanoRoute.to(
+                    builder: (_) => MaterialReaderScreen(
+                      materialId: materialId,
+                      title: title,
+                      mimeType: mimeType,
+                      fileName: fileName,
                     ),
                   ),
+                ),
           menuItems: [
             GochanoMenuAction(
-              label: GochanoLanguage.text('Remove from saved', 'সংরক্ষিত থেকে সরান'),
+              label: GochanoLanguage.text(
+                'Remove from saved',
+                'সংরক্ষিত থেকে সরান',
+              ),
               icon: Icons.bookmark_remove_outlined,
               destructive: true,
               onSelected: () async {

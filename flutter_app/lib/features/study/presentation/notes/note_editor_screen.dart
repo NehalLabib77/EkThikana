@@ -15,13 +15,13 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
-import '../../../../shared/widgets/related_chips.dart';
 
 class NoteEditorScreen extends StatefulWidget {
   const NoteEditorScreen({
@@ -50,8 +50,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late final TextEditingController _content;
   late String _visibility;
   String? _groupId;
-  String? _relatedTaskId;
-  String? _relatedMaterialId;
+  late bool _showMoreOptions;
 
   bool _saving = false;
   bool _thinking = false;
@@ -65,11 +64,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     final data = widget.initialData ?? const <String, dynamic>{};
     _title = TextEditingController(text: data['title']?.toString() ?? '');
     _content = TextEditingController(text: data['content']?.toString() ?? '');
-    _visibility =
-        data['visibility']?.toString() ?? widget.initialVisibility;
+    _visibility = data['visibility']?.toString() ?? widget.initialVisibility;
     _groupId = data['groupId']?.toString() ?? widget.initialGroupId;
-    _relatedTaskId = data['relatedTaskId']?.toString();
-    _relatedMaterialId = data['relatedMaterialId']?.toString();
+    _showMoreOptions = _visibility == 'group';
   }
 
   @override
@@ -111,10 +108,15 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         content: _content.text,
         visibility: _visibility,
         groupId: _groupId,
-        relatedTaskId: _relatedTaskId,
-        relatedMaterialId: _relatedMaterialId,
       );
       if (mounted) Navigator.of(context).pop(true);
+      if (mounted) {
+        showGochanoMessage(
+          context,
+          FeedbackMessages.noteSaved(isEdit: widget.noteId != null),
+        );
+        Navigator.of(context).pop(true);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -159,7 +161,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(GochanoLanguage.text('Keep my note', 'আমার নোট রাখুন')),
+              child: Text(
+                GochanoLanguage.text('Keep my note', 'আমার নোট রাখুন'),
+              ),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -197,7 +201,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             tooltip: GochanoLanguage.text('AI tools', 'এআই টুল'),
             items: [
               GochanoMenuAction(
-                label: GochanoLanguage.text('Clean up my note', 'নোট গুছিয়ে দাও'),
+                label: GochanoLanguage.text(
+                  'Clean up my note',
+                  'নোট গুছিয়ে দাও',
+                ),
                 icon: Icons.auto_fix_high_outlined,
                 enabled: !_thinking,
                 onSelected: () => _runAi(
@@ -224,7 +231,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 ),
               ),
               GochanoMenuAction(
-                label: GochanoLanguage.text('Extract key points', 'মূল পয়েন্ট'),
+                label: GochanoLanguage.text(
+                  'Extract key points',
+                  'মূল পয়েন্ট',
+                ),
                 icon: Icons.format_list_bulleted_rounded,
                 enabled: !_thinking,
                 onSelected: () => _runAi(
@@ -247,6 +257,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         children: [
           TextField(
             controller: _title,
+            autofocus: !_isEdit,
+            textInputAction: TextInputAction.next,
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               labelText: GochanoLanguage.text('Title', 'শিরোনাম'),
@@ -259,7 +271,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
           const SizedBox(height: GochanoSpacing.sm),
           TextField(
             controller: _content,
-            minLines: 12,
+            minLines: 8,
             maxLines: null,
             textCapitalization: TextCapitalization.sentences,
             keyboardType: TextInputType.multiline,
@@ -269,15 +281,80 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               alignLabelWithHint: true,
             ),
           ),
+          const SizedBox(height: GochanoSpacing.sm),
 
-          // Phase 5: show related items when editing an existing note.
-          if (_isEdit &&
-              (_relatedTaskId != null || _relatedMaterialId != null)) ...[
-            const SizedBox(height: GochanoSpacing.sm),
-            _RelatedSection(
-              relatedTaskId: _relatedTaskId,
-              relatedMaterialId: _relatedMaterialId,
+          // More options toggle (progressive disclosure)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const ValueKey('note_more_options_toggle'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                minimumSize: const Size(0, GochanoSizes.minTouchTarget),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  setState(() => _showMoreOptions = !_showMoreOptions),
+              icon: Icon(
+                _showMoreOptions
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                size: 20,
+              ),
+              label: Text(
+                GochanoLanguage.text('More options', 'আরও অপশন'),
+                style: context.type.bodySecondary.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colors.brand,
+                ),
+              ),
             ),
+          ),
+
+          if (_showMoreOptions) ...[
+            const SizedBox(height: GochanoSpacing.xs),
+            Text(
+              GochanoLanguage.text('Visibility', 'দৃশ্যমানতা'),
+              style: context.type.label,
+            ),
+            const SizedBox(height: GochanoSpacing.xs),
+            SegmentedButton<String>(
+              segments: [
+                ButtonSegment(
+                  value: 'private',
+                  label: Text(GochanoLanguage.text('Private', 'ব্যক্তিগত')),
+                  icon: const Icon(Icons.lock_outline_rounded, size: 16),
+                ),
+                ButtonSegment(
+                  value: 'group',
+                  label: Text(
+                    GochanoLanguage.text('Share to group', 'গ্রুপে শেয়ার'),
+                  ),
+                  icon: const Icon(Icons.group_outlined, size: 16),
+                ),
+              ],
+              selected: {_visibility},
+              onSelectionChanged: (val) {
+                setState(() => _visibility = val.first);
+              },
+            ),
+            if (_visibility == 'group') ...[
+              const SizedBox(height: GochanoSpacing.xs),
+              Text(
+                widget.initialGroupName != null
+                    ? GochanoLanguage.text(
+                        'Sharing with: ${widget.initialGroupName}',
+                        'শেয়ার হচ্ছে: ${widget.initialGroupName}',
+                      )
+                    : GochanoLanguage.text(
+                        'Shared with your study group',
+                        'আপনার স্টাডি গ্রুপে শেয়ার করা হবে',
+                      ),
+                style: context.type.caption.copyWith(
+                  color: colors.textSecondary,
+                ),
+              ),
+            ],
           ],
 
           if (_thinking) ...[
@@ -311,8 +388,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                   Expanded(
                     child: Text(
                       _error!,
-                      style: context.type.bodySecondary
-                          .copyWith(color: colors.error),
+                      style: context.type.bodySecondary.copyWith(
+                        color: colors.error,
+                      ),
                     ),
                   ),
                 ],
@@ -346,46 +424,5 @@ Future<bool> deleteNote(
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
     return false;
-  }
-}
-
-/// Shows optional related task/material chips when editing an existing note.
-class _RelatedSection extends StatelessWidget {
-  const _RelatedSection({
-    required this.relatedTaskId,
-    required this.relatedMaterialId,
-  });
-
-  final String? relatedTaskId;
-  final String? relatedMaterialId;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          GochanoLanguage.text('Related', 'সম্পর্কিত'),
-          style: context.type.caption.copyWith(
-            color: colors.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: GochanoSpacing.xxs),
-        Wrap(
-          spacing: GochanoSpacing.xs,
-          runSpacing: GochanoSpacing.xxs,
-          children: [
-            if (relatedTaskId != null)
-              RelatedNoteChip(noteId: relatedTaskId!),
-            if (relatedMaterialId != null)
-              RelatedMaterialChip(materialId: relatedMaterialId!),
-          ],
-        ),
-      ],
-    );
   }
 }

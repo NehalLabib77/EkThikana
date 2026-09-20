@@ -58,14 +58,20 @@ void main() {
   group('Static accessibility guards', () {
     test('every Image.asset has a semanticLabel', () {
       final offenders = _missingNear('Image.asset(', 'semanticLabel');
-      expect(offenders, isEmpty,
-          reason: 'Image.asset must carry semanticLabel: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Image.asset must carry semanticLabel: $offenders',
+      );
     });
 
     test('every Image.network has a semanticLabel', () {
       final offenders = _missingNear('Image.network(', 'semanticLabel');
-      expect(offenders, isEmpty,
-          reason: 'Image.network must carry semanticLabel: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Image.network must carry semanticLabel: $offenders',
+      );
     });
 
     test('every IconButton has a tooltip', () {
@@ -78,8 +84,11 @@ void main() {
         window: 14,
         skipFile: (p) => p.endsWith('gochano_controls.dart'),
       );
-      expect(offenders, isEmpty,
-          reason: 'IconButton must carry a tooltip: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'IconButton must carry a tooltip: $offenders',
+      );
     });
 
     test('interactive minimums are defined and meet the Android floor', () {
@@ -139,7 +148,8 @@ void main() {
       expect(
         offenders,
         isEmpty,
-        reason: 'spec §11 forbids decorative animation:\n  '
+        reason:
+            'spec §11 forbids decorative animation:\n  '
             '${offenders.join('\n  ')}',
       );
     });
@@ -165,8 +175,11 @@ void main() {
           offenders.add('${file.path}  $needle');
         }
       }
-      expect(offenders, isEmpty,
-          reason: 'hand-rolled animation in presentation code: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'hand-rolled animation in presentation code: $offenders',
+      );
     });
 
     test('the page route uses the platform transition, not a custom one', () {
@@ -213,8 +226,11 @@ void main() {
           }
         }
       }
-      expect(offenders, isEmpty,
-          reason: 'use GochanoColors tokens, not hex literals: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'use GochanoColors tokens, not hex literals: $offenders',
+      );
     });
 
     test('both themes register the colour extension', () {

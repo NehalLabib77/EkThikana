@@ -3,11 +3,9 @@
 //   Workspace  Semester → Subject → Materials, plus recent materials surfaced
 //              at the top so the common case is one tap, not three (spec §29).
 //   Plan       Combined dashboard: schedule, deadlines, tasks, reminders,
-//              and study plan — the single screen for "what now?"
-//
-// Groups are not a fifth tab here. They are the Community destination in the
-// bottom bar; putting them in both places would be the duplication spec §86
-// asks to remove.
+//              and study goal — the single screen for "what now?"
+//   Community  Study groups — the same screen that was formerly a bottom-tab
+//              destination, now surfaced as a Study top tab.
 //
 // AI is an app-bar action rather than a tab, because it is contextual: the
 // useful entry points are "ask about *this* material" from the reader and a
@@ -22,15 +20,13 @@ import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../search/presentation/universal_search_screen.dart';
+import '../../community/presentation/community_view.dart';
 import 'ai/ai_assistant_screen.dart';
-import 'planner/plan_view.dart';
+import 'planner/plan_view.dart' show PlanView, openPlanHistory;
 import 'workspace/workspace_view.dart';
 
 class StudyScreen extends StatefulWidget {
-  const StudyScreen({super.key, this.initialTab = 0});
-
-  /// Initial tab index. Tab 1 = Plan.
-  final int initialTab;
+  const StudyScreen({super.key});
 
   @override
   State<StudyScreen> createState() => _StudyScreenState();
@@ -43,19 +39,21 @@ class _StudyScreenState extends State<StudyScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 1),
-    );
+    _tabs = TabController(length: 3, vsync: this);
+    _tabs.addListener(_onTabChange);
     GochanoLanguage.current.addListener(_onLanguageChange);
   }
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTabChange);
     GochanoLanguage.current.removeListener(_onLanguageChange);
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _onTabChange() {
+    if (mounted) setState(() {});
   }
 
   void _onLanguageChange() {
@@ -70,6 +68,12 @@ class _StudyScreenState extends State<StudyScreen>
         title: GochanoLanguage.text('Study', 'পড়াশোনা'),
         automaticallyImplyLeading: false,
         actions: [
+          if (_tabs.index == 1)
+            IconActionButton(
+              icon: Icons.history_rounded,
+              label: GochanoLanguage.text('History', 'ইতিহাস'),
+              onPressed: () => openPlanHistory(context),
+            ),
           IconActionButton(
             icon: Icons.search_rounded,
             label: GochanoLanguage.text('Search', 'অনুসন্ধান'),
@@ -89,17 +93,18 @@ class _StudyScreenState extends State<StudyScreen>
         ],
         bottom: TabBar(
           controller: _tabs,
-          isScrollable: false,
-          labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
-            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')))),
-            Tab(child: FittedBox(fit: BoxFit.scaleDown, child: Text(GochanoLanguage.text('Plan', 'পরিকল্পনা')))),
+            Tab(text: GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস')),
+            Tab(text: GochanoLanguage.text('Plan', 'পরিকল্পনা')),
+            Tab(text: GochanoLanguage.text('Community', 'কমিউনিটি')),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
-        children: [WorkspaceView(), PlanView()],
+        children: const [WorkspaceView(), PlanView(), CommunityView()],
       ),
     );
   }

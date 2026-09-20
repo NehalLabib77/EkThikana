@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.latency import latency_middleware, router as latency_router
 from app.database.connection import describe_active_database
 from app.services.storage_service import describe_active_storage
-from app.routers import account, ai, commute, groups, health, materials, me, part3, prescriptions, reports, study, telecom
+from app.routers import account, ai, ai_study, commute, groups, health, materials, me, part3, prescriptions, reports, study, telecom
 
 logger = logging.getLogger("gochano")
 
@@ -106,5 +106,6 @@ app.include_router(study.router, prefix="/api/study", tags=["Study"])
 app.include_router(part3.router, prefix="/api", tags=["PART3"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Moderation"])
 app.include_router(account.router, prefix="/api", tags=["Account"])
+app.include_router(ai_study.router, prefix="/api/ai", tags=["AI Study Intelligence"])
 app.include_router(commute.router, prefix="/api/commute", tags=["CommuteBD"])
 app.include_router(telecom.router, prefix="/v1/auth/telecom", tags=["Telecom"])

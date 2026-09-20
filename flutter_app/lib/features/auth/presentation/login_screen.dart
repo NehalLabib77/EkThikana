@@ -12,9 +12,7 @@
 //   3. We call TelecomAuthService.checkSubscription(phone):
 //        - REGISTERED               -> home shell (no OTP)
 //        - INITIAL CHARGING PENDING -> home shell (no OTP)
-//        - TEMPORARY BLOCKED        -> blocked message (no OTP)
-//        - UNKNOWN / malformed      -> recoverable error (no OTP)
-//        - NOT SUBSCRIBED           -> OTP flow
+//        - anything else            -> OtpVerifyScreen
 //   4. The home path goes through
 //      exchangeSubscriptionForFirebaseSession + enterSession so
 //      FirebaseAuth.currentUser is real and verified() in
@@ -26,17 +24,18 @@
 // Firebase custom-token exchange goes to the FastAPI backend whose
 // URL is provided by --dart-define=API_BASE_URL.
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
-import '../../../core/services/dev_auth_config.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
+import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
@@ -58,6 +57,16 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const bool _developerLoginEnabled =
+      kDebugMode &&
+      bool.fromEnvironment('DEV_AUTH_BYPASS', defaultValue: false);
+  static const String _developerEmail = String.fromEnvironment(
+    'DEV_TEST_EMAIL',
+  );
+  static const String _developerPassword = String.fromEnvironment(
+    'DEV_TEST_PASSWORD',
+  );
+
   final TextEditingController _phoneController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -102,10 +111,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _busy = false);
       return;
     } catch (_) {
-      _showError(GochanoLanguage.text(
-        'Network error. Please check your connection and try again.',
-        'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
-      ));
+      _showError(
+        GochanoLanguage.text(
+          'Network error. Please check your connection and try again.',
+          'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
+        ),
+      );
       if (mounted) setState(() => _busy = false);
       return;
     }
@@ -119,90 +130,11 @@ class _LoginScreenState extends State<LoginScreen> {
       // still settling). Spec §3 takes them straight into the home
       // shell with no OTP step.
       debugPrint('[LoginScreen] branch: REGISTERED_SHORTCUT → enter app');
-
-      // PART 30: Clear the recentlyVerified marker on successful
-      // REGISTERED login since we're now signing in.
-      await TelecomAuthService.clearRecentlyVerified();
-
-      final TelecomFirebaseExchange exchange;
-      try {
-        debugPrint('[AuthFlow] subscriptionStatus=REGISTERED');
-        debugPrint('[AuthFlow] exchange started');
-        exchange =
-            await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
-          phone: phone,
-          subscriptionStatus: result.rawStatus,
-        );
-        debugPrint('[AuthFlow] exchange status=200');
-        debugPrint('[AuthFlow] customTokenPresent=${exchange.customToken.isNotEmpty}');
-      } on TelecomAuthException catch (e) {
-        _showError(e.message);
-        if (mounted) setState(() => _busy = false);
-        return;
-      } catch (_) {
-        _showError(GochanoLanguage.text(
-          'Could not link your number to Gochano. Please try again later.',
-          'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
-        ));
-        if (mounted) setState(() => _busy = false);
-        return;
-      }
-      if (!mounted) return;
-      try {
-        debugPrint('[AuthFlow] firebase signIn started');
-        await TelecomAuthService.enterSession(
-          phone: phone,
-          exchange: exchange,
-        );
-        debugPrint('[AuthFlow] firebase user=${FirebaseAuth.instance.currentUser != null ? "non-null" : "null"}');
-      } on TelecomAuthException catch (e) {
-        _showError(e.message);
-        if (mounted) setState(() => _busy = false);
-        return;
-      } catch (_) {
-        _showError(GochanoLanguage.text(
-          'Could not sign you in. Please try again.',
-          'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
-        ));
-        if (mounted) setState(() => _busy = false);
-        return;
-      }
-      if (!mounted) return;
-
-      // SAFETY: Verify Firebase user actually exists before profile lookup.
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        debugPrint('[AuthFlow] FAIL: currentUser is null after enterSession');
-        _showError(GochanoLanguage.text(
-          'Sign-in incomplete. Please try again.',
-          'সাইন-ইন সম্পন্ন হয়নি। আবার চেষ্টা করুন।',
-        ));
-        if (mounted) setState(() => _busy = false);
-        return;
-      }
-      debugPrint('[AuthFlow] token refresh started');
-      try {
-        await currentUser.getIdToken(true);
-        debugPrint('[AuthFlow] token refresh success=true');
-      } catch (_) {
-        debugPrint('[AuthFlow] token refresh success=false');
-      }
-      debugPrint('[AuthFlow] profile check started');
-      final profileState = await FirestoreService.checkProfileState();
-      debugPrint('[AuthFlow] destination=${profileState.name}');
-      if (!mounted) return;
-
-      if (profileState == ProfileCheckResult.error) {
-        _showError(GochanoLanguage.text(
-          'Could not load your profile. Please try again.',
-          'আপনার প্রোফাইল লোড করা যায়নি। আবার চেষ্টা করুন।',
-        ));
-        if (mounted) setState(() => _busy = false);
-        return;
-      }
-
-      // Destination is resolved — show "Taking you in" for ~1.2s
-      // ONLY after all auth + profile work is complete.
+      //
+      // PART 16.1: we still have to mint a Firebase custom token via
+      // the backend before the AuthGate will let us into GochanoShell.
+      // The backend verifies the subscription server-side and mints
+      // the token — it must NOT trust the client to claim it.
       if (mounted) {
         setState(() {
           _acknowledgementMessage = GochanoLanguage.text(
@@ -211,438 +143,162 @@ class _LoginScreenState extends State<LoginScreen> {
           );
           _busyMessage = GochanoLanguage.text(
             'Taking you in…',
-            'আপনাকে প্রবেশ করানো হচ্ছে…',
+            'ভেতরে নিয়ে যাচ্ছি…',
           );
         });
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            GochanoLanguage.text(
-              'Taking you in…',
-              'আপনাকে প্রবেশ করানো হচ্ছে…',
-            ),
-          ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(milliseconds: 1200),
-        ),
-      );
-      await Future.delayed(const Duration(milliseconds: 1200));
-
-      if (!mounted) return;
-
-      switch (profileState) {
-        case ProfileCheckResult.exists:
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => GochanoShell(
-                role: 'student',
-                displayName: phone,
-              ),
-            ),
-            (_) => false,
-          );
-        case ProfileCheckResult.missing:
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => ProfileSetupScreen(phone: phone),
-            ),
-            (_) => false,
-          );
-        case ProfileCheckResult.error:
-          // Already handled above — unreachable.
-          break;
-      }
-      return;
-    }
-
-    // TEMPORARY BLOCKED — carrier reports subscription suspended.
-    // Do NOT send OTP. Do NOT authenticate. Show recovery message.
-    if (result.status == TelecomSubscriptionStatus.temporaryBlocked) {
-      debugPrint('[LoginScreen] branch: TEMPORARY_BLOCKED → blocked message');
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _acknowledgementMessage = GochanoLanguage.text(
-            'Your subscription is temporarily blocked. Please try again later or check your carrier subscription.',
-            'আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা অপারেটরের সাবস্ক্রিপশন অবস্থা যাচাই করুন।',
-          );
-        });
-      }
-      return;
-    }
-
-    // Unknown / malformed carrier response — fail closed.
-    // Do NOT send OTP. Do NOT authenticate. Show recoverable error.
-    if (result.status == TelecomSubscriptionStatus.unknown) {
-      debugPrint('[LoginScreen] branch: UNKNOWN → recoverable error');
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _acknowledgementMessage = GochanoLanguage.text(
-            'We could not confirm your subscription status. Please try again later or check your carrier subscription.',
-            'আপনার সাবস্ক্রিপশন অবস্থা নিশ্চিত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা অপারেটরের সাবস্ক্রিপশন অবস্থা যাচাই করুন।',
-          );
-        });
-      }
-      return;
-    }
-
-    // Only NOT SUBSCRIBED may proceed to OTP. All other statuses
-    // (registered, pending, blocked, unknown, alreadyRegistered)
-    // are handled above or fail closed here.
-    if (!result.maySendOtp) {
-      debugPrint('[LoginScreen] branch: ${result.status} → no OTP');
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-
-    // PART 30: Propagation guard — if the same phone was recently
-    // OTP-verified and subscription is still NOT SUBSCRIBED, the
-    // carrier may be propagating. Show a message instead of resending OTP.
-    if (!result.isAlreadySubscribed) {
-      final recentPhone = await TelecomAuthService.readRecentlyVerifiedPhone();
-      final normalizedInput = TelecomAuthService.normalize(phone);
-      if (recentPhone != null && recentPhone == normalizedInput) {
-        // Same phone was recently verified — carrier propagation delay
-        debugPrint('[LoginScreen] branch: PROPAGATION_GUARD → subscription activating');
-        if (mounted) {
-          setState(() {
-            _busy = false;
-            _acknowledgementMessage = GochanoLanguage.text(
-              'Subscription is activating. Please try again in a moment.',
-              'সাবস্ক্রিপশন সক্রিয় হচ্ছে। একটু পরে আবার চেষ্টা করুন।',
-            );
-          });
-        }
-        return;
-      }
-    }
-
-    // Not subscribed yet — request OTP FIRST, then push OTP screen
-    // only if a valid referenceNo is obtained. This prevents showing
-    // the OTP UI when the carrier refuses to issue an OTP.
-    debugPrint('[LoginScreen] branch: SEND_OTP → request OTP first');
-    if (!mounted) return;
-    setState(() {
-      _busy = true;
-      _busyMessage = GochanoLanguage.text(
-        'Sending verification code…',
-        'ভেরিফিকেশন কোড পাঠানো হচ্ছে…',
-      );
-    });
-
-    String? referenceNo;
-    try {
-      referenceNo = await TelecomAuthService.sendOtp(phone);
-    } on TelecomAuthException catch (e) {
-      _showError(e.message);
-      if (mounted) setState(() => _busy = false);
-      return;
-    } catch (_) {
-      _showError(GochanoLanguage.text(
-        'Could not send the verification code. Please try again.',
-        'ভেরিফিকেশন কোড পাঠানো যায়নি। আবার চেষ্টা করুন।',
-      ));
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-    if (!mounted) return;
-
-    // sendOtp returns kAlreadySubscribedSentinel when the carrier reports
-    // "already registered" AND re-check confirms REGISTERED/ICP.
-    // Perform authenticated entry directly — do NOT open OTP screen.
-    if (referenceNo == TelecomAuthService.kAlreadySubscribedSentinel) {
-      debugPrint('[LoginScreen] sendOtp returned already-subscribed sentinel');
-      await TelecomAuthService.setRecentlyVerified(phone: phone);
-
-      // Re-check subscription and perform authenticated entry
-      final TelecomSubscriptionResult recheck;
+      final TelecomFirebaseExchange exchange;
       try {
-        recheck = await TelecomAuthService.checkSubscription(phone);
+        exchange =
+            await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
+              phone: phone,
+              subscriptionStatus: result.rawStatus,
+            );
       } on TelecomAuthException catch (e) {
         _showError(e.message);
         if (mounted) setState(() => _busy = false);
         return;
       } catch (_) {
-        _showError(GochanoLanguage.text(
-          'Network error. Please check your connection and try again.',
-          'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
-        ));
+        _showError(
+          GochanoLanguage.text(
+            'Could not link your number to Gochano. Please try again later.',
+            'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+          ),
+        );
         if (mounted) setState(() => _busy = false);
         return;
       }
       if (!mounted) return;
+      try {
+        await TelecomAuthService.enterSession(phone: phone, exchange: exchange);
+      } on TelecomAuthException catch (e) {
+        _showError(e.message);
+        if (mounted) setState(() => _busy = false);
+        return;
+      } catch (_) {
+        _showError(
+          GochanoLanguage.text(
+            'Could not sign you in. Please try again.',
+            'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
+          ),
+        );
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+      if (!mounted) return;
+      final hasProfile = await FirestoreService.hasProfile();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => hasProfile
+              ? GochanoShell(role: 'student', displayName: phone)
+              : ProfileSetupScreen(phone: phone),
+        ),
+        (_) => false,
+      );
+      return;
+    }
 
-      if (recheck.isAlreadySubscribed) {
-        // Carrier has settled — perform normal authenticated entry
-        debugPrint('[LoginScreen] re-check: REGISTERED → authenticated entry');
-        await _performAuthenticatedEntry(phone, recheck);
+    if (result.isTemporarilyBlocked) {
+      debugPrint(
+        '[LoginScreen] branch: TEMPORARY_BLOCKED → show error, remain on Login',
+      );
+      if (mounted) {
+        setState(() => _busy = false);
+        _showError(
+          GochanoLanguage.text(
+            'Your subscription is temporarily blocked. Please restore or reactivate your subscription, then try again.',
+            'আপনার সাবস্ক্রিপশন সাময়িকভাবে বন্ধ আছে। সাবস্ক্রিপশন পুনরায় সক্রিয় করে আবার চেষ্টা করুন।',
+          ),
+        );
+      }
+      return;
+    }
+
+    // Not subscribed yet — drop into the OTP screen.
+    debugPrint('[LoginScreen] branch: SEND_OTP → navigate to OTP screen');
+    if (mounted) setState(() => _busy = false);
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => OtpVerifyScreen(phone: phone)));
+  }
+
+  Future<void> _developerLogin() async {
+    if (!_developerLoginEnabled || _busy) return;
+    if (_developerEmail.trim().isEmpty || _developerPassword.isEmpty) {
+      _showError(
+        'Developer Login is enabled, but DEV_TEST_EMAIL or '
+        'DEV_TEST_PASSWORD is missing.',
+      );
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _busyMessage = 'Signing in as developer…';
+    });
+
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _developerEmail.trim(),
+        password: _developerPassword,
+      );
+      final user = credential.user ?? FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(code: 'missing-user');
+      }
+      await user.getIdToken(true);
+
+      final hasProfile = await FirestoreService.hasProfile();
+      if (!mounted) return;
+      if (!hasProfile) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                ProfileSetupScreen(phone: user.email ?? _developerEmail.trim()),
+          ),
+          (_) => false,
+        );
         return;
       }
 
-      // Re-check still NOT SUBSCRIBED — carrier propagation inconsistency
-      debugPrint('[LoginScreen] re-check: NOT SUBSCRIBED → activation message');
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _acknowledgementMessage = GochanoLanguage.text(
-            'Your subscription is activating. Please try again shortly.',
-            'আপনার সাবস্ক্রিপশন সক্রিয় হচ্ছে। একটু পরে আবার চেষ্টা করুন।',
-          );
-        });
-      }
-      return;
-    }
-
-    // Valid referenceNo obtained — safe to push OTP screen
-    if (mounted) setState(() => _busy = false);
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OtpVerifyScreen(
-          phone: phone,
-          referenceNo: referenceNo!,
+      final profile = await FirestoreService.profile();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => GochanoShell(
+            role: profile['role']?.toString() ?? 'student',
+            displayName:
+                profile['displayName']?.toString() ??
+                user.displayName ??
+                user.email ??
+                '',
+          ),
         ),
-      ),
-    );
-  }
-
-  /// Perform the normal authenticated entry flow for a subscribed user.
-  /// Used by both the REGISTERED shortcut and the already-registered recovery.
-  Future<void> _performAuthenticatedEntry(
-    String phone,
-    TelecomSubscriptionResult subscription,
-  ) async {
-    await TelecomAuthService.clearRecentlyVerified();
-
-    final TelecomFirebaseExchange exchange;
-    try {
-      exchange =
-          await TelecomAuthService.exchangeSubscriptionForFirebaseSession(
-        phone: phone,
-        subscriptionStatus: subscription.rawStatus,
+        (_) => false,
       );
-    } on TelecomAuthException catch (e) {
-      _showError(e.message);
-      if (mounted) setState(() => _busy = false);
-      return;
-    } catch (_) {
-      _showError(GochanoLanguage.text(
-        'Could not link your number to Gochano. Please try again later.',
-        'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
-      ));
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-    if (!mounted) return;
-
-    try {
-      await TelecomAuthService.enterSession(
-        phone: phone,
-        exchange: exchange,
-      );
-    } on TelecomAuthException catch (e) {
-      _showError(e.message);
-      if (mounted) setState(() => _busy = false);
-      return;
-    } catch (_) {
-      _showError(GochanoLanguage.text(
-        'Could not sign you in. Please try again.',
-        'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।',
-      ));
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-    if (!mounted) return;
-
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      _showError(GochanoLanguage.text(
-        'Sign-in incomplete. Please try again.',
-        'সাইন-ইন সম্পন্ন হয়নি। আবার চেষ্টা করুন।',
-      ));
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-
-    try {
-      await currentUser.getIdToken(true);
-    } catch (_) {
-      // Best-effort token refresh
-    }
-
-    final profileState = await FirestoreService.checkProfileState();
-    if (!mounted) return;
-
-    if (profileState == ProfileCheckResult.error) {
-      _showError(GochanoLanguage.text(
-        'Could not load your profile. Please try again.',
-        'আপনার প্রোফাইল লোড করা যায়নি। আবার চেষ্টা করুন।',
-      ));
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-
-    if (mounted) {
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
       setState(() {
-        _acknowledgementMessage = GochanoLanguage.text(
-          'We see you\'re already subscribed — taking you in.',
-          'আপনার সাবস্ক্রিপশন ইতোমধ্যে চালু আছে — সরাসরি ভেতরে নিয়ে যাচ্ছি।',
-        );
-        _busyMessage = GochanoLanguage.text(
-          'Taking you in…',
-          'আপনাকে প্রবেশ করানো হচ্ছে…',
-        );
+        _busy = false;
+        _busyMessage = null;
       });
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          GochanoLanguage.text(
-            'Taking you in…',
-            'আপনাকে প্রবেশ করানো হচ্ছে…',
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(milliseconds: 1200),
-      ),
-    );
-    await Future.delayed(const Duration(milliseconds: 1200));
-
-    if (!mounted) return;
-
-    switch (profileState) {
-      case ProfileCheckResult.exists:
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => GochanoShell(
-              role: 'student',
-              displayName: phone,
-            ),
-          ),
-          (_) => false,
-        );
-      case ProfileCheckResult.missing:
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => ProfileSetupScreen(phone: phone),
-          ),
-          (_) => false,
-        );
-      case ProfileCheckResult.error:
-        break;
+      _showError(_developerAuthMessage(error.code));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _busyMessage = null;
+      });
+      _showError('Developer Login could not complete.');
     }
   }
 
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
-  }
-
-  // ---------------------------------------------------------------
-  // TEMPORARY DEVELOPMENT ACCESS — debug-only Firebase email/password
-  // login. Does NOT touch telecom endpoints. Only callable when
-  // kDebugMode && DEV_AUTH_BYPASS. Remove before final release, or
-  // leave permanently disabled because kDebugMode prevents
-  // activation in release builds.
-  // ---------------------------------------------------------------
-
-  Future<void> _devLogin() async {
-    if (_busy) return;
-    if (!isDevAuthEnabled) return;
-
-    setState(() {
-      _busy = true;
-      _busyMessage = 'Developer sign-in…';
-    });
-
-    final outcome = await devLogin();
-    if (!mounted) return;
-
-    if (!outcome.success) {
-      _showError(outcome.errorMessage ?? 'Developer sign-in failed');
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-
-    // Firebase sign-in succeeded — FirebaseAuth.currentUser is non-null.
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      _showError('Sign-in incomplete. Please try again.');
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-
-    // Persist only the existing local routing metadata. AuthGate still
-    // requires FirebaseAuth.currentUser, so SharedPreferences alone can
-    // never authenticate a developer session.
-    final devPhone = currentUser.email ?? currentUser.uid;
-    try {
-      await TelecomAuthService.persistSession(phone: devPhone);
-    } catch (_) {
-      _showError(GochanoLanguage.text(
-        'Could not save your session. Please try again.',
-        'সেশন সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
-      ));
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-
-    final profileState = await FirestoreService.checkProfileState();
-    if (!mounted) return;
-
-    if (profileState == ProfileCheckResult.error) {
-      _showError(GochanoLanguage.text(
-        'Could not load your profile. Please try again.',
-        'আপনার প্রোফাইল লোড করা যায়নি। আবার চেষ্টা করুন।',
-      ));
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-
-    if (mounted) {
-      setState(() {
-        _busyMessage = 'Taking you in…';
-      });
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Taking you in…'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(milliseconds: 1200),
-      ),
-    );
-    await Future.delayed(const Duration(milliseconds: 1200));
-
-    if (!mounted) return;
-
-    switch (profileState) {
-      case ProfileCheckResult.exists:
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => GochanoShell(
-              role: 'student',
-              displayName: devPhone,
-            ),
-          ),
-          (_) => false,
-        );
-      case ProfileCheckResult.missing:
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => ProfileSetupScreen(phone: devPhone),
-          ),
-          (_) => false,
-        );
-      case ProfileCheckResult.error:
-        break;
-    }
   }
 
   String? _validatePhone(String? value) {
@@ -684,7 +340,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight -
+                    minHeight:
+                        constraints.maxHeight -
                         GochanoSpacing.md -
                         GochanoSpacing.lg,
                   ),
@@ -695,7 +352,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Align(
                           alignment: Alignment.topRight,
                           child: Padding(
-                            padding: const EdgeInsets.only(top: GochanoSpacing.xs),
+                            padding: const EdgeInsets.only(
+                              top: GochanoSpacing.xs,
+                            ),
                             child: LanguageToggle(),
                           ),
                         ),
@@ -728,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // vertical centre: the Spacer pushes the form
                         // down so the eye lands on the logo first,
                         // then falls naturally into the phone field.
-                        _LoginHero(colors: colors, type: type),
+                        _LoginBrand(colors: colors, type: type),
                         const Spacer(),
                         AppCard(
                           child: Column(
@@ -788,9 +447,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           GochanoLanguage.text(
                             'Daily charge 2.78 BDT (incl. VAT, SD & SC). '
-                            'Robi (018) and Cirkle (016) only.',
+                                'Robi (018) and Cirkle (016) only.',
                             'প্রতিদিন ২.৭৮ টাকা (VAT, SD ও SC সহ)। '
-                            'শুধু Robi (০১৮) ও Cirkle (০১৬)।',
+                                'শুধু Robi (০১৮) ও Cirkle (০১৬)।',
                           ),
                           style: type.caption.copyWith(
                             color: colors.textSecondary,
@@ -801,33 +460,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         PrimaryButton(
                           label: _busy
                               ? (_busyMessage ??
-                                  GochanoLanguage.text(
-                                      'Please wait…', 'অপেক্ষা করুন…'))
-                              : GochanoLanguage.text(
-                                  'Continue', 'চালিয়ে যান'),
+                                    GochanoLanguage.text(
+                                      'Please wait…',
+                                      'অপেক্ষা করুন…',
+                                    ))
+                              : GochanoLanguage.text('Continue', 'চালিয়ে যান'),
                           onPressed: _busy ? null : _continue,
                           icon: Icons.arrow_forward_rounded,
                         ),
-                        // TEMPORARY DEVELOPMENT ACCESS — debug-only
-                        // Developer Login button. Only visible when
-                        // kDebugMode && DEV_AUTH_BYPASS. Never appears
-                        // in profile/release builds.
-                        if (isDevAuthEnabled) ...[
+                        if (_developerLoginEnabled) ...[
+                          const SizedBox(height: GochanoSpacing.md),
+                          const Divider(),
                           const SizedBox(height: GochanoSpacing.sm),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _busy ? null : _devLogin,
-                              icon: const Icon(Icons.code_rounded, size: 18),
-                              label: const Text('Developer Login'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: colors.warning,
-                                side: BorderSide(color: colors.warning),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
+                          SecondaryButton(
+                            label: 'Developer Login',
+                            onPressed: _busy ? null : _developerLogin,
+                            icon: Icons.developer_mode_outlined,
                           ),
                         ],
                       ],
@@ -843,12 +491,29 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+String _developerAuthMessage(String code) {
+  switch (code) {
+    case 'invalid-credential':
+    case 'wrong-password':
+    case 'user-not-found':
+      return 'Developer credentials were rejected.';
+    case 'too-many-requests':
+      return 'Too many developer sign-in attempts. Try again later.';
+    case 'user-disabled':
+      return 'The developer account is disabled.';
+    default:
+      return 'Developer Login could not complete.';
+  }
+}
+
+String authErrorMessage(Object error) => friendlyErrorMessage(error);
+
 /// Brand plate at the top of the sign-in form: rounded-square badge
 /// holding the product artwork, the product name, and a tagline. Kept
 /// as its own widget so this header can be reused by any "first-run"
 /// or "logged-out" experience that wants the same hero block.
-class _LoginHero extends StatelessWidget {
-  const _LoginHero({required this.colors, required this.type});
+class _LoginBrand extends StatelessWidget {
+  const _LoginBrand({required this.colors, required this.type});
 
   final GochanoColors colors;
   final GochanoTypography type;
@@ -871,15 +536,9 @@ class _LoginHero extends StatelessWidget {
             width: 72,
             height: 72,
             fit: BoxFit.contain,
-            semanticLabel: GochanoLanguage.text(
-              'Gochano logo',
-              'গোচানো লোগো',
-            ),
-            errorBuilder: (_, _, _) => Icon(
-              Icons.apps_rounded,
-              size: 48,
-              color: colors.brand,
-            ),
+            semanticLabel: 'Gochano logo',
+            errorBuilder: (_, _, _) =>
+                Icon(Icons.apps_rounded, size: 48, color: colors.brand),
           ),
         ),
         const SizedBox(height: GochanoSpacing.md),
@@ -891,8 +550,8 @@ class _LoginHero extends StatelessWidget {
         const SizedBox(height: GochanoSpacing.xs),
         Text(
           GochanoLanguage.text(
-            'Your student life, organized.',
-            'আপনার ছাত্রজীবন, সুশৃঙ্খল।',
+            'One place for everything',
+            'এক জায়গায় সব কিছু',
           ),
           style: type.bodySecondary.copyWith(color: colors.textSecondary),
           textAlign: TextAlign.center,

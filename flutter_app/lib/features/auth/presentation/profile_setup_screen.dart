@@ -1,18 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
-import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
+import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../shell/presentation/gochano_shell.dart';
-import 'login_screen.dart';
 
 /// One-time profile completion screen shown after telecom authentication
 /// when the current Firebase UID has no existing `users/{uid}` document
@@ -24,13 +24,6 @@ import 'login_screen.dart';
 ///
 /// The screen is idempotent — if a profile already exists, it should
 /// never be shown (the caller is responsible for that check).
-///
-/// CRITICAL: The phone field must NEVER be blank. If the [phone] parameter
-/// is empty, the screen attempts to recover the phone from:
-///   1. TelecomAuthService stored phone
-///   2. Current Firebase user's phone number claim
-/// If no phone can be recovered, the screen shows an error and returns
-/// to login instead of displaying an empty field.
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key, required this.phone});
 
@@ -46,89 +39,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _nameController = TextEditingController();
   bool _saving = false;
   String? _errorText;
-  String _resolvedPhone = '';
-
-  @override
-  void initState() {
-    super.initState();
-    // Synchronously resolve phone when available from the auth flow.
-    // This prevents the "Recovering..." flash when the phone was already
-    // passed in by the caller (login_screen or otp_verify_screen).
-    if (widget.phone.isNotEmpty) {
-      _resolvedPhone = widget.phone;
-    } else {
-      _resolvePhone();
-    }
-  }
-
-  /// Ensure the phone field is never blank. Uses a priority chain:
-  ///   1. Explicit phone passed from the auth flow (resolved synchronously)
-  ///   2. TelecomAuthService stored phone
-  ///   3. Firebase user's phone number claim
-  ///   4. Firebase UID if it matches telecom:<11-digit-phone> pattern
-  /// If all fail, shows an error and returns to login.
-  Future<void> _resolvePhone() async {
-    // Priority 1: Explicit phone from auth flow (already set synchronously
-    // in initState when available — this path only runs when widget.phone
-    // was empty).
-    if (widget.phone.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _resolvedPhone = widget.phone;
-        });
-      }
-      return;
-    }
-
-    // Priority 2: TelecomAuthService stored phone
-    final storedPhone = await TelecomAuthService.readUserPhone();
-    if (storedPhone != null && storedPhone.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _resolvedPhone = storedPhone;
-        });
-      }
-      return;
-    }
-
-    // Priority 3: Firebase user's phone number claim
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    final firebasePhone = firebaseUser?.phoneNumber ?? '';
-    if (firebasePhone.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _resolvedPhone = TelecomAuthService.normalize(firebasePhone);
-        });
-      }
-      return;
-    }
-
-    // Priority 4: Firebase UID fallback — only when UID matches
-    // telecom:<11-digit-phone>. FirebaseAuth.currentUser has already
-    // authenticated the identity, so this is safe.
-    final uid = firebaseUser?.uid ?? '';
-    if (uid.startsWith('telecom:')) {
-      final extractedPhone = uid.substring('telecom:'.length);
-      if (TelecomAuthService.isSupportedPhone(extractedPhone)) {
-        if (mounted) {
-          setState(() {
-            _resolvedPhone = extractedPhone;
-          });
-        }
-        return;
-      }
-    }
-
-    // All recovery attempts failed — show error and return to login
-    if (mounted) {
-      setState(() {
-        _errorText = GochanoLanguage.text(
-          'Unable to recover your phone number. Please sign in again.',
-          'আপনার ফোন নম্বর পুনরুদ্ধার করা যায়নি। আবার সাইন ইন করুন।',
-        );
-      });
-    }
-  }
 
   @override
   void dispose() {
@@ -139,21 +49,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Ensure phone is resolved before saving
-    if (_resolvedPhone.isEmpty) {
-      setState(() => _errorText = GochanoLanguage.text(
-            'Session expired. Please sign in again.',
-            'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
-          ));
-      return;
-    }
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() => _errorText = GochanoLanguage.text(
-            'Session expired. Please sign in again.',
-            'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
-          ));
+      setState(
+        () => _errorText = GochanoLanguage.text(
+          'Session expired. Please sign in again.',
+          'সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।',
+        ),
+      );
       return;
     }
 
@@ -163,21 +66,37 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     });
 
     try {
+      // In DEBUG only, check and log token claims safely
+      if (kDebugMode) {
+        try {
+          final idTokenResult = await user.getIdTokenResult(true);
+          final claims = idTokenResult.claims ?? {};
+          final emailVerified =
+              claims['email_verified'] == true || user.emailVerified;
+          final telecomVerified = claims['telecom_verified'] == true;
+          debugPrint(
+            '[ProfileSetup] token claims: '
+            'uid=${user.uid} '
+            'email_verified=$emailVerified '
+            'telecom_verified=$telecomVerified',
+          );
+        } catch (claimErr) {
+          debugPrint('[ProfileSetup] claim check failed: $claimErr');
+        }
+      }
+
       final name = _nameController.text.trim();
 
       // Idempotent write using merge: never overwrites existing non-empty
       // fields. Matches the canonical users/{uid} schema used by
       // AuthService.register() and FirestoreService.updateProfile().
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        {
-          'displayName': name,
-          'phone': _resolvedPhone,
-          'role': 'student',
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'displayName': name,
+        'phone': widget.phone,
+        'role': 'student',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       // Refresh profile state so the rest of the app picks up the new doc.
       await FirestoreService.profile();
@@ -186,19 +105,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => GochanoShell(
-            role: 'student',
-            displayName: name,
-          ),
+          builder: (_) => GochanoShell(role: 'student', displayName: name),
         ),
         (_) => false,
       );
     } catch (e) {
+      if (kDebugMode) {
+        if (e is FirebaseException) {
+          debugPrint(
+            '[ProfileSetup] save failed: '
+            'plugin=${e.plugin} '
+            'code=${e.code} '
+            'message=${e.message} '
+            'target=users/${user.uid}',
+          );
+        } else {
+          debugPrint('[ProfileSetup] save failed: $e');
+        }
+      }
       if (!mounted) return;
       setState(() {
-        _errorText = GochanoLanguage.text(
-          'Could not save your profile. Please try again.',
-          'আপনার প্রোফাইল সেভ করা যায়নি। আবার চেষ্টা করুন।',
+        _errorText = friendlyErrorMessage(
+          e,
+          fallback: GochanoLanguage.text(
+            'Could not save your profile. Please try again.',
+            'আপনার প্রোফাইল সেভ করা যায়নি। আবার চেষ্টা করুন।',
+          ),
         );
         _saving = false;
       });
@@ -225,7 +157,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight -
+                    minHeight:
+                        constraints.maxHeight -
                         GochanoSpacing.md -
                         GochanoSpacing.lg,
                   ),
@@ -236,7 +169,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         Align(
                           alignment: Alignment.topRight,
                           child: Padding(
-                            padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+                            padding: const EdgeInsets.only(
+                              bottom: GochanoSpacing.xs,
+                            ),
                             child: LanguageToggle(),
                           ),
                         ),
@@ -268,10 +203,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
-                                GochanoLanguage.text(
-                                  'Full name',
-                                  'পুরো নাম',
-                                ),
+                                GochanoLanguage.text('Full name', 'পূর্ণ নাম'),
                                 style: type.cardHeading.copyWith(
                                   color: colors.textPrimary,
                                 ),
@@ -308,69 +240,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             children: [
                               Text(
                                 GochanoLanguage.text(
-                                  'Phone number',
-                                  'ফোন নম্বর',
+                                  'Account type',
+                                  'অ্যাকাউন্টের ধরন',
                                 ),
                                 style: type.cardHeading.copyWith(
                                   color: colors.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: GochanoSpacing.sm),
-                              TextFormField(
-                                initialValue: _resolvedPhone.isNotEmpty
-                                    ? _resolvedPhone
-                                    : GochanoLanguage.text(
-                                        'Recovering…',
-                                        'পুনরুদ্ধার হচ্ছে…',
-                                      ),
-                                readOnly: true,
-                                style: const TextStyle(
-                                  fontFamily: '.SF Pro Text',
-                                  fontFamilyFallback: ['Roboto', 'sans-serif'],
-                                  letterSpacing: 1.2,
-                                  fontSize: 16,
-                                ),
-                                decoration: InputDecoration(
-                                  prefixIcon: Icon(
-                                    Icons.phone_outlined,
-                                    color: _resolvedPhone.isNotEmpty
-                                        ? colors.textSecondary
-                                        : colors.error,
-                                    size: GochanoSizes.iconSm,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: GochanoSpacing.md),
-                        AppCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                GochanoLanguage.text(
-                                  'Role',
-                                  'ভূমিকা',
-                                ),
-                                style: type.cardHeading.copyWith(
-                                  color: colors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: GochanoSpacing.sm),
-                              TextFormField(
-                                initialValue: GochanoLanguage.text(
-                                  'Student',
-                                  'ছাত্র',
-                                ),
-                                readOnly: true,
-                                decoration: InputDecoration(
-                                  prefixIcon: Icon(
+                              Row(
+                                children: [
+                                  Icon(
                                     Icons.school_outlined,
                                     color: colors.textSecondary,
                                     size: GochanoSizes.iconSm,
                                   ),
-                                ),
+                                  const SizedBox(width: GochanoSpacing.sm),
+                                  Text(
+                                    GochanoLanguage.text(
+                                      'Student',
+                                      'শিক্ষার্থী',
+                                    ),
+                                    style: type.body.copyWith(
+                                      color: colors.textPrimary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -382,10 +277,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  color: colors.error,
-                                ),
+                                Icon(Icons.error_outline, color: colors.error),
                                 const SizedBox(width: GochanoSpacing.sm),
                                 Expanded(
                                   child: Text(
@@ -399,23 +291,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             ),
                           ),
                           const SizedBox(height: GochanoSpacing.md),
-                          // Show "Return to login" when phone recovery fails
-                          if (_resolvedPhone.isEmpty)
-                            SecondaryButton(
-                              label: GochanoLanguage.text(
-                                'Return to login',
-                                'লগইনে ফিরুন',
-                              ),
-                              icon: Icons.arrow_back_rounded,
-                              onPressed: () {
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                    builder: (_) => LoginScreen(),
-                                  ),
-                                  (_) => false,
-                                );
-                              },
-                            ),
                         ],
                         PrimaryButton(
                           label: GochanoLanguage.text(

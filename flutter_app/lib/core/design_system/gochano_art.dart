@@ -122,17 +122,17 @@ abstract final class GochanoArt {
     // Order matters: more specific groups are tested before broader ones so
     // "machine learning lab" resolves to AI rather than to Programming.
     if (has(const [
-      'artificial intelligence',
-      'machine learning',
-      'deep learning',
-      'neural',
-      'data science',
-      ' ai ',
-      'ai ',
-      ' ai',
-      'nlp',
-      'computer vision',
-    ]) ||
+          'artificial intelligence',
+          'machine learning',
+          'deep learning',
+          'neural',
+          'data science',
+          ' ai ',
+          'ai ',
+          ' ai',
+          'nlp',
+          'computer vision',
+        ]) ||
         name == 'ai') {
       return subjectAi;
     }
@@ -248,8 +248,15 @@ abstract final class GochanoArt {
 
     if (mime.contains('pdf') || ext == 'pdf') return filePdf;
     if (mime.startsWith('image/') ||
-        const {'png', 'jpg', 'jpeg', 'webp', 'gif', 'heic', 'bmp'}
-            .contains(ext)) {
+        const {
+          'png',
+          'jpg',
+          'jpeg',
+          'webp',
+          'gif',
+          'heic',
+          'bmp',
+        }.contains(ext)) {
       return fileImage;
     }
     if (const {'ppt', 'pptx', 'odp'}.contains(ext) ||
@@ -313,7 +320,8 @@ abstract final class GochanoArt {
     final value = (color as dynamic);
     int argb;
     try {
-      argb = ((value.a * 255).round() << 24) |
+      argb =
+          ((value.a * 255).round() << 24) |
           ((value.r * 255).round() << 16) |
           ((value.g * 255).round() << 8) |
           (value.b * 255).round();
