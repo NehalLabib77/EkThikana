@@ -58,6 +58,7 @@ class AiAssistantScreen extends StatefulWidget {
     this.contextMimeType,
     this.contextFileName,
     this.contextPage,
+    this.prefilledQuestion,
   });
 
   /// When set, answers are grounded in this material.
@@ -70,6 +71,9 @@ class AiAssistantScreen extends StatefulWidget {
 
   /// Current page, so "explain this page" can scope the question.
   final int? contextPage;
+
+  /// Optional pre-filled question to populate the text field on open.
+  final String? prefilledQuestion;
 
   @override
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
@@ -106,6 +110,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _materialTitle = widget.contextMaterialTitle;
     _mimeType = widget.contextMimeType;
     _fileName = widget.contextFileName;
+    if (widget.prefilledQuestion != null &&
+        widget.prefilledQuestion!.isNotEmpty) {
+      _question.text = widget.prefilledQuestion!;
+    }
   }
 
   @override

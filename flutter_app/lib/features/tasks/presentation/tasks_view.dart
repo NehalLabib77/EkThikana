@@ -310,7 +310,6 @@ class _TaskRow extends StatelessWidget {
                     GochanoRoute.to(
                       builder: (_) => AiAssistantScreen(
                         prefilledQuestion: 'Help me understand how to approach: ${doc['title'] ?? ''}',
-                        enableContext: true,
                       ),
                     ),
                   );

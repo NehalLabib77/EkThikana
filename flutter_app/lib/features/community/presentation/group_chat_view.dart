@@ -80,7 +80,7 @@ const List<CommunitySticker> kCommunityStickers = [
     id: 'celebrate',
     titleEn: 'Well Done!',
     titleBn: 'দারুণ কাজ!',
-    artId: GochanoArt.featureFocus,
+    artId: GochanoArt.featureTasks,
   ),
 ];
 
