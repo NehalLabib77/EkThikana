@@ -28,6 +28,7 @@ import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../core/settings/gochano_appearance.dart';
+import '../../../core/settings/gochano_app_mode.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
@@ -38,6 +39,7 @@ import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../auth/presentation/auth_gate.dart';
 import '../../home/presentation/home_screen.dart' show formatTaka;
+import 'app_mode_selector_sheet.dart';
 import '../../life/presentation/expense/monthly_budget_sheet.dart';
 import '../../../services/sync_coordinator.dart';
 import '../../../widgets/sync_status_sheet.dart';
@@ -829,144 +831,166 @@ class _SettingsCardState extends State<_SettingsCard>
         return ValueListenableBuilder<ThemeMode>(
           valueListenable: GochanoAppearance.mode,
           builder: (context, mode, _) {
-            return CardGroup(
-              children: [
-                if (widget.isStudent) ...[
-                  _SettingsRow(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
-                    // The amount itself, not a description of it. A row that
-                    // only said "how much you have to spend this month" gave
-                    // a student no way to tell whether what they set had
-                    // actually been saved.
-                    value: _budgetLabel,
-                    onTap: () async {
-                      final changed = await showMonthlyBudgetSheet(context);
-                      if (changed) await _loadBudget();
-                    },
-                  ),
-                  _SettingsRow(
-                    icon: Icons.auto_awesome_rounded,
-                    title: GochanoLanguage.text('AI usage', 'এআই ব্যবহার'),
-                    value: _aiUsageLabel,
-                    onTap: () async {
-                      if (_aiUsageFailed || !_aiUsageLoaded) {
-                        await _loadAiUsage();
-                      }
-                      if (!context.mounted) return;
-                      await _showAiUsageSheet(context, _aiUsage ?? {});
-                      if (mounted) _loadAiUsage();
-                    },
-                  ),
-                ],
-                _SettingsRow(
-                  icon: Icons.language_rounded,
-                  title: GochanoLanguage.text('Language', 'ভাষা'),
-                  // Both names in their own script: a student who cannot read
-                  // one can still tell which is selected.
-                  value: locale.nativeName,
-                  onTap: () => _pickLanguage(context),
-                ),
-                _SettingsRow(
-                  icon: Icons.palette_outlined,
-                  title: GochanoLanguage.text('Appearance', 'চেহারা'),
-                  value: _appearanceLabel(mode),
-                  onTap: () => _pickAppearance(context),
-                ),
-                _SettingsRow(
-                  icon: enabled == false
-                      ? Icons.notifications_off_outlined
-                      : Icons.notifications_active_outlined,
-                  iconColor: enabled == false ? colors.warning : null,
-                  title: GochanoLanguage.text('Reminders', 'রিমাইন্ডার'),
-                  value: switch (enabled) {
-                    // Says plainly that reminders will not fire, rather than
-                    // leaving a student to discover it when a dose is missed.
-                    false => GochanoLanguage.text(
-                      'Turned off in system settings. Medicine and task '
-                          'reminders will not appear.',
-                      'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
-                    ),
-                    true => GochanoLanguage.text(
-                      'Medicine and task reminders are on. Tap to change '
-                          'this in system settings.',
-                      'ওষুধ ও কাজের রিমাইন্ডার চালু আছে। বদলাতে সিস্টেম '
-                          'সেটিংসে যেতে চাপ দিন।',
-                    ),
-                    null => GochanoLanguage.text('Checking…', 'দেখা হচ্ছে…'),
-                  },
-                  // Always tappable. Whether reminders are on is an Android
-                  // permission, not an app setting, so the row opens the
-                  // system screen that actually controls it -- and the state
-                  // is re-checked on return so the row is never stale. A row
-                  // that only responded when already broken gave a student no
-                  // way to turn reminders back off.
-                  onTap: () async {
-                    await NotificationService.openNotificationSettings();
-                    await _checkNotifications();
-                  },
-                  trailing: enabled == false
-                      ? TextButton(
-                          onPressed: () async {
-                            await NotificationService.openNotificationSettings();
-                            await _checkNotifications();
-                          },
-                          child: Text(
-                            GochanoLanguage.text('Turn on', 'চালু করুন'),
-                          ),
-                        )
-                      : null,
-                ),
-                _SettingsRow(
-                  icon: Icons.alarm_rounded,
-                  iconColor: _exactAlarmsAllowed == false
-                      ? colors.warning
-                      : null,
-                  title: GochanoLanguage.text(
-                    'Alarms & reminders',
-                    'অ্যালার্ম ও রিমাইন্ডার',
-                  ),
-                  value: GochanoLanguage.text(
-                    'Allow exact reminders when the app is closed',
-                    'অ্যাপ বন্ধ থাকলেও সঠিক সময়ে রিমাইন্ডার পেতে অনুমতি দিন',
-                  ),
-                  onTap: () async {
-                    await NotificationService.openExactAlarmSettings();
-                    await _checkExactAlarm();
-                  },
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_exactAlarmsAllowed != null)
-                        Text(
-                          _exactAlarmsAllowed == true
-                              ? GochanoLanguage.text('Enabled', 'চালু')
-                              : GochanoLanguage.text('Disabled', 'বন্ধ'),
-                          style: context.type.caption.copyWith(
-                            color: _exactAlarmsAllowed == true
-                                ? colors.success
-                                : colors.warning,
-                            fontWeight: FontWeight.w600,
-                          ),
+            return ValueListenableBuilder<GochanoAppMode>(
+              valueListenable: GochanoAppModePreferences.current,
+              builder: (context, appMode, _) {
+                return CardGroup(
+                  children: [
+                    if (widget.isStudent) ...[
+                      _SettingsRow(
+                        icon: Icons.account_balance_wallet_outlined,
+                        title: GochanoLanguage.text(
+                          'Monthly money',
+                          'মাসিক টাকা',
                         ),
-                      const SizedBox(width: GochanoSpacing.xs),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: colors.textTertiary,
+                        // The amount itself, not a description of it. A row that
+                        // only said "how much you have to spend this month" gave
+                        // a student no way to tell whether what they set had
+                        // actually been saved.
+                        value: _budgetLabel,
+                        onTap: () async {
+                          final changed = await showMonthlyBudgetSheet(context);
+                          if (changed) await _loadBudget();
+                        },
+                      ),
+                      _SettingsRow(
+                        icon: Icons.auto_awesome_rounded,
+                        title: GochanoLanguage.text('AI usage', 'এআই ব্যবহার'),
+                        value: _aiUsageLabel,
+                        onTap: () async {
+                          if (_aiUsageFailed || !_aiUsageLoaded) {
+                            await _loadAiUsage();
+                          }
+                          if (!context.mounted) return;
+                          await _showAiUsageSheet(context, _aiUsage ?? {});
+                          if (mounted) _loadAiUsage();
+                        },
                       ),
                     ],
-                  ),
-                ),
-                _SettingsRow(
-                  icon: Icons.restart_alt_rounded,
-                  title: GochanoLanguage.text('Auto-start', 'অটো-স্টার্ট'),
-                  value: GochanoLanguage.text(
-                    'Allow Gochano to start for reminders after swipe-away or reboot',
-                    'সোয়াইপ-অ্যাওয়ে বা রিবুটের পর রিমাইন্ডারের জন্য Gochano চালু হতে দিন',
-                  ),
-                  onTap: () => NotificationService.openAutoStartSettings(),
-                ),
-              ],
+                    _SettingsRow(
+                      icon: Icons.language_rounded,
+                      title: GochanoLanguage.text('Language', 'ভাষা'),
+                      // Both names in their own script: a student who cannot read
+                      // one can still tell which is selected.
+                      value: locale.nativeName,
+                      onTap: () => _pickLanguage(context),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.palette_outlined,
+                      title: GochanoLanguage.text('Appearance', 'চেহারা'),
+                      value: _appearanceLabel(mode),
+                      onTap: () => _pickAppearance(context),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.dashboard_customize_outlined,
+                      title: GochanoLanguage.text('App mode', 'অ্যাপ মোড'),
+                      value: appMode == GochanoAppMode.study
+                          ? GochanoLanguage.text('Study Mode', 'স্টাডি মোড')
+                          : GochanoLanguage.text(
+                              'Utility Mode',
+                              'ইউটিলিটি মোড',
+                            ),
+                      onTap: () => showAppModeSelectorSheet(context),
+                    ),
+                    _SettingsRow(
+                      icon: enabled == false
+                          ? Icons.notifications_off_outlined
+                          : Icons.notifications_active_outlined,
+                      iconColor: enabled == false ? colors.warning : null,
+                      title: GochanoLanguage.text('Reminders', 'রিমাইন্ডার'),
+                      value: switch (enabled) {
+                        // Says plainly that reminders will not fire, rather than
+                        // leaving a student to discover it when a dose is missed.
+                        false => GochanoLanguage.text(
+                          'Turned off in system settings. Medicine and task '
+                              'reminders will not appear.',
+                          'সিস্টেম সেটিংসে বন্ধ। ওষুধ ও কাজের রিমাইন্ডার দেখা যাবে না।',
+                        ),
+                        true => GochanoLanguage.text(
+                          'Medicine and task reminders are on. Tap to change '
+                              'this in system settings.',
+                          'ওষুধ ও কাজের রিমাইন্ডার চালু আছে। বদলাতে সিস্টেম '
+                              'সেটিংসে যেতে চাপ দিন।',
+                        ),
+                        null => GochanoLanguage.text(
+                          'Checking…',
+                          'দেখা হচ্ছে…',
+                        ),
+                      },
+                      // Always tappable. Whether reminders are on is an Android
+                      // permission, not an app setting, so the row opens the
+                      // system screen that actually controls it -- and the state
+                      // is re-checked on return so the row is never stale. A row
+                      // that only responded when already broken gave a student no
+                      // way to turn reminders back off.
+                      onTap: () async {
+                        await NotificationService.openNotificationSettings();
+                        await _checkNotifications();
+                      },
+                      trailing: enabled == false
+                          ? TextButton(
+                              onPressed: () async {
+                                await NotificationService.openNotificationSettings();
+                                await _checkNotifications();
+                              },
+                              child: Text(
+                                GochanoLanguage.text('Turn on', 'চালু করুন'),
+                              ),
+                            )
+                          : null,
+                    ),
+                    _SettingsRow(
+                      icon: Icons.alarm_rounded,
+                      iconColor: _exactAlarmsAllowed == false
+                          ? colors.warning
+                          : null,
+                      title: GochanoLanguage.text(
+                        'Alarms & reminders',
+                        'অ্যালার্ম ও রিমাইন্ডার',
+                      ),
+                      value: GochanoLanguage.text(
+                        'Allow exact reminders when the app is closed',
+                        'অ্যাপ বন্ধ থাকলেও সঠিক সময়ে রিমাইন্ডার পেতে অনুমতি দিন',
+                      ),
+                      onTap: () async {
+                        await NotificationService.openExactAlarmSettings();
+                        await _checkExactAlarm();
+                      },
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_exactAlarmsAllowed != null)
+                            Text(
+                              _exactAlarmsAllowed == true
+                                  ? GochanoLanguage.text('Enabled', 'চালু')
+                                  : GochanoLanguage.text('Disabled', 'বন্ধ'),
+                              style: context.type.caption.copyWith(
+                                color: _exactAlarmsAllowed == true
+                                    ? colors.success
+                                    : colors.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          const SizedBox(width: GochanoSpacing.xs),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: colors.textTertiary,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.restart_alt_rounded,
+                      title: GochanoLanguage.text('Auto-start', 'অটো-স্টার্ট'),
+                      value: GochanoLanguage.text(
+                        'Allow Gochano to start for reminders after swipe-away or reboot',
+                        'সোয়াইপ-অ্যাওয়ে বা রিবুটের পর রিমাইন্ডারের জন্য Gochano চালু হতে দিন',
+                      ),
+                      onTap: () => NotificationService.openAutoStartSettings(),
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
