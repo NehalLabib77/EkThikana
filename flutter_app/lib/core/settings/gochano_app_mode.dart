@@ -1,4 +1,4 @@
-// Gochano App Mode preference — Study Mode / Utility Mode (Phase A).
+// Gochano App Mode preference — Study Mode / Utility Mode (Phase A & C).
 //
 // App Mode is a client presentation preference controlling what a student or
 // user sees in the bottom navigation and the Today feed.
@@ -71,6 +71,26 @@ class GochanoAppModePreferences {
       await prefs.setString(prefsKey, mode.storageKey);
     } catch (_) {
       // Best-effort persistence; in-memory switch already applied.
+    }
+  }
+
+  /// Checks if the user has already acknowledged the app mode discovery notice.
+  static Future<bool> isDiscovered() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(discoveryKey) ?? false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Marks the app mode discovery notice as acknowledged.
+  static Future<void> markDiscovered() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(discoveryKey, true);
+    } catch (_) {
+      // Best effort persistence
     }
   }
 }
