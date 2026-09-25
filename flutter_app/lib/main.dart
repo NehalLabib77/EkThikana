@@ -8,6 +8,7 @@ import 'core/design_system/gochano_spacing.dart';
 import 'core/localization/gochano_language.dart';
 import 'core/navigation.dart';
 import 'core/settings/gochano_appearance.dart';
+import 'core/settings/gochano_app_mode.dart';
 import 'firebase_options.dart';
 import 'services/connectivity_service.dart';
 import 'services/notification_service.dart';
@@ -38,11 +39,15 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // Restore the saved language and appearance *before* the first frame, so
-    // the app does not paint in English/system and then visibly flip to the
-    // student's choice. Both restores swallow their own failures and fall
-    // back to the default, so neither can block startup.
-    await Future.wait([GochanoLanguage.restore(), GochanoAppearance.restore()]);
+    // Restore the saved language, appearance, and app mode *before* the first frame, so
+    // the app does not paint in English/system/study and then visibly flip to the
+    // student's choice. All restores swallow their own failures and fall
+    // back to the default, so none can block startup.
+    await Future.wait([
+      GochanoLanguage.restore(),
+      GochanoAppearance.restore(),
+      GochanoAppModePreferences.restore(),
+    ]);
 
     runApp(const GochanoApp());
     // Defer non-critical platform setup so the first frame paints sooner.
