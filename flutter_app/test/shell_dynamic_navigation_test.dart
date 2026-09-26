@@ -227,5 +227,142 @@ void main() {
       final isDiscovered = await GochanoAppModePreferences.isDiscovered();
       expect(isDiscovered, isTrue);
     });
+
+    testWidgets(
+        'Study Mode navigation callbacks: Recent Materials (1) -> Workspace, Tasks See All (2) -> Plan',
+        (tester) async {
+      await GochanoAppModePreferences.select(GochanoAppMode.study);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GochanoTheme.light(),
+          home: GochanoShell(
+            role: 'student',
+            displayName: 'Test Student',
+            pagesWithNavigationBuilder: (context, mode, onOpenDestination) {
+              return [
+                Column(
+                  children: [
+                    const Text('Page: Today'),
+                    ElevatedButton(
+                      key: const ValueKey('study_workspace_btn'),
+                      onPressed: () => onOpenDestination(1),
+                      child: const Text('Open Workspace'),
+                    ),
+                    ElevatedButton(
+                      key: const ValueKey('study_plan_btn'),
+                      onPressed: () => onOpenDestination(2),
+                      child: const Text('Open Plan'),
+                    ),
+                  ],
+                ),
+                const Text('Page: Workspace'),
+                const Text('Page: Plan'),
+                const Text('Page: Community'),
+                const Text('Page: Profile'),
+              ];
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially on Today (index 0)
+      expect(find.text('Page: Today'), findsOneWidget);
+
+      // Tap Open Workspace (destination 1)
+      await tester.tap(find.byKey(const ValueKey('study_workspace_btn')));
+      await tester.pumpAndSettle();
+
+      var navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navBar.selectedIndex, 1);
+      expect(find.text('Page: Workspace'), findsOneWidget);
+
+      // Return to Today
+      await tester.tap(find.text('Today'));
+      await tester.pumpAndSettle();
+      expect(find.text('Page: Today'), findsOneWidget);
+
+      // Tap Open Plan (destination 2)
+      await tester.tap(find.byKey(const ValueKey('study_plan_btn')));
+      await tester.pumpAndSettle();
+
+      navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navBar.selectedIndex, 2);
+      expect(find.text('Page: Plan'), findsOneWidget);
+
+      // Explicit assertion: Commute destination is not open
+      expect(find.text('Commute'), findsNothing);
+    });
+
+    testWidgets(
+        'Utility Mode navigation callbacks: Commute (2) -> Commute, Money (3) -> Money',
+        (tester) async {
+      await GochanoAppModePreferences.select(GochanoAppMode.utility);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GochanoTheme.light(),
+          home: GochanoShell(
+            role: 'student',
+            displayName: 'Test Utility User',
+            pagesWithNavigationBuilder: (context, mode, onOpenDestination) {
+              return [
+                Column(
+                  children: [
+                    const Text('Page: Today'),
+                    ElevatedButton(
+                      key: const ValueKey('utility_commute_btn'),
+                      onPressed: () => onOpenDestination(2),
+                      child: const Text('Open Commute'),
+                    ),
+                    ElevatedButton(
+                      key: const ValueKey('utility_money_btn'),
+                      onPressed: () => onOpenDestination(3),
+                      child: const Text('Open Money'),
+                    ),
+                  ],
+                ),
+                const Text('Page: Commute'),
+                const Text('Page: Money'),
+                const Text('Page: Profile'),
+              ];
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially on Today (index 0)
+      expect(find.text('Page: Today'), findsOneWidget);
+
+      // Tap Commute card action (requestedIndex 2 -> Commute tab at index 1)
+      await tester.tap(find.byKey(const ValueKey('utility_commute_btn')));
+      await tester.pumpAndSettle();
+
+      var navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navBar.selectedIndex, 1);
+      expect(find.text('Page: Commute'), findsOneWidget);
+
+      // Explicit assertion: Commute does NOT open Plan
+      expect(find.text('Plan'), findsNothing);
+
+      // Return to Today
+      await tester.tap(find.text('Today'));
+      await tester.pumpAndSettle();
+      expect(find.text('Page: Today'), findsOneWidget);
+
+      // Tap Money card action (requestedIndex 3 -> Money tab at index 2)
+      await tester.tap(find.byKey(const ValueKey('utility_money_btn')));
+      await tester.pumpAndSettle();
+
+      navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navBar.selectedIndex, 2);
+      expect(find.text('Page: Money'), findsOneWidget);
+
+      // Explicit assertion: Money does NOT open Community or Profile
+      expect(find.text('Community'), findsNothing);
+      expect(navBar.selectedIndex, isNot(equals(3))); // 3 is Profile in Utility
+    });
   });
 }

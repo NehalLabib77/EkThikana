@@ -18,6 +18,7 @@ import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
+import '../../../core/settings/gochano_app_mode.dart';
 import '../../../models/financial_transaction.dart';
 import '../../../services/api_service.dart';
 import '../../../services/financial_service.dart';
@@ -132,27 +133,69 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(width: GochanoSpacing.xs),
         ],
       ),
-      body: ListView(
-        padding: GochanoSpacing.scrollBody,
-        children: [
-          const SyncStatusIndicator(),
-          const SizedBox(height: GochanoSpacing.sm),
-          _TodaysTasksCard(
-            onSeeAll: () => onOpenDestination(_isStudent ? 1 : 2),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          _MedicineScheduleCard(),
-          const SizedBox(height: GochanoSpacing.sm),
-          _CommuteCard(
-            onOpenCommute: () => onOpenDestination(_isStudent ? 2 : 1),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          _MoneyCard(
-            onOpenExpense: () => onOpenDestination(_isStudent ? 3 : 1),
-          ),
-        ],
+      // Home order: _TodaysTasksCard -> _MedicineScheduleCard -> _CommuteCard -> _MoneyCard
+      body: ValueListenableBuilder<GochanoAppMode>(
+        valueListenable: GochanoAppModePreferences.current,
+        builder: (context, mode, _) {
+          return ListView(
+            padding: GochanoSpacing.scrollBody,
+            children: buildModeCards(context, mode),
+          );
+        },
       ),
     );
+  }
+
+  @visibleForTesting
+  List<Widget> buildModeCards(BuildContext context, GochanoAppMode mode) {
+    if (!_isStudent) {
+      return [
+        const SyncStatusIndicator(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _TodaysTasksCard(
+          onSeeAll: () => onOpenDestination(2),
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        const _MedicineScheduleCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _CommuteCard(
+          onOpenCommute: () => onOpenDestination(1),
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        _MoneyCard(
+          onOpenExpense: () => onOpenDestination(1),
+        ),
+      ];
+    }
+
+    if (mode == GochanoAppMode.study) {
+      return [
+        const SyncStatusIndicator(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _TodaysTasksCard(
+          onSeeAll: () => onOpenDestination(2), // Plan tab
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        const _StudyProgressCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _RecentMaterialsCard(
+          onOpenStudy: () => onOpenDestination(1), // Workspace tab
+        ),
+      ];
+    }
+
+    // Utility Mode: Commute -> Money / Expense
+    return [
+      const SyncStatusIndicator(),
+      const SizedBox(height: GochanoSpacing.sm),
+      _CommuteCard(
+        onOpenCommute: () => onOpenDestination(2), // Commute tab (via handler)
+      ),
+      const SizedBox(height: GochanoSpacing.sm),
+      _MoneyCard(
+        onOpenExpense: () => onOpenDestination(3), // Money tab (via handler)
+      ),
+    ];
   }
 }
 
@@ -1569,7 +1612,6 @@ class _CommuteCard extends StatelessWidget {
 // Money: Remaining + Spent
 // ---------------------------------------------------------------------------
 
-// ignore: unused_element
 class _MoneyCard extends StatefulWidget {
   const _MoneyCard({required this.onOpenExpense});
 
@@ -1786,7 +1828,6 @@ class _MoneyCardState extends State<_MoneyCard> {
 // Recent materials
 // ---------------------------------------------------------------------------
 
-// ignore: unused_element
 class _RecentMaterialsCard extends StatelessWidget {
   const _RecentMaterialsCard({required this.onOpenStudy});
 

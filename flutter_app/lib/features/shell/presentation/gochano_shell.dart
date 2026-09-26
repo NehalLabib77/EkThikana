@@ -37,6 +37,7 @@ class GochanoShell extends StatefulWidget {
     required this.role,
     required this.displayName,
     this.pagesBuilder,
+    this.pagesWithNavigationBuilder,
   });
 
   final String role;
@@ -45,6 +46,13 @@ class GochanoShell extends StatefulWidget {
   /// Optional factory callback for injecting test stub pages in widget tests.
   final List<Widget> Function(BuildContext context, GochanoAppMode mode)?
       pagesBuilder;
+
+  /// Optional factory callback for injecting test stub pages with navigation callback.
+  final List<Widget> Function(
+    BuildContext context,
+    GochanoAppMode mode,
+    ValueChanged<int> onOpenDestination,
+  )? pagesWithNavigationBuilder;
 
   @override
   State<GochanoShell> createState() => _GochanoShellState();
@@ -124,17 +132,10 @@ class _GochanoShellState extends State<GochanoShell> {
 
     final mode = GochanoAppModePreferences.current.value;
     if (mode == GochanoAppMode.study) {
-      // Legacy mapping: 1 -> Study (Workspace), 2 -> Commute, 3 -> Money
       if (requestedIndex == 1) {
-        _select(1); // Workspace
+        _select(1); // Workspace tab
       } else if (requestedIndex == 2) {
-        Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const CommuteScreen()),
-        );
-      } else if (requestedIndex == 3) {
-        Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const ExpenseScreen()),
-        );
+        _select(2); // Plan tab
       } else {
         _select(requestedIndex);
       }
@@ -156,6 +157,13 @@ class _GochanoShellState extends State<GochanoShell> {
   }
 
   List<Widget> _buildPages(GochanoAppMode mode) {
+    if (widget.pagesWithNavigationBuilder != null) {
+      return widget.pagesWithNavigationBuilder!(
+        context,
+        mode,
+        _handleDestinationFromHome,
+      );
+    }
     if (widget.pagesBuilder != null) {
       return widget.pagesBuilder!(context, mode);
     }
