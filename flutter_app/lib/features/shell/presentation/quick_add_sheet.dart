@@ -1,3 +1,4 @@
+import '../../../core/settings/gochano_app_mode.dart';
 // Universal Quick Add bottom sheet (Phase 1).
 //
 // Single consistent launcher for the 6 core creation workflows in the student
@@ -40,12 +41,17 @@ typedef QuickActionType = QuickAddAction;
 /// dismissed). Performs NO secondary navigation inside the sheet callback.
 /// The parent shell/context MUST launch the selected canonical flow AFTER
 /// this Future has fully completed.
-Future<QuickAddAction?> showQuickAddSheet(BuildContext context) {
+Future<QuickAddAction?> showQuickAddSheet(
+  BuildContext context, {
+  GochanoAppMode? mode,
+}) {
+  final effectiveMode = mode ?? GochanoAppModePreferences.current.value;
   return showModalBottomSheet<QuickAddAction>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (sheetContext) => QuickAddSheet(
+      mode: effectiveMode,
       onSelectAction: (action) {
         Navigator.of(sheetContext).pop(action);
       },
@@ -89,9 +95,10 @@ Future<void> launchQuickAddAction(
 }
 
 class QuickAddSheet extends StatelessWidget {
-  const QuickAddSheet({super.key, required this.onSelectAction});
+  const QuickAddSheet({super.key, required this.onSelectAction, this.mode});
 
   final ValueChanged<QuickAddAction> onSelectAction;
+  final GochanoAppMode? mode;
 
   @override
   Widget build(BuildContext context) {
@@ -142,105 +149,125 @@ class QuickAddSheet extends StatelessWidget {
             ),
             const SizedBox(height: GochanoSpacing.md),
 
-            // 2-Column Action Grid
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickAddCard(
-                    key: const ValueKey('quick_add_task'),
-                    icon: Icons.check_circle_outline_rounded,
-                    accentColor: colors.brand,
-                    title: GochanoLanguage.text('Task', 'কাজ'),
-                    subtitle: GochanoLanguage.text('To-do item', 'করার কাজ'),
-                    onTap: () => onSelectAction(QuickAddAction.task),
-                  ),
-                ),
-                const SizedBox(width: GochanoSpacing.sm),
-                Expanded(
-                  child: _QuickAddCard(
-                    key: const ValueKey('quick_add_assignment'),
-                    icon: Icons.assignment_outlined,
-                    accentColor: colors.brand,
-                    title: GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট'),
-                    subtitle: GochanoLanguage.text(
-                      'Course deadline',
-                      'পড়াশোনার ডেডলাইন',
-                    ),
-                    onTap: () => onSelectAction(QuickAddAction.assignment),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickAddCard(
-                    key: const ValueKey('quick_add_expense'),
-                    icon: Icons.account_balance_wallet_outlined,
-                    accentColor: colors.expense,
-                    title: GochanoLanguage.text('Expense', 'খরচ'),
-                    subtitle: GochanoLanguage.text(
-                      'Daily spending',
-                      'দৈনিক খরচ',
-                    ),
-                    onTap: () => onSelectAction(QuickAddAction.expense),
-                  ),
-                ),
-                const SizedBox(width: GochanoSpacing.sm),
-                Expanded(
-                  child: _QuickAddCard(
-                    key: const ValueKey('quick_add_medicine'),
-                    icon: Icons.medication_outlined,
-                    accentColor: colors.success,
-                    title: GochanoLanguage.text('Medicine', 'ওষুধ'),
-                    subtitle: GochanoLanguage.text(
-                      'Dose & schedule',
-                      'ডোজ ও সময়সূচি',
-                    ),
-                    onTap: () => onSelectAction(QuickAddAction.medicine),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickAddCard(
-                    key: const ValueKey('quick_add_plan_trip'),
-                    icon: Icons.departure_board_rounded,
-                    accentColor: colors.commute,
-                    title: GochanoLanguage.text(
-                      'Plan Trip',
-                      'যাত্রা পরিকল্পনা',
-                    ),
-                    subtitle: GochanoLanguage.text(
-                      'Commute reminder',
-                      'যাতায়াত রিমাইন্ডার',
-                    ),
-                    onTap: () => onSelectAction(QuickAddAction.planTrip),
-                  ),
-                ),
-                const SizedBox(width: GochanoSpacing.sm),
-                Expanded(
-                  child: _QuickAddCard(
-                    key: const ValueKey('quick_add_note'),
-                    icon: Icons.edit_note_rounded,
-                    accentColor: colors.brand,
-                    title: GochanoLanguage.text('Note', 'নোট'),
-                    subtitle: GochanoLanguage.text('Study notes', 'পড়ার নোট'),
-                    onTap: () => onSelectAction(QuickAddAction.note),
-                  ),
-                ),
-              ],
-            ),
+            // Mode-filtered Action Grid
+            ..._buildActionRows(context),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildActionRows(BuildContext context) {
+    final colors = context.colors;
+
+    final taskCard = _QuickAddCard(
+      key: const ValueKey('quick_add_task'),
+      icon: Icons.check_circle_outline_rounded,
+      accentColor: colors.brand,
+      title: GochanoLanguage.text('Task', 'কাজ'),
+      subtitle: GochanoLanguage.text('To-do item', 'করার কাজ'),
+      onTap: () => onSelectAction(QuickAddAction.task),
+    );
+
+    final assignmentCard = _QuickAddCard(
+      key: const ValueKey('quick_add_assignment'),
+      icon: Icons.assignment_outlined,
+      accentColor: colors.brand,
+      title: GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট'),
+      subtitle: GochanoLanguage.text('Course deadline', 'পড়াশোনার ডেডলাইন'),
+      onTap: () => onSelectAction(QuickAddAction.assignment),
+    );
+
+    final expenseCard = _QuickAddCard(
+      key: const ValueKey('quick_add_expense'),
+      icon: Icons.account_balance_wallet_outlined,
+      accentColor: colors.expense,
+      title: GochanoLanguage.text('Expense', 'খরচ'),
+      subtitle: GochanoLanguage.text('Daily spending', 'দৈনিক খরচ'),
+      onTap: () => onSelectAction(QuickAddAction.expense),
+    );
+
+    final medicineCard = _QuickAddCard(
+      key: const ValueKey('quick_add_medicine'),
+      icon: Icons.medication_outlined,
+      accentColor: colors.success,
+      title: GochanoLanguage.text('Medicine', 'ওষুধ'),
+      subtitle: GochanoLanguage.text('Dose & schedule', 'ডোজ ও সময়সূচি'),
+      onTap: () => onSelectAction(QuickAddAction.medicine),
+    );
+
+    final planTripCard = _QuickAddCard(
+      key: const ValueKey('quick_add_plan_trip'),
+      icon: Icons.departure_board_rounded,
+      accentColor: colors.commute,
+      title: GochanoLanguage.text('Plan Trip', 'যাত্রা পরিকল্পনা'),
+      subtitle: GochanoLanguage.text('Commute reminder', 'যাতায়াত রিমাইন্ডার'),
+      onTap: () => onSelectAction(QuickAddAction.planTrip),
+    );
+
+    final noteCard = _QuickAddCard(
+      key: const ValueKey('quick_add_note'),
+      icon: Icons.edit_note_rounded,
+      accentColor: colors.brand,
+      title: GochanoLanguage.text('Note', 'নোট'),
+      subtitle: GochanoLanguage.text('Study notes', 'পড়ার নোট'),
+      onTap: () => onSelectAction(QuickAddAction.note),
+    );
+
+    if (mode == GochanoAppMode.study) {
+      // Study Mode: exactly 3 actions: Task, Assignment, Note
+      return [
+        Row(
+          children: [
+            Expanded(child: taskCard),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(child: assignmentCard),
+          ],
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        Row(children: [Expanded(child: noteCard)]),
+      ];
+    }
+
+    if (mode == GochanoAppMode.utility) {
+      // Utility Mode: exactly 2 actions: Expense, Plan Trip
+      return [
+        Row(
+          children: [
+            Expanded(child: expenseCard),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(child: planTripCard),
+          ],
+        ),
+      ];
+    }
+
+    // General / non-student role (mode == null): all 6 canonical actions
+    return [
+      Row(
+        children: [
+          Expanded(child: taskCard),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(child: assignmentCard),
+        ],
+      ),
+      const SizedBox(height: GochanoSpacing.sm),
+      Row(
+        children: [
+          Expanded(child: expenseCard),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(child: medicineCard),
+        ],
+      ),
+      const SizedBox(height: GochanoSpacing.sm),
+      Row(
+        children: [
+          Expanded(child: planTripCard),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(child: noteCard),
+        ],
+      ),
+    ];
   }
 }
 
