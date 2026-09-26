@@ -45,14 +45,15 @@ class GochanoShell extends StatefulWidget {
 
   /// Optional factory callback for injecting test stub pages in widget tests.
   final List<Widget> Function(BuildContext context, GochanoAppMode mode)?
-      pagesBuilder;
+  pagesBuilder;
 
   /// Optional factory callback for injecting test stub pages with navigation callback.
   final List<Widget> Function(
     BuildContext context,
     GochanoAppMode mode,
     ValueChanged<int> onOpenDestination,
-  )? pagesWithNavigationBuilder;
+  )?
+  pagesWithNavigationBuilder;
 
   @override
   State<GochanoShell> createState() => _GochanoShellState();
@@ -107,12 +108,12 @@ class _GochanoShellState extends State<GochanoShell> {
           behavior: SnackBarBehavior.floating,
           content: Text(
             GochanoLanguage.text(
-              'Switch between Study and Utility Mode anytime in Profile Settings.',
-              'প্রোফাইল সেটিংস থেকে যেকোনো সময় স্টাডি ও ইউটিলিটি মোড পরিবর্তন করুন।',
+              'Gochano now has Study and Utility modes. Change anytime from Profile Settings.',
+              'গোছানো-তে এখন স্টাডি ও ইউটিলিটি মোড রয়েছে। প্রোফাইল সেটিংস থেকে যেকোনো সময় পরিবর্তন করতে পারবেন।',
             ),
           ),
           action: SnackBarAction(
-            label: GochanoLanguage.text('Explore', 'দেখুন'),
+            label: GochanoLanguage.text('Change', 'পরিবর্তন করুন'),
             onPressed: () {
               GochanoAppModePreferences.markDiscovered();
               showAppModeSelectorSheet(context);
@@ -143,9 +144,9 @@ class _GochanoShellState extends State<GochanoShell> {
       // Utility Mode: 0 -> Today, 1 -> Commute, 2 -> Money, 3 -> Profile
       if (requestedIndex == 1) {
         // Study requested from utility home
-        Navigator.of(context).push(
-          GochanoRoute.to(builder: (_) => const WorkspaceView()),
-        );
+        Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const WorkspaceView()));
       } else if (requestedIndex == 2) {
         _select(1); // Commute tab
       } else if (requestedIndex == 3) {
