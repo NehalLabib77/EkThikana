@@ -280,3 +280,12 @@ class ExamRescuePlan {
     );
   }
 }
+
+/// Function signature for generating an Exam Rescue Plan (used for production and test seams).
+typedef ExamRescuePlanGenerator = Future<ExamRescuePlan> Function({
+  required String examTitle,
+  required DateTime examDate,
+  int dailyMinutes,
+  List<String> materialIds,
+  String? extraTopics,
+});

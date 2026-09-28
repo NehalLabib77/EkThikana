@@ -11,7 +11,10 @@ import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/ai_widgets.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../ai/material_picker_sheet.dart';
+import 'exam_rescue_models.dart';
 import 'exam_rescue_preview_screen.dart';
+
+typedef MaterialPickerFn = Future<List<Map<String, String>>?> Function(BuildContext context);
 
 Future<void> showExamRescueSetupSheet(
   BuildContext context, {
@@ -20,6 +23,8 @@ Future<void> showExamRescueSetupSheet(
   int initialDailyMinutes = 120,
   List<Map<String, String>> initialMaterials = const [],
   String? initialExtraTopics,
+  ExamRescuePlanGenerator? planGenerator,
+  MaterialPickerFn? materialPicker,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -32,6 +37,8 @@ Future<void> showExamRescueSetupSheet(
       initialDailyMinutes: initialDailyMinutes,
       initialMaterials: initialMaterials,
       initialExtraTopics: initialExtraTopics,
+      planGenerator: planGenerator,
+      materialPicker: materialPicker,
     ),
   );
 }
@@ -42,6 +49,8 @@ class ExamRescueSetupSheet extends StatefulWidget {
   final int initialDailyMinutes;
   final List<Map<String, String>> initialMaterials;
   final String? initialExtraTopics;
+  final ExamRescuePlanGenerator? planGenerator;
+  final MaterialPickerFn? materialPicker;
 
   const ExamRescueSetupSheet({
     super.key,
@@ -50,6 +59,8 @@ class ExamRescueSetupSheet extends StatefulWidget {
     this.initialDailyMinutes = 120,
     this.initialMaterials = const [],
     this.initialExtraTopics,
+    this.planGenerator,
+    this.materialPicker,
   });
 
   @override
@@ -293,8 +304,9 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
   }
 
   Future<void> _pickMaterials() async {
-    final picked = await showMaterialPicker(context);
-    if (!mounted || picked.isEmpty) return;
+    final picker = widget.materialPicker ?? showMaterialPicker;
+    final picked = await picker(context);
+    if (!mounted || picked == null || picked.isEmpty) return;
 
     setState(() {
       for (final item in picked) {
@@ -308,12 +320,31 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
   }
 
   Future<void> _generatePlan() async {
+    if (_isGenerating) return;
+
     final valErr = _validateTitle(_titleCtrl.text);
     if (valErr != null) {
       setState(() => _titleError = valErr);
       return;
     }
     setState(() => _titleError = null);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (_examDate.isBefore(today)) {
+      setState(() => _errorMessage = GochanoLanguage.text(
+        'Exam date cannot be in the past.',
+        'পরীক্ষার তারিখ অতীত হতে পারে না।',
+      ));
+      return;
+    }
+    if (_examDate.difference(today).inDays > 14) {
+      setState(() => _errorMessage = GochanoLanguage.text(
+        'Exam date cannot be more than 14 days away.',
+        'পরীক্ষার তারিখ ১৪ দিনের বেশি দূরে হতে পারে না।',
+      ));
+      return;
+    }
 
     if (_materials.isEmpty) {
       final confirmed = await showDialog<bool>(
@@ -349,6 +380,8 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
       }
     }
 
+    if (!mounted || _isGenerating) return;
+
     setState(() {
       _isGenerating = true;
       _errorMessage = null;
@@ -357,7 +390,8 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
     try {
       final title = _titleCtrl.text.trim();
       final extraTopics = _extraTopicsCtrl.text.trim();
-      final plan = await ApiService.generateExamRescuePlan(
+      final generator = widget.planGenerator ?? ApiService.generateExamRescuePlan;
+      final plan = await generator(
         examTitle: title,
         examDate: _examDate,
         dailyMinutes: _dailyMinutes,
@@ -380,6 +414,7 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
             initialDailyMinutes: _dailyMinutes,
             initialMaterials: List.from(_materials),
             initialExtraTopics: extraTopics.isNotEmpty ? extraTopics : null,
+            planGenerator: widget.planGenerator,
           ),
         ),
       );

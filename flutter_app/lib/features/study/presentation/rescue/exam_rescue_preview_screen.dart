@@ -22,6 +22,7 @@ class ExamRescuePreviewScreen extends StatefulWidget {
   final int initialDailyMinutes;
   final List<Map<String, String>> initialMaterials;
   final String? initialExtraTopics;
+  final ExamRescuePlanGenerator? planGenerator;
 
   const ExamRescuePreviewScreen({
     super.key,
@@ -31,6 +32,7 @@ class ExamRescuePreviewScreen extends StatefulWidget {
     required this.initialDailyMinutes,
     this.initialMaterials = const [],
     this.initialExtraTopics,
+    this.planGenerator,
   });
 
   @override
@@ -65,9 +67,11 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
   }
 
   Future<void> _regeneratePlan() async {
+    if (_isRegenerating) return;
     setState(() => _isRegenerating = true);
     try {
-      final newPlan = await ApiService.generateExamRescuePlan(
+      final generator = widget.planGenerator ?? ApiService.generateExamRescuePlan;
+      final newPlan = await generator(
         examTitle: widget.initialTitle,
         examDate: widget.initialDate,
         dailyMinutes: widget.initialDailyMinutes,
@@ -427,7 +431,7 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
                   label: GochanoLanguage.text('Regenerate', 'আবার তৈরি করুন'),
                   busy: _isRegenerating,
                   busyLabel: GochanoLanguage.text('Regenerating…', 'পুনরায় তৈরি হচ্ছে…'),
-                  onPressed: _regeneratePlan,
+                  onPressed: _isRegenerating ? null : _regeneratePlan,
                 ),
               ),
             ],
