@@ -29,6 +29,7 @@ import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../tasks/presentation/add_task_sheet.dart';
+import '../rescue/exam_rescue_setup_sheet.dart';
 
 class PlanView extends StatefulWidget {
   const PlanView({super.key});
@@ -147,6 +148,8 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
             selectedDay: _selectedDay,
             onDaySelected: (day) => setState(() => _selectedDay = day),
           ),
+          const SizedBox(height: GochanoSpacing.xs),
+          const _ExamRescueBanner(),
           const SizedBox(height: GochanoSpacing.md),
           _CombinedPlannerList(selectedDay: _selectedDay),
           const SizedBox(height: GochanoSpacing.xl),
@@ -1336,5 +1339,93 @@ Future<void> _delete(
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Exam Rescue Banner (Phase T3 entry point)
+// ---------------------------------------------------------------------------
+
+class _ExamRescueBanner extends StatelessWidget {
+  const _ExamRescueBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.md,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.brandSoft,
+          borderRadius: GochanoRadius.lgAll,
+          border: Border.all(color: colors.brand.withValues(alpha: 0.18)),
+        ),
+        padding: const EdgeInsets.all(GochanoSpacing.md),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(GochanoSpacing.xs),
+              decoration: BoxDecoration(
+                color: colors.brand.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.bolt_rounded,
+                color: colors.brand,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার'),
+                    style: type.body.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.brand,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    GochanoLanguage.text(
+                      'Exam close? Build a focused rescue plan.',
+                      'পরীক্ষা কাছাকাছি? একটি গোছানো উদ্ধার প্ল্যান তৈরি করুন।',
+                    ),
+                    style: type.caption.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: GochanoSpacing.xs),
+            FilledButton.tonal(
+              onPressed: () => showExamRescueSetupSheet(context),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: GochanoSpacing.sm,
+                  vertical: GochanoSpacing.xs,
+                ),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: GochanoRadius.mdAll,
+                ),
+              ),
+              child: Text(
+                GochanoLanguage.text('Build Plan', 'প্ল্যান বানান'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

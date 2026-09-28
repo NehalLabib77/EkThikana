@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../core/app_config.dart';
+import '../features/study/presentation/rescue/exam_rescue_models.dart';
 import 'auth_service.dart';
 
 class ApiException implements Exception {
@@ -1205,6 +1206,31 @@ class ApiService {
         },
       );
       return _decode(body);
+    });
+  }
+
+  /// Exam Rescue: generate a focused structured exam rescue plan (Phase T2/T3).
+  static Future<ExamRescuePlan> generateExamRescuePlan({
+    required String examTitle,
+    required DateTime examDate,
+    int dailyMinutes = 120,
+    List<String> materialIds = const [],
+    String? extraTopics,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/exam-rescue/plan',
+        body: {
+          'examTitle': examTitle,
+          'examDate': examDate.toIso8601String().split('T').first,
+          'dailyMinutes': dailyMinutes,
+          'materialIds': materialIds,
+          if (extraTopics != null && extraTopics.trim().isNotEmpty)
+            'extraTopics': extraTopics.trim(),
+        },
+      );
+      final json = _decode(body);
+      return ExamRescuePlan.fromJson(json);
     });
   }
 
