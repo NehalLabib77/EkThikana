@@ -18,12 +18,12 @@ The following files were created or modified as part of Phase T3:
    - Interactive in-memory preview screen rendering hero statistics, source transparency badge, fallback indicator, AI rescue strategy summary, daily timeline cards with color-coded type badges (`Study`, `Practice`, `Quiz`, `Revision`), dynamic in-memory item removal updating totals, and bottom actions `[ Edit / Back ]` and `[ Regenerate ]`.
 3. `flutter_app/lib/features/study/presentation/planner/plan_view.dart` (Modified)
    - Integrated `_ExamRescueBanner` placed immediately below `_DateStrip` and above `_CombinedPlannerList`, wired to `showExamRescueSetupSheet(context)`.
-4. `flutter_app/lib/services/api_service.dart` (Modified)
-   - Added `ApiService.generateExamRescuePlan` client method interfacing with `POST /api/ai/exam-rescue/plan` with student authentication and DTO parsing.
+4. `flutter_app/lib/services/api_service.dart` (Audited & Reused)
+   - Verified `ApiService.generateExamRescuePlan` client method (introduced in Phase T2) interfaces with `POST /api/ai/exam-rescue/plan` with student authentication and DTO parsing; audit confirms exactly ONE implementation exists.
 5. `flutter_app/test/exam_rescue_flow_test.dart` (Created)
-   - 15 comprehensive widget tests covering setup form rendering, inline validation, date/time chips, material removal, zero-material confirmation, 320dp layout, 2.0x font scaling, preview screen rendering, source/fallback transparency, in-memory deletion, Bangla localization, and `PlanView` banner entry.
-6. `docs/TOP10_EXAM_RESCUE_PHASE_T3_REPORT.md` (Created)
-   - Phase T3 implementation and verification report.
+   - 23 comprehensive widget and hardening tests covering setup form rendering, inline validation, date/time chips, material removal, zero-material confirmation, 320dp layout, 2.0x font scaling, preview screen rendering, source/fallback transparency, in-memory deletion, Bangla localization, `PlanView` banner entry, and full async/concurrency/lifecycle error resilience.
+6. `docs/TOP10_EXAM_RESCUE_PHASE_T3_REPORT.md` (Created & Audited)
+   - Phase T3 implementation, architecture, and final hardening audit report.
 
 ---
 
@@ -241,7 +241,7 @@ Located in `flutter_app/lib/features/study/presentation/rescue/exam_rescue_previ
 
 **Test File**: `flutter_app/test/exam_rescue_flow_test.dart`<br>
 **Execution Command**: `flutter test test/exam_rescue_flow_test.dart`<br>
-**Result**: **15 / 15 PASSED**
+**Result**: **23 / 23 PASSED**
 
 ```
 00:00 +0: Phase T3 — Exam Rescue Setup Sheet renders all setup form elements cleanly
@@ -255,11 +255,19 @@ Located in `flutter_app/lib/features/study/presentation/rescue/exam_rescue_previ
 00:02 +8: Phase T3 — Exam Rescue Preview Screen renders preview header, badges, strategy, and days
 00:02 +9: Phase T3 — Exam Rescue Preview Screen general subject plan displays general plan label
 00:02 +10: Phase T3 — Exam Rescue Preview Screen fallback mode displays fallback transparency label
-00:03 +11: Phase T3 — Exam Rescue Preview Screen in-memory item removal removes item and updates total minutes
+00:02 +11: Phase T3 — Exam Rescue Preview Screen in-memory item removal removes item and updates total minutes
 00:03 +12: Phase T3 — Exam Rescue Preview Screen responsive 320dp and 2.0x text scale renders without overflow
 00:03 +13: Phase T3 — Exam Rescue Preview Screen Bangla mode renders localized titles without overflow
 00:03 +14: Phase T3 — Exam Rescue Preview Screen renders Exam Rescue banner on PlanView
-00:04 +15: All tests passed!
+00:03 +15: Final T3 Async & Error Hardening Audit tap "Generate Rescue Plan" twice rapidly calls generator once and pushes one preview
+00:04 +16: Final T3 Async & Error Hardening Audit dismiss/dispose sheet during generation does not throw or call setState
+00:04 +17: Final T3 Async & Error Hardening Audit 429 quota error displays specific daily AI limit message
+00:04 +18: Final T3 Async & Error Hardening Audit network/offline failure displays dedicated internet connection error
+00:05 +19: Final T3 Async & Error Hardening Audit successful generation flow: Setup -> Generate -> Preview screen with days
+00:05 +20: Final T3 Async & Error Hardening Audit date boundary tests: Today, +14d accepted; +15d, past rejected
+00:06 +21: Final T3 Async & Error Hardening Audit material selection boundaries: max 3, deduplication, removal and replacement
+00:06 +22: Final T3 Async & Error Hardening Audit regenerate concurrency: double-tap invokes generator once and replaces in-memory plan once
+00:06 +23: All tests passed!
 ```
 
 ---
@@ -275,17 +283,19 @@ Located in `flutter_app/lib/features/study/presentation/rescue/exam_rescue_previ
 3. **Backend AI Exam Rescue Pytest Suite**:
    - Command: `pytest backend/tests/test_ai_exam_rescue.py`
    - Result: **18 / 18 PASSED**
+4. **Combined Test Suite**:
+   - Result: **59 / 59 PASSED**
 
 ---
 
 ## 19. flutter analyze lib/ Result
 
 **Execution Command**: `flutter analyze lib/`<br>
-**Result**: **0 issues found** (clean in 16.8s)
+**Result**: **0 issues found** (clean in 15.0s)
 
 ```
 Analyzing lib...
-No issues found! (ran in 16.8s)
+No issues found! (ran in 15.0s)
 ```
 
 ---
@@ -303,7 +313,7 @@ No issues found! (ran in 16.8s)
 **Result**: **SUCCESS**
 
 ```
-Running Gradle task 'assembleDebug'...                            441.1s
+Running Gradle task 'assembleDebug'...                            111.7s
 √ Built build\app\outputs\flutter-apk\app-debug.apk
 ```
 
