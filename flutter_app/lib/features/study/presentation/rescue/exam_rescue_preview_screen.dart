@@ -14,6 +14,7 @@ import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import 'exam_rescue_models.dart';
+import 'exam_rescue_persistence_service.dart';
 
 class ExamRescuePreviewScreen extends StatefulWidget {
   final ExamRescuePlan plan;
@@ -23,6 +24,7 @@ class ExamRescuePreviewScreen extends StatefulWidget {
   final List<Map<String, String>> initialMaterials;
   final String? initialExtraTopics;
   final ExamRescuePlanGenerator? planGenerator;
+  final ExamRescuePersistenceService? persistenceService;
 
   const ExamRescuePreviewScreen({
     super.key,
@@ -33,15 +35,20 @@ class ExamRescuePreviewScreen extends StatefulWidget {
     this.initialMaterials = const [],
     this.initialExtraTopics,
     this.planGenerator,
+    this.persistenceService,
   });
 
   @override
-  State<ExamRescuePreviewScreen> createState() => _ExamRescuePreviewScreenState();
+  State<ExamRescuePreviewScreen> createState() =>
+      _ExamRescuePreviewScreenState();
 }
 
 class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
   late ExamRescuePlan _currentPlan;
   bool _isRegenerating = false;
+  bool _isApplying = false;
+  String? _preallocatedSessionId;
+  List<String>? _preallocatedTaskIds;
 
   @override
   void initState() {
@@ -52,12 +59,15 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
   void _removeItem(int dayIndex, int itemIndex) {
     setState(() {
       final day = _currentPlan.days[dayIndex];
-      final newItems = List<ExamRescueItem>.from(day.items)..removeAt(itemIndex);
+      final newItems = List<ExamRescueItem>.from(day.items)
+        ..removeAt(itemIndex);
       final newDay = day.copyWith(items: newItems);
-      final newDays = List<ExamRescueDay>.from(_currentPlan.days)..[dayIndex] = newDay;
+      final newDays = List<ExamRescueDay>.from(_currentPlan.days)
+        ..[dayIndex] = newDay;
       final newTotalMinutes = newDays.fold<int>(
         0,
-        (sum, d) => sum + d.items.fold<int>(0, (s, it) => s + it.estimatedMinutes),
+        (sum, d) =>
+            sum + d.items.fold<int>(0, (s, it) => s + it.estimatedMinutes),
       );
       _currentPlan = _currentPlan.copyWith(
         days: newDays,
@@ -70,7 +80,8 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
     if (_isRegenerating) return;
     setState(() => _isRegenerating = true);
     try {
-      final generator = widget.planGenerator ?? ApiService.generateExamRescuePlan;
+      final generator =
+          widget.planGenerator ?? ApiService.generateExamRescuePlan;
       final newPlan = await generator(
         examTitle: widget.initialTitle,
         examDate: widget.initialDate,
@@ -96,6 +107,81 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
               GochanoLanguage.text(
                 'Failed to regenerate plan. Please try again.',
                 'প্ল্যান পুনরায় তৈরি করতে ব্যর্থ হয়েছে।',
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _applyPlan() async {
+    if (_isApplying || _isRegenerating) return;
+    if (_currentPlan.totalItemsCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            GochanoLanguage.text(
+              'Add at least one plan item before applying.',
+              'প্ল্যান যোগ করার আগে অন্তত একটি আইটেম রাখুন।',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isApplying = true);
+
+    try {
+      final service =
+          widget.persistenceService ?? const ExamRescuePersistenceService();
+      final totalItems = _currentPlan.totalItemsCount;
+
+      _preallocatedSessionId ??= service.generateSessionId();
+      if (_preallocatedTaskIds == null ||
+          _preallocatedTaskIds!.length != totalItems) {
+        _preallocatedTaskIds = service.generateTaskIds(totalItems);
+      }
+
+      final result = await service.applyPlan(
+        plan: _currentPlan,
+        examTitle: widget.initialTitle,
+        examDate: widget.initialDate,
+        dailyTargetMinutes: widget.initialDailyMinutes,
+        materials: widget.initialMaterials,
+        preallocatedSessionId: _preallocatedSessionId,
+        preallocatedTaskIds: _preallocatedTaskIds,
+      );
+
+      if (!mounted) return;
+
+      if (result.success) {
+        setState(() => _isApplying = false);
+        Navigator.of(context).pop(result);
+      } else {
+        setState(() => _isApplying = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.errorMessage ??
+                  GochanoLanguage.text(
+                    'Failed to save rescue plan.',
+                    'রেসকিউ প্ল্যান সংরক্ষণ ব্যর্থ হয়েছে।',
+                  ),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isApplying = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              GochanoLanguage.text(
+                'Failed to save rescue plan. Please try again.',
+                'রেসকিউ প্ল্যান সংরক্ষণ করতে ব্যর্থ হয়েছে।',
               ),
             ),
           ),
@@ -183,10 +269,11 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
               ),
             ),
             Text(
-              GochanoLanguage.text('Rescue Plan Preview', 'রেসকিউ প্ল্যান প্রিভিউ'),
-              style: type.body.copyWith(
-                fontWeight: FontWeight.bold,
+              GochanoLanguage.text(
+                'Rescue Plan Preview',
+                'রেসকিউ প্ল্যান প্রিভিউ',
               ),
+              style: type.body.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -204,11 +291,17 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
                 decoration: BoxDecoration(
                   color: colors.warningSoft,
                   borderRadius: GochanoRadius.mdAll,
-                  border: Border.all(color: colors.warning.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: colors.warning.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline_rounded, size: 18, color: colors.warning),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: colors.warning,
+                    ),
                     const SizedBox(width: GochanoSpacing.xs),
                     Expanded(
                       child: Text(
@@ -266,7 +359,11 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
                   if (_currentPlan.sourceMode == 'materials') ...[
                     Row(
                       children: [
-                        Icon(Icons.folder_outlined, size: 16, color: colors.brand),
+                        Icon(
+                          Icons.folder_outlined,
+                          size: 16,
+                          color: colors.brand,
+                        ),
                         const SizedBox(width: GochanoSpacing.xs),
                         Expanded(
                           child: Text(
@@ -302,7 +399,11 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
                   ] else ...[
                     Row(
                       children: [
-                        Icon(Icons.auto_stories_outlined, size: 16, color: colors.textSecondary),
+                        Icon(
+                          Icons.auto_stories_outlined,
+                          size: 16,
+                          color: colors.textSecondary,
+                        ),
                         const SizedBox(width: GochanoSpacing.xs),
                         Expanded(
                           child: Text(
@@ -330,19 +431,25 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.psychology_outlined, size: 20, color: colors.brand),
+                      Icon(
+                        Icons.psychology_outlined,
+                        size: 20,
+                        color: colors.brand,
+                      ),
                       const SizedBox(width: GochanoSpacing.xs),
                       Text(
-                        GochanoLanguage.text('AI Rescue Strategy', 'এআই রেসকিউ কৌশল'),
-                        style: type.sectionHeading.copyWith(color: colors.brand),
+                        GochanoLanguage.text(
+                          'AI Rescue Strategy',
+                          'এআই রেসকিউ কৌশল',
+                        ),
+                        style: type.sectionHeading.copyWith(
+                          color: colors.brand,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: GochanoSpacing.xs),
-                  Text(
-                    _currentPlan.strategySummary,
-                    style: type.body,
-                  ),
+                  Text(_currentPlan.strategySummary, style: type.body),
                 ],
               ),
             ),
@@ -391,7 +498,9 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
                           ),
                           Text(
                             '${day.targetMinutes}m',
-                            style: type.caption.copyWith(color: colors.textSecondary),
+                            style: type.caption.copyWith(
+                              color: colors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -417,22 +526,53 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
           border: Border(top: BorderSide(color: colors.border)),
         ),
         child: SafeArea(
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: SecondaryButton(
-                  label: GochanoLanguage.text('Edit / Back', 'এডিট / ফিরে যান'),
-                  onPressed: () => Navigator.of(context).pop(),
+              PrimaryButton(
+                label: GochanoLanguage.text(
+                  'Confirm & Apply Plan',
+                  'নিশ্চিত করে প্ল্যান যোগ করুন',
                 ),
+                busy: _isApplying,
+                busyLabel: GochanoLanguage.text(
+                  'Applying Plan…',
+                  'প্ল্যান যোগ হচ্ছে…',
+                ),
+                onPressed: (_isApplying || _isRegenerating) ? null : _applyPlan,
               ),
-              const SizedBox(width: GochanoSpacing.sm),
-              Expanded(
-                child: PrimaryButton(
-                  label: GochanoLanguage.text('Regenerate', 'আবার তৈরি করুন'),
-                  busy: _isRegenerating,
-                  busyLabel: GochanoLanguage.text('Regenerating…', 'পুনরায় তৈরি হচ্ছে…'),
-                  onPressed: _isRegenerating ? null : _regeneratePlan,
-                ),
+              const SizedBox(height: GochanoSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: SecondaryButton(
+                      label: GochanoLanguage.text(
+                        'Edit / Back',
+                        'এডিট / ফিরে যান',
+                      ),
+                      onPressed: (_isApplying || _isRegenerating)
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.sm),
+                  Expanded(
+                    child: SecondaryButton(
+                      label: _isRegenerating
+                          ? GochanoLanguage.text(
+                              'Regenerating…',
+                              'পুনরায় তৈরি হচ্ছে…',
+                            )
+                          : GochanoLanguage.text(
+                              'Regenerate',
+                              'আবার তৈরি করুন',
+                            ),
+                      onPressed: (_isApplying || _isRegenerating)
+                          ? null
+                          : _regeneratePlan,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -448,10 +588,7 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
         horizontal: GochanoSpacing.sm,
         vertical: GochanoSpacing.xxs,
       ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: GochanoRadius.smAll,
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: GochanoRadius.smAll),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -520,10 +657,17 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.attach_file_rounded, size: 12, color: colors.brand),
+                      Icon(
+                        Icons.attach_file_rounded,
+                        size: 12,
+                        color: colors.brand,
+                      ),
                       const SizedBox(width: 2),
                       Text(
-                        GochanoLanguage.text('Linked material', 'সংযুক্ত মেটেরিয়াল'),
+                        GochanoLanguage.text(
+                          'Linked material',
+                          'সংযুক্ত মেটেরিয়াল',
+                        ),
                         style: type.caption.copyWith(
                           fontSize: 10,
                           color: colors.brand,

@@ -117,6 +117,11 @@ service cloud.firestore {
         allow read: if isStudent() && request.auth.uid == uid;
         allow update, delete: if false;
       }
+
+      // Phase T4: Exam Rescue sessions per user
+      match /exam_rescue/{sessionId} {
+        allow read, write: if verified() && request.auth.uid == uid;
+      }
     }
 
     // ---------------- STUDENT-ONLY ACADEMIC DATA ----------------

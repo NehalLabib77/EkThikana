@@ -19,6 +19,7 @@ import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
@@ -1355,9 +1356,7 @@ class _ExamRescueBanner extends StatelessWidget {
     final type = context.type;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: GochanoSpacing.md,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
       child: Container(
         decoration: BoxDecoration(
           color: colors.brandSoft,
@@ -1373,11 +1372,7 @@ class _ExamRescueBanner extends StatelessWidget {
                 color: colors.brand.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.bolt_rounded,
-                color: colors.brand,
-                size: 22,
-              ),
+              child: Icon(Icons.bolt_rounded, color: colors.brand, size: 22),
             ),
             const SizedBox(width: GochanoSpacing.sm),
             Expanded(
@@ -1398,16 +1393,25 @@ class _ExamRescueBanner extends StatelessWidget {
                       'Exam close? Build a focused rescue plan.',
                       'পরীক্ষা কাছাকাছি? একটি গোছানো উদ্ধার প্ল্যান তৈরি করুন।',
                     ),
-                    style: type.caption.copyWith(
-                      color: colors.textSecondary,
-                    ),
+                    style: type.caption.copyWith(color: colors.textSecondary),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: GochanoSpacing.xs),
             FilledButton.tonal(
-              onPressed: () => showExamRescueSetupSheet(context),
+              onPressed: () async {
+                final result = await showExamRescueSetupSheet(context);
+                if (result != null && result.success && context.mounted) {
+                  showGochanoMessage(
+                    context,
+                    FeedbackMessages.examRescuePlanApplied(
+                      result.tasksCount,
+                      reminderFailed: result.reminderFailed,
+                    ),
+                  );
+                }
+              },
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(

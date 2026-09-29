@@ -138,4 +138,20 @@ class FeedbackMessages {
       isEdit ? 'নোট হালনাগাদ করা হয়েছে' : 'নোট সংরক্ষিত হয়েছে',
     );
   }
+
+  static String examRescuePlanApplied(
+    int count, {
+    bool reminderFailed = false,
+  }) {
+    if (reminderFailed) {
+      return GochanoLanguage.text(
+        'Rescue plan added — $count study tasks scheduled (reminder could not be set).',
+        'উদ্ধার পরিকল্পনা যুক্ত হয়েছে — $count টি পড়ার কাজ নির্ধারিত (রিমাইন্ডার সেট করা যায়নি)।',
+      );
+    }
+    return GochanoLanguage.text(
+      'Rescue plan added — $count study tasks scheduled.',
+      'উদ্ধার পরিকল্পনা যুক্ত হয়েছে — $count টি পড়ার কাজ নির্ধারিত।',
+    );
+  }
 }

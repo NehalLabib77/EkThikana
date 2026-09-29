@@ -12,11 +12,13 @@ import '../../../../shared/widgets/ai_widgets.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../ai/material_picker_sheet.dart';
 import 'exam_rescue_models.dart';
+import 'exam_rescue_persistence_service.dart';
 import 'exam_rescue_preview_screen.dart';
 
-typedef MaterialPickerFn = Future<List<Map<String, String>>?> Function(BuildContext context);
+typedef MaterialPickerFn =
+    Future<List<Map<String, String>>?> Function(BuildContext context);
 
-Future<void> showExamRescueSetupSheet(
+Future<ApplyExamRescuePlanResult?> showExamRescueSetupSheet(
   BuildContext context, {
   String? initialTitle,
   DateTime? initialDate,
@@ -25,8 +27,9 @@ Future<void> showExamRescueSetupSheet(
   String? initialExtraTopics,
   ExamRescuePlanGenerator? planGenerator,
   MaterialPickerFn? materialPicker,
+  ExamRescuePersistenceService? persistenceService,
 }) {
-  return showModalBottomSheet(
+  return showModalBottomSheet<ApplyExamRescuePlanResult>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -39,6 +42,7 @@ Future<void> showExamRescueSetupSheet(
       initialExtraTopics: initialExtraTopics,
       planGenerator: planGenerator,
       materialPicker: materialPicker,
+      persistenceService: persistenceService,
     ),
   );
 }
@@ -51,6 +55,7 @@ class ExamRescueSetupSheet extends StatefulWidget {
   final String? initialExtraTopics;
   final ExamRescuePlanGenerator? planGenerator;
   final MaterialPickerFn? materialPicker;
+  final ExamRescuePersistenceService? persistenceService;
 
   const ExamRescueSetupSheet({
     super.key,
@@ -61,6 +66,7 @@ class ExamRescueSetupSheet extends StatefulWidget {
     this.initialExtraTopics,
     this.planGenerator,
     this.materialPicker,
+    this.persistenceService,
   });
 
   @override
@@ -73,7 +79,8 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
   String? _titleError;
 
   late DateTime _examDate;
-  int _datePresetIndex = 1; // 0: Today, 1: Tomorrow, 2: 3 Days, 3: 5 Days, 4: Custom
+  int _datePresetIndex =
+      1; // 0: Today, 1: Tomorrow, 2: 3 Days, 3: 5 Days, 4: Custom
 
   late int _dailyMinutes;
   int _timePresetIndex = 1; // 0: 1h, 1: 2h, 2: 3h, 3: 4h, 4: Custom
@@ -86,7 +93,9 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.initialTitle ?? '');
-    _extraTopicsCtrl = TextEditingController(text: widget.initialExtraTopics ?? '');
+    _extraTopicsCtrl = TextEditingController(
+      text: widget.initialExtraTopics ?? '',
+    );
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -236,14 +245,20 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
           title: Text(
-            GochanoLanguage.text('Custom Daily Study Time', 'কাস্টম দৈনিক পড়ার সময়'),
+            GochanoLanguage.text(
+              'Custom Daily Study Time',
+              'কাস্টম দৈনিক পড়ার সময়',
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '${tempMinutes ~/ 60}h ${tempMinutes % 60}m',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: GochanoSpacing.md),
               Slider(
@@ -252,7 +267,8 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                 max: 720,
                 divisions: (720 - 30) ~/ 15,
                 label: '${tempMinutes ~/ 60}h ${tempMinutes % 60}m',
-                onChanged: (val) => setDlgState(() => tempMinutes = val.round()),
+                onChanged: (val) =>
+                    setDlgState(() => tempMinutes = val.round()),
               ),
             ],
           ),
@@ -332,17 +348,21 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     if (_examDate.isBefore(today)) {
-      setState(() => _errorMessage = GochanoLanguage.text(
-        'Exam date cannot be in the past.',
-        'পরীক্ষার তারিখ অতীত হতে পারে না।',
-      ));
+      setState(
+        () => _errorMessage = GochanoLanguage.text(
+          'Exam date cannot be in the past.',
+          'পরীক্ষার তারিখ অতীত হতে পারে না।',
+        ),
+      );
       return;
     }
     if (_examDate.difference(today).inDays > 14) {
-      setState(() => _errorMessage = GochanoLanguage.text(
-        'Exam date cannot be more than 14 days away.',
-        'পরীক্ষার তারিখ ১৪ দিনের বেশি দূরে হতে পারে না।',
-      ));
+      setState(
+        () => _errorMessage = GochanoLanguage.text(
+          'Exam date cannot be more than 14 days away.',
+          'পরীক্ষার তারিখ ১৪ দিনের বেশি দূরে হতে পারে না।',
+        ),
+      );
       return;
     }
 
@@ -351,7 +371,10 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(
-            GochanoLanguage.text('No Materials Selected', 'কোনো মেটেরিয়াল নির্বাচন করা হয়নি'),
+            GochanoLanguage.text(
+              'No Materials Selected',
+              'কোনো মেটেরিয়াল নির্বাচন করা হয়নি',
+            ),
           ),
           content: Text(
             GochanoLanguage.text(
@@ -368,9 +391,7 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(
-                GochanoLanguage.text('Continue', 'চালিয়ে যান'),
-              ),
+              child: Text(GochanoLanguage.text('Continue', 'চালিয়ে যান')),
             ),
           ],
         ),
@@ -390,7 +411,8 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
     try {
       final title = _titleCtrl.text.trim();
       final extraTopics = _extraTopicsCtrl.text.trim();
-      final generator = widget.planGenerator ?? ApiService.generateExamRescuePlan;
+      final generator =
+          widget.planGenerator ?? ApiService.generateExamRescuePlan;
       final plan = await generator(
         examTitle: title,
         examDate: _examDate,
@@ -405,19 +427,26 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
       if (!mounted) return;
       setState(() => _isGenerating = false);
 
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ExamRescuePreviewScreen(
-            plan: plan,
-            initialTitle: title,
-            initialDate: _examDate,
-            initialDailyMinutes: _dailyMinutes,
-            initialMaterials: List.from(_materials),
-            initialExtraTopics: extraTopics.isNotEmpty ? extraTopics : null,
-            planGenerator: widget.planGenerator,
-          ),
-        ),
-      );
+      final result = await Navigator.of(context)
+          .push<ApplyExamRescuePlanResult>(
+            MaterialPageRoute(
+              builder: (_) => ExamRescuePreviewScreen(
+                plan: plan,
+                initialTitle: title,
+                initialDate: _examDate,
+                initialDailyMinutes: _dailyMinutes,
+                initialMaterials: List.from(_materials),
+                initialExtraTopics: extraTopics.isNotEmpty ? extraTopics : null,
+                planGenerator: widget.planGenerator,
+                persistenceService: widget.persistenceService,
+              ),
+            ),
+          );
+
+      if (!mounted) return;
+      if (result != null && result.success) {
+        Navigator.of(context).pop(result);
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -513,15 +542,22 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              GochanoLanguage.text('Exam Rescue', 'এক্সাম রেসকিউ'),
-                              style: type.pageTitle.copyWith(fontWeight: FontWeight.bold),
+                              GochanoLanguage.text(
+                                'Exam Rescue',
+                                'এক্সাম রেসকিউ',
+                              ),
+                              style: type.pageTitle.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             Text(
                               GochanoLanguage.text(
                                 'Build a focused plan before your exam.',
                                 'পরীক্ষার আগে একটি গোছানো ও বাস্তবসম্মত রিভিশন প্ল্যান তৈরি করুন।',
                               ),
-                              style: type.bodySecondary.copyWith(color: colors.textSecondary),
+                              style: type.bodySecondary.copyWith(
+                                color: colors.textSecondary,
+                              ),
                             ),
                           ],
                         ),
@@ -532,7 +568,10 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
 
                   // Exam / Subject Field
                   Text(
-                    GochanoLanguage.text('Exam / Subject', 'বিষয় / পরীক্ষার নাম'),
+                    GochanoLanguage.text(
+                      'Exam / Subject',
+                      'বিষয় / পরীক্ষার নাম',
+                    ),
                     style: type.sectionHeading,
                   ),
                   const SizedBox(height: GochanoSpacing.xs),
@@ -593,7 +632,9 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                         onSelected: (_) => _setDatePreset(0),
                       ),
                       ChoiceChip(
-                        label: Text(GochanoLanguage.text('Tomorrow', 'আগামীকাল')),
+                        label: Text(
+                          GochanoLanguage.text('Tomorrow', 'আগামীকাল'),
+                        ),
                         selected: _datePresetIndex == 1,
                         onSelected: (_) => _setDatePreset(1),
                       ),
@@ -621,7 +662,10 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        GochanoLanguage.text('Daily Study Time', 'দৈনিক পড়ার সময়'),
+                        GochanoLanguage.text(
+                          'Daily Study Time',
+                          'দৈনিক পড়ার সময়',
+                        ),
                         style: type.sectionHeading,
                       ),
                       const SizedBox(width: GochanoSpacing.xs),
@@ -676,7 +720,10 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        GochanoLanguage.text('Study Materials', 'স্টাডি মেটেরিয়ালস'),
+                        GochanoLanguage.text(
+                          'Study Materials',
+                          'স্টাডি মেটেরিয়ালস',
+                        ),
                         style: type.sectionHeading,
                       ),
                       const SizedBox(width: GochanoSpacing.xs),
@@ -686,7 +733,9 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                             '${_materials.length} of 3 selected',
                             '${GochanoLanguage.formatNumber(_materials.length)} / ৩টি নির্বাচিত',
                           ),
-                          style: type.caption.copyWith(color: colors.textSecondary),
+                          style: type.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
                           textAlign: TextAlign.end,
                         ),
                       ),
@@ -698,7 +747,9 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                       final idx = entry.key;
                       final mat = entry.value;
                       return Container(
-                        margin: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+                        margin: const EdgeInsets.only(
+                          bottom: GochanoSpacing.xs,
+                        ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.sm,
                           vertical: GochanoSpacing.xs,
@@ -746,7 +797,10 @@ class _ExamRescueSetupSheetState extends State<ExamRescueSetupSheet> {
                     OutlinedButton.icon(
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: Text(
-                        GochanoLanguage.text('+ Select Materials', '+ মেটেরিয়াল যোগ করুন'),
+                        GochanoLanguage.text(
+                          '+ Select Materials',
+                          '+ মেটেরিয়াল যোগ করুন',
+                        ),
                       ),
                       onPressed: _pickMaterials,
                       style: OutlinedButton.styleFrom(

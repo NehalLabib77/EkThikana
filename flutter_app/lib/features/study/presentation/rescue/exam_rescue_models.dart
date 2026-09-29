@@ -47,10 +47,16 @@ class ExamRescueItem {
 
     String normalizeType(dynamic val) {
       final raw = (val ?? 'study').toString().trim().toLowerCase();
-      if (raw == 'study' || raw == 'practice' || raw == 'quiz' || raw == 'revision') {
+      if (raw == 'study' ||
+          raw == 'practice' ||
+          raw == 'quiz' ||
+          raw == 'revision') {
         return raw;
       }
-      if (raw == 'test' || raw == 'mcq' || raw == 'exam' || raw == 'assessment') {
+      if (raw == 'test' ||
+          raw == 'mcq' ||
+          raw == 'exam' ||
+          raw == 'assessment') {
         return 'quiz';
       }
       if (raw == 'review' || raw == 'recap') {
@@ -65,9 +71,15 @@ class ExamRescueItem {
     return ExamRescueItem(
       title: (json['title'] ?? '').toString().trim(),
       type: normalizeType(json['type']),
-      estimatedMinutes: parseMinutes(json['estimatedMinutes'] ?? json['estimated_minutes']),
-      materialId: (json['materialId'] ?? json['material_id'] ?? '').toString().trim(),
-      actionNote: (json['actionNote'] ?? json['action_note'] ?? '').toString().trim(),
+      estimatedMinutes: parseMinutes(
+        json['estimatedMinutes'] ?? json['estimated_minutes'],
+      ),
+      materialId: (json['materialId'] ?? json['material_id'] ?? '')
+          .toString()
+          .trim(),
+      actionNote: (json['actionNote'] ?? json['action_note'] ?? '')
+          .toString()
+          .trim(),
     );
   }
 
@@ -138,7 +150,11 @@ class ExamRescueDay {
     if (rawItems is List) {
       for (final raw in rawItems) {
         if (raw is Map) {
-          itemsList.add(ExamRescueItem.fromJson(raw.map((k, v) => MapEntry(k.toString(), v))));
+          itemsList.add(
+            ExamRescueItem.fromJson(
+              raw.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          );
         }
       }
     }
@@ -147,7 +163,10 @@ class ExamRescueDay {
       dayNumber: parseInt(json['dayNumber'] ?? json['day_number'], 1),
       dateOffset: parseInt(json['dateOffset'] ?? json['date_offset'], 0),
       theme: (json['theme'] ?? '').toString().trim(),
-      targetMinutes: parseInt(json['targetMinutes'] ?? json['target_minutes'], 120),
+      targetMinutes: parseInt(
+        json['targetMinutes'] ?? json['target_minutes'],
+        120,
+      ),
       items: itemsList,
     );
   }
@@ -231,21 +250,39 @@ class ExamRescuePlan {
     if (rawDays is List) {
       for (final raw in rawDays) {
         if (raw is Map) {
-          daysList.add(ExamRescueDay.fromJson(raw.map((k, v) => MapEntry(k.toString(), v))));
+          daysList.add(
+            ExamRescueDay.fromJson(
+              raw.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          );
         }
       }
     }
 
     return ExamRescuePlan(
-      examTitle: (json['examTitle'] ?? json['exam_title'] ?? '').toString().trim(),
-      daysRemaining: parseInt(json['daysRemaining'] ?? json['days_remaining'], 1),
+      examTitle: (json['examTitle'] ?? json['exam_title'] ?? '')
+          .toString()
+          .trim(),
+      daysRemaining: parseInt(
+        json['daysRemaining'] ?? json['days_remaining'],
+        1,
+      ),
       totalEstimatedMinutes: parseInt(
         json['totalEstimatedMinutes'] ?? json['total_estimated_minutes'],
         0,
       ),
-      strategySummary: (json['strategySummary'] ?? json['strategy_summary'] ?? '').toString().trim(),
-      sourceMode: (json['sourceMode'] ?? json['source_mode'] ?? 'general_subject').toString().trim(),
-      generationMode: (json['generationMode'] ?? json['generation_mode'] ?? 'ai').toString().trim(),
+      strategySummary:
+          (json['strategySummary'] ?? json['strategy_summary'] ?? '')
+              .toString()
+              .trim(),
+      sourceMode:
+          (json['sourceMode'] ?? json['source_mode'] ?? 'general_subject')
+              .toString()
+              .trim(),
+      generationMode:
+          (json['generationMode'] ?? json['generation_mode'] ?? 'ai')
+              .toString()
+              .trim(),
       days: daysList,
     );
   }
@@ -272,7 +309,8 @@ class ExamRescuePlan {
     return ExamRescuePlan(
       examTitle: examTitle ?? this.examTitle,
       daysRemaining: daysRemaining ?? this.daysRemaining,
-      totalEstimatedMinutes: totalEstimatedMinutes ?? this.totalEstimatedMinutes,
+      totalEstimatedMinutes:
+          totalEstimatedMinutes ?? this.totalEstimatedMinutes,
       strategySummary: strategySummary ?? this.strategySummary,
       sourceMode: sourceMode ?? this.sourceMode,
       generationMode: generationMode ?? this.generationMode,
@@ -282,10 +320,11 @@ class ExamRescuePlan {
 }
 
 /// Function signature for generating an Exam Rescue Plan (used for production and test seams).
-typedef ExamRescuePlanGenerator = Future<ExamRescuePlan> Function({
-  required String examTitle,
-  required DateTime examDate,
-  int dailyMinutes,
-  List<String> materialIds,
-  String? extraTopics,
-});
+typedef ExamRescuePlanGenerator =
+    Future<ExamRescuePlan> Function({
+      required String examTitle,
+      required DateTime examDate,
+      int dailyMinutes,
+      List<String> materialIds,
+      String? extraTopics,
+    });
