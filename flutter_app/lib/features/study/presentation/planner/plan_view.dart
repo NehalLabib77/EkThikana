@@ -30,6 +30,7 @@ import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../tasks/presentation/add_task_sheet.dart';
+import '../ai/quiz_generator_screen.dart';
 import '../rescue/exam_rescue_setup_sheet.dart';
 
 class PlanView extends StatefulWidget {
@@ -528,6 +529,15 @@ class _PlannerItemRow extends StatelessWidget {
     final overdue = !done && due != null && due.isBefore(DateTime.now());
     final isAssignment = data['type']?.toString() == 'assignment';
 
+    final isRescue = data['source'] == 'exam_rescue';
+    final rescueItemType = data['rescueItemType']?.toString();
+    final rescueSessionId = data['rescueSessionId']?.toString();
+    final isRescueQuiz =
+        isRescue &&
+        rescueItemType == 'quiz' &&
+        rescueSessionId != null &&
+        rescueSessionId.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -600,6 +610,46 @@ class _PlannerItemRow extends StatelessWidget {
               ),
             ),
           ),
+          if (isRescueQuiz) ...[
+            const SizedBox(width: GochanoSpacing.xxs),
+            if (done)
+              GochanoBadge(
+                label: GochanoLanguage.text('Completed', 'সম্পন্ন'),
+                tone: GochanoBadgeTone.success,
+              )
+            else
+              MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: MediaQuery.textScalerOf(
+                    context,
+                  ).clamp(maxScaleFactor: 1.2),
+                ),
+                child: OutlinedButton(
+                  onPressed: () => _handleTakeQuiz(context, doc),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    side: BorderSide(color: context.colors.brand, width: 1),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: GochanoRadius.smAll,
+                    ),
+                  ),
+                  child: Text(
+                    GochanoLanguage.text('Take Quiz', 'কুইজ দিন'),
+                    style: context.type.caption.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: context.colors.brand,
+                    ),
+                  ),
+                ),
+              ),
+          ],
           GochanoOverflowMenu(
             items: [
               GochanoMenuAction(
@@ -625,6 +675,65 @@ class _PlannerItemRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+void _handleTakeQuiz(
+  BuildContext context,
+  QueryDocumentSnapshot<Map<String, dynamic>> doc,
+) {
+  final data = doc.data();
+  final materialId = data['materialId']?.toString() ?? '';
+  final title = data['title']?.toString() ?? '';
+
+  if (materialId.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          GochanoLanguage.text(
+            'Select a study material to start this quiz.',
+            'এই কুইজ শুরু করতে একটি স্টাডি মেটেরিয়াল নির্বাচন করুন।',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Navigator.of(context).push(
+    GochanoRoute.to(
+      builder: (_) => QuizGeneratorScreen(
+        preselectedMaterialId: materialId.isNotEmpty ? materialId : null,
+        initialTopic: title.isNotEmpty ? title : null,
+        initialQuestionCount: 10,
+        onQuizCompleted: () async {
+          await _setDone(context, doc, true);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  GochanoLanguage.text(
+                    'Quiz completed. Your rescue progress has been updated.',
+                    'কুইজ সম্পন্ন। আপনার রেসকিউ অগ্রগতি আপডেট হয়েছে।',
+                  ),
+                ),
+              ),
+            );
+          }
+        },
+      ),
+    ),
+  );
+}
+
+@visibleForTesting
+class PlanViewTaskTileSeam extends StatelessWidget {
+  const PlanViewTaskTileSeam({super.key, required this.doc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PlannerItemRow(doc: doc);
   }
 }
 

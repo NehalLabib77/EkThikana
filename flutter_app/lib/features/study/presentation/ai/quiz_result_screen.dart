@@ -24,6 +24,8 @@ class QuizResultScreen extends StatefulWidget {
     this.subjectId = '',
     this.materialId = '',
     this.timeSpentSeconds = 0,
+    this.onResultSaved,
+    this.saveResultFn,
   });
 
   final List<Map<String, dynamic>> questions;
@@ -33,6 +35,19 @@ class QuizResultScreen extends StatefulWidget {
   final String subjectId;
   final String materialId;
   final int timeSpentSeconds;
+  final Future<void> Function()? onResultSaved;
+  final Future<Map<String, dynamic>> Function({
+    required List<Map<String, dynamic>> questions,
+    required List<String> userAnswers,
+    required List<String> correctAnswers,
+    required int score,
+    required Map<String, int> topicScores,
+    required String subjectId,
+    required String materialId,
+    required String difficulty,
+    required int timeSpentSeconds,
+  })?
+  saveResultFn;
 
   @override
   State<QuizResultScreen> createState() => _QuizResultScreenState();
@@ -56,22 +71,32 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     _topicScores = {};
 
     for (var i = 0; i < _totalCount; i++) {
-      final userAns = i < widget.userAnswers.length ? widget.userAnswers[i].trim().toLowerCase() : '';
-      final correctAns = i < widget.correctAnswers.length ? widget.correctAnswers[i].trim().toLowerCase() : '';
+      final userAns = i < widget.userAnswers.length
+          ? widget.userAnswers[i].trim().toLowerCase()
+          : '';
+      final correctAns = i < widget.correctAnswers.length
+          ? widget.correctAnswers[i].trim().toLowerCase()
+          : '';
       if (userAns == correctAns && userAns.isNotEmpty) {
         _correctCount++;
       }
     }
 
-    _score = _totalCount > 0 ? ((_correctCount / _totalCount) * 100).round() : 0;
+    _score = _totalCount > 0
+        ? ((_correctCount / _totalCount) * 100).round()
+        : 0;
 
     // Compute topic scores (group by question type / first word as topic proxy)
     for (var i = 0; i < _totalCount; i++) {
       final q = widget.questions[i];
       final topic = _extractTopic(q);
       _topicScores.putIfAbsent(topic, () => 0);
-      final userAns = i < widget.userAnswers.length ? widget.userAnswers[i].trim().toLowerCase() : '';
-      final correctAns = i < widget.correctAnswers.length ? widget.correctAnswers[i].trim().toLowerCase() : '';
+      final userAns = i < widget.userAnswers.length
+          ? widget.userAnswers[i].trim().toLowerCase()
+          : '';
+      final correctAns = i < widget.correctAnswers.length
+          ? widget.correctAnswers[i].trim().toLowerCase()
+          : '';
       if (userAns == correctAns && userAns.isNotEmpty) {
         _topicScores[topic] = (_topicScores[topic] ?? 0) + 1;
       }
@@ -98,17 +123,35 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     setState(() => _saving = true);
 
     try {
-      await ApiService.saveQuizResult(
-        questions: widget.questions,
-        userAnswers: widget.userAnswers,
-        correctAnswers: widget.correctAnswers,
-        score: _score,
-        topicScores: _topicScores,
-        subjectId: widget.subjectId,
-        materialId: widget.materialId,
-        difficulty: widget.difficulty,
-        timeSpentSeconds: widget.timeSpentSeconds,
-      );
+      if (widget.saveResultFn != null) {
+        await widget.saveResultFn!(
+          questions: widget.questions,
+          userAnswers: widget.userAnswers,
+          correctAnswers: widget.correctAnswers,
+          score: _score,
+          topicScores: _topicScores,
+          subjectId: widget.subjectId,
+          materialId: widget.materialId,
+          difficulty: widget.difficulty,
+          timeSpentSeconds: widget.timeSpentSeconds,
+        );
+      } else {
+        await ApiService.saveQuizResult(
+          questions: widget.questions,
+          userAnswers: widget.userAnswers,
+          correctAnswers: widget.correctAnswers,
+          score: _score,
+          topicScores: _topicScores,
+          subjectId: widget.subjectId,
+          materialId: widget.materialId,
+          difficulty: widget.difficulty,
+          timeSpentSeconds: widget.timeSpentSeconds,
+        );
+      }
+
+      if (widget.onResultSaved != null) {
+        await widget.onResultSaved!();
+      }
 
       if (mounted) {
         setState(() {
@@ -136,7 +179,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   String _scoreLabel() {
     if (_score >= 90) return GochanoLanguage.text('Excellent!', 'সুন্দর!');
     if (_score >= 70) return GochanoLanguage.text('Good job!', 'ভালো কাজ!');
-    if (_score >= 50) return GochanoLanguage.text('Keep practicing!', 'অনুশীলন চালিয়ে যান!');
+    if (_score >= 50) {
+      return GochanoLanguage.text('Keep practicing!', 'অনুশীলন চালিয়ে যান!');
+    }
     return GochanoLanguage.text('Needs improvement.', 'উন্নতি প্রয়োজন।');
   }
 
@@ -170,7 +215,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                           value: _score / 100,
                           strokeWidth: 10,
                           backgroundColor: colors.surfaceVariant,
-                          valueColor: AlwaysStoppedAnimation(_scoreColor(context)),
+                          valueColor: AlwaysStoppedAnimation(
+                            _scoreColor(context),
+                          ),
                           strokeCap: StrokeCap.round,
                         ),
                       ),
@@ -211,12 +258,17 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                       SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: colors.ai),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colors.ai,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
-                        style: context.type.caption.copyWith(color: colors.textTertiary),
+                        style: context.type.caption.copyWith(
+                          color: colors.textTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -226,11 +278,17 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.check_circle_outline_rounded, size: 14, color: colors.success),
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 14,
+                        color: colors.success,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         GochanoLanguage.text('Result saved', 'ফলাফল সংরক্ষিত'),
-                        style: context.type.caption.copyWith(color: colors.success),
+                        style: context.type.caption.copyWith(
+                          color: colors.success,
+                        ),
                       ),
                     ],
                   ),
@@ -238,7 +296,10 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                 if (_saveError.isNotEmpty) ...[
                   const SizedBox(height: GochanoSpacing.xs),
                   Text(
-                    GochanoLanguage.text('Failed to save result', 'ফলাফল সংরক্ষণ ব্যর্থ'),
+                    GochanoLanguage.text(
+                      'Failed to save result',
+                      'ফলাফল সংরক্ষণ ব্যর্থ',
+                    ),
                     style: context.type.caption.copyWith(color: colors.error),
                   ),
                 ],
@@ -291,7 +352,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
             const SizedBox(height: GochanoSpacing.sm),
             ..._topicScores.entries.map((entry) {
               final topicTotal = _getTopicTotal(entry.key);
-              final pct = topicTotal > 0 ? ((entry.value / topicTotal) * 100).round() : 0;
+              final pct = topicTotal > 0
+                  ? ((entry.value / topicTotal) * 100).round()
+                  : 0;
               return _TopicBar(
                 topic: entry.key,
                 correct: entry.value,
@@ -312,8 +375,12 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
             _QuestionReview(
               index: i + 1,
               question: widget.questions[i],
-              userAnswer: i < widget.userAnswers.length ? widget.userAnswers[i] : '',
-              correctAnswer: i < widget.correctAnswers.length ? widget.correctAnswers[i] : '',
+              userAnswer: i < widget.userAnswers.length
+                  ? widget.userAnswers[i]
+                  : '',
+              correctAnswer: i < widget.correctAnswers.length
+                  ? widget.correctAnswers[i]
+                  : '',
             ),
 
           const SizedBox(height: GochanoSpacing.xl),
@@ -354,7 +421,10 @@ class _StatCard extends StatelessWidget {
           Icon(icon, size: 20, color: color),
           const SizedBox(height: 4),
           Text(value, style: context.type.cardHeading.copyWith(color: color)),
-          Text(label, style: context.type.caption.copyWith(color: colors.textSecondary)),
+          Text(
+            label,
+            style: context.type.caption.copyWith(color: colors.textSecondary),
+          ),
         ],
       ),
     );
@@ -425,7 +495,10 @@ class _TopicBar extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '$correct/$total ${GochanoLanguage.text('correct', 'সঠিক')}',
-              style: context.type.caption.copyWith(color: colors.textTertiary, fontSize: 11),
+              style: context.type.caption.copyWith(
+                color: colors.textTertiary,
+                fontSize: 11,
+              ),
             ),
           ],
         ),
@@ -451,11 +524,14 @@ class _QuestionReview extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = question['type']?.toString() ?? 'mcq';
-    final options = (question['options'] as List<dynamic>?)?.cast<String>() ?? [];
+    final options =
+        (question['options'] as List<dynamic>?)?.cast<String>() ?? [];
     final explanation = question['explanation']?.toString() ?? '';
     final questionText = question['question']?.toString() ?? '';
 
-    final isCorrect = userAnswer.trim().toLowerCase() == correctAnswer.trim().toLowerCase() && userAnswer.trim().isNotEmpty;
+    final isCorrect =
+        userAnswer.trim().toLowerCase() == correctAnswer.trim().toLowerCase() &&
+        userAnswer.trim().isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
@@ -487,7 +563,9 @@ class _QuestionReview extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '$index. $questionText',
-                    style: context.type.body.copyWith(fontWeight: FontWeight.w600),
+                    style: context.type.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -510,8 +588,8 @@ class _QuestionReview extends StatelessWidget {
                           color: options[i] == correctAnswer
                               ? colors.success.withValues(alpha: 0.2)
                               : options[i] == userAnswer && !isCorrect
-                                  ? colors.error.withValues(alpha: 0.15)
-                                  : colors.surfaceVariant,
+                              ? colors.error.withValues(alpha: 0.15)
+                              : colors.surfaceVariant,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         alignment: Alignment.center,
@@ -522,8 +600,8 @@ class _QuestionReview extends StatelessWidget {
                             color: options[i] == correctAnswer
                                 ? colors.success
                                 : options[i] == userAnswer && !isCorrect
-                                    ? colors.error
-                                    : colors.textTertiary,
+                                ? colors.error
+                                : colors.textTertiary,
                           ),
                         ),
                       ),
@@ -572,12 +650,18 @@ class _QuestionReview extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.lightbulb_outline_rounded, size: 14, color: colors.ai),
+                    Icon(
+                      Icons.lightbulb_outline_rounded,
+                      size: 14,
+                      color: colors.ai,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         explanation,
-                        style: context.type.caption.copyWith(color: colors.textSecondary),
+                        style: context.type.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ),
                   ],

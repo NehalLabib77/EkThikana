@@ -23,7 +23,33 @@ import 'quiz_history_screen.dart';
 import 'quiz_result_screen.dart';
 
 class QuizGeneratorScreen extends StatefulWidget {
-  const QuizGeneratorScreen({super.key});
+  const QuizGeneratorScreen({
+    super.key,
+    this.preselectedMaterialId,
+    this.preselectedMaterialTitle,
+    this.initialTopic,
+    this.initialQuestionCount,
+    this.onQuizCompleted,
+    this.saveResultFn,
+  });
+
+  final String? preselectedMaterialId;
+  final String? preselectedMaterialTitle;
+  final String? initialTopic;
+  final int? initialQuestionCount;
+  final Future<void> Function()? onQuizCompleted;
+  final Future<Map<String, dynamic>> Function({
+    required List<Map<String, dynamic>> questions,
+    required List<String> userAnswers,
+    required List<String> correctAnswers,
+    required int score,
+    required Map<String, int> topicScores,
+    required String subjectId,
+    required String materialId,
+    required String difficulty,
+    required int timeSpentSeconds,
+  })?
+  saveResultFn;
 
   @override
   State<QuizGeneratorScreen> createState() => _QuizGeneratorScreenState();
@@ -54,6 +80,30 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
   final Map<int, String> _selectedAnswers = {};
   bool _submitting = false;
   DateTime? _quizStartedAt;
+  bool _quizCompletedAndSaved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTopic != null && widget.initialTopic!.isNotEmpty) {
+      _topicCtrl.text = widget.initialTopic!;
+    }
+    if (widget.initialQuestionCount != null &&
+        widget.initialQuestionCount! > 0) {
+      _questionCount = widget.initialQuestionCount!;
+    }
+    if (widget.preselectedMaterialId != null &&
+        widget.preselectedMaterialId!.isNotEmpty) {
+      _selectedMaterials.add({
+        'id': widget.preselectedMaterialId!,
+        'title':
+            (widget.preselectedMaterialTitle != null &&
+                widget.preselectedMaterialTitle!.isNotEmpty)
+            ? widget.preselectedMaterialTitle!
+            : widget.preselectedMaterialId!,
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -64,10 +114,12 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
 
   Future<void> _pickMaterials() async {
     if (_selectedMaterials.length >= _maxFiles) {
-      setState(() => _error = GochanoLanguage.text(
-        'Maximum $_maxFiles files allowed. Remove a file first.',
-        'সর্বোচ্চ $_maxFiles ফাইল অনুমোদিত। প্রথমে একটি ফাইল সরান।',
-      ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Maximum $_maxFiles files allowed. Remove a file first.',
+          'সর্বোচ্চ $_maxFiles ফাইল অনুমোদিত। প্রথমে একটি ফাইল সরান।',
+        ),
+      );
       return;
     }
     final result = await showMaterialPicker(context);
@@ -98,10 +150,12 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
 
   Future<void> _uploadSource() async {
     if (_selectedMaterials.length >= _maxFiles) {
-      setState(() => _error = GochanoLanguage.text(
-        'Maximum $_maxFiles files allowed. Remove a file first.',
-        'সর্বোচ্চ $_maxFiles ফাইল অনুমোদিত। প্রথমে একটি ফাইল সরান।',
-      ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Maximum $_maxFiles files allowed. Remove a file first.',
+          'সর্বোচ্চ $_maxFiles ফাইল অনুমোদিত। প্রথমে একটি ফাইল সরান।',
+        ),
+      );
       return;
     }
     try {
@@ -146,25 +200,40 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
       final materialId = await ApiService.uploadMaterial(
         bytes: bytes,
         fileName: selected.name,
-        title: titleCtrl.text.trim().isNotEmpty ? titleCtrl.text.trim() : selected.name,
+        title: titleCtrl.text.trim().isNotEmpty
+            ? titleCtrl.text.trim()
+            : selected.name,
         visibility: 'private',
       );
 
       if (mounted) {
-        final title = titleCtrl.text.trim().isNotEmpty ? titleCtrl.text.trim() : selected.name;
+        final title = titleCtrl.text.trim().isNotEmpty
+            ? titleCtrl.text.trim()
+            : selected.name;
         setState(() {
           _uploading = false;
           _selectedMaterials.add({'id': materialId, 'title': title});
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(GochanoLanguage.text('File uploaded', 'ফাইল আপলোড হয়েছে'))),
+          SnackBar(
+            content: Text(
+              GochanoLanguage.text('File uploaded', 'ফাইল আপলোড হয়েছে'),
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _uploading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(GochanoLanguage.text('Upload failed. Please try again.', 'আপলোড ব্যর্থ। আবার চেষ্টা করুন।'))),
+          SnackBar(
+            content: Text(
+              GochanoLanguage.text(
+                'Upload failed. Please try again.',
+                'আপলোড ব্যর্থ। আবার চেষ্টা করুন।',
+              ),
+            ),
+          ),
         );
       }
     }
@@ -176,19 +245,23 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
     final hasSource = source.isNotEmpty;
 
     if (!hasMaterials && !hasSource) {
-      setState(() => _error = GochanoLanguage.text(
-        'Please select source materials or enter source text.',
-        'অনুগ্রহ করে উৎস উপকরণ নির্বাচন করুন বা উৎস লিখুন।',
-      ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Please select source materials or enter source text.',
+          'অনুগ্রহ করে উৎস উপকরণ নির্বাচন করুন বা উৎস লিখুন।',
+        ),
+      );
       return;
     }
 
     // Validate text length
     if (source.length > _maxTextChars) {
-      setState(() => _error = GochanoLanguage.text(
-        'Source text exceeds $_maxTextChars characters (${source.length}). Please shorten it.',
-        'উৎস লেখা $_maxTextChars অক্ষর অতিক্রম করেছে (${source.length})। অনুগ্রহ করে ছোট করুন।',
-      ));
+      setState(
+        () => _error = GochanoLanguage.text(
+          'Source text exceeds $_maxTextChars characters (${source.length}). Please shorten it.',
+          'উৎস লেখা $_maxTextChars অক্ষর অতিক্রম করেছে (${source.length})। অনুগ্রহ করে ছোট করুন।',
+        ),
+      );
       return;
     }
 
@@ -198,10 +271,12 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
       final quizData = usage['quiz'] as Map<String, dynamic>? ?? {};
       final quizRemaining = quizData['remaining'] as int? ?? 0;
       if (quizRemaining <= 0) {
-        setState(() => _error = GochanoLanguage.text(
-          'AI Quiz limit reached. You have used all 3 quiz generations this month. Your limit resets on 1st of next month.',
-          'AI কুইজ সীমা পৌঁছে গেছে। আপনি এই মাসে ৩টি কুইজ জেনারেশন ব্যবহার করেছেন। আপনার সীমা পরবর্তী মাসের ১ তারিখে রিসেট হবে।',
-        ));
+        setState(
+          () => _error = GochanoLanguage.text(
+            'AI Quiz limit reached. You have used all 3 quiz generations this month. Your limit resets on 1st of next month.',
+            'AI কুইজ সীমা পৌঁছে গেছে। আপনি এই মাসে ৩টি কুইজ জেনারেশন ব্যবহার করেছেন। আপনার সীমা পরবর্তী মাসের ১ তারিখে রিসেট হবে।',
+          ),
+        );
         return;
       }
     } catch (_) {
@@ -293,10 +368,12 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(GochanoLanguage.text(
-            'Please answer question ${unanswered.join(", ")}',
-            'অনুগ্রহ করে প্রশ্ন ${unanswered.join(", ")} উত্তর দিন',
-          )),
+          content: Text(
+            GochanoLanguage.text(
+              'Please answer question ${unanswered.join(", ")}',
+              'অনুগ্রহ করে প্রশ্ন ${unanswered.join(", ")} উত্তর দিন',
+            ),
+          ),
         ),
       );
       return;
@@ -321,24 +398,38 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
 
     if (!mounted) return;
 
+    final materialId = _selectedMaterials.isNotEmpty
+        ? (_selectedMaterials.first['id'] ?? '')
+        : '';
+
     // Navigate to result screen (which handles saving)
-    Navigator.of(context).push(
-      GochanoRoute.to(
-        builder: (_) => QuizResultScreen(
-          questions: _questions,
-          userAnswers: userAnswers,
-          correctAnswers: correctAnswers,
-          difficulty: _difficulty,
-          subjectId: _topicCtrl.text.trim(),
-          timeSpentSeconds: timeSpent,
-        ),
-      ),
-    ).then((_) {
-      // Reset quiz mode when returning from results
-      if (mounted) {
-        _exitQuizMode();
-      }
-    });
+    Navigator.of(context)
+        .push(
+          GochanoRoute.to(
+            builder: (_) => QuizResultScreen(
+              questions: _questions,
+              userAnswers: userAnswers,
+              correctAnswers: correctAnswers,
+              difficulty: _difficulty,
+              subjectId: _topicCtrl.text.trim(),
+              materialId: materialId,
+              timeSpentSeconds: timeSpent,
+              saveResultFn: widget.saveResultFn,
+              onResultSaved: () async {
+                if (!_quizCompletedAndSaved) {
+                  _quizCompletedAndSaved = true;
+                  await widget.onQuizCompleted?.call();
+                }
+              },
+            ),
+          ),
+        )
+        .then((_) {
+          // Reset quiz mode when returning from results
+          if (mounted) {
+            _exitQuizMode();
+          }
+        });
   }
 
   @override
@@ -393,11 +484,22 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                       TextButton.icon(
                         onPressed: _uploading ? null : _uploadSource,
                         icon: _uploading
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
                             : const Icon(Icons.upload_file_rounded, size: 18),
-                        label: Text(_uploading
-                            ? GochanoLanguage.text('Uploading…', 'আপলোড হচ্ছে…')
-                            : GochanoLanguage.text('Upload', 'আপলোড')),
+                        label: Text(
+                          _uploading
+                              ? GochanoLanguage.text(
+                                  'Uploading…',
+                                  'আপলোড হচ্ছে…',
+                                )
+                              : GochanoLanguage.text('Upload', 'আপলোড'),
+                        ),
                       ),
                     ],
                   ),
@@ -415,7 +517,11 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.info_outline_rounded, size: 14, color: colors.textSecondary),
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 14,
+                              color: colors.textSecondary,
+                            ),
                             const SizedBox(width: GochanoSpacing.xs),
                             Expanded(
                               child: Text(
@@ -423,7 +529,9 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                                   'Supported: PDF, DOC, DOCX, TXT, Notes',
                                   'সমর্থিত: PDF, DOC, DOCX, TXT, Notes',
                                 ),
-                                style: context.type.caption.copyWith(color: colors.textSecondary),
+                                style: context.type.caption.copyWith(
+                                  color: colors.textSecondary,
+                                ),
                               ),
                             ),
                           ],
@@ -434,7 +542,10 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                             'Limits: 10 PDF pages · 12,000 chars max · $_maxFiles files max',
                             'সীমা: ১০ PDF পৃষ্ঠা · ১২,০০০ অক্ষর সর্বোচ্চ · $_maxFiles ফাইল সর্বোচ্চ',
                           ),
-                          style: context.type.caption.copyWith(color: colors.textTertiary, fontSize: 11),
+                          style: context.type.caption.copyWith(
+                            color: colors.textTertiary,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
@@ -450,14 +561,21 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                         final id = m['id'] ?? '';
                         final title = m['title'] ?? id;
                         return Chip(
-                          avatar: Icon(Icons.description_rounded, size: 16, color: context.colors.brand),
+                          avatar: Icon(
+                            Icons.description_rounded,
+                            size: 16,
+                            color: context.colors.brand,
+                          ),
                           label: Text(
-                            title.length > 24 ? '${title.substring(0, 24)}…' : title,
+                            title.length > 24
+                                ? '${title.substring(0, 24)}…'
+                                : title,
                             style: context.type.caption,
                           ),
                           deleteIcon: const Icon(Icons.close_rounded, size: 16),
                           onDeleted: () => _removeMaterial(id),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                           visualDensity: VisualDensity.compact,
                         );
                       }).toList(),
@@ -483,7 +601,10 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 4),
-                  _SourceLimitsHelper(textLength: _sourceCtrl.text.length, maxChars: _maxTextChars),
+                  _SourceLimitsHelper(
+                    textLength: _sourceCtrl.text.length,
+                    maxChars: _maxTextChars,
+                  ),
                 ],
               ),
             ),
@@ -503,7 +624,10 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                   TextField(
                     controller: _topicCtrl,
                     decoration: InputDecoration(
-                      labelText: GochanoLanguage.text('Topic (optional)', 'বিষয় (ঐচ্ছিক)'),
+                      labelText: GochanoLanguage.text(
+                        'Topic (optional)',
+                        'বিষয় (ঐচ্ছিক)',
+                      ),
                       hintText: GochanoLanguage.text(
                         'e.g., Database Normalization',
                         'যেমন, ডাটাবেজ নরমালাইজেশন',
@@ -520,7 +644,10 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                           value: _difficulty,
                           items: [
                             ('easy', GochanoLanguage.text('Easy', 'সহজ')),
-                            ('medium', GochanoLanguage.text('Medium', 'মাঝারি')),
+                            (
+                              'medium',
+                              GochanoLanguage.text('Medium', 'মাঝারি'),
+                            ),
                             ('hard', GochanoLanguage.text('Hard', 'কঠিন')),
                           ],
                           onChanged: (v) => setState(() => _difficulty = v),
@@ -533,7 +660,10 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                           value: _questionType,
                           items: [
                             ('mcq', GochanoLanguage.text('MCQ', 'এমসিকিউ')),
-                            ('short_answer', GochanoLanguage.text('Short Answer', 'ছোট উত্তর')),
+                            (
+                              'short_answer',
+                              GochanoLanguage.text('Short Answer', 'ছোট উত্তর'),
+                            ),
                             ('mixed', GochanoLanguage.text('Mixed', 'মিশ্রিত')),
                           ],
                           onChanged: (v) => setState(() => _questionType = v),
@@ -585,7 +715,10 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: colors.ai.withValues(alpha: 0.12),
                     borderRadius: GochanoRadius.smAll,
@@ -626,7 +759,9 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                 onPressed: _exitQuizMode,
                 child: Text(
                   GochanoLanguage.text('Cancel Quiz', 'কুইজ বাতিল করুন'),
-                  style: context.type.body.copyWith(color: colors.textSecondary),
+                  style: context.type.body.copyWith(
+                    color: colors.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -649,7 +784,9 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
                 TextButton.icon(
                   onPressed: _enterQuizMode,
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: Text(GochanoLanguage.text('Start Quiz', 'কুইজ শুরু করুন')),
+                  label: Text(
+                    GochanoLanguage.text('Start Quiz', 'কুইজ শুরু করুন'),
+                  ),
                 ),
               ],
             ),
@@ -700,7 +837,8 @@ class _QuizQuestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = question['type']?.toString() ?? 'mcq';
-    final options = (question['options'] as List<dynamic>?)?.cast<String>() ?? [];
+    final options =
+        (question['options'] as List<dynamic>?)?.cast<String>() ?? [];
     final questionText = question['question']?.toString() ?? '';
 
     return Padding(
@@ -733,7 +871,9 @@ class _QuizQuestionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     questionText,
-                    style: context.type.body.copyWith(fontWeight: FontWeight.w600),
+                    style: context.type.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -755,7 +895,10 @@ class _QuizQuestionCard extends StatelessWidget {
               const SizedBox(height: GochanoSpacing.sm),
               TextField(
                 decoration: InputDecoration(
-                  hintText: GochanoLanguage.text('Type your answer…', 'আপনার উত্তর লিখুন…'),
+                  hintText: GochanoLanguage.text(
+                    'Type your answer…',
+                    'আপনার উত্তর লিখুন…',
+                  ),
                 ),
                 maxLines: 3,
                 onChanged: onAnswerSelected,
@@ -788,7 +931,10 @@ class _SelectableOption extends StatelessWidget {
       onTap: onTap,
       borderRadius: GochanoRadius.mdAll,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.sm, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: GochanoSpacing.sm,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected
               ? colors.ai.withValues(alpha: 0.12)
@@ -818,9 +964,7 @@ class _SelectableOption extends StatelessWidget {
               ),
             ),
             const SizedBox(width: GochanoSpacing.xs),
-            Expanded(
-              child: Text(text, style: context.type.body),
-            ),
+            Expanded(child: Text(text, style: context.type.body)),
           ],
         ),
       ),
@@ -859,10 +1003,12 @@ class _DropdownField extends StatelessWidget {
             isExpanded: true,
             underline: const SizedBox.shrink(),
             items: items
-                .map((item) => DropdownMenuItem(
-                      value: item.$1,
-                      child: Text(item.$2, style: context.type.body),
-                    ))
+                .map(
+                  (item) => DropdownMenuItem(
+                    value: item.$1,
+                    child: Text(item.$2, style: context.type.body),
+                  ),
+                )
                 .toList(),
             onChanged: (v) {
               if (v != null) onChanged(v);
@@ -900,9 +1046,13 @@ class _CountSelector extends StatelessWidget {
                   onTap: () => onChanged(n),
                   borderRadius: GochanoRadius.mdAll,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xs),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: GochanoSpacing.xs,
+                    ),
                     decoration: BoxDecoration(
-                      color: count == n ? colors.ai.withValues(alpha: 0.12) : colors.surfaceVariant,
+                      color: count == n
+                          ? colors.ai.withValues(alpha: 0.12)
+                          : colors.surfaceVariant,
                       borderRadius: GochanoRadius.mdAll,
                       border: Border.all(
                         color: count == n ? colors.ai : Colors.transparent,
@@ -913,7 +1063,9 @@ class _CountSelector extends StatelessWidget {
                       '$n',
                       style: context.type.body.copyWith(
                         color: count == n ? colors.ai : colors.textPrimary,
-                        fontWeight: count == n ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: count == n
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -979,7 +1131,9 @@ class _QuestionCardState extends State<_QuestionCard> {
                 Expanded(
                   child: Text(
                     q['question']?.toString() ?? '',
-                    style: context.type.body.copyWith(fontWeight: FontWeight.w600),
+                    style: context.type.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -1028,7 +1182,9 @@ class _QuestionCardState extends State<_QuestionCard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _showAnswer ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                    _showAnswer
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
                     size: 16,
                     color: colors.ai,
                   ),

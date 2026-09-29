@@ -599,3 +599,123 @@ def test_exam_rescue_with_valid_material_extraction(client, fake_db, fake_auth, 
     items = body["days"][0]["items"]
     assert items[0]["materialId"] == "mat-pdf-lecture"
     assert items[1]["materialId"] == ""
+
+
+# ---------------------------------------------------------------------------
+# 10. Phase T6: Quiz Results & Weak-Topic Closed Loop Integration Tests
+# ---------------------------------------------------------------------------
+
+def test_quiz_result_save_and_weak_topic_closed_loop(client, fake_db, fake_auth, monkeypatch):
+    """Test 18 & 19: Quiz results with topicScores are saved and consumed by weak_topic_service."""
+    uid = "rescue-weak-topic-student"
+    fake_db.seed("users", uid, {"role": "student"})
+    monkeypatch.setattr("app.routers.ai_study.get_firestore", lambda: fake_db)
+    monkeypatch.setattr("app.services.weak_topic_service.get_firestore", lambda: fake_db)
+
+    # 1. Save quiz result via /api/ai/quiz/save-result
+    resp = client.post(
+        "/api/ai/quiz/save-result",
+        headers=_auth(fake_auth, uid),
+        json={
+            "subject_id": "Physics",
+            "material_id": "mat-123",
+            "questions": [
+                {"question": "What is Carnot efficiency?", "correct": "A"},
+                {"question": "What is entropy in reversible process?", "correct": "B"},
+            ],
+            "user_answers": ["C", "B"],
+            "correct_answers": ["A", "B"],
+            "score": 50,
+            "topic_scores": {"Carnot Cycle": 0, "Entropy": 100},
+            "difficulty": "medium",
+            "time_spent_seconds": 120,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    # 2. Check weak topic service aggregates it
+    from app.services.weak_topic_service import get_weak_topics
+    weak_topics = get_weak_topics(uid, threshold=60)
+    assert len(weak_topics) >= 1
+    assert any(wt["topic"] == "Carnot Cycle" for wt in weak_topics)
+
+
+def test_future_exam_rescue_incorporates_weak_topics(client, fake_db, fake_auth, monkeypatch):
+    """Test 20: Future Exam Rescue generation reads weak topics and passes them to AI prompt."""
+    uid = "rescue-weak-student-generation"
+    fake_db.seed("users", uid, {"role": "student"})
+
+    import app.routers.ai_study as ai_study_mod
+    monkeypatch.setattr(
+        "app.services.weak_topic_service.get_weak_topics",
+        lambda uid, threshold=60: [{"topic": "Dispersion Formulas", "average_score": 35}],
+    )
+
+    captured_prompts = []
+
+    async def mock_generate(user_uid, prompt, feature=None):
+        captured_prompts.append(prompt)
+        return json.dumps({
+            "title": "Optics Rescue Plan",
+            "strategy_summary": "Targeted rescue plan.",
+            "days": [
+                {
+                    "day_number": 1,
+                    "theme": "Dispersion Review",
+                    "items": [
+                        {"title": "Dispersion Practice", "type": "study", "estimated_minutes": 60}
+                    ],
+                }
+            ],
+        })
+
+    monkeypatch.setattr(ai_study_mod, "_call_generate", mock_generate)
+
+    future_date = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+    resp = client.post(
+        "/api/ai/exam-rescue/plan",
+        headers=_auth(fake_auth, uid),
+        json={"exam_title": "Optics", "exam_date": future_date},
+    )
+    assert resp.status_code == 200, resp.text
+    assert len(captured_prompts) == 1
+    assert "Dispersion Formulas (accuracy: 35%)" in captured_prompts[0]
+
+
+def test_weak_topic_lookup_failure_remains_non_blocking(client, fake_db, fake_auth, monkeypatch):
+    """Test 21: Exception in weak topics lookup does not crash or block Exam Rescue plan generation."""
+    uid = "rescue-weak-student-failing"
+    fake_db.seed("users", uid, {"role": "student"})
+
+    import app.routers.ai_study as ai_study_mod
+
+    def failing_weak_topics(uid, threshold=60):
+        raise RuntimeError("Simulated Firestore timeout reading quiz results")
+
+    monkeypatch.setattr(
+        "app.services.weak_topic_service.get_weak_topics",
+        failing_weak_topics,
+    )
+
+    async def mock_generate(user_uid, prompt, feature=None):
+        return json.dumps({
+            "title": "Chemistry Plan",
+            "strategy_summary": "Summary",
+            "days": [
+                {
+                    "day_number": 1,
+                    "theme": "Theme",
+                    "items": [{"title": "Item 1", "type": "study", "estimated_minutes": 30}],
+                }
+            ],
+        })
+
+    monkeypatch.setattr(ai_study_mod, "_call_generate", mock_generate)
+
+    future_date = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+    resp = client.post(
+        "/api/ai/exam-rescue/plan",
+        headers=_auth(fake_auth, uid),
+        json={"exam_title": "Chemistry", "exam_date": future_date},
+    )
+    assert resp.status_code == 200, resp.text
