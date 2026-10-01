@@ -383,9 +383,28 @@ context preserved (the single per-request system prompt covers follow-ups):
   asks ("Banglish e bolo") — explicit request unlocks Banglish for that reply.
 - Plus a formatting line (paragraphs / `**bold**` / simple lists) matching §8.2.
 
-**Deploy note**: this prompt change is committed locally but **not yet
-deployed** to Render (operator action); the UI fixes are client-side and ship
-with the next app build. Quota flag/env untouched.
+**Deploy note (updated)**: the prompt change is **deployed live on Render**
+(commit `d5ec2f6`, pushed to `feature/top10-exam-rescue-v1`, deployed by the
+operator) and was verified against the live `POST /api/ai/chat` with an
+authenticated student token (2026-10-01). The UI fixes are client-side and
+ship with the app build. Quota flag/env untouched.
+
+Live verification results (all HTTP 200):
+
+| # | Input | Expected | Result |
+|---|---|---|---|
+| T1 | `amar kal exam ase kivabe porbo` (Banglish) | Bangla-script reply | **PASS** — 513 Bangla / 8 Latin chars |
+| T2 | `What is total internal reflection?` (English) | English reply | **PASS** — 0 Bangla chars, `**bold**` + numbered list |
+| T3 | `আমার optical fiber exam কাল, কীভাবে revise করব?` (mixed) | Bangla structure + English technical terms | **PASS** — 886 Bangla / 446 Latin; "Optical Fiber", "Total Internal Reflection (TIR)", "Numerical Aperture", "critical angle" kept in English |
+| T4 | `Banglish e bolo` (explicit ask) | Banglish allowed | **PASS** — full Banglish reply |
+| T5 | Multi-turn: TIR Q → optical-fiber follow-up → Banglish follow-up | Context preserved; policy applies to follow-ups | **PASS** — turn 2 context-aware English (3 follow-ups); turn 3 Banglish follow-up answered in Bangla script (1160 Bangla chars) with full history |
+
+A prompt probe additionally confirmed the new rules are live: Ziku reported
+being *"instructed to always reply in Bangla script … and never in Banglish"*
+(text present only in `d5ec2f6`; the pre-deploy service quoted the old prompt
+line instead). One transient `503 AI provider temporarily unavailable`
+occurred on T5 turn 3 — a provider hiccup that succeeded on immediate retry,
+**not** a deployment failure.
 
 ### 8.4 Tests (21 new; all green)
 
