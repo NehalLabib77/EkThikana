@@ -29,6 +29,8 @@ import '../../study/presentation/planner/plan_view.dart';
 import '../../community/presentation/community_view.dart';
 import '../../tasks/presentation/tasks_screen.dart';
 import '../../../services/notification_service.dart';
+import '../../study/presentation/ai/ziku_assistant_panel.dart';
+import '../../../shared/widgets/ziku_floating_launcher.dart';
 import 'quick_add_sheet.dart';
 
 class GochanoShell extends StatefulWidget {
@@ -195,7 +197,7 @@ class _GochanoShellState extends State<GochanoShell> {
             GochanoRoute.to(builder: (_) => ProfileScreen(role: widget.role)),
           ),
         ),
-        const WorkspaceView(),
+        WorkspaceView(onOpenPlan: () => _select(2)),
         const PlanView(),
         const CommunityView(),
         ProfileScreen(role: widget.role),
@@ -323,12 +325,26 @@ class _GochanoShellState extends State<GochanoShell> {
       backgroundColor: context.colors.background,
       body: IndexedStack(index: clampedIndex, children: pages),
       floatingActionButton: _isStudent
-          ? FloatingActionButton(
-              key: const ValueKey('universal_quick_add_fab'),
-              heroTag: 'universal_quick_add_fab',
-              tooltip: GochanoLanguage.text('Quick Add', 'দ্রুত যোগ করুন'),
-              onPressed: _openQuickAdd,
-              child: const Icon(Icons.add_rounded),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                ZikuFloatingLauncher(
+                  onTap: () => ZikuAssistantPanel.show(
+                    context,
+                    currentDestination: destinations[clampedIndex].label,
+                    appMode: mode.name,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  key: const ValueKey('universal_quick_add_fab'),
+                  heroTag: 'universal_quick_add_fab',
+                  tooltip: GochanoLanguage.text('Quick Add', 'দ্রুত যোগ করুন'),
+                  onPressed: _openQuickAdd,
+                  child: const Icon(Icons.add_rounded),
+                ),
+              ],
             )
           : null,
       bottomNavigationBar: NavigationBar(

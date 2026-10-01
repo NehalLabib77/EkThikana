@@ -1,0 +1,42 @@
+
+09-29 22:48:47.480 10288 10288 W main    : type=1400 audit(0.0:62192): avc: denied { read } for name="u:object_r:vendor_memfusion_size_prop:s0" dev="tmpfs" ino=10570 scontext=u:r:untrusted_app:s0:c203,c256,c512,c768 tcontext=u:object_r:vendor_memfusion_size_prop:s0 tclass=file permissive=0 app=com.google.android.permissioncontroller
+09-29 22:48:47.480 10288 10288 W main    : type=1400 audit(0.0:62193): avc: denied { read } for name="u:object_r:vendor_memfusion_state_prop:s0" dev="tmpfs" ino=10571 scontext=u:r:untrusted_app:s0:c203,c256,c512,c768 tcontext=u:object_r:vendor_memfusion_state_prop:s0 tclass=file permissive=0 app=com.google.android.permissioncontroller
+09-29 22:48:47.480 10288 10288 W main    : type=1400 audit(0.0:62194): avc: denied { read } for name="u:object_r:vendor_memfusion_tranlog_prop:s0" dev="tmpfs" ino=10573 scontext=u:r:untrusted_app:s0:c203,c256,c512,c768 tcontext=u:object_r:vendor_memfusion_tranlog_prop:s0 tclass=file permissive=0 app=com.google.android.permissioncontroller
+09-29 22:48:47.484 10288 10288 W main    : type=1400 audit(0.0:62195): avc: denied { read } for name="u:object_r:vendor_uxcompaction_enable_prop:s0" dev="tmpfs" ino=7669 scontext=u:r:untrusted_app:s0:c203,c256,c512,c768 tcontext=u:object_r:vendor_uxcompaction_enable_prop:s0 tclass=file permissive=0 app=com.google.android.permissioncontroller
+09-29 22:48:48.660 10288 10288 W FirebaseApp: Default FirebaseApp failed to initialize because no default options were found. This usually means that com.google.gms:google-services was not applied to your gradle project.
+09-29 22:48:48.660 10288 10288 I FirebaseInitProvider: FirebaseApp initialization unsuccessful
+09-29 22:48:49.047 10288 10288 E ikana.ekthikan: hiddenapi: Accessing hidden method Landroid/view/SurfaceControl$Builder;->setHidden(Z)Landroid/view/SurfaceControl$Builder; (runtime_flags=0, domain=platform, api=blocked) from /data/app/~~U2mz__0zVK1zYDTNZYuiyw==/com.ekthikana.ekthikana-JEEePIbnnrg_eQV6vEFkhg==/base.apk!classes21.dex (domain=app, TargetSdkVersion=36) using linking: denied
+09-29 22:48:49.060 10288 10288 W ikana.ekthikana: type=1400 audit(0.0:62197): avc: denied { read } for name="max_map_count" dev="proc" ino=18636831 scontext=u:r:untrusted_app:s0:c203,c256,c512,c768 tcontext=u:object_r:proc_max_map_count:s0 tclass=file permissive=0 app=com.google.android.permissioncontroller
+09-29 22:48:49.353 10288 10316 W libc    : Access denied finding property "vendor.debug.forcibly_enable_mtk_ray_tracing"
+09-29 22:48:53.259 10288 10310 E OpenGLRenderer: EglManager::makeCurrent mED = 0x1, surface = 0x0, mEC = 0xb400007456c3b470, error = EGL_SUCCESS
+09-29 22:48:53.306 10288 10316 E ion     : ioctl c0044901 failed with code -1: Invalid argument
+09-29 22:48:53.642 10288 10350 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+09-29 22:48:59.388 10288 10385 W ProviderInstaller: Failed to load providerinstaller module: No acceptable module com.google.android.gms.providerinstaller.dynamite found. Local version is 0 and remote version is 0.
+09-29 22:48:59.414 10288 10385 W ikana.ekthikan: Loading /data/misc/apexdata/com.android.art/dalvik-cache/arm64/system@framework@com.android.location.provider.jar@classes.odex non-executable as it requires an image which we failed to load
+09-29 22:48:59.516 10288 10310 E OpenGLRenderer: fbcNotifyFrameComplete error: undefined symbol: fbcNotifyFrameComplete
+09-29 22:48:59.516 10288 10310 E OpenGLRenderer: fbcNotifyNoRender error: undefined symbol: fbcNotifyNoRender
+09-29 22:48:59.545 10288 10388 E GoogleApiManager: Failed to get service from broker. 
+09-29 22:48:59.545 10288 10388 E GoogleApiManager: java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+09-29 22:48:59.545 10288 10388 E GoogleApiManager: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:2456)
+09-29 22:48:59.545 10288 10388 E GoogleApiManager: 	at android.os.Parcel.createException(Parcel.java:2440)
+09-29 22:48:59.545 10288 10388 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:2423)
+09-29 22:48:59.545 10288 10388 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:2365)
+09-29 22:48:59.548 10288 10388 W GoogleApiManager: Not showing notification since connectionResult is not user-facing: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+09-29 22:48:59.563 10288 10387 W FlagRegistrar: Failed to register com.google.android.gms.providerinstaller#com.ekthikana.ekthikana
+09-29 22:48:59.563 10288 10387 W FlagRegistrar: gwcv: 17: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+09-29 22:48:59.563 10288 10387 W FlagRegistrar: Caused by: bmjw: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+09-29 22:48:59.578 10288 10389 W FlagStore: java.util.concurrent.ExecutionException: gwcv: 17: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+09-29 22:48:59.578 10288 10389 W FlagStore: Caused by: gwcv: 17: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+09-29 22:48:59.578 10288 10389 W FlagStore: Caused by: bmjw: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+09-29 22:48:59.699 10288 10393 W System  : Ignoring header X-Firebase-Locale because its value was null.
+09-29 22:49:00.066 10288 10393 W FeatureFlagsImplExport: java.lang.NoClassDefFoundError: Class not found using the boot class loader; no stack trace available
+09-29 22:49:09.527 10288 10388 E GoogleApiManager: Failed to get service from broker. 
+09-29 22:49:09.527 10288 10388 E GoogleApiManager: java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+09-29 22:49:09.527 10288 10388 E GoogleApiManager: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:2456)
+09-29 22:49:09.527 10288 10388 E GoogleApiManager: 	at android.os.Parcel.createException(Parcel.java:2440)
+09-29 22:49:09.527 10288 10388 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:2423)
+09-29 22:49:09.527 10288 10388 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:2365)
+09-29 22:49:09.528 10288 10388 W GoogleApiManager: Not showing notification since connectionResult is not user-facing: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+09-29 22:49:11.788 10288 10384 W Firestore: (26.5.0) [Firestore]: Listen for QueryWrapper(query=Query(target=Query(planned_trips where ownerId==9zUq2WHq6mPsVchJwCvoTD3k78R2 order by __name__);limitType=LIMIT_TO_FIRST)) failed: Status{code=PERMISSION_DENIED, description=Missing or insufficient permissions., cause=null}
+09-29 22:49:11.798 10288 10288 I flutter : [NotificationService.reconcileFromFirestore] error: [cloud_firestore/permission-denied] PERMISSION_DENIED: Missing or insufficient permissions.
+

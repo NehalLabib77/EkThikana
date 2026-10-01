@@ -36,6 +36,9 @@ import '../../life/presentation/medicine/medicine_screen.dart';
 import '../../notifications/presentation/notification_center_screen.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
+import '../../study/presentation/rescue/exam_rescue_active_card.dart';
+import '../../study/presentation/rescue/exam_rescue_models.dart';
+import '../../study/presentation/rescue/exam_rescue_session_service.dart';
 import '../../../services/local_reminder_store.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../../widgets/sync_status_indicator.dart';
@@ -47,12 +50,14 @@ class HomeScreen extends StatelessWidget {
     required this.displayName,
     required this.onOpenDestination,
     required this.onOpenProfile,
+    this.examRescueSessionService,
   });
 
   final String role;
   final String displayName;
   final ValueChanged<int> onOpenDestination;
   final VoidCallback onOpenProfile;
+  final ExamRescueSessionService? examRescueSessionService;
 
   bool get _isStudent => role == 'student';
 
@@ -154,6 +159,7 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: GochanoSpacing.sm),
         _TodaysTasksCard(
           onSeeAll: () => onOpenDestination(2),
+          examRescueSessionService: examRescueSessionService,
         ),
         const SizedBox(height: GochanoSpacing.sm),
         const _MedicineScheduleCard(),
@@ -174,6 +180,7 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: GochanoSpacing.sm),
         _TodaysTasksCard(
           onSeeAll: () => onOpenDestination(2), // Plan tab
+          examRescueSessionService: examRescueSessionService,
         ),
         const SizedBox(height: GochanoSpacing.sm),
         const _StudyProgressCard(),
@@ -589,168 +596,216 @@ class _SummaryPill extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _TodaysTasksCard extends StatelessWidget {
-  const _TodaysTasksCard({required this.onSeeAll});
+  const _TodaysTasksCard({
+    required this.onSeeAll,
+    this.examRescueSessionService,
+  });
 
   final VoidCallback onSeeAll;
+  final ExamRescueSessionService? examRescueSessionService;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final sessionService =
+        examRescueSessionService ?? ExamRescueSessionService.instance;
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 100),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _AccentRailCard(
-            accent: colors.brand,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
+    return StreamBuilder<ExamRescueSession?>(
+      stream: sessionService.streamNearestActiveSession(),
+      builder: (context, sessionSnapshot) {
+        final activeSession = sessionSnapshot.data;
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirestoreService.ownerStream('tasks', limit: 100),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _AccentRailCard(
+                accent: colors.brand,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.today_rounded, size: 18, color: colors.brand),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Text(
-                      GochanoLanguage.text("Today", 'আজ'),
-                      style: context.type.sectionHeading,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: GochanoSpacing.xs),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.cloud_off_rounded,
-                      size: 14,
-                      color: colors.textTertiary,
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text(
-                          'Unable to load tasks',
-                          'কাজ লোড হয়নি',
+                    Row(
+                      children: [
+                        Icon(Icons.today_rounded, size: 18, color: colors.brand),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Text(
+                          GochanoLanguage.text("Today", 'আজ'),
+                          style: context.type.sectionHeading,
                         ),
-                        style: context.type.bodySecondary,
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.cloud_off_rounded,
+                          size: 14,
+                          color: colors.textTertiary,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'Unable to load tasks',
+                              'কাজ লোড হয়নি',
+                            ),
+                            style: context.type.bodySecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          );
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _SectionSkeleton();
-        }
+              );
+            }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const _SectionSkeleton();
+            }
 
-        final now = DateTime.now();
-        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        final open = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        var overdue = 0;
+            final now = DateTime.now();
+            final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+            final open = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+            var overdue = 0;
 
-        for (final doc in [...?snapshot.data?.docs]) {
-          final data = doc.data();
-          if (data['done'] == true) continue;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-          if (due == null) continue;
-          // Canonical missed rule: incomplete task whose deadline has passed.
-          if (!due.isAfter(now)) {
-            overdue++;
-            continue;
-          }
-          if (!due.isAfter(endOfToday)) open.add(doc);
-        }
-        open.sort(_byDueAtAsc);
+            final docs = snapshot.data?.docs ?? const [];
+            for (final doc in docs) {
+              final data = doc.data();
+              if (data['done'] == true) continue;
+              final due = (data['dueAt'] as Timestamp?)?.toDate();
+              if (due == null) continue;
+              // Canonical missed rule: incomplete task whose deadline has passed.
+              if (!due.isAfter(now)) {
+                overdue++;
+                continue;
+              }
+              if (!due.isAfter(endOfToday)) open.add(doc);
+            }
+            open.sort(_byDueAtAsc);
 
-        return _AccentRailCard(
-          accent: colors.brand,
-          onTap: onSeeAll,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+            ExamRescueTodayProgress? rescueProgress;
+            if (activeSession != null) {
+              final allTaskMaps =
+                  docs.map((d) {
+                    final map = Map<String, dynamic>.from(d.data());
+                    map['id'] = d.id;
+                    return map;
+                  }).toList();
+
+              rescueProgress = ExamRescueSessionService.calculateTodayProgress(
+                session: activeSession,
+                tasks: allTaskMaps,
+                now: now,
+              );
+            }
+
+            final todayCard = _AccentRailCard(
+              accent: colors.brand,
+              onTap: onSeeAll,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.today_rounded, size: 18, color: colors.brand),
-                  const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      GochanoLanguage.text("Today", 'আজ'),
-                      style: context.type.sectionHeading,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (overdue > 0) ...[
-                    const SizedBox(width: GochanoSpacing.xs),
-                    GochanoBadge(
-                      label: GochanoLanguage.text(
-                        '$overdue overdue',
-                        '$overdue টি বাকি',
+                  Row(
+                    children: [
+                      Icon(Icons.today_rounded, size: 18, color: colors.brand),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text("Today", 'আজ'),
+                          style: context.type.sectionHeading,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      tone: GochanoBadgeTone.warning,
-                      icon: Icons.schedule_rounded,
+                      if (overdue > 0) ...[
+                        const SizedBox(width: GochanoSpacing.xs),
+                        GochanoBadge(
+                          label: GochanoLanguage.text(
+                            '$overdue overdue',
+                            '$overdue টি বাকি',
+                          ),
+                          tone: GochanoBadgeTone.warning,
+                          icon: Icons.schedule_rounded,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: GochanoSpacing.xs),
+                  if (open.isEmpty && overdue > 0)
+                    Row(
+                      children: [
+                        GochanoIllustration(
+                          GochanoArt.emptyTasks,
+                          size: 28,
+                          accent: colors.warning,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              '$overdue overdue, nothing else today',
+                              '$overdue টি বাকি, আর কিছু নেই',
+                            ),
+                            style: context.type.bodySecondary.copyWith(
+                              color: colors.warning,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (open.isEmpty)
+                    Row(
+                      children: [
+                        GochanoIllustration(
+                          GochanoArt.emptyTasks,
+                          size: 28,
+                          accent: colors.textTertiary,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text('All clear today.', 'আজ ফাঁকা।'),
+                            style: context.type.bodySecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    for (final doc in open.take(3))
+                      _TaskLine(doc: doc, isLast: doc == open.take(3).last),
+                  if (open.length > 3) ...[
+                    const SizedBox(height: GochanoSpacing.xxs),
+                    Text(
+                      GochanoLanguage.text(
+                        '+${open.length - 3} more',
+                        'আরও ${open.length - 3} টি',
+                      ),
+                      style: context.type.caption,
                     ),
                   ],
                 ],
               ),
-              const SizedBox(height: GochanoSpacing.xs),
-              if (open.isEmpty && overdue > 0)
-                Row(
-                  children: [
-                    GochanoIllustration(
-                      GochanoArt.emptyTasks,
-                      size: 28,
-                      accent: colors.warning,
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text(
-                          '$overdue overdue, nothing else today',
-                          '$overdue টি বাকি, আর কিছু নেই',
-                        ),
-                        style: context.type.bodySecondary.copyWith(
-                          color: colors.warning,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else if (open.isEmpty)
-                Row(
-                  children: [
-                    GochanoIllustration(
-                      GochanoArt.emptyTasks,
-                      size: 28,
-                      accent: colors.textTertiary,
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        GochanoLanguage.text('All clear today.', 'আজ ফাঁকা।'),
-                        style: context.type.bodySecondary,
-                      ),
-                    ),
-                  ],
-                )
-              else
-                for (final doc in open.take(3))
-                  _TaskLine(doc: doc, isLast: doc == open.take(3).last),
-              if (open.length > 3) ...[
-                const SizedBox(height: GochanoSpacing.xxs),
-                Text(
-                  GochanoLanguage.text(
-                    '+${open.length - 3} more',
-                    'আরও ${open.length - 3} টি',
+            );
+
+            if (activeSession != null && rescueProgress != null) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ExamRescueActiveCard(
+                    session: activeSession,
+                    progress: rescueProgress,
+                    onContinueRescue: onSeeAll,
                   ),
-                  style: context.type.caption,
-                ),
-              ],
-            ],
-          ),
+                  const SizedBox(height: GochanoSpacing.sm),
+                  todayCard,
+                ],
+              );
+            }
+
+            return todayCard;
+          },
         );
       },
     );

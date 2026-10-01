@@ -84,6 +84,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final _scroll = ScrollController();
 
   final List<_Turn> _turns = [];
+  final List<String> _dynamicSuggestions = [];
   bool _busy = false;
   String _error = '';
 
@@ -148,9 +149,29 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final materialId = _materialId;
 
       if (materialId == null) {
-        // General academic question. `explain` is the instruction that maps
-        // to "answer this for a university student" on the backend.
-        answer = await ApiService.aiNote('explain', question);
+        // Multi-turn conversation via ApiService.aiChat
+        final history = _turns
+            .map((t) => [
+                  {'role': 'user', 'content': t.question},
+                  {'role': 'assistant', 'content': t.answer},
+                ])
+            .expand((i) => i)
+            .toList();
+        history.add({'role': 'user', 'content': question});
+
+        final res = await ApiService.aiChat(
+          messages: history,
+          currentDestination: 'Study',
+          appMode: 'student',
+        );
+        answer = (res['reply'] as String?) ?? '';
+        final suggestions = (res['suggested_followups'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [];
+        _dynamicSuggestions
+          ..clear()
+          ..addAll(suggestions);
       } else if (_route == AiContextRoute.imageQuestion) {
         answer = await ApiService.askImage(
           materialId: materialId,
@@ -290,6 +311,21 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     onPick: _ask,
                   ),
                 for (final turn in _turns) _TurnCard(turn: turn),
+                if (_turns.isNotEmpty && _dynamicSuggestions.isNotEmpty && !_busy) ...[
+                  const SizedBox(height: GochanoSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final s in _dynamicSuggestions)
+                        ActionChip(
+                          avatar: const Icon(Icons.auto_awesome_outlined, size: 14),
+                          label: Text(s, style: context.type.caption),
+                          onPressed: () => _ask(s),
+                        ),
+                    ],
+                  ),
+                ],
                 if (_busy) ...[
                   const SizedBox(height: GochanoSpacing.lg),
                   StaticLoadingState(message: _busyMessage),

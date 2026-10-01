@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.firebase import get_firestore
-from app.services.ai_service import AiFeature, generate
+from app.services.ai_service import AiFeature, generate, record_ai_activity
 
 logger = logging.getLogger("gochano.ai_study")
 
@@ -322,6 +322,9 @@ async def generate_study_recommendation(uid: str) -> dict[str, Any]:
 
         if not recommendations:
             recommendations = _generate_fallback_recommendations(context)
+        else:
+            # Only a usable AI-authored set counts; fallback rules do not.
+            record_ai_activity(uid, "study_recommendations", 1)
 
     except Exception as e:
         logger.warning("AI recommendation failed, using fallback: %s", e)

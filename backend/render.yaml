@@ -71,6 +71,13 @@ services:
         value: "3"
       - key: AI_LIMIT_STUDY_PLAN_ACTIVE
         value: "1"
+      # Phase AI-FLOAT-1 — app-level AI quota enforcement.
+      # Safe default is "true" (production behaviour: HTTP 429 when a
+      # Gochano limit is exhausted). Set to "false" only for development /
+      # competition demo builds, then redeploy. Usage counters keep
+      # incrementing either way.
+      - key: AI_QUOTA_ENFORCEMENT
+        value: "true"
       - key: ROUTING_PROVIDER
         value: osrm
       - key: OSRM_BASE_URL

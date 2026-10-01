@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     ai_limit_quiz_monthly: int = 3
     ai_limit_study_plan_active: int = 1
 
+    # Phase AI-FLOAT-1 — app-level AI quota enforcement switch.
+    # Safe default is True (production). Setting AI_QUOTA_ENFORCEMENT=false
+    # keeps every usage/activity counter incrementing but stops the app from
+    # returning HTTP 429 when a Gochano limit is exhausted. Upstream provider
+    # rate limits are unaffected by this switch.
+    ai_quota_enforcement: bool = True
+
     # Legacy per-feature daily limits
     ai_daily_limit_note: int = 10
     ai_daily_limit_pdf: int = 10
