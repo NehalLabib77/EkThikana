@@ -198,5 +198,110 @@ void main() {
       expect(aiUsageScreenFile.contains("quota_enforcement_enabled'"), isTrue);
       expect(aiUsageScreenFile.contains('Unlimited AI Mode Active'), isTrue);
     });
+
+    // ---- AI-FLOAT-1.2: unlimited-mode presentation ----
+
+    test('unlimited mode has a usage-not-quota caption', () {
+      expect(
+        aiUsageScreenFile.contains(
+          'Usage is still tracked, but limits are temporarily not enforced.',
+        ),
+        isTrue,
+        reason: 'Unlimited mode must explain that usage is tracked but '
+            'limits are not enforced',
+      );
+      expect(
+        aiUsageScreenFile.contains('final unlimited = usage['),
+        isTrue,
+        reason: 'Presentation must branch on quota_enforcement_enabled',
+      );
+    });
+
+    test('unlimited mode hides the limits footer', () {
+      expect(
+        aiUsageScreenFile.contains('if (!unlimited)'),
+        isTrue,
+        reason: 'The "Limits ensure equal access..." footer must not show '
+            'while limits are unenforced',
+      );
+    });
+
+    test('feature card supports unlimited usage presentation', () {
+      expect(aiUsageScreenFile.contains('class AiFeatureUsageCard'), isTrue);
+      expect(aiUsageScreenFile.contains('this.unlimited = false'), isTrue);
+      expect(aiUsageScreenFile.contains('this.usageLabel'), isTrue);
+      expect(
+        aiUsageScreenFile.contains('if (showQuota)'),
+        isTrue,
+        reason: 'Progress bar / reset badge / remaining text must only '
+            'render when quotas are enforced',
+      );
+    });
+
+    testWidgets(
+      'unlimited mode shows usage counts, never remaining/negative quota',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GochanoTheme.light(),
+            home: Scaffold(
+              body: AiFeatureUsageCard(
+                icon: Icons.edit_note_rounded,
+                title: 'Note AI',
+                resetBadge: 'Monthly (resets 1st of month)',
+                remainingText: '0 of 5 remaining this month',
+                usageLabel: '6 uses',
+                unlimited: true,
+                used: 6,
+                limit: 5,
+                isPlan: false,
+              ),
+            ),
+          ),
+        );
+
+        // Actual usage is shown.
+        expect(find.text('6 uses'), findsWidgets);
+        // Over-limit usage never renders as a negative or "left" value.
+        expect(find.textContaining('-1/5'), findsNothing);
+        expect(find.textContaining('remaining'), findsNothing);
+        expect(find.textContaining('left'), findsNothing);
+        // No progress bar implying a limit.
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        // No red exhaustion styling on the caption.
+        expect(find.textContaining('0 of 5'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'production quota mode still shows normal used/limit/remaining',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GochanoTheme.light(),
+            home: Scaffold(
+              body: AiFeatureUsageCard(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: 'Chat',
+                resetBadge: 'Daily (resets at 00:00 UTC)',
+                remainingText: '4 of 20 remaining today',
+                usageLabel: '16 uses',
+                unlimited: false,
+                used: 16,
+                limit: 20,
+                isPlan: false,
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('4/20 left'), findsOneWidget);
+        expect(find.text('4 of 20 remaining today'), findsOneWidget);
+        expect(find.text('Daily (resets at 00:00 UTC)'), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        // The unlimited usage label must not leak into quota mode.
+        expect(find.text('16 uses'), findsNothing);
+      },
+    );
   });
 }

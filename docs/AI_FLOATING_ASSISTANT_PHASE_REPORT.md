@@ -1,9 +1,9 @@
 # PHASE AI-FLOAT-1.1 REPORT: ZIKU RIGHT-SIDE PANEL, COMPLETE AI ACTIVITY INVENTORY, SERVER-SIDE COUNTERS & UNLIMITED-MODE VERIFICATION
 
 **Phase**: AI-FLOAT-1.1 (remediation of the AI-FLOAT-1 completion report)
-**Working Branch**: `feature/top10-exam-rescue-v1` (HEAD `025b5c2`)
+**Working Branch**: `feature/top10-exam-rescue-v1` (HEAD `df0e9c1`, deployed on Render)
 **Date**: October 1, 2026
-**Status**: CODE + TESTS COMPLETE — LIVE / DEVICE VERIFICATION PENDING (see §7)
+**Status**: **PASS** — code + tests + live + device verification complete (see §7)
 
 ---
 
@@ -17,11 +17,11 @@ actually exists now.
 | # | Previous report claim | Audit finding at HEAD / live | Resolution in 1.1 |
 |---|---|---|---|
 | 1 | "Slide-in **bottom modal** panel" | `ziku_assistant_panel.dart` already shows a **right-edge** dialog (`showGeneralDialog` + `Align(centerRight)` + slide from `Offset(1,0)`); only the wording was wrong | Verified by code + tests; report corrected. Spec §11 compliance fix: `SlideTransition` replaced with `AnimatedBuilder` + `Transform.translate` (same right-slide, no banned motion widget) |
-| 2 | "`POST /api/ai/chat` implemented and live" | Endpoint **404 on the live service**; not present at HEAD | Endpoint implemented in `backend/app/routers/ai.py` (auth + role gate + history validation) — needs deploy |
+| 2 | "`POST /api/ai/chat` implemented and live" | Endpoint **404 on the live service**; not present at HEAD | Endpoint implemented in `backend/app/routers/ai.py` (auth + role gate + history validation); **deployed and live-verified (§7.2 L2)** |
 | 3 | "`backend/tests/test_ai_assistant_and_usage.py` — 2/2 passed" | The file **existed but was empty (0 tests)** | Written from scratch: **33 tests, all passing** |
 | 4 | "AI usage dashboard shows the full inventory" | Dashboard omitted `quiz_generations`, `assignment_uses`, `study_recommendations`, `commute_guides`; quiz was a single row | Full inventory of all 11 server counters, with **Quiz Generations and Quiz Questions as two distinct cards** |
-| 5 | "Activity counters recorded server-side" | `record_ai_activity` / `ai_usage_summary` did not exist anywhere at HEAD | Implemented + wired into every AI success path (§3) |
-| 6 | "Unlimited mode (`AI_QUOTA_ENFORCEMENT=false`) verified live" | No `ai_quota_enforcement` setting existed; live config had no such env var | Setting + `render.yaml` declaration added; enforcement ON/OFF proven in tests; **live toggle still needs your Render change** |
+| 5 | "Activity counters recorded server-side" | `record_ai_activity` / `ai_usage_summary` did not exist at HEAD | Implemented + wired into every AI success path (§3), live counters observed (§7.2 L3) |
+| 6 | "Unlimited mode (`AI_QUOTA_ENFORCEMENT=false`) verified live" | No `ai_quota_enforcement` setting existed; live config had no such env var | Setting + `render.yaml` declaration added; enforcement ON/OFF proven in tests; **live toggle set on Render and verified (§7.2 L3/L4)** |
 | 7 | "Zero regressions / `git diff --check` clean / `analyze` clean" | Numbers were not reproducible | Re-measured honestly in §5 (with baseline comparison); `git diff --check` noise is pre-existing repo-wide CRLF |
 | 8 | "Revision AI" mentioned as an inventory item | Revision AI was **removed** in commit `b258980` | Not shown anywhere; test asserts the dashboard never claims it |
 
@@ -36,12 +36,11 @@ actually exists now.
 | C3 | Launcher present in Study & Utility modes, hidden on auth screens | **PASS** — code (shell gating) + static tests |
 | C4 | **Complete AI usage inventory** with distinct `quiz_generations` / `quiz_questions` | **PASS** — screen + tests |
 | C5 | **Server-side activity counters** per authenticated user, counters only (never prompt/reply text) | **PASS** — backend tests |
-| C6 | **Unlimited AI mode verified live** (`AI_QUOTA_ENFORCEMENT=false` → no 429, counters still increment) | **VERIFIED IN TESTS**, **PENDING LIVE** (Render env change + redeploy by operator) |
+| C6 | **Unlimited AI mode verified live** (`AI_QUOTA_ENFORCEMENT=false` → no 429, counters still increment) | **PASS** — live: `quota_enforcement_enabled=false`, 6 straight `/api/ai/note` calls past the 5/month limit all `200` (no 429), `ai_notes` incremented to 6, banner shown on device (§7.2 L3/L4, §7.5 D4) |
 | C7 | Report corrected, suites distinguished, no fabricated numbers | **PASS** (this document) |
 
-Verdict: `PHASE AI-FLOAT-1: PASS` requires **all seven** criteria. C6 is verified
-against the test suite but not against the deployed service yet → **provisional
-BLOCKED until the live check in §7 completes**.
+Verdict: all seven criteria C1–C7 hold (code + tests + live + device) →
+**`PHASE AI-FLOAT-1: PASS`**.
 
 ---
 
@@ -242,27 +241,26 @@ cd flutter_app && flutter analyze
 
 ---
 
-## 7. Live & device verification (required to lift BLOCKED)
+## 7. Live & device verification
 
-### 7.1 Operator actions (Render)
+### 7.1 Operator actions (Render) — COMPLETED
 
-1. Push this branch (`git push origin feature/top10-exam-rescue-v1`) and let Render
-   deploy `backend/` (or trigger a manual deploy).
-2. In the Render service → Environment, set `AI_QUOTA_ENFORCEMENT=false`, save,
-   wait for redeploy. (`render.yaml` already declares the key with `"true"`, so the
-   safe default is unchanged for everyone else.)
+1. ✅ Branch pushed (`df0e9c1`) and Render deployed `backend/` — live service now
+   serves 67 openapi paths including `POST /api/ai/chat` (was 66 + 404).
+2. ✅ `AI_QUOTA_ENFORCEMENT=false` set on the Render service (operator action;
+   env var unchanged by the agent).
 
-### 7.2 Automated checks run by the agent once the deploy is live
+### 7.2 Automated checks run against the deployed service (2026-10-01)
 
-| # | Check | Expected |
-|---|---|---|
-| L1 | `GET /health` | `{"ok": true, ...}` |
-| L2 | `POST /api/ai/chat` with a student token, 1 user turn + 1 assistant turn + 1 follow-up | `200`, `reply` string, `suggested_followups` list |
-| L3 | `GET /api/ai/usage` | `quota_enforcement_enabled == false`, `summary.ai_chat_messages` increased by exactly 1 per successful turn |
-| L4 | Exhaust a monthly feature quota, call the feature again | `200` (no 429) while `ai_usage_monthly` still increments |
-| L5 | Same request from a second account | isolated `summary` (no leakage) |
-| L6 | `POST /api/ai/chat` with a driver/non-student token | `403` |
-| L7 | UI on device: Profile → AI Usage | "Unlimited AI Mode Active" banner + all 11 inventory cards incl. both quiz rows |
+| # | Check | Expected | Result |
+|---|---|---|---|
+| L1 | `GET /health` | `{"ok": true, ...}` | **PASS** — `200 {"ok":true,...,"version":"2.0.0"}` |
+| L2 | `POST /api/ai/chat` with a student token, 1 user turn + 1 assistant turn + 1 follow-up | `200`, `reply` string, `suggested_followups` list | **PASS** — turn 1 `200` (reply 1769 chars + 3 follow-ups); turn 2 `200` with context-aware reply referencing the earlier turns |
+| L3 | `GET /api/ai/usage` | `quota_enforcement_enabled == false`, `summary.ai_chat_messages` increased by exactly 1 per successful turn | **PASS** — flag `false`; chat counter `0 → 2` after the 2 curl turns (later `4` after 2 device turns — exactly +1/successful turn) |
+| L4 | Exhaust a monthly feature quota, call the feature again | `200` (no 429) while counters still increment | **PASS** — 6 consecutive `POST /api/ai/note` calls against the 5/month limit: all `200` (zero 429s), `ai_notes = 6`, `note_ai 6/5` on the usage screen |
+| L5 | Same request from a second account | isolated `summary` (no leakage) | **NOT EXECUTED** — no second account credentials available in this session; isolation is enforced by the tested `record_ai_activity(uid=...)` keying + covered by the suite's user-isolation test (`test_ai_assistant_and_usage.py`) |
+| L6 | `POST /api/ai/chat` with a driver/non-student token | `403` | **NOT EXECUTED** — no non-student account credentials available; the `require_student` role gate is covered by suite tests (403 on non-student role) |
+| L7 | UI on device: Profile → AI Usage | "Unlimited AI Mode Active" banner + all 11 inventory cards incl. both quiz rows | **PASS** — banner + FREE badge + all 11 counters visible on device (`AI_04*`, see §7.5) |
 
 ### 7.3 Device checks (Infinix X665E)
 
@@ -270,43 +268,180 @@ cd flutter_app && flutter analyze
 |---|---|---|---|
 | D1 | Launcher stack: Ziku above Quick Add | `AI_01_launcher_stack.png` | **PASS** |
 | D2 | Panel opens **from the right**, full-height, ~90% width | `AI_02_right_panel_open.png` | **PASS** |
-| D3 | Multi-turn reply + dynamic follow-up chip tapped | `AI_03a_chat_reply.png`, `AI_03b_followup_chip.png` | **INVALID — pending redeploy** (see 7.5) |
+| D3 | Multi-turn reply + dynamic follow-up chip tapped | `AI_03a_chat_reply.png`, `AI_03b_followup_chip.png` | **PASS** (recaptured post-deploy — see 7.5) |
 | D4 | Profile → AI Usage: banner + `Quiz generations` vs `Quiz questions` | `AI_04_usage_inventory.png`, `AI_04b_usage_inventory_scrolled.png`, `AI_04c_usage_inventory_quiz_rows.png` | **PASS** |
 | D5 | Launcher hidden on auth screen, present in Utility mode | `AI_05a_utility_launcher.png`, `AI_05b_auth_hidden.png` | **PASS** |
 
-### 7.4 Current live state (measured before the deploy)
+### 7.4 Current live state (measured after the deploy)
 
-- `GET /health` → `{"ok":true,...,"version":"2.0.0"}` (feature-branch lineage:
-  `/api/ai/exam-rescue/plan` exists, which `origin/main` does not have).
-- `POST /api/ai/chat` → **404** (this phase's endpoint is not deployed yet).
-- No `AI_QUOTA_ENFORCEMENT` env var present in the running service.
-- Note: all backend changes for this phase are still **local and uncommitted**
-  (`HEAD == origin == 025b5c2`), so the running service cannot contain them —
-  deploy is impossible until the branch is pushed (§7.1).
+- `GET /health` → `{"ok":true,...,"version":"2.0.0"}`; openapi serves **67 paths**
+  (old 66 + `POST /api/ai/chat`) — route mounting confirmed.
+- `POST /api/ai/chat` → **200** with real LLM replies (single-turn and multi-turn).
+- `GET /api/ai/usage` → `quota_enforcement_enabled: false`, `summary` with live
+  counters (`ai_chat_messages: 4`, `ai_notes: 6`).
+- `AI_QUOTA_ENFORCEMENT=false` present in the running service (banner + no-429
+  behaviour both confirm it).
 
 ### 7.5 Device verification results (2026-10-01, agent-run)
 
-- **D1/D2 PASS** — launcher anchored at `[587,1126][690,1228]` above Quick Add;
-  panel opens from the right edge at ~90% width, full height.
-- **D4 PASS** — AI Usage shows the limits banner, quota cards (Chat 20/20,
-  Note AI 5/5, Quiz Generator 3/3, Study Planner, Assignment Assistant) and the
-  11-tile **AI Activity Dashboard** with distinct `Quiz generations` and
-  `Quiz questions` tiles plus the explainer footer.
-- **D5 PASS** — in Utility mode the Ziku launcher is present above Quick Add on
-  the 4-destination Today; on the auth (login) screen no launcher is rendered.
-  Study mode restored after the check.
-- **D3 INVALID (twice)** — both captures show an empty conversation:
-  1. the scripted `adb shell input text "…"` was split on spaces by the device
-     shell, so the prompt was never typed (fix: `%s` escapes or shell quoting);
-  2. even a correctly typed prompt cannot succeed while live
-     `POST /api/ai/chat` returns 404 (§7.4).
-  D3 must be re-captured after §7.1 completes.
-- Side observations: the AI Usage screen was reachable and rendered correctly
-  against the live API (`/api/ai/usage` 401 without token, 200 with session);
-  a transient `hasProfile()` false on one Developer Login was resolved by a
-  cold restart (read failure path, not a data loss — profile intact).
+- **D1 PASS** — launcher anchored at `[587,1126][690,1228]` above Quick Add.
+- **D2 PASS** — panel opens from the right edge at ~90% width, full height.
+- **D3 PASS (recaptured post-deploy, 17:46–17:56)** —
+  `AI_03a_chat_reply.png`: Ziku replies to "explain total internal reflection"
+  (key conditions + analogy + optical-fiber example) with the dynamic follow-up
+  chip rendered below; `AI_03b_followup_chip.png`: the chip was tapped → violet
+  user bubble "Explain ... more simply" → context-aware reply 2 ("Think of it
+  like a perfect mirror..." numbered points) → a newly regenerated turn-2 chip.
+  Fixes applied vs the two invalid attempts: `%s` space-escaping for
+  `input text`, keyboard dismissed before tapping `Send message`, and chat now
+  deployed live.
+- **D4 PASS (recaptured post-deploy, 18:05)** — `AI_04_usage_inventory.png`
+  shows the **"Unlimited AI Mode Active" FREE banner** ("Quota enforcement is
+  temporarily disabled...") + limits cards (Chat 16/20, Note AI −1/5 — over
+  limit yet still served, Quiz 3/3, Study Planner);
+  `AI_04c_usage_inventory_quiz_rows.png` shows the 11-counter activity grid with
+  **live values: Chat messages 4, Note AI 6**, distinct `Quiz generations` /
+  `Quiz questions` rows and both footnotes.
+- **D5 PASS** — in Utility mode the Ziku launcher is present above Quick Add;
+  on the auth (login) screen no launcher is rendered. Study mode restored after
+  the check (device ends on Today with launcher visible).
+- Side observations: a transient `hasProfile()` false on one Developer Login was
+  resolved by a cold restart (read failure path, not data loss — profile intact).
+  Cosmetic nit (not a criterion): chat replies render raw `**bold**` markdown
+  markers as literal text.
 
-**Verdict**: `PHASE AI-FLOAT-1: BLOCKED (C6 pending live verification;
-D3 pending redeploy)` — everything except the live unlimited-mode check and the
-live chat capture is implemented, test-verified, and device-verified.
-This section will be updated to `PASS` once §7.1–§7.2 checks succeed.
+### 7.6 Checks not executed (documented, not counted against criteria)
+
+- **L5 (second-account isolation)** and **L6 (non-student 403)** were not run
+  live: this session has no second account and no non-student credentials.
+  Both behaviours are enforced and covered by the backend suite
+  (`test_ai_assistant_and_usage.py`: user-isolation test; `require_student`
+  role-gate 403 tests). Neither is required by criteria C1–C7.
+
+---
+
+**Verdict**: `PHASE AI-FLOAT-1: PASS` — all seven criteria (C1–C7) hold against
+the code, the test suites, the deployed service (L1–L4, L7), and the physical
+device (D1–D5). L5/L6 not executed for lack of credentials (§7.6), covered by
+tests.
+
+---
+
+## 8. AI-FLOAT-1.2 — FINAL UI POLISH (2026-10-01)
+
+Presentation-only phase. **No** backend architecture change, **no** new
+features, **no** quota-logic change (counters, `_consume_quota`,
+`AI_QUOTA_ENFORCEMENT` untouched), **no** Ziku navigation/panel-behavior change
+(`showGeneralDialog` + right-edge slide untouched).
+
+### 8.1 Fix 1 — Unlimited-mode presentation on Profile → AI Usage
+
+Old live device evidence showed quota-style values while
+`quota_enforcement_enabled == false` ("Chat 16/20", "Note AI -1/5",
+"Quiz 3/3") — misleading when enforcement is off.
+
+`ai_usage_screen.dart` now branches on a single `unlimited`
+(`quota_enforcement_enabled == false`) flag:
+
+| Element | Unenforced (unlimited) | Enforced (quota) |
+|---|---|---|
+| Banner | "Unlimited AI Mode Active" + FREE (kept) | not shown |
+| Header | "AI Features & Usage" / "Track your AI usage…" | "…Limits" / "Track remaining calls…" |
+| Cards | actual counts only: `Chat — 16 uses`, `Note AI — 6 uses`, `Quiz Generator — 0 generations`, `Study Planner — 0 active` | original `x/y left` badge, progress bar, reset-date, `N of M remaining` text |
+| Negative values | impossible (badge/caption derive from `used`) | original semantics preserved |
+| Caption | "Usage is still tracked, but limits are temporarily not enforced." (new, after cards) | not shown |
+| Footer | limits footer hidden (`if (!unlimited)`) | original "Limits ensure equal access…" |
+
+Mechanics: `_FeatureUsageCard` → public `AiFeatureUsageCard` with
+`unlimited` + `usageLabel`; in unlimited mode the card renders no progress
+bar, no reset-date subtitle, no exhaustion (red) styling, badge = caption =
+usage count. **Backend counters untouched.**
+
+### 8.2 Fix 2 — Ziku markdown display
+
+New `ziku_markdown_text.dart` (zero dependencies — project has no markdown
+package, and none was added): parses exactly three block types (paragraphs,
+`- ` bullets, `1.` numbered lists) and inline `**bold**`, renders via
+`SelectableText.rich`. No HTML interpretation (tags stay literal — tested).
+
+`ziku_assistant_panel.dart`: assistant replies (`!isUser && !isError`) render
+through `ZikuMarkdownText`; **user messages and error text remain plain
+`SelectableText`**. Panel geometry/navigation untouched (static tests assert
+`centerRight` / `Offset(1, 0)` / no bottom-sheet anchors still hold).
+
+### 8.3 Language-response policy (system prompt only)
+
+`build_chat_system_prompt()` (backend) now carries a language policy —
+inferred from the existing conversation, **no second AI call**, multi-turn
+context preserved (the single per-request system prompt covers follow-ups):
+
+- Banglish (Bangla in Latin letters) → reply in **Bangla script**; never Banglish.
+- Bangla script → primarily Bangla. English → English.
+- Mixed → natural Bangla structure, English technical terms kept in English
+  (API, Flutter, assignment, quiz, optical fiber, algorithm, exam, PDF, …).
+- Never transliterate a Bangla reply into Latin unless the user explicitly
+  asks ("Banglish e bolo") — explicit request unlocks Banglish for that reply.
+- Plus a formatting line (paragraphs / `**bold**` / simple lists) matching §8.2.
+
+**Deploy note**: this prompt change is committed locally but **not yet
+deployed** to Render (operator action); the UI fixes are client-side and ship
+with the next app build. Quota flag/env untouched.
+
+### 8.4 Tests (21 new; all green)
+
+**New backend tests** — `tests/test_ai_assistant_and_usage.py` (7):
+Banglish→Bangla-script instruction, Bangla policy, English policy,
+mixed-input keeps English technical terms, explicit "Banglish e bolo"
+allowed, rules apply to every follow-up, and
+`test_language_policy_costs_exactly_one_ai_call_per_request` (exactly one
+provider call, prompt carries the policy).
+
+**New Flutter tests** — 14:
+`ai_usage_screen_test.dart` (5): caption present, limits footer hidden,
+card supports unlimited presentation, widget: unlimited shows `6 uses` with
+**no** `-1/5`, no `remaining`, no `left`, no progress bar; widget: quota mode
+still shows `4/20 left` + `4 of 20 remaining today` + progress bar + reset
+date and never leaks `16 uses`.
+`ai_floating_assistant_test.dart` (9): block parsing, single-paragraph
+parsing, plain-visible-text has no `**` (markers consumed, `•`/`1.` glyphs
+introduced), HTML stays literal, widget: assistant reply renders bold spans
+with no visible `**`, widget: single paragraph, static: markdown only in the
+`!isUser && !isError` branch + user text plain, static: right-side panel
+unchanged, static: Ziku stacked above Quick Add.
+
+**Suites run (all pass):**
+
+```
+flutter analyze lib/                                    → No issues found!
+flutter test ai_floating_assistant + ai_usage_screen    → 40 passed
+flutter test a11y/accessibility_audit_test              → 9 passed
+flutter test exam_rescue_active_experience
+           + exam_rescue_quiz_integration               → 41 passed
+backend pytest test_ai_assistant_and_usage + quotas
+           + exam_rescue + fallback_policy              → 99 passed
+git diff --check                                        → 40 flags, all CR-at-EOL
+                                                         (CRLF repo, pre-existing)
+CR-insensitive scan of 7 phase files                    → 0 genuine trailing
+                                                         whitespace lines
+```
+
+### 8.5 Device checks (Infinix X665E, debug build w/ dart-defines)
+
+Verification method: screenshots captured to `docs/device_smoke_artifacts/`;
+on-device content cross-verified by uiautomator text/desc extraction and
+pixel probes (the session's image re-viewer served stale frames, so dumps +
+color probes are the evidence of record).
+
+| # | Check | Evidence | Status |
+|---|---|---|---|
+| P1 | Profile → AI Usage in unlimited mode: banner + usage counts, **no** `-1/5` / `left` / `remaining` | `AI_04_usage_inventory.png` (amber banner present: 468 banner-hued px in rows 200–400), `AI_04b/04c` scrolled views, `AI_04d_unlimited_caption.png` (caption read visually: "Usage is still tracked, but limits are temporarily not enforced."). UI dump: `Unlimited AI Mode Active \| FREE`, `AI Features & Usage`, `Chat \| 6 uses \| 6 uses`, `Note AI \| 6 uses \| 6 uses`, `Quiz Generator \| 0 generations`, `Study Planner \| 0 active` — zero occurrences of `remaining`, `left`, or any `-N/M` | **PASS** |
+| P2 | Ziku replies render formatted: numbered list with bold headings, **no visible `**`** | `AI_06_ziku_markdown.png` (reply-only, 4 violet px) + `AI_06b_ziku_markdown_context.png` (user bubble present, 931 violet px). UI dump: user message plain, reply = intro + `1. Condition for Occurrence` / `2. Critical Angle` / `3. Complete Reflection` items; **`**` count in the entire UI tree = 0** | **PASS** |
+
+Panel/launcher regression: panel still opens right-anchored and closes via
+its Close button; device ends on Today with the Ziku launcher visible
+(restored after checks). Right-side geometry, launcher-above-Quick-Add, and
+all AI-FLOAT-1 suites re-run green (§8.4) — behavior unchanged.
+
+---
+
+**AI-FLOAT FINAL UI POLISH: PASS**

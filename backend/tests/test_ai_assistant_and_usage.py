@@ -810,3 +810,84 @@ def test_account_deletion_removes_ai_usage_summary(client, fake_db, fake_auth, f
     remaining = fake_db._collections.get("ai_usage_summary", {})
     assert uid not in remaining
     assert "other-user" in remaining, "other users' summaries must survive"
+
+
+# ---------------------------------------------------------------------------
+# AI-FLOAT-1.2 — Ziku language-response policy (system prompt contract)
+# ---------------------------------------------------------------------------
+
+
+def _chat_prompt() -> str:
+    from app.services.ai_service import build_chat_system_prompt
+
+    return build_chat_system_prompt()
+
+
+def test_language_policy_banglish_input_instructs_bangla_script_reply():
+    """Banglish in → Bangla-script reply; never a Banglish reply."""
+    prompt = _chat_prompt()
+    assert "Banglish" in prompt
+    assert "always reply in Bangla script" in prompt
+    assert "Never reply in Banglish" in prompt
+
+
+def test_language_policy_bangla_input_replies_primarily_in_bangla():
+    prompt = _chat_prompt()
+    assert "Bangla script input: reply primarily in Bangla" in prompt
+
+
+def test_language_policy_english_input_replies_in_english():
+    prompt = _chat_prompt()
+    assert "English input: reply in English" in prompt
+
+
+def test_language_policy_mixed_input_keeps_english_technical_terms():
+    prompt = _chat_prompt()
+    assert "Mixed Bangla + English input" in prompt
+    assert "natural Bangla sentence structure" in prompt
+    for term in ("API", "Flutter", "optical fiber", "algorithm", "exam", "PDF"):
+        assert term in prompt, f"technical term {term!r} must stay in English"
+    assert "awkward Bangla translations" in prompt
+
+
+def test_language_policy_explicit_banglish_request_is_allowed():
+    """Only an explicit ask ('Banglish e bolo') unlocks a Banglish reply."""
+    prompt = _chat_prompt()
+    assert "Banglish e bolo" in prompt
+    assert "explicitly asks for it" in prompt
+    assert "Banglish is allowed for that response" in prompt
+
+
+def test_language_policy_applies_to_every_reply_including_followups():
+    prompt = _chat_prompt()
+    assert "every reply, including follow-up turns" in prompt
+    assert "multi-turn conversation" in prompt
+
+
+@pytest.mark.asyncio
+async def test_language_policy_costs_exactly_one_ai_call_per_request():
+    """Language handling is prompt-only: never a second provider call."""
+    from unittest.mock import MagicMock, patch
+
+    settings = MagicMock()
+    settings.groq_api_key = "g-key"
+    settings.gemini_api_key = ""
+    settings.openrouter_api_key = ""
+
+    with patch("app.services.ai_service.get_settings", return_value=settings), \
+         patch("app.services.ai_service._consume_quota"), \
+         patch(
+             "app.services.ai_service._groq_chat",
+             new_callable=AsyncMock,
+             return_value="ঠিক আছে, প্ল্যান করি।",
+         ) as mock_chat:
+        result = await ai_service_module.chat_generate(
+            "uid-lang-policy",
+            [{"role": "user", "content": "amar kal exam ase kivabe porbo"}],
+        )
+
+    assert result["reply"] == "ঠিক আছে, প্ল্যান করি।"
+    assert mock_chat.await_count == 1, "language rules must not cost a second AI call"
+    _messages, system_prompt = mock_chat.await_args.args
+    assert "Never reply in Banglish" in system_prompt
+    assert "English input: reply in English" in system_prompt

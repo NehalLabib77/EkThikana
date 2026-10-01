@@ -4,6 +4,7 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import 'ai_conversation_service.dart';
+import 'ziku_markdown_text.dart';
 
 class ZikuAssistantPanel extends StatefulWidget {
   const ZikuAssistantPanel({
@@ -392,14 +393,26 @@ class _ZikuAssistantPanelState extends State<ZikuAssistantPanel> {
                     ? Border.all(color: colors.error.withValues(alpha: 0.4))
                     : null,
               ),
-              child: SelectableText(
-                message.content,
-                style: isUser
-                    ? type.body.copyWith(color: Colors.white, fontSize: 14)
-                    : (isError
-                        ? type.body.copyWith(color: colors.error, fontSize: 14)
-                        : type.body.copyWith(fontSize: 14)),
-              ),
+              // Assistant replies render Ziku's limited markdown (paragraphs,
+              // **bold**, bullet/numbered lists). User text and errors stay
+              // plain - never interpret user input as markup.
+              child: (!isUser && !isError)
+                  ? ZikuMarkdownText(
+                      message.content,
+                      style: type.body.copyWith(fontSize: 14),
+                    )
+                  : SelectableText(
+                      message.content,
+                      style: isUser
+                          ? type.body.copyWith(
+                              color: Colors.white,
+                              fontSize: 14,
+                            )
+                          : type.body.copyWith(
+                              color: colors.error,
+                              fontSize: 14,
+                            ),
+                    ),
             ),
           ),
         ],

@@ -193,6 +193,11 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
 
     final usage = _usage!;
 
+    // Quota enforcement is a server-side switch (AI_QUOTA_ENFORCEMENT).
+    // When it is OFF, "remaining/negative" quota values are meaningless —
+    // show actual usage counts instead (presentation only, counters untouched).
+    final unlimited = usage['quota_enforcement_enabled'] == false;
+
     // Phase 3A Features
     final chatData = usage['chat'] as Map<String, dynamic>? ?? {};
     final chatUsed = chatData['used'] as int? ?? 0;
@@ -226,7 +231,7 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         vertical: GochanoSpacing.sm,
       ),
       children: [
-        if (usage['quota_enforcement_enabled'] == false) ...[
+        if (unlimited) ...[
           Container(
             padding: const EdgeInsets.all(GochanoSpacing.md),
             margin: const EdgeInsets.only(bottom: GochanoSpacing.md),
@@ -327,18 +332,28 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      GochanoLanguage.text(
-                        'AI Features & Limits',
-                        'এআই সুবিধা ও ব্যবহারের সীমা',
-                      ),
+                      unlimited
+                          ? GochanoLanguage.text(
+                              'AI Features & Usage',
+                              'এআই সুবিধা ও ব্যবহার',
+                            )
+                          : GochanoLanguage.text(
+                              'AI Features & Limits',
+                              'এআই সুবিধা ও ব্যবহারের সীমা',
+                            ),
                       style: type.sectionHeading,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      GochanoLanguage.text(
-                        'Track remaining calls for chat, notes, quizzes, planner, and study AI.',
-                        'চ্যাট, নোট, কুইজ, প্ল্যানার এবং স্টাডি এআই-এর অবশিষ্ট কোটা দেখুন।',
-                      ),
+                      unlimited
+                          ? GochanoLanguage.text(
+                              'Track your AI usage across chat, notes, quizzes, planner, and study AI.',
+                              'চ্যাট, নোট, কুইজ, প্ল্যানার এবং স্টাডি এআই-এর ব্যবহার দেখুন।',
+                            )
+                          : GochanoLanguage.text(
+                              'Track remaining calls for chat, notes, quizzes, planner, and study AI.',
+                              'চ্যাট, নোট, কুইজ, প্ল্যানার এবং স্টাডি এআই-এর অবশিষ্ট কোটা দেখুন।',
+                            ),
                       style: type.caption.copyWith(color: colors.textSecondary),
                     ),
                   ],
@@ -350,8 +365,8 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
 
         const SizedBox(height: GochanoSpacing.md),
 
-        // 1. Chat: 20/day
-        _FeatureUsageCard(
+        // 1. Chat: 20/day (unlimited mode: actual uses, never "remaining")
+        AiFeatureUsageCard(
           icon: Icons.chat_bubble_outline_rounded,
           title: GochanoLanguage.text('Chat', 'চ্যাট'),
           resetBadge: GochanoLanguage.text(
@@ -362,6 +377,11 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
             '$chatRemaining of $chatLimit remaining today',
             'আজ $chatLimitটির মধ্যে $chatRemainingটি বাকি',
           ),
+          usageLabel: GochanoLanguage.text(
+            '$chatUsed uses',
+            '$chatUsed বার ব্যবহার',
+          ),
+          unlimited: unlimited,
           used: chatUsed,
           limit: chatLimit,
           isPlan: false,
@@ -370,7 +390,7 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         const SizedBox(height: GochanoSpacing.sm),
 
         // 2. Note AI: 5/month
-        _FeatureUsageCard(
+        AiFeatureUsageCard(
           icon: Icons.edit_note_rounded,
           title: GochanoLanguage.text('Note AI', 'নোট এআই'),
           resetBadge: GochanoLanguage.text(
@@ -381,6 +401,11 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
             '$noteRemaining of $noteLimit remaining this month',
             'এই মাসে $noteLimitটির মধ্যে $noteRemainingটি বাকি',
           ),
+          usageLabel: GochanoLanguage.text(
+            '$noteUsed uses',
+            '$noteUsed বার ব্যবহার',
+          ),
+          unlimited: unlimited,
           used: noteUsed,
           limit: noteLimit,
           isPlan: false,
@@ -389,7 +414,7 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         const SizedBox(height: GochanoSpacing.sm),
 
         // 3. Quiz: 3/month
-        _FeatureUsageCard(
+        AiFeatureUsageCard(
           icon: Icons.quiz_outlined,
           title: GochanoLanguage.text('Quiz Generator', 'কুইজ জেনারেটর'),
           resetBadge: GochanoLanguage.text(
@@ -400,6 +425,11 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
             '$quizRemaining of $quizLimit remaining this month',
             'এই মাসে $quizLimitটির মধ্যে $quizRemainingটি বাকি',
           ),
+          usageLabel: GochanoLanguage.text(
+            '$quizUsed generations',
+            '$quizUsed জেনারেশন',
+          ),
+          unlimited: unlimited,
           used: quizUsed,
           limit: quizLimit,
           isPlan: false,
@@ -408,7 +438,7 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         const SizedBox(height: GochanoSpacing.sm),
 
         // 4. Study Planner: 1 active plan
-        _FeatureUsageCard(
+        AiFeatureUsageCard(
           icon: Icons.calendar_month_outlined,
           title: GochanoLanguage.text('Study Planner', 'স্টাডি প্ল্যানার'),
           resetBadge: GochanoLanguage.text(
@@ -421,6 +451,11 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
                   '0 active plan (1 available)',
                   '০টি সক্রিয় (১টি খালি আছে)',
                 ),
+          usageLabel: GochanoLanguage.text(
+            '$planUsed active',
+            '$planUsed সক্রিয়',
+          ),
+          unlimited: unlimited,
           used: planUsed,
           limit: planLimit,
           isPlan: true,
@@ -429,7 +464,7 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         const SizedBox(height: GochanoSpacing.sm),
 
         // 5. Assignment Assistant (future quota ready)
-        _FeatureUsageCard(
+        AiFeatureUsageCard(
           icon: Icons.assignment_rounded,
           title: GochanoLanguage.text('Assignment Assistant', 'এসাইনমেন্ট সহকারী'),
           resetBadge: GochanoLanguage.text(
@@ -445,6 +480,21 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
           isPlan: true,
         ),
 
+        if (unlimited) ...[
+          const SizedBox(height: GochanoSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.sm),
+            child: Text(
+              GochanoLanguage.text(
+                'Usage is still tracked, but limits are temporarily not enforced.',
+                'ব্যবহার এখনো ট্র্যাক করা হচ্ছে, তবে সীমাগুলো সাময়িকভাবে প্রযোজ্য নয়।',
+              ),
+              style: type.caption.copyWith(color: colors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+
         const SizedBox(height: GochanoSpacing.lg),
         Text(
           GochanoLanguage.text(
@@ -458,18 +508,20 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
 
         const SizedBox(height: GochanoSpacing.lg),
 
-        // Footer Note
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.sm),
-          child: Text(
-            GochanoLanguage.text(
-              'Limits ensure equal access and fair server resources for all students across campus.',
-              'ক্যাম্পাসের সকল শিক্ষার্থীর জন্য সমান ও টেকসই সেবা নিশ্চিত করতে এই সীমা নির্ধারিত।',
+        // Footer Note (quota mode only — a "limits" note would contradict
+        // unlimited mode, which carries its own caption above.)
+        if (!unlimited)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.sm),
+            child: Text(
+              GochanoLanguage.text(
+                'Limits ensure equal access and fair server resources for all students across campus.',
+                'ক্যাম্পাসের সকল শিক্ষার্থীর জন্য সমান ও টেকসই সেবা নিশ্চিত করতে এই সীমা নির্ধারিত।',
+              ),
+              style: type.caption.copyWith(color: colors.textTertiary),
+              textAlign: TextAlign.center,
             ),
-            style: type.caption.copyWith(color: colors.textTertiary),
-            textAlign: TextAlign.center,
           ),
-        ),
 
         const SizedBox(height: GochanoSpacing.xl),
       ],
@@ -620,8 +672,15 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
   }
 }
 
-class _FeatureUsageCard extends StatelessWidget {
-  const _FeatureUsageCard({
+/// One feature's usage card.
+///
+/// Quota mode (`unlimited == false`) keeps the original used/limit/remaining
+/// presentation. Unlimited mode shows actual usage only: a "N uses" badge and
+/// caption, no progress bar, no "x/y left", no negative values, no exhaustion
+/// styling — the server is not enforcing limits, so the UI must not imply it.
+class AiFeatureUsageCard extends StatelessWidget {
+  const AiFeatureUsageCard({
+    super.key,
     required this.icon,
     required this.title,
     required this.resetBadge,
@@ -629,26 +688,50 @@ class _FeatureUsageCard extends StatelessWidget {
     required this.used,
     required this.limit,
     required this.isPlan,
+    this.unlimited = false,
+    this.usageLabel,
   });
 
   final IconData icon;
   final String title;
   final String resetBadge;
   final String remainingText;
+
+  /// Actual-usage text shown in unlimited mode (e.g. "16 uses").
+  final String? usageLabel;
   final int used;
   final int limit;
   final bool isPlan;
+  final bool unlimited;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
 
+    final showQuota = !unlimited;
     final ratio = limit > 0 ? (used / limit).clamp(0.0, 1.0) : 0.0;
-    final isExhausted = !isPlan && (used >= limit);
+    final isExhausted = showQuota && !isPlan && (used >= limit);
     final progressColor = isExhausted
         ? colors.error
         : (ratio > 0.7 ? colors.warning : colors.brand);
+
+    final String badgeText;
+    if (!showQuota) {
+      badgeText = usageLabel ??
+          (isPlan
+              ? GochanoLanguage.text('$used active', '$used সক্রিয়')
+              : GochanoLanguage.text('$used uses', '$used বার ব্যবহার'));
+    } else if (isPlan) {
+      badgeText = used >= limit
+          ? GochanoLanguage.text('1 active', '১টি সক্রিয়')
+          : GochanoLanguage.text('0 active', '০টি সক্রিয়');
+    } else {
+      badgeText = GochanoLanguage.text(
+        '${limit - used}/$limit left',
+        'বাকি ${limit - used}/$limit',
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(GochanoSpacing.md),
@@ -683,10 +766,14 @@ class _FeatureUsageCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: type.body),
-                    Text(
-                      resetBadge,
-                      style: type.caption.copyWith(color: colors.textSecondary),
-                    ),
+                    // Reset dates only mean something when quotas are enforced.
+                    if (showQuota)
+                      Text(
+                        resetBadge,
+                        style: type.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -697,14 +784,7 @@ class _FeatureUsageCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isPlan
-                      ? (used >= limit
-                            ? GochanoLanguage.text('1 active', '১টি সক্রিয়')
-                            : GochanoLanguage.text('0 active', '০টি সক্রিয়'))
-                      : GochanoLanguage.text(
-                          '${limit - used}/$limit left',
-                          'বাকি ${limit - used}/$limit',
-                        ),
+                  badgeText,
                   style: type.caption.copyWith(
                     fontWeight: FontWeight.w600,
                     color: isExhausted ? Colors.white : colors.textPrimary,
@@ -713,19 +793,21 @@ class _FeatureUsageCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: GochanoSpacing.md),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 7,
-              backgroundColor: colors.surfaceVariant,
-              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+          if (showQuota) ...[
+            const SizedBox(height: GochanoSpacing.md),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 7,
+                backgroundColor: colors.surfaceVariant,
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: GochanoSpacing.xs),
           Text(
-            remainingText,
+            showQuota ? remainingText : badgeText,
             style: type.caption.copyWith(
               color: isExhausted ? colors.error : colors.textSecondary,
               fontWeight: isExhausted ? FontWeight.w600 : FontWeight.normal,

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gochano/core/design_system/gochano_theme.dart';
 import 'package:gochano/features/study/presentation/ai/ai_conversation_service.dart';
 import 'package:gochano/features/study/presentation/ai/ziku_assistant_panel.dart';
+import 'package:gochano/features/study/presentation/ai/ziku_markdown_text.dart';
 import 'package:gochano/shared/widgets/ziku_floating_launcher.dart';
 
 String _read(String relativePath) {
@@ -199,6 +200,185 @@ void main() {
           reason: 'Usage screen must read $counter from /api/ai/usage',
         );
       }
+    });
+  });
+
+  // ---- AI-FLOAT-1.2: assistant markdown rendering ----
+
+  group('ZikuMarkdownText parsing', () {
+    test('paragraphs, bullets and numbered lists parse into blocks', () {
+      final blocks = parseZikuMarkdown(
+        'Think of it like a **perfect mirror**.\n'
+        '\n'
+        '- Light is trapped\n'
+        '- It bounces back\n'
+        '\n'
+        '1. First step\n'
+        '2. Second step',
+      );
+
+      expect(blocks, hasLength(3));
+      expect(blocks[0].type, ZikuMarkdownBlockType.paragraph);
+      expect(blocks[0].lines.single, contains('**perfect mirror**'));
+      expect(blocks[1].type, ZikuMarkdownBlockType.bulletList);
+      expect(blocks[1].lines, ['Light is trapped', 'It bounces back']);
+      expect(blocks[2].type, ZikuMarkdownBlockType.numberedList);
+      expect(blocks[2].numberStart, 1);
+      expect(blocks[2].lines, ['First step', 'Second step']);
+    });
+
+    test('plain text (no markdown) is one paragraph block', () {
+      final blocks = parseZikuMarkdown('hello there');
+      expect(blocks, hasLength(1));
+      expect(blocks.single.type, ZikuMarkdownBlockType.paragraph);
+      expect(blocks.single.lines, ['hello there']);
+    });
+
+    test('plain visible text never contains **bold** markers', () {
+      final visible = zikuMarkdownPlainText(
+        'Think of it like a **perfect mirror**.\n\n'
+        '- Light is trapped\n'
+        '- It bounces back\n\n'
+        '1. First\n'
+        '2. Second',
+      );
+
+      expect(visible.contains('**'), isFalse);
+      expect(visible, contains('perfect mirror'));
+      expect(visible, contains('• Light is trapped'));
+      expect(visible, contains('1. First'));
+      expect(visible, contains('2. Second'));
+    });
+
+    test('HTML is never interpreted — it stays literal text', () {
+      final blocks = parseZikuMarkdown('<b>bold?</b> and <script>alert(1)</script>');
+      expect(blocks.single.type, ZikuMarkdownBlockType.paragraph);
+      final visible = zikuMarkdownPlainText('<b>bold?</b>');
+      expect(visible, contains('<b>bold?</b>'));
+    });
+  });
+
+  group('ZikuMarkdownText Widget Tests', () {
+    testWidgets(
+      'assistant reply renders bold/lists without visible ** markers',
+      (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: ZikuMarkdownText(
+                'Think of it like a **perfect mirror**.\n\n'
+                '- Light is trapped\n'
+                '- It bounces back\n\n'
+                '1. First step\n'
+                '2. Second step',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        );
+
+        // Collect every visible character the user can read — both the rich
+        // message spans and the plain list-marker Text widgets.
+        final visible = [
+          ...tester
+              .widgetList<SelectableText>(find.byType(SelectableText))
+              .map((w) => (w.textSpan?.toPlainText() ?? w.data ?? '')),
+          ...tester.widgetList<Text>(find.byType(Text)).map((w) => w.data ?? ''),
+        ].join();
+
+        expect(visible.contains('**'), isFalse,
+            reason: 'Supported markdown must be rendered, not shown raw');
+        expect(visible, contains('perfect mirror'));
+        expect(visible, contains('Light is trapped'));
+        expect(visible, contains('1.'));
+
+        // The bold span is actually bold.
+        final rich = tester.widgetList<SelectableText>(
+          find.byType(SelectableText),
+        );
+        final hasBold = rich.any((w) {
+          final span = w.textSpan;
+          if (span == null) return false;
+          return span.children?.any(
+                (c) =>
+                    c is TextSpan &&
+                    c.style?.fontWeight == FontWeight.bold &&
+                    c.toPlainText() == 'perfect mirror',
+              ) ??
+              false;
+        });
+        expect(hasBold, isTrue, reason: '**perfect mirror** must render bold');
+      },
+    );
+
+    testWidgets('single-paragraph reply renders without blocks', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ZikuMarkdownText(
+              'Light stays inside the denser medium.',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
+      );
+
+      final visible = tester
+          .widgetList<SelectableText>(find.byType(SelectableText))
+          .map((w) => (w.textSpan?.toPlainText() ?? w.data ?? ''))
+          .join();
+      expect(visible, contains('Light stays inside the denser medium.'));
+      expect(visible.contains('**'), isFalse);
+    });
+  });
+
+  group('Static Code Verifications - Phase AI-FLOAT-1.2', () {
+    final panelFile = _read(
+      'lib/features/study/presentation/ai/ziku_assistant_panel.dart',
+    );
+    final shellFile = _read('lib/features/shell/presentation/gochano_shell.dart');
+    final launcherFile = _read('lib/shared/widgets/ziku_floating_launcher.dart');
+
+    test('assistant replies use ZikuMarkdownText, user text stays plain', () {
+      expect(panelFile.contains("import 'ziku_markdown_text.dart';"), isTrue);
+      expect(panelFile.contains('ZikuMarkdownText('), isTrue);
+      expect(
+        panelFile.contains('!isUser && !isError'),
+        isTrue,
+        reason: 'Only assistant replies (not user text, not errors) may be '
+            'parsed as markdown',
+      );
+      // The user branch must still render the raw string as plain text.
+      expect(
+        panelFile.contains('SelectableText('),
+        isTrue,
+        reason: 'User messages must remain plain selectable text',
+      );
+    });
+
+    test('right-side panel behavior is unchanged', () {
+      expect(panelFile.contains('showGeneralDialog'), isTrue);
+      expect(panelFile.contains('Alignment.centerRight'), isTrue);
+      expect(panelFile.contains('begin: const Offset(1, 0)'), isTrue);
+      expect(panelFile.contains('Offset(0, 1)'), isFalse);
+      expect(panelFile.contains('Alignment.bottomCenter'), isFalse);
+    });
+
+    test('Ziku launcher remains stacked above Quick Add', () {
+      expect(launcherFile.contains('ziku_floating_launcher'), isTrue);
+      expect(shellFile.contains('ZikuFloatingLauncher('), isTrue);
+      expect(shellFile.contains('universal_quick_add_fab'), isTrue);
+      final launcherIndex = shellFile.indexOf('ZikuFloatingLauncher(');
+      final fabIndex = shellFile.indexOf('universal_quick_add_fab');
+      expect(launcherIndex, greaterThanOrEqualTo(0));
+      expect(fabIndex, greaterThanOrEqualTo(0));
+      expect(
+        (launcherIndex - fabIndex).abs(),
+        lessThan(2000),
+        reason: 'Both widgets must live in the same floating stack region',
+      );
     });
   });
 }
