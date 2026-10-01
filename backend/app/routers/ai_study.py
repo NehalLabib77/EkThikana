@@ -21,6 +21,7 @@ from app.services.ai_service import (
     AiFeature,
     generate,
     get_ai_usage,
+    record_ai_activity,
 )
 from app.services.pdf_service import extract_pdf_text
 from app.services.ocr_service import extract_text as ocr_extract_text
@@ -259,6 +260,7 @@ async def assignment_explain(
         prompt += f"REFERENCE SOURCE MATERIAL:\n{source_context}\n\n"
 
     result = await _call_generate(user.uid, prompt, feature=AiFeature.CHAT)
+    record_ai_activity(user.uid, "assignment_uses", 1)
     return {"explanation": result}
 
 
@@ -299,6 +301,7 @@ async def assignment_breakdown(
         prompt += f"REFERENCE SOURCE MATERIAL:\n{source_context}\n\n"
 
     result = await _call_generate(user.uid, prompt, feature=AiFeature.CHAT)
+    record_ai_activity(user.uid, "assignment_uses", 1)
     return {"breakdown": result}
 
 
@@ -339,6 +342,7 @@ async def assignment_plan(
         prompt += f"REFERENCE SOURCE MATERIAL:\n{source_context}\n\n"
 
     result = await _call_generate(user.uid, prompt, feature=AiFeature.CHAT)
+    record_ai_activity(user.uid, "assignment_uses", 1)
     return {"plan": result}
 
 
@@ -512,10 +516,29 @@ async def quiz_generate(
         cleaned = result.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[-1]
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
         parsed = json.loads(cleaned)
-        return {"quiz": parsed.get("questions", []), "raw": result}
+        questions = parsed.get("questions", [])
+
+        # Two DISTINCT lifetime metrics (Phase AI-FLOAT-1):
+        #   quiz_generations += 1  — only when this attempt produced at least
+        #                            one usable question (a failed/unparsable
+        #                            generation increments nothing),
+        #   quiz_questions   += N  — the actual number of usable questions.
+        # The monthly QUIZ quota counter inside _consume_quota still tracks
+        # attempts separately and is NOT what the dashboard labels "Quiz
+        # Generations".
+        usable = [
+            q for q in questions
+            if isinstance(q, dict)
+            and any(str(q.get(k) or "").strip() for k in ("question", "text", "q", "prompt"))
+        ]
+        if usable:
+            record_ai_activity(user.uid, "quiz_generations", 1)
+            record_ai_activity(user.uid, "quiz_questions", len(usable))
+
+        return {"quiz": questions if isinstance(questions, list) else [], "raw": result}
     except (json.JSONDecodeError, KeyError):
         return {"quiz": [], "raw": result}
 
@@ -598,6 +621,7 @@ async def smart_planner_recommend(
     )
 
     result = await _call_generate(user.uid, prompt, feature=AiFeature.CHAT)
+    record_ai_activity(user.uid, "planner_plans", 1)
     return {"recommendation": result}
 
 
@@ -1440,5 +1464,10 @@ async def exam_rescue_plan(
             weak_topics=weak_topics_summary,
             source_mode=source_mode,
         )
+    else:
+        # Lifetime counter: only an AI-authored plan counts. A deterministic
+        # fallback plan is not an AI generation, and applying/saving an
+        # already generated plan never increments anything.
+        record_ai_activity(user.uid, "exam_rescue_plans", 1)
 
     return plan_dict

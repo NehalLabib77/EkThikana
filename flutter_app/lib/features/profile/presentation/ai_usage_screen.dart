@@ -41,7 +41,7 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
 
       final data = await ApiService.getAiUsage();
 
-      debugPrint('[AiUsage] OK — keys: ${data.keys.toList()}');
+      debugPrint('[AiUsage] OK: received data');
       if (!mounted) return;
       setState(() {
         _usage = data;
@@ -226,6 +226,78 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         vertical: GochanoSpacing.sm,
       ),
       children: [
+        if (usage['quota_enforcement_enabled'] == false) ...[
+          Container(
+            padding: const EdgeInsets.all(GochanoSpacing.md),
+            margin: const EdgeInsets.only(bottom: GochanoSpacing.md),
+            decoration: BoxDecoration(
+              color: colors.warningSoft,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.warning),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.bolt_rounded,
+                  color: colors.warning,
+                  size: 28,
+                ),
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            GochanoLanguage.text(
+                              'Unlimited AI Mode Active',
+                              'আনলিমিটেড এআই মোড সক্রিয়',
+                            ),
+                            style: type.body.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colors.warning,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.warning,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'FREE',
+                              style: type.caption.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        GochanoLanguage.text(
+                          'Quota enforcement is temporarily disabled. Enjoy unrestricted AI assistance!',
+                          'কোটা সীমাবদ্ধতা সাময়িকভাবে শিথিল করা হয়েছে। সীমাহীন এআই সুবিধা উপভোগ করুন!',
+                        ),
+                        style: type.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         // Summary Header Card
         Container(
           padding: const EdgeInsets.all(GochanoSpacing.md),
@@ -374,6 +446,17 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         ),
 
         const SizedBox(height: GochanoSpacing.lg),
+        Text(
+          GochanoLanguage.text(
+            'AI Activity Dashboard',
+            'এআই অ্যাক্টিভিটি ড্যাশবোর্ড',
+          ),
+          style: type.cardHeading.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        _buildActivityDashboard(colors, type, usage),
+
+        const SizedBox(height: GochanoSpacing.lg),
 
         // Footer Note
         Padding(
@@ -391,6 +474,149 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         const SizedBox(height: GochanoSpacing.xl),
       ],
     );
+  }
+
+  Widget _buildActivityDashboard(
+    GochanoColors colors,
+    GochanoTypography type,
+    Map<String, dynamic> usage,
+  ) {
+    final summary = usage['summary'] as Map<String, dynamic>? ?? {};
+
+    int count(String key) => (summary[key] as num?)?.toInt() ?? 0;
+
+    // Every counter the backend records in ai_usage_summary/{uid}.
+    final entries = <({IconData icon, String en, String bn, Color accent, int value})>[
+      (
+        icon: Icons.chat_bubble_outline_rounded,
+        en: 'Chat messages',
+        bn: 'চ্যাট বার্তা',
+        accent: colors.brand,
+        value: count('ai_chat_messages'),
+      ),
+      (
+        icon: Icons.auto_stories_outlined,
+        en: 'Note AI',
+        bn: 'নোট এআই',
+        accent: colors.study,
+        value: count('ai_notes'),
+      ),
+      (
+        icon: Icons.picture_as_pdf_outlined,
+        en: 'PDF questions',
+        bn: 'পিডিএফ প্রশ্ন',
+        accent: colors.ai,
+        value: count('pdf_questions'),
+      ),
+      (
+        icon: Icons.image_outlined,
+        en: 'Image questions',
+        bn: 'ছবি প্রশ্ন',
+        accent: colors.medicine,
+        value: count('image_questions'),
+      ),
+      (
+        icon: Icons.auto_awesome_outlined,
+        en: 'Quiz generations',
+        bn: 'কুইজ তৈরি',
+        accent: colors.usageMedium,
+        value: count('quiz_generations'),
+      ),
+      (
+        icon: Icons.quiz_outlined,
+        en: 'Quiz questions',
+        bn: 'কুইজ প্রশ্ন',
+        accent: colors.info,
+        value: count('quiz_questions'),
+      ),
+      (
+        icon: Icons.assignment_turned_in_outlined,
+        en: 'Assignment AI',
+        bn: 'এসাইনমেন্ট এআই',
+        accent: colors.expense,
+        value: count('assignment_uses'),
+      ),
+      (
+        icon: Icons.calendar_month_outlined,
+        en: 'Study plans',
+        bn: 'স্টাডি প্ল্যান',
+        accent: colors.success,
+        value: count('planner_plans'),
+      ),
+      (
+        icon: Icons.crisis_alert_outlined,
+        en: 'Exam Rescue plans',
+        bn: 'এক্সাম রেসকিউ প্ল্যান',
+        accent: colors.error,
+        value: count('exam_rescue_plans'),
+      ),
+      (
+        icon: Icons.tips_and_updates_outlined,
+        en: 'Study recommendations',
+        bn: 'স্টাডি সুপারিশ',
+        accent: colors.community,
+        value: count('study_recommendations'),
+      ),
+      (
+        icon: Icons.directions_bus_outlined,
+        en: 'Commute guides',
+        bn: 'যাত্রা গাইড',
+        accent: colors.commute,
+        value: count('commute_guides'),
+      ),
+    ];
+
+    final rows = <Widget>[];
+    for (var i = 0; i < entries.length; i += 2) {
+      final pair = entries.sublist(
+        i,
+        i + 2 < entries.length ? i + 2 : entries.length,
+      );
+      rows.add(
+        Row(
+          children: [
+            Expanded(
+              child: _AiSummaryStatCard(
+                icon: pair[0].icon,
+                label: GochanoLanguage.text(pair[0].en, pair[0].bn),
+                value: '${pair[0].value}',
+                accent: pair[0].accent,
+              ),
+            ),
+            const SizedBox(width: GochanoSpacing.sm),
+            Expanded(
+              child: pair.length > 1
+                  ? _AiSummaryStatCard(
+                      icon: pair[1].icon,
+                      label: GochanoLanguage.text(pair[1].en, pair[1].bn),
+                      value: '${pair[1].value}',
+                      accent: pair[1].accent,
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      );
+      if (i + 2 < entries.length) {
+        rows.add(const SizedBox(height: GochanoSpacing.sm));
+      }
+    }
+
+    rows.add(const SizedBox(height: GochanoSpacing.xs));
+    rows.add(
+      Text(
+        GochanoLanguage.text(
+          'Counters are lifetime totals per account. Quiz Generations counts '
+          'successful generations; Quiz Questions counts the usable questions '
+          'produced.',
+          'গণনা অ্যাকাউন্ট প্রতি আজীবন মোট। কুইজ তৈরি সফল জেনারেশন গুনে, কুইজ '
+          'প্রশ্ন তৈরি হওয়া ব্যবহারযোগ্য প্রশ্ন গুনে।',
+        ),
+        style: type.caption.copyWith(color: colors.textTertiary),
+      ),
+    );
+
+    return Column(children: rows);
   }
 }
 
@@ -504,6 +730,65 @@ class _FeatureUsageCard extends StatelessWidget {
               color: isExhausted ? colors.error : colors.textSecondary,
               fontWeight: isExhausted ? FontWeight.w600 : FontWeight.normal,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiSummaryStatCard extends StatelessWidget {
+  const _AiSummaryStatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    return Container(
+      padding: const EdgeInsets.all(GochanoSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.border.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: accent),
+              const Spacer(),
+              Text(
+                value,
+                style: type.body.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: accent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: type.caption.copyWith(
+              color: colors.textSecondary,
+              fontSize: 11,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

@@ -118,6 +118,18 @@ def _safe_snippet(body_text: str, limit: int = 240) -> str:
     return (body_text or "")[:limit].replace("\n", " ").replace("\r", " ")
 
 
+_RETRIABLE_STATUSES: set[int] = {429, 500, 502, 503, 504}
+
+
+def _is_retriable(exc: HTTPException) -> bool:
+    """Return True if an HTTPException represents a retriable transient error."""
+    if exc.status_code not in _RETRIABLE_STATUSES:
+        return False
+    if exc.status_code == 503 and "configuration" in str(exc.detail).lower():
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Feature definitions & quota limits
 # ---------------------------------------------------------------------------
@@ -172,9 +184,19 @@ def _get_legacy_feature_limit(feature: str) -> int:
 # ---------------------------------------------------------------------------
 # Quota gate. Atomic Firestore transaction per (uid, period).
 # ---------------------------------------------------------------------------
+def quota_enforcement_enabled() -> bool:
+    """True when Gochano's own AI limits return HTTP 429 (safe default)."""
+    settings = get_settings()
+    try:
+        return bool(settings.ai_quota_enforcement)
+    except AttributeError:  # pragma: no cover - older Settings objects
+        return True
+
+
 def _consume_quota(uid: str, feature: str = AiFeature.NOTE) -> None:
     settings = get_settings()
     feature_limit, period = _get_feature_limit(feature)
+    enforce = quota_enforcement_enabled()
 
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y%m%d")
@@ -199,10 +221,16 @@ def _consume_quota(uid: str, feature: str = AiFeature.NOTE) -> None:
 
             current_feature = int(features_map.get(normalized, 0))
             if feature_limit > 0 and current_feature >= feature_limit:
-                feature_name = normalized.replace("_", " ")
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"Monthly AI limit reached for {feature_name}",
+                if enforce:
+                    feature_name = normalized.replace("_", " ")
+                    raise HTTPException(
+                        status_code=429,
+                        detail=f"Monthly AI limit reached for {feature_name}",
+                    )
+                logger.warning(
+                    "Monthly AI limit reached for %s but AI_QUOTA_ENFORCEMENT=false; "
+                    "counter still increments.",
+                    normalized,
                 )
 
             features_map[normalized] = current_feature + 1
@@ -231,7 +259,7 @@ def _consume_quota(uid: str, feature: str = AiFeature.NOTE) -> None:
                 doc_data = snap.to_dict() or {}
                 current_active = int(doc_data.get("study_plan", 0))
 
-            if feature_limit > 0 and current_active >= feature_limit:
+            if feature_limit > 0 and current_active >= feature_limit and enforce:
                 raise HTTPException(
                     status_code=429,
                     detail="Active study plan limit reached. Complete or archive existing plan first.",
@@ -266,15 +294,22 @@ def _consume_quota(uid: str, feature: str = AiFeature.NOTE) -> None:
 
             current_feature = int(features_map.get(feature, 0))
 
-            if settings.ai_daily_limit > 0 and current_total >= settings.ai_daily_limit:
-                raise HTTPException(
-                    status_code=429, detail="Daily AI limit reached"
-                )
-            if feature_limit > 0 and current_feature >= feature_limit:
-                feature_name = feature.replace("_", " ")
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"Daily AI limit reached for {feature_name}",
+            if enforce:
+                if settings.ai_daily_limit > 0 and current_total >= settings.ai_daily_limit:
+                    raise HTTPException(
+                        status_code=429, detail="Daily AI limit reached"
+                    )
+                if feature_limit > 0 and current_feature >= feature_limit:
+                    feature_name = feature.replace("_", " ")
+                    raise HTTPException(
+                        status_code=429,
+                        detail=f"Daily AI limit reached for {feature_name}",
+                    )
+            elif feature_limit > 0 and current_feature >= feature_limit:
+                logger.warning(
+                    "Daily AI limit reached for %s but AI_QUOTA_ENFORCEMENT=false; "
+                    "counter still increments.",
+                    feature,
                 )
 
             features_map[feature] = current_feature + 1
@@ -291,6 +326,91 @@ def _consume_quota(uid: str, feature: str = AiFeature.NOTE) -> None:
             )
 
         bump_daily(tx)
+
+
+# ---------------------------------------------------------------------------
+# Lifetime AI activity counters (server-side source of truth).
+#
+# One document per authenticated user: ``ai_usage_summary/{uid}``. Only
+# integer counters are written — never prompt text, replies, materials, or
+# any other user content. Every write is an atomic Firestore transaction and
+# always keyed by the authenticated UID, so user A can never read or bump
+# user B's numbers.
+# ---------------------------------------------------------------------------
+AI_ACTIVITY_TYPES: tuple[str, ...] = (
+    "ai_chat_messages",
+    "ai_notes",
+    "pdf_questions",
+    "image_questions",
+    "quiz_generations",
+    "quiz_questions",
+    "assignment_uses",
+    "planner_plans",
+    "exam_rescue_plans",
+    "study_recommendations",
+    "commute_guides",
+)
+
+
+def record_ai_activity(uid: str, activity_type: str, count: int = 1) -> None:
+    """Atomically bump lifetime AI usage counters for the authenticated user.
+
+    Failures are logged but never break the AI response the user is waiting
+    for: usage analytics must not take a working feature down.
+    """
+    if not uid or activity_type not in AI_ACTIVITY_TYPES:
+        logger.warning("record_ai_activity ignored: invalid activity_type=%r", activity_type)
+        return
+    if count <= 0:
+        return
+
+    db = get_firestore()
+    if db is None:
+        return
+
+    ref = db.collection("ai_usage_summary").document(uid)
+    try:
+        tx = db.transaction()
+
+        @firestore.transactional
+        def bump(transaction):
+            snap = ref.get(transaction=transaction)
+            data = snap.to_dict() if snap.exists else {}
+            current = int(data.get(activity_type, 0) or 0)
+            transaction.set(
+                ref,
+                {
+                    "uid": uid,
+                    activity_type: current + count,
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
+                merge=True,
+            )
+
+        bump(tx)
+    except Exception:  # pragma: no cover - defensive
+        logger.exception("record_ai_activity failed for activity_type=%s", activity_type)
+
+
+def get_ai_activity_summary(uid: str) -> dict[str, int]:
+    """Read one user's lifetime AI activity counters (own document only)."""
+    db = get_firestore()
+    counters: dict[str, int] = {key: 0 for key in AI_ACTIVITY_TYPES}
+    if db is None:
+        return counters
+    try:
+        snap = db.collection("ai_usage_summary").document(uid).get()
+        data = snap.to_dict() if (snap is not None and snap.exists) else {}
+    except Exception:  # pragma: no cover - defensive
+        logger.exception("get_ai_activity_summary failed")
+        return counters
+    for key in AI_ACTIVITY_TYPES:
+        try:
+            counters[key] = int((data or {}).get(key, 0) or 0)
+        except (TypeError, ValueError):
+            counters[key] = 0
+    return counters
+
 
 
 def get_ai_usage(uid: str) -> dict[str, Any]:
@@ -391,6 +511,9 @@ def get_ai_usage(uid: str) -> dict[str, Any]:
             "remaining": total_remaining,
         },
         "features": features_status,
+        # Phase AI-FLOAT-1: lifetime activity inventory + enforcement switch.
+        "quota_enforcement_enabled": quota_enforcement_enabled(),
+        "summary": get_ai_activity_summary(uid),
     }
 
 
@@ -904,19 +1027,25 @@ async def generate(uid: str, prompt: str, feature: str = AiFeature.NOTE) -> str:
     errors: list[tuple[str, HTTPException]] = []
 
     # 1. Primary: GROQ
-    if settings.groq_api_key:
+    if isinstance(settings.groq_api_key, str) and settings.groq_api_key.strip():
         try:
             return await _groq_generate(prompt)
         except HTTPException as exc:
+            if not _is_retriable(exc):
+                raise
             logger.warning(
                 "GROQ generate failed (status=%d, detail=%s). Falling back...",
                 exc.status_code,
                 exc.detail,
             )
+            if not (isinstance(settings.gemini_api_key, str) and settings.gemini_api_key.strip()):
+                raise HTTPException(
+                    status_code=503, detail="AI service configuration error"
+                ) from exc
             errors.append(("GROQ", exc))
 
     # 2. Secondary fallback: Gemini
-    if settings.gemini_api_key:
+    if isinstance(settings.gemini_api_key, str) and settings.gemini_api_key.strip():
         try:
             return await _gemini_generate(prompt)
         except HTTPException as exc:
@@ -925,10 +1054,12 @@ async def generate(uid: str, prompt: str, feature: str = AiFeature.NOTE) -> str:
                 exc.status_code,
                 exc.detail,
             )
+            if not (isinstance(settings.openrouter_api_key, str) and settings.openrouter_api_key.strip()):
+                raise
             errors.append(("Gemini", exc))
 
     # 3. Tertiary emergency fallback: OpenRouter
-    if settings.openrouter_api_key:
+    if isinstance(settings.openrouter_api_key, str) and settings.openrouter_api_key.strip():
         try:
             return await _openrouter_generate(prompt)
         except HTTPException as exc:
@@ -973,19 +1104,25 @@ async def generate_multimodal(
     errors: list[tuple[str, HTTPException]] = []
 
     # 1. Primary: GROQ vision
-    if settings.groq_api_key:
+    if isinstance(settings.groq_api_key, str) and settings.groq_api_key.strip():
         try:
             return await _groq_generate_multimodal(parts)
         except HTTPException as exc:
+            if not _is_retriable(exc):
+                raise
             logger.warning(
                 "GROQ multimodal failed (status=%d, detail=%s). Falling back...",
                 exc.status_code,
                 exc.detail,
             )
+            if not (isinstance(settings.gemini_api_key, str) and settings.gemini_api_key.strip()):
+                raise HTTPException(
+                    status_code=503, detail="AI service configuration error"
+                ) from exc
             errors.append(("GROQ", exc))
 
     # 2. Secondary fallback: Gemini vision
-    if settings.gemini_api_key:
+    if isinstance(settings.gemini_api_key, str) and settings.gemini_api_key.strip():
         try:
             return await _gemini_generate_multimodal(parts)
         except HTTPException as exc:
@@ -994,10 +1131,12 @@ async def generate_multimodal(
                 exc.status_code,
                 exc.detail,
             )
+            if not (isinstance(settings.openrouter_api_key, str) and settings.openrouter_api_key.strip()):
+                raise
             errors.append(("Gemini", exc))
 
     # 3. Tertiary emergency fallback: OpenRouter vision
-    if settings.openrouter_api_key:
+    if isinstance(settings.openrouter_api_key, str) and settings.openrouter_api_key.strip():
         try:
             return await _openrouter_generate_multimodal(parts)
         except HTTPException as exc:
@@ -1024,3 +1163,359 @@ async def generate_multimodal(
         last_err.detail,
     )
     raise last_err
+
+
+# ---------------------------------------------------------------------------
+# Multi-turn Ziku chat (Phase AI-FLOAT-1).
+#
+# The client sends the bounded conversation it already holds; the server is
+# the source of truth for what is accepted and forwarded:
+#   * only ``user`` / ``assistant`` roles are accepted,
+#   * only the most recent CHAT_HISTORY_LIMIT turns are forwarded,
+#   * the final message must be from the user,
+#   * no prompt/reply content is ever written to usage analytics.
+# ---------------------------------------------------------------------------
+MAX_CHAT_MESSAGES = 20
+CHAT_HISTORY_LIMIT = 10
+CHAT_ALLOWED_ROLES = ("user", "assistant")
+
+
+def normalize_chat_messages(raw: Any) -> list[dict[str, str]]:
+    """Validate, order-preserve, and bound an inbound chat history.
+
+    Returns the messages that will actually be forwarded to the model.
+    Raises HTTPException(400) when the payload is malformed.
+    """
+    if not isinstance(raw, list) or not raw:
+        raise HTTPException(status_code=400, detail="messages must be a non-empty list")
+
+    cleaned: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="each message must be an object")
+        role = item.get("role")
+        content = item.get("content")
+        if role not in CHAT_ALLOWED_ROLES:
+            raise HTTPException(status_code=400, detail="role must be 'user' or 'assistant'")
+        if not isinstance(content, str) or not content.strip():
+            raise HTTPException(status_code=400, detail="message content must be a non-empty string")
+        if len(content) > 8000:
+            raise HTTPException(status_code=400, detail="message content is too long")
+        cleaned.append({"role": role, "content": content.strip()})
+
+    if len(cleaned) > MAX_CHAT_MESSAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"messages must contain at most {MAX_CHAT_MESSAGES} entries",
+        )
+    if cleaned[-1]["role"] != "user":
+        raise HTTPException(status_code=400, detail="last message must come from the user")
+
+    # Bounded history: keep the most recent turns, always preserving order.
+    return cleaned[-CHAT_HISTORY_LIMIT:]
+
+
+def build_chat_system_prompt(
+    current_destination: str | None = None,
+    app_mode: str | None = None,
+    context_material_title: str | None = None,
+) -> str:
+    lines = [
+        "You are Ziku, the in-app study assistant for Gochano, a university "
+        "student app in Bangladesh.",
+        "Answer clearly and concisely in the language the student writes in "
+        "(English or Bangla).",
+        "Stay on study, coursework, planning and exam topics. Never invent "
+        "fees, dates, routes, medical or financial facts.",
+    ]
+    if context_material_title:
+        lines.append(f"Attached study material: {context_material_title}.")
+    if current_destination:
+        lines.append(f"Student is currently on: {current_destination}.")
+    if app_mode:
+        lines.append(f"App mode: {app_mode}.")
+    return "\n".join(lines)
+
+
+def build_followup_suggestions(reply: str, last_user_text: str) -> list[str]:
+    """Deterministic, context-aware follow-up chips for the next user turn.
+
+    Deliberately not an extra model call: suggestions must never spend a
+    second AI request (and second unit of quota) for one student message.
+    """
+    topic = " ".join((last_user_text or "").strip().split())[:80].strip(" ?.")
+    reply_head = " ".join((reply or "").strip().split())[:80].strip(" ?.")
+
+    if topic:
+        candidates = [
+            f"Explain {topic} more simply",
+            f"Give me an example of {topic}",
+            f"Quiz me on {topic}",
+        ]
+    else:
+        candidates = []
+
+    if reply_head:
+        candidates.append(f"What should I read next about {reply_head}?")
+    candidates.extend(
+        [
+            "How should I revise this for an exam?",
+            "Make me 3 practice questions on this",
+        ]
+    )
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for cand in candidates:
+        key = cand.lower()
+        if key in seen or not cand.strip():
+            continue
+        seen.add(key)
+        out.append(cand)
+        if len(out) == 3:
+            break
+    return out
+
+
+async def _post_openai_chat(
+    url: str,
+    headers: dict[str, str],
+    payload: dict[str, Any],
+    provider: str,
+    model: str,
+) -> str:
+    """POST an OpenAI-style chat payload and return the assistant text."""
+    logger.info("%s chat: model=%s messages=%d", provider, model, len(payload.get("messages", [])))
+    try:
+        response = await _http().post(url, headers=headers, json=payload)
+    except httpx.TimeoutException as exc:
+        logger.warning("%s chat timeout: %s", provider, exc)
+        raise HTTPException(status_code=504, detail="AI request timed out.") from exc
+    except httpx.HTTPError as exc:
+        logger.warning("%s chat network error: %s", provider, exc)
+        raise HTTPException(
+            status_code=502, detail="AI provider temporarily unavailable."
+        ) from exc
+
+    if response.status_code >= 400:
+        logger.warning(
+            "%s chat error: status=%s model=%s body=%s",
+            provider,
+            response.status_code,
+            model,
+            _safe_snippet(response.text),
+        )
+        http_status, user_msg = _classify_ai_error(
+            response.status_code, response.text, provider
+        )
+        raise HTTPException(status_code=http_status, detail=user_msg)
+
+    data = response.json()
+    try:
+        text = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        text = ""
+
+    if not (text or "").strip():
+        raise HTTPException(status_code=502, detail="AI provider returned no text")
+    return text.strip()
+
+
+async def _groq_chat(messages: list[dict[str, str]], system_prompt: str) -> str:
+    settings = get_settings()
+    if not (isinstance(settings.groq_api_key, str) and settings.groq_api_key.strip()):
+        raise HTTPException(status_code=503, detail="AI service configuration error")
+
+    payload = {
+        "model": settings.groq_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            *messages,
+        ],
+        "temperature": 0.4,
+        "max_tokens": 1400,
+    }
+    return await _post_openai_chat(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+            "Authorization": f"Bearer {settings.groq_api_key}",
+            "Content-Type": "application/json",
+        },
+        payload,
+        "GROQ",
+        settings.groq_model,
+    )
+
+
+async def _openrouter_chat(messages: list[dict[str, str]], system_prompt: str) -> str:
+    settings = get_settings()
+    if not (isinstance(settings.openrouter_api_key, str) and settings.openrouter_api_key.strip()):
+        raise HTTPException(status_code=503, detail="AI service configuration error")
+
+    base = (settings.openrouter_base_url or "https://openrouter.ai/api/v1").rstrip("/")
+    payload = {
+        "model": settings.openrouter_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            *messages,
+        ],
+        "temperature": 0.4,
+        "max_tokens": 1400,
+    }
+    return await _post_openai_chat(
+        f"{base}/chat/completions",
+        {
+            "Authorization": f"Bearer {settings.openrouter_api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://gochano.com",
+            "X-Title": "Gochano",
+        },
+        payload,
+        "OpenRouter",
+        settings.openrouter_model,
+    )
+
+
+async def _gemini_chat(messages: list[dict[str, str]], system_prompt: str) -> str:
+    settings = get_settings()
+    if not (isinstance(settings.gemini_api_key, str) and settings.gemini_api_key.strip()):
+        raise HTTPException(status_code=503, detail="AI service configuration error")
+
+    # Gemini has no separate system channel in this payload shape, so the
+    # system prompt is folded into the first turn (always a user turn).
+    contents: list[dict[str, Any]] = []
+    for idx, msg in enumerate(messages):
+        role = "model" if msg["role"] == "assistant" else "user"
+        text = msg["content"]
+        if idx == 0:
+            text = f"{system_prompt}\n\n{text}"
+        contents.append({"role": role, "parts": [{"text": text}]})
+
+    model = settings.gemini_model
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent"
+    )
+    payload = {
+        "contents": contents,
+        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1400},
+    }
+
+    try:
+        response = await _http().post(
+            url,
+            headers={
+                "x-goog-api-key": settings.gemini_api_key,
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+    except httpx.TimeoutException as exc:
+        raise HTTPException(status_code=504, detail="AI request timed out.") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=502, detail="AI provider temporarily unavailable."
+        ) from exc
+
+    if response.status_code >= 400:
+        logger.warning(
+            "Gemini chat error: status=%s model=%s body=%s",
+            response.status_code,
+            model,
+            _safe_snippet(response.text),
+        )
+        http_status, user_msg = _classify_ai_error(
+            response.status_code, response.text, "Gemini"
+        )
+        raise HTTPException(status_code=http_status, detail=user_msg)
+
+    data = response.json()
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        text = "\n".join(p.get("text", "") for p in parts if p.get("text"))
+    except Exception:
+        text = ""
+
+    if not text.strip():
+        raise HTTPException(status_code=502, detail="AI provider returned no text")
+    return text.strip()
+
+
+async def chat_generate(
+    uid: str,
+    messages: list[dict[str, str]],
+    current_destination: str | None = None,
+    app_mode: str | None = None,
+    context_material_title: str | None = None,
+) -> dict[str, Any]:
+    """Multi-turn chat with the same GROQ -> Gemini -> OpenRouter cascade.
+
+    ``messages`` must already be normalized by :func:`normalize_chat_messages`.
+    Returns ``{"reply": str, "suggested_followups": list[str]}``.
+    """
+    settings = get_settings()
+    try:
+        _consume_quota(uid, feature=AiFeature.CHAT)
+    except TypeError:
+        _consume_quota(uid)
+
+    system_prompt = build_chat_system_prompt(
+        current_destination=current_destination,
+        app_mode=app_mode,
+        context_material_title=context_material_title,
+    )
+
+    errors: list[tuple[str, HTTPException]] = []
+
+    if isinstance(settings.groq_api_key, str) and settings.groq_api_key.strip():
+        try:
+            reply = await _groq_chat(messages, system_prompt)
+            return {
+                "reply": reply,
+                "suggested_followups": build_followup_suggestions(
+                    reply, messages[-1]["content"]
+                ),
+            }
+        except HTTPException as exc:
+            if not _is_retriable(exc):
+                raise
+            logger.warning("GROQ chat failed (status=%d). Falling back...", exc.status_code)
+            if not (isinstance(settings.gemini_api_key, str) and settings.gemini_api_key.strip()):
+                raise HTTPException(
+                    status_code=503, detail="AI service configuration error"
+                ) from exc
+            errors.append(("GROQ", exc))
+
+    if isinstance(settings.gemini_api_key, str) and settings.gemini_api_key.strip():
+        try:
+            reply = await _gemini_chat(messages, system_prompt)
+            return {
+                "reply": reply,
+                "suggested_followups": build_followup_suggestions(
+                    reply, messages[-1]["content"]
+                ),
+            }
+        except HTTPException as exc:
+            logger.warning("Gemini chat failed (status=%d). Falling back...", exc.status_code)
+            if not (isinstance(settings.openrouter_api_key, str) and settings.openrouter_api_key.strip()):
+                raise
+            errors.append(("Gemini", exc))
+
+    if isinstance(settings.openrouter_api_key, str) and settings.openrouter_api_key.strip():
+        try:
+            reply = await _openrouter_chat(messages, system_prompt)
+            return {
+                "reply": reply,
+                "suggested_followups": build_followup_suggestions(
+                    reply, messages[-1]["content"]
+                ),
+            }
+        except HTTPException as exc:
+            logger.warning("OpenRouter chat failed (status=%d).", exc.status_code)
+            errors.append(("OpenRouter", exc))
+
+    if not errors:
+        logger.error("No AI provider configured for chat.")
+        raise HTTPException(status_code=503, detail="AI service configuration error")
+
+    raise errors[-1][1]

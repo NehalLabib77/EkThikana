@@ -9,9 +9,13 @@ from app.core.config import get_settings
 from app.schemas import AiNoteRequest, PdfQuestionRequest, CommuteGuideRequest
 from app.services.ai_service import (
     AiFeature,
+    MAX_CHAT_MESSAGES,
+    chat_generate,
     generate,
     generate_multimodal,
     get_ai_usage,
+    normalize_chat_messages,
+    record_ai_activity,
 )
 from app.services.pdf_service import extract_pdf_text
 from app.services.ocr_service import extract_text as ocr_extract_text
@@ -28,6 +32,57 @@ def get_usage(
 ):
     """Return the student's daily AI usage and remaining quota per feature."""
     return get_ai_usage(user.uid)
+
+
+# ---------------------------------------------------------------------------
+# Multi-turn Ziku chat (Phase AI-FLOAT-1).
+#
+# Authenticated students only. History is validated, ordered, and bounded
+# server-side; usage analytics store counters only (never message text).
+# ---------------------------------------------------------------------------
+class ChatMessageDto(BaseModel):
+    role: str = Field(..., pattern=r"^(user|assistant)$")
+    content: str = Field(..., min_length=1, max_length=8000)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessageDto] = Field(..., min_length=1, max_length=MAX_CHAT_MESSAGES)
+    current_destination: str | None = Field(default=None, max_length=60)
+    app_mode: str | None = Field(default=None, max_length=30)
+    context_material_id: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/chat")
+async def chat(
+    body: ChatRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    """Multi-turn assistant reply for the Ziku floating panel.
+
+    Counter semantics: one successful reply increments ``ai_chat_messages``
+    by exactly 1 — regardless of how many history turns were replayed.
+    Opening the panel or a failed request increments nothing.
+    """
+    messages = normalize_chat_messages([m.model_dump() for m in body.messages])
+
+    context_title: str | None = None
+    if body.context_material_id:
+        try:
+            material = get_material_for_user(body.context_material_id, user)
+            context_title = material.get("title") or material.get("fileName")
+        except HTTPException:
+            # A missing or foreign material must not fail the chat turn.
+            context_title = None
+
+    result = await chat_generate(
+        user.uid,
+        messages,
+        current_destination=body.current_destination,
+        app_mode=body.app_mode,
+        context_material_title=context_title,
+    )
+    record_ai_activity(user.uid, "ai_chat_messages", 1)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +141,9 @@ async def process_note(
     }
     prompt = f"{instructions[body.action]}\n\nNOTE:\n{body.text}"
     result = await _call_generate(user.uid, prompt, feature=AiFeature.NOTE)
+    # Note AI has four actions (summary/cleanup/explain/key_topics); each
+    # successful action counts once toward the Note AI total.
+    record_ai_activity(user.uid, "ai_notes", 1)
     return {"result": result}
 
 
@@ -181,6 +239,8 @@ async def commute_guide(
 
     try:
         result = await _call_generate(user.uid, prompt, feature=AiFeature.COMMUTE_GUIDE)
+        if result and result.strip():
+            record_ai_activity(user.uid, "commute_guides", 1)
         return {"explanation": result}
     except Exception:
         # AI failure must not break the feature — return empty so the
@@ -226,6 +286,7 @@ async def pdf_question(
         f"PDF TEXT:\n{text}"
     )
     answer = await _call_generate(user.uid, prompt, feature=AiFeature.PDF_QUESTION)
+    record_ai_activity(user.uid, "pdf_questions", 1)
     return {"answer": answer}
 
 
@@ -285,6 +346,7 @@ async def image_question(
     answer = await _call_generate_multimodal(
         user.uid, parts, feature=AiFeature.IMAGE_QUESTION
     )
+    record_ai_activity(user.uid, "image_questions", 1)
     return {"answer": answer}
 
 

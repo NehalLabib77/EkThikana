@@ -146,5 +146,57 @@ void main() {
       expect(find.byType(ElevatedButton), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
     });
+
+    // ---- Phase AI-FLOAT-1.1: full activity inventory ----
+
+    test('dashboard reads every server-side activity counter', () {
+      const counters = [
+        'ai_chat_messages',
+        'ai_notes',
+        'pdf_questions',
+        'image_questions',
+        'quiz_generations',
+        'quiz_questions',
+        'assignment_uses',
+        'planner_plans',
+        'exam_rescue_plans',
+        'study_recommendations',
+        'commute_guides',
+      ];
+
+      for (final counter in counters) {
+        expect(
+          aiUsageScreenFile.contains("count('$counter')"),
+          isTrue,
+          reason: 'Activity dashboard must display "$counter"',
+        );
+      }
+    });
+
+    test('quiz generations and quiz questions are distinct metrics', () {
+      expect(aiUsageScreenFile.contains("'Quiz generations'"), isTrue);
+      expect(aiUsageScreenFile.contains("'Quiz questions'"), isTrue);
+      expect(aiUsageScreenFile.contains("count('quiz_generations')"), isTrue);
+      expect(aiUsageScreenFile.contains("count('quiz_questions')"), isTrue);
+      expect(
+        aiUsageScreenFile.contains("'Quiz generations'") &&
+            aiUsageScreenFile.contains("'Quiz questions'"),
+        isTrue,
+        reason: 'Generations and questions must be shown as separate rows',
+      );
+    });
+
+    test('dashboard does not claim a Revision AI metric', () {
+      expect(
+        aiUsageScreenFile.contains(RegExp(r'revision', caseSensitive: false)),
+        isFalse,
+        reason: 'Revision AI was removed — the dashboard must not invent it',
+      );
+    });
+
+    test('unlimited banner keys off quota_enforcement_enabled', () {
+      expect(aiUsageScreenFile.contains("quota_enforcement_enabled'"), isTrue);
+      expect(aiUsageScreenFile.contains('Unlimited AI Mode Active'), isTrue);
+    });
   });
 }

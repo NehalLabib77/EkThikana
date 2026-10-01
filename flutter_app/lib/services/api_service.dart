@@ -1367,4 +1367,25 @@ class ApiService {
       return _decode(body);
     });
   }
+
+  /// Multi-turn chat conversation with Ziku AI.
+  static Future<Map<String, dynamic>> aiChat({
+    required List<Map<String, String>> messages,
+    String? currentDestination,
+    String? appMode,
+    String? contextMaterialId,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/ai/chat',
+        body: {
+          'messages': messages,
+          'current_destination': ?currentDestination,
+          'app_mode': ?appMode,
+          'context_material_id': ?contextMaterialId,
+        },
+      );
+      return _decode(body);
+    });
+  }
 }
