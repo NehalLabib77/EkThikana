@@ -592,4 +592,107 @@ void main() {
       },
     );
   });
+
+  group('Phase T7 — Quiz MCQ Scoring Tests', () {
+    testWidgets(
+      '18: MCQ option-text answer scores correctly against letter reference',
+      (tester) async {
+        int? savedScore;
+        Map<String, int>? savedTopicScores;
+        final screen = QuizResultScreen(
+          questions: const [
+            {
+              'question': 'What improves accuracy?',
+              'type': 'mcq',
+              'options': ['A. Skipping validation', 'B. A structured approach'],
+              'correct': 'B',
+              'explanation': 'The source states a structured approach helps.',
+              'topic': 'Structured methods',
+            },
+            {
+              'question': 'What does a report need?',
+              'type': 'mcq',
+              'options': ['A. Clear writing', 'B. More jargon'],
+              'correct': 'A',
+              'explanation': 'Clear writing aids understanding.',
+              'topic': 'Clear writing',
+            },
+          ],
+          // The quiz screen stores the tapped option text while the
+          // generator returns the bare option letter as the reference.
+          userAnswers: const ['B. A structured approach', 'B. More jargon'],
+          correctAnswers: const ['B', 'A'],
+          difficulty: 'medium',
+          saveResultFn:
+              ({
+                required questions,
+                required userAnswers,
+                required correctAnswers,
+                required score,
+                required topicScores,
+                required subjectId,
+                required materialId,
+                required difficulty,
+                required timeSpentSeconds,
+              }) async {
+                savedScore = score;
+                savedTopicScores = topicScores;
+                return {'success': true};
+              },
+        );
+
+        await tester.pumpWidget(createTestApp(screen));
+        await tester.pumpAndSettle();
+
+        expect(savedScore, 50);
+        expect(savedTopicScores?['Structured methods'], 100);
+        expect(savedTopicScores?['Clear writing'], 0);
+        expect(find.text('50%'), findsWidgets);
+        expect(find.text('Result saved'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('19: no answer scores zero percent', (tester) async {
+      int? savedScore;
+      final screen = QuizResultScreen(
+        questions: const [
+          {
+            'question': 'Unanswered?',
+            'type': 'mcq',
+            'options': ['A. Yes', 'B. No'],
+            'correct': 'A',
+            'explanation': 'Because.',
+            'topic': 'General',
+          },
+        ],
+        userAnswers: const [''],
+        correctAnswers: const ['A'],
+        difficulty: 'easy',
+        saveResultFn:
+            ({
+              required questions,
+              required userAnswers,
+              required correctAnswers,
+              required score,
+              required topicScores,
+              required subjectId,
+              required materialId,
+              required difficulty,
+              required timeSpentSeconds,
+            }) async {
+              savedScore = score;
+              return {'success': true};
+            },
+      );
+
+      await tester.pumpWidget(createTestApp(screen));
+      await tester.pumpAndSettle();
+
+      expect(savedScore, 0);
+      expect(find.text('0%'), findsWidgets);
+      expect(find.text('0/1 correct'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

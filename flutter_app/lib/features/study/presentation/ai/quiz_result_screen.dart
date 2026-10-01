@@ -62,6 +62,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   late int _totalCount;
   late int _score;
   late Map<String, int> _topicScores;
+  late Map<String, int> _topicCorrect;
 
   @override
   void initState() {
@@ -69,15 +70,10 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     _totalCount = widget.questions.length;
     _correctCount = 0;
     _topicScores = {};
+    _topicCorrect = {};
 
     for (var i = 0; i < _totalCount; i++) {
-      final userAns = i < widget.userAnswers.length
-          ? widget.userAnswers[i].trim().toLowerCase()
-          : '';
-      final correctAns = i < widget.correctAnswers.length
-          ? widget.correctAnswers[i].trim().toLowerCase()
-          : '';
-      if (userAns == correctAns && userAns.isNotEmpty) {
+      if (_isAnswerCorrect(i)) {
         _correctCount++;
       }
     }
@@ -86,27 +82,53 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
         ? ((_correctCount / _totalCount) * 100).round()
         : 0;
 
-    // Compute topic scores (group by question type / first word as topic proxy)
+    // Compute topic mastery as 0-100 percentages (the backend
+    // weak_topic_service averages these values against a 0-100 threshold).
+    final topicTotals = <String, int>{};
     for (var i = 0; i < _totalCount; i++) {
       final q = widget.questions[i];
       final topic = _extractTopic(q);
-      _topicScores.putIfAbsent(topic, () => 0);
-      final userAns = i < widget.userAnswers.length
-          ? widget.userAnswers[i].trim().toLowerCase()
-          : '';
-      final correctAns = i < widget.correctAnswers.length
-          ? widget.correctAnswers[i].trim().toLowerCase()
-          : '';
-      if (userAns == correctAns && userAns.isNotEmpty) {
-        _topicScores[topic] = (_topicScores[topic] ?? 0) + 1;
+      final isCorrect = _isAnswerCorrect(i);
+      topicTotals[topic] = (topicTotals[topic] ?? 0) + 1;
+      if (isCorrect) {
+        _topicCorrect[topic] = (_topicCorrect[topic] ?? 0) + 1;
       }
+    }
+    for (final entry in topicTotals.entries) {
+      final correct = _topicCorrect[entry.key] ?? 0;
+      _topicScores[entry.key] = entry.value > 0
+          ? ((correct / entry.value) * 100).round()
+          : 0;
     }
 
     _saveResult();
   }
 
+  /// Whether the student's answer for question [i] matches the reference.
+  ///
+  /// MCQ generators return the option letter (`"B"`) as the reference while
+  /// the quiz screen stores the tapped option text (`"B. Reduce confusion"`),
+  /// so a plain equality check scored every MCQ as wrong. Bare-letter
+  /// references therefore accept the letter with or without its label.
+  bool _isAnswerCorrect(int i) {
+    final userAns = i < widget.userAnswers.length
+        ? widget.userAnswers[i].trim().toLowerCase()
+        : '';
+    final correctAns = i < widget.correctAnswers.length
+        ? widget.correctAnswers[i].trim().toLowerCase()
+        : '';
+    if (userAns.isEmpty || correctAns.isEmpty) return false;
+    if (userAns == correctAns) return true;
+    final bareLetter = RegExp(r'^[a-d]$').hasMatch(correctAns);
+    if (!bareLetter) return false;
+    return RegExp('^$correctAns[.)\\s]').hasMatch(userAns);
+  }
+
   String _extractTopic(Map<String, dynamic> question) {
-    // Use explanation first sentence or question first few words as topic
+    // Prefer an explicit topic tag when the generator provides one.
+    final tagged = question['topic']?.toString().trim() ?? '';
+    if (tagged.isNotEmpty) return tagged;
+    // Fall back to the explanation's first sentence (or the question text).
     final explanation = question['explanation']?.toString() ?? '';
     if (explanation.isNotEmpty) {
       final firstSentence = explanation.split(RegExp(r'[.!?]')).first.trim();
@@ -352,14 +374,12 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
             const SizedBox(height: GochanoSpacing.sm),
             ..._topicScores.entries.map((entry) {
               final topicTotal = _getTopicTotal(entry.key);
-              final pct = topicTotal > 0
-                  ? ((entry.value / topicTotal) * 100).round()
-                  : 0;
+              // entry.value is already a 0-100 mastery percentage.
               return _TopicBar(
                 topic: entry.key,
-                correct: entry.value,
+                correct: _topicCorrect[entry.key] ?? 0,
                 total: topicTotal,
-                percentage: pct,
+                percentage: entry.value,
               );
             }),
             const SizedBox(height: GochanoSpacing.md),

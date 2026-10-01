@@ -31,10 +31,14 @@ import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../tasks/presentation/add_task_sheet.dart';
 import '../ai/quiz_generator_screen.dart';
+import '../rescue/exam_rescue_models.dart';
+import '../rescue/exam_rescue_session_service.dart';
 import '../rescue/exam_rescue_setup_sheet.dart';
 
 class PlanView extends StatefulWidget {
-  const PlanView({super.key});
+  const PlanView({super.key, this.examRescueSessionService});
+
+  final ExamRescueSessionService? examRescueSessionService;
 
   @override
   State<PlanView> createState() => _PlanViewState();
@@ -151,7 +155,9 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
             onDaySelected: (day) => setState(() => _selectedDay = day),
           ),
           const SizedBox(height: GochanoSpacing.xs),
-          const _ExamRescueBanner(),
+          _ExamRescueBanner(
+            examRescueSessionService: widget.examRescueSessionService,
+          ),
           const SizedBox(height: GochanoSpacing.md),
           _CombinedPlannerList(selectedDay: _selectedDay),
           const SizedBox(height: GochanoSpacing.xl),
@@ -706,8 +712,8 @@ void _handleTakeQuiz(
         initialTopic: title.isNotEmpty ? title : null,
         initialQuestionCount: 10,
         onQuizCompleted: () async {
-          await _setDone(context, doc, true);
-          if (context.mounted) {
+          final saved = await _setDone(context, doc, true);
+          if (saved && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -1392,7 +1398,9 @@ class _CompactStepper extends StatelessWidget {
   }
 }
 
-Future<void> _setDone(
+/// Marks the task done/not-done. Returns true only when Firestore accepted
+/// the write, so callers never report a false success.
+Future<bool> _setDone(
   BuildContext context,
   QueryDocumentSnapshot<Map<String, dynamic>> doc,
   bool done,
@@ -1423,10 +1431,12 @@ Future<void> _setDone(
         type: type,
       );
     }
+    return true;
   } catch (error) {
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
+    return false;
   }
 }
 
@@ -1457,87 +1467,140 @@ Future<void> _delete(
 // ---------------------------------------------------------------------------
 
 class _ExamRescueBanner extends StatelessWidget {
-  const _ExamRescueBanner();
+  const _ExamRescueBanner({this.examRescueSessionService});
+
+  final ExamRescueSessionService? examRescueSessionService;
+
+  String _activeSubtitle(ExamRescueSession session, DateTime now) {
+    final days = session.localDaysRemaining(now);
+    if (days <= 0) {
+      return GochanoLanguage.text(
+        'Exam today · Active Plan',
+        'আজ পরীক্ষা · সক্রিয় প্ল্যান',
+      );
+    }
+    if (days == 1) {
+      return GochanoLanguage.text(
+        '1 day remaining · Active Plan',
+        '১ দিন বাকি · সক্রিয় প্ল্যান',
+      );
+    }
+    return GochanoLanguage.text(
+      '$days days remaining · Active Plan',
+      '${GochanoLanguage.formatNumber(days)} দিন বাকি · সক্রিয় প্ল্যান',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
+    final service =
+        examRescueSessionService ?? ExamRescueSessionService.instance;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.brandSoft,
-          borderRadius: GochanoRadius.lgAll,
-          border: Border.all(color: colors.brand.withValues(alpha: 0.18)),
-        ),
-        padding: const EdgeInsets.all(GochanoSpacing.md),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(GochanoSpacing.xs),
-              decoration: BoxDecoration(
-                color: colors.brand.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.bolt_rounded, color: colors.brand, size: 22),
+      child: StreamBuilder<ExamRescueSession?>(
+        stream: service.streamNearestActiveSession(),
+        builder: (context, snapshot) {
+          final session = snapshot.data;
+          final isActive = session != null;
+          final title = isActive
+              ? '${GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার')}: ${session.examTitle}'
+              : GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার');
+          final subtitle = isActive
+              ? _activeSubtitle(session, service.now)
+              : GochanoLanguage.text(
+                  'Exam close? Build a focused rescue plan.',
+                  'পরীক্ষা কাছাকাছি? একটি গোছানো উদ্ধার প্ল্যান তৈরি করুন।',
+                );
+          final buttonLabel = isActive
+              ? GochanoLanguage.text('+ New Plan', '+ নতুন প্ল্যান')
+              : GochanoLanguage.text('Build Plan', 'প্ল্যান বানান');
+
+          return Container(
+            decoration: BoxDecoration(
+              color: colors.brandSoft,
+              borderRadius: GochanoRadius.lgAll,
+              border: Border.all(color: colors.brand.withValues(alpha: 0.18)),
             ),
-            const SizedBox(width: GochanoSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার'),
-                    style: type.body.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: colors.brand,
+            padding: const EdgeInsets.all(GochanoSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(GochanoSpacing.xs),
+                  decoration: BoxDecoration(
+                    color: colors.brand.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.bolt_rounded,
+                    color: colors.brand,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: type.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colors.brand,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: type.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.xs),
+                FilledButton.tonal(
+                  onPressed: () async {
+                    final result = await showExamRescueSetupSheet(context);
+                    if (result != null && result.success && context.mounted) {
+                      showGochanoMessage(
+                        context,
+                        FeedbackMessages.examRescuePlanApplied(
+                          result.tasksCount,
+                          reminderFailed: result.reminderFailed,
+                        ),
+                      );
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: GochanoSpacing.sm,
+                      vertical: GochanoSpacing.xs,
+                    ),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: GochanoRadius.mdAll,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    GochanoLanguage.text(
-                      'Exam close? Build a focused rescue plan.',
-                      'পরীক্ষা কাছাকাছি? একটি গোছানো উদ্ধার প্ল্যান তৈরি করুন।',
-                    ),
-                    style: type.caption.copyWith(color: colors.textSecondary),
+                  child: Text(
+                    buttonLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: GochanoSpacing.xs),
-            FilledButton.tonal(
-              onPressed: () async {
-                final result = await showExamRescueSetupSheet(context);
-                if (result != null && result.success && context.mounted) {
-                  showGochanoMessage(
-                    context,
-                    FeedbackMessages.examRescuePlanApplied(
-                      result.tasksCount,
-                      reminderFailed: result.reminderFailed,
-                    ),
-                  );
-                }
-              },
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: GochanoSpacing.sm,
-                  vertical: GochanoSpacing.xs,
                 ),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: GochanoRadius.mdAll,
-                ),
-              ),
-              child: Text(
-                GochanoLanguage.text('Build Plan', 'প্ল্যান বানান'),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

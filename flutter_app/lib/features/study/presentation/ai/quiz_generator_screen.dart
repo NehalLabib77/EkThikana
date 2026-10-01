@@ -350,6 +350,9 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
       _quizMode = false;
       _selectedAnswers.clear();
       _quizStartedAt = null;
+      // Always release the submit guard when leaving quiz mode, otherwise a
+      // failed/cancelled save leaves the screen permanently un-submittable.
+      _submitting = false;
     });
   }
 

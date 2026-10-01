@@ -17,7 +17,9 @@ import '../../../../services/firestore_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 
-Future<List<Map<String, String>>> showMaterialPicker(BuildContext context) async {
+Future<List<Map<String, String>>> showMaterialPicker(
+  BuildContext context,
+) async {
   final result = await showModalBottomSheet<List<Map<String, String>>>(
     context: context,
     isScrollControlled: true,
@@ -27,7 +29,9 @@ Future<List<Map<String, String>>> showMaterialPicker(BuildContext context) async
   return result ?? [];
 }
 
-Future<List<Map<String, String>>> showGeneralMaterialPicker(BuildContext context) async {
+Future<List<Map<String, String>>> showGeneralMaterialPicker(
+  BuildContext context,
+) async {
   final result = await showModalBottomSheet<List<Map<String, String>>>(
     context: context,
     isScrollControlled: true,
@@ -40,8 +44,15 @@ Future<List<Map<String, String>>> showGeneralMaterialPicker(BuildContext context
 bool _isImageFile(Map<String, dynamic> data) {
   final mime = (data['mimeType'] ?? '').toString().toLowerCase();
   final name = (data['fileName'] ?? '').toString().toLowerCase();
-  if (mime.startsWith('image/')) return true;
-  if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return true;
+  if (mime.startsWith('image/')) {
+    return true;
+  }
+  if (name.endsWith('.jpg') ||
+      name.endsWith('.jpeg') ||
+      name.endsWith('.png') ||
+      name.endsWith('.webp')) {
+    return true;
+  }
   return false;
 }
 
@@ -80,7 +91,9 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
 
   void _confirm() {
     Navigator.of(context).pop(
-      _selectedIds.map((id) => {'id': id, 'title': _docTitles[id] ?? id}).toList(),
+      _selectedIds
+          .map((id) => {'id': id, 'title': _docTitles[id] ?? id})
+          .toList(),
     );
   }
 
@@ -98,14 +111,40 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(GochanoLanguage.text('Upload Material', '\u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1 \u0995\u09b0\u09c1\u09a8')),
+          title: Text(
+            GochanoLanguage.text(
+              'Upload Material',
+              '\u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1 \u0995\u09b0\u09c1\u09a8',
+            ),
+          ),
           content: TextField(
             controller: titleCtrl,
-            decoration: InputDecoration(labelText: GochanoLanguage.text('Title', '\u09b6\u09bf\u09b0\u09cb\u09a8\u09be\u09ae')),
+            decoration: InputDecoration(
+              labelText: GochanoLanguage.text(
+                'Title',
+                '\u09b6\u09bf\u09b0\u09cb\u09a8\u09be\u09ae',
+              ),
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(GochanoLanguage.text('Cancel', '\u09ac\u09be\u09a4\u09bf\u09b2'))),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(GochanoLanguage.text('Upload', '\u0986\u09aa\u09b2\u09cb\u09a1'))),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                GochanoLanguage.text(
+                  'Cancel',
+                  '\u09ac\u09be\u09a4\u09bf\u09b2',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                GochanoLanguage.text(
+                  'Upload',
+                  '\u0986\u09aa\u09b2\u09cb\u09a1',
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -114,20 +153,36 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
       await ApiService.uploadMaterial(
         bytes: bytes,
         fileName: selected.name,
-        title: titleCtrl.text.trim().isNotEmpty ? titleCtrl.text.trim() : selected.name,
+        title: titleCtrl.text.trim().isNotEmpty
+            ? titleCtrl.text.trim()
+            : selected.name,
         visibility: 'private',
       );
 
       if (mounted) {
         setState(() => _refreshKey = !_refreshKey);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(GochanoLanguage.text('Material uploaded', '\u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1 \u09b9\u09af\u09bc\u09c7\u099b\u09c7'))),
+          SnackBar(
+            content: Text(
+              GochanoLanguage.text(
+                'Material uploaded',
+                '\u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1 \u09b9\u09af\u09bc\u09c7\u099b\u09c7',
+              ),
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(GochanoLanguage.text('Upload failed', '\u0986\u09aa\u09b2\u09cb\u09a1 \u09ac\u09cd\u09af\u09b0\u09cd\u09a5'))),
+          SnackBar(
+            content: Text(
+              GochanoLanguage.text(
+                'Upload failed',
+                '\u0986\u09aa\u09b2\u09cb\u09a1 \u09ac\u09cd\u09af\u09b0\u09cd\u09a5',
+              ),
+            ),
+          ),
         );
       }
     }
@@ -137,14 +192,31 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(GochanoLanguage.text('Delete Material', '\u0989\u09aa\u0995\u09b0\u09a3 \u09ae\u09c1\u099b\u09c1\u09a8')),
-        content: Text(GochanoLanguage.text('Delete ""?', '"" \u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09ac\u09c7\u09a8?')),
+        title: Text(
+          GochanoLanguage.text(
+            'Delete Material',
+            '\u0989\u09aa\u0995\u09b0\u09a3 \u09ae\u09c1\u099b\u09c1\u09a8',
+          ),
+        ),
+        content: Text(
+          GochanoLanguage.text(
+            'Delete ""?',
+            '"" \u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09ac\u09c7\u09a8?',
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(GochanoLanguage.text('Cancel', '\u09ac\u09be\u09a4\u09bf\u09b2'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              GochanoLanguage.text('Cancel', '\u09ac\u09be\u09a4\u09bf\u09b2'),
+            ),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(GochanoLanguage.text('Delete', '\u09ae\u09c1\u099b\u09c1\u09a8')),
+            child: Text(
+              GochanoLanguage.text('Delete', '\u09ae\u09c1\u099b\u09c1\u09a8'),
+            ),
           ),
         ],
       ),
@@ -159,13 +231,27 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
           _selectedIds.remove(id);
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(GochanoLanguage.text('Material deleted', '\u0989\u09aa\u0995\u09b0\u09a3 \u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7'))),
+          SnackBar(
+            content: Text(
+              GochanoLanguage.text(
+                'Material deleted',
+                '\u0989\u09aa\u0995\u09b0\u09a3 \u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7',
+              ),
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(GochanoLanguage.text('Delete failed', '\u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09be \u09ac\u09cd\u09af\u09b0\u09cd\u09a5'))),
+          SnackBar(
+            content: Text(
+              GochanoLanguage.text(
+                'Delete failed',
+                '\u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09be \u09ac\u09cd\u09af\u09b0\u09cd\u09a5',
+              ),
+            ),
+          ),
         );
       }
     }
@@ -176,6 +262,7 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
     if (t != null && t.isNotEmpty) return t;
     return data['fileName']?.toString() ?? '';
   }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -197,8 +284,12 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
             children: [
               Container(
                 margin: const EdgeInsets.only(top: GochanoSpacing.sm),
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: colors.border, borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.all(GochanoSpacing.md),
@@ -210,47 +301,76 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                         children: [
                           Text(
                             GochanoLanguage.text(
-                              widget.allowImages ? 'Materials' : 'Select Source Material',
-                              widget.allowImages ? '\u0989\u09aa\u0995\u09b0\u09a3' : '\u0989\u09a4\u09cd\u09b8 \u0989\u09aa\u0995\u09b0\u09a3 \u09a8\u09bf\u09b0\u09cd\u09ac\u09be\u099a\u09a8 \u0995\u09b0\u09c1\u09a8',
+                              widget.allowImages
+                                  ? 'Materials'
+                                  : 'Select Source Material',
+                              widget.allowImages
+                                  ? '\u0989\u09aa\u0995\u09b0\u09a3'
+                                  : '\u0989\u09a4\u09cd\u09b8 \u0989\u09aa\u0995\u09b0\u09a3 \u09a8\u09bf\u09b0\u09cd\u09ac\u09be\u099a\u09a8 \u0995\u09b0\u09c1\u09a8',
                             ),
                             style: context.type.sectionHeading,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             GochanoLanguage.text(
-                              widget.allowImages ? 'Manage your materials' : 'Choose documents for your quiz',
-                              widget.allowImages ? '\u0986\u09aa\u09a8\u09be\u09b0 \u0989\u09aa\u0995\u09b0\u09a3 \u09aa\u09b0\u09bf\u099a\u09be\u09b2\u09a8\u09be \u0995\u09b0\u09c1\u09a8' : '\u0986\u09aa\u09a8\u09be\u09b0 \u0995\u09c1\u0987\u099c\u09c7\u09b0 \u099c\u09a8\u09cd\u09af \u09a1\u0995\u09c1\u09ae\u09c7\u09a8\u09cd\u099f \u09ac\u09be\u099b\u09c1\u09a8',
+                              widget.allowImages
+                                  ? 'Manage your materials'
+                                  : 'Choose documents for your quiz',
+                              widget.allowImages
+                                  ? '\u0986\u09aa\u09a8\u09be\u09b0 \u0989\u09aa\u0995\u09b0\u09a3 \u09aa\u09b0\u09bf\u099a\u09be\u09b2\u09a8\u09be \u0995\u09b0\u09c1\u09a8'
+                                  : '\u0986\u09aa\u09a8\u09be\u09b0 \u0995\u09c1\u0987\u099c\u09c7\u09b0 \u099c\u09a8\u09cd\u09af \u09a1\u0995\u09c1\u09ae\u09c7\u09a8\u09cd\u099f \u09ac\u09be\u099b\u09c1\u09a8',
                             ),
-                            style: context.type.caption.copyWith(color: colors.textSecondary),
+                            style: context.type.caption.copyWith(
+                              color: colors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     if (_selectedIds.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.sm, vertical: GochanoSpacing.xs),
-                        decoration: BoxDecoration(color: colors.ai.withValues(alpha: 0.12), borderRadius: GochanoRadius.mdAll),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.sm,
+                          vertical: GochanoSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.ai.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.mdAll,
+                        ),
                         child: Text(
                           ' selected',
-                          style: context.type.caption.copyWith(color: colors.ai, fontWeight: FontWeight.w600),
+                          style: context.type.caption.copyWith(
+                            color: colors.ai,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: GochanoSpacing.md,
+                ),
                 child: Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: _searchCtrl,
                         decoration: InputDecoration(
-                          hintText: GochanoLanguage.text('Search materials\u2026', '\u0989\u09aa\u0995\u09b0\u09a3 \u0996\u09c1\u099c\u09c1\u09a8\u2026'),
-                          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                          hintText: GochanoLanguage.text(
+                            'Search materials\u2026',
+                            '\u0989\u09aa\u0995\u09b0\u09a3 \u0996\u09c1\u099c\u09c1\u09a8\u2026',
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            size: 20,
+                          ),
                           isDense: true,
                         ),
-                        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+                        onChanged: (v) => setState(
+                          () => _searchQuery = v.trim().toLowerCase(),
+                        ),
                       ),
                     ),
                     if (widget.allowImages) ...[
@@ -258,7 +378,10 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                       IconButton(
                         onPressed: _uploadMaterial,
                         icon: const Icon(Icons.upload_file_rounded),
-                        tooltip: GochanoLanguage.text('Upload Material', '\u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1'),
+                        tooltip: GochanoLanguage.text(
+                          'Upload Material',
+                          '\u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1',
+                        ),
                       ),
                     ],
                   ],
@@ -271,10 +394,19 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                   key: ValueKey(_refreshKey),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return StaticLoadingState(compact: true, message: GochanoLanguage.text('Loading materials\u2026', '\u0989\u09aa\u0995\u09b0\u09a3 \u09b2\u09cb\u09a1 \u09b9\u099a\u09cd\u099b\u09c7\u2026'));
+                      return StaticLoadingState(
+                        compact: true,
+                        message: GochanoLanguage.text(
+                          'Loading materials\u2026',
+                          '\u0989\u09aa\u0995\u09b0\u09a3 \u09b2\u09cb\u09a1 \u09b9\u099a\u09cd\u099b\u09c7\u2026',
+                        ),
+                      );
                     }
                     if (snapshot.hasError) {
-                      return ErrorState(compact: true, message: friendlyErrorMessage(snapshot.error));
+                      return ErrorState(
+                        compact: true,
+                        message: friendlyErrorMessage(snapshot.error),
+                      );
                     }
                     final docs = [...?snapshot.data?.docs];
                     // Cache doc titles for confirm callback
@@ -285,40 +417,81 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                       return EmptyState(
                         compact: true,
                         illustration: GochanoArt.emptyMaterials,
-                        title: GochanoLanguage.text('No materials yet', '\u098f\u0996\u09a8\u09cb \u0995\u09cb\u09a8\u09cb \u0989\u09aa\u0995\u09b0\u09a3 \u09a8\u09c7\u0987'),
-                        message: GochanoLanguage.text('Upload materials first, then select them here for quiz generation.', '\u09aa\u09cd\u09b0\u09a5\u09ae\u09c7 \u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1 \u0995\u09b0\u09c1\u09a8, \u09a4\u09be\u09b0\u09aa\u09b0 \u0995\u09c1\u0987\u099c \u09a4\u09c8\u09b0\u09bf\u09b0\u09c7\u09b0 \u099c\u09a8\u09cd\u09af \u098f\u0996\u09be\u09a8\u09c7 \u09ac\u09be\u099b\u09c1\u09a8\u0964'),
+                        title: GochanoLanguage.text(
+                          'No materials yet',
+                          '\u098f\u0996\u09a8\u09cb \u0995\u09cb\u09a8\u09cb \u0989\u09aa\u0995\u09b0\u09a3 \u09a8\u09c7\u0987',
+                        ),
+                        message: GochanoLanguage.text(
+                          'Upload materials first, then select them here for quiz generation.',
+                          '\u09aa\u09cd\u09b0\u09a5\u09ae\u09c7 \u0989\u09aa\u0995\u09b0\u09a3 \u0986\u09aa\u09b2\u09cb\u09a1 \u0995\u09b0\u09c1\u09a8, \u09a4\u09be\u09b0\u09aa\u09b0 \u0995\u09c1\u0987\u099c \u09a4\u09c8\u09b0\u09bf\u09b0\u09c7\u09b0 \u099c\u09a8\u09cd\u09af \u098f\u0996\u09be\u09a8\u09c7 \u09ac\u09be\u099b\u09c1\u09a8\u0964',
+                        ),
                       );
                     }
                     final filtered = docs.where((doc) {
                       final data = doc.data();
-                      if (!widget.allowImages && _isImageFile(data)) return false;
+                      if (!widget.allowImages && _isImageFile(data)) {
+                        return false;
+                      }
                       if (_searchQuery.isEmpty) return true;
                       final t = (data['title'] ?? '').toString().toLowerCase();
-                      final f = (data['fileName'] ?? '').toString().toLowerCase();
-                      final s = (data['subject'] ?? '').toString().toLowerCase();
-                      return t.contains(_searchQuery) || f.contains(_searchQuery) || s.contains(_searchQuery);
+                      final f = (data['fileName'] ?? '')
+                          .toString()
+                          .toLowerCase();
+                      final s = (data['subject'] ?? '')
+                          .toString()
+                          .toLowerCase();
+                      return t.contains(_searchQuery) ||
+                          f.contains(_searchQuery) ||
+                          s.contains(_searchQuery);
                     }).toList();
                     if (filtered.isEmpty) {
                       return Center(
                         child: Text(
-                          GochanoLanguage.text('No materials match your search', '\u0986\u09aa\u09a8\u09be\u09b0 \u0985\u09a8\u09c1\u09b8\u09a8\u09cd\u09a7\u09be\u09a8 \u0995\u09cb\u09a8\u09cb \u0989\u09aa\u0995\u09b0\u09a3 \u09ae\u09c7\u09b2\u09c7\u09a8\u09bf'),
+                          GochanoLanguage.text(
+                            'No materials match your search',
+                            '\u0986\u09aa\u09a8\u09be\u09b0 \u0985\u09a8\u09c1\u09b8\u09a8\u09cd\u09a7\u09be\u09a8 \u0995\u09cb\u09a8\u09cb \u0989\u09aa\u0995\u09b0\u09a3 \u09ae\u09c7\u09b2\u09c7\u09a8\u09bf',
+                          ),
                           style: context.type.bodySecondary,
                         ),
                       );
                     }
                     if (widget.allowImages) {
-                      final documents = filtered.where((doc) => _isDocumentFile(doc.data())).toList();
-                      final images = filtered.where((doc) => _isImageFile(doc.data())).toList();
+                      final documents = filtered
+                          .where((doc) => _isDocumentFile(doc.data()))
+                          .toList();
+                      final images = filtered
+                          .where((doc) => _isImageFile(doc.data()))
+                          .toList();
                       return ListView(
                         controller: scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
                         children: [
                           if (documents.isNotEmpty) ...[
-                            _buildCategoryHeader(context, icon: Icons.description_rounded, label: GochanoLanguage.text('Documents', '\u09a1\u0995\u09c1\u09ae\u09c7\u09a8\u09cd\u099f'), count: documents.length, color: colors.brand),
+                            _buildCategoryHeader(
+                              context,
+                              icon: Icons.description_rounded,
+                              label: GochanoLanguage.text(
+                                'Documents',
+                                '\u09a1\u0995\u09c1\u09ae\u09c7\u09a8\u09cd\u099f',
+                              ),
+                              count: documents.length,
+                              color: colors.brand,
+                            ),
                             ...documents.map((doc) => _buildTile(doc)),
                           ],
                           if (images.isNotEmpty) ...[
-                            _buildCategoryHeader(context, icon: Icons.image_rounded, label: GochanoLanguage.text('Images', '\u099b\u09ac\u09bf'), count: images.length, color: colors.study),
+                            _buildCategoryHeader(
+                              context,
+                              icon: Icons.image_rounded,
+                              label: GochanoLanguage.text(
+                                'Images',
+                                '\u099b\u09ac\u09bf',
+                              ),
+                              count: images.length,
+                              color: colors.study,
+                            ),
                             ...images.map((doc) => _buildTile(doc)),
                           ],
                         ],
@@ -326,7 +499,9 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                     }
                     return ListView.builder(
                       controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: GochanoSpacing.md,
+                      ),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
                         final doc = filtered[index];
@@ -350,13 +525,27 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
                   padding: const EdgeInsets.all(GochanoSpacing.md),
                   child: Row(
                     children: [
-                      Expanded(child: SecondaryButton(label: GochanoLanguage.text('Cancel', '\u09ac\u09be\u09a4\u09bf\u09b2'), onPressed: () => Navigator.of(context).pop())),
+                      Expanded(
+                        child: SecondaryButton(
+                          label: GochanoLanguage.text(
+                            'Cancel',
+                            '\u09ac\u09be\u09a4\u09bf\u09b2',
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
                       const SizedBox(width: GochanoSpacing.sm),
                       Expanded(
                         child: PrimaryButton(
                           label: _selectedIds.isEmpty
-                              ? GochanoLanguage.text('Select', '\u09a8\u09bf\u09b0\u09cd\u09ac\u09be\u099a\u09a8')
-                              : GochanoLanguage.text('Select ()', '\u09a8\u09bf\u09b0\u09cd\u09ac\u09be\u099a\u09a8 ()'),
+                              ? GochanoLanguage.text(
+                                  'Select',
+                                  '\u09a8\u09bf\u09b0\u09cd\u09ac\u09be\u099a\u09a8',
+                                )
+                              : GochanoLanguage.text(
+                                  'Select (${_selectedIds.length})',
+                                  '\u09a8\u09bf\u09b0\u09cd\u09ac\u09be\u099a\u09a8 (${_selectedIds.length})',
+                                ),
                           onPressed: _selectedIds.isEmpty ? null : _confirm,
                         ),
                       ),
@@ -371,14 +560,29 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
     );
   }
 
-  Widget _buildCategoryHeader(BuildContext context, {required IconData icon, required String label, required int count, required Color color}) {
+  Widget _buildCategoryHeader(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(top: GochanoSpacing.sm, bottom: GochanoSpacing.xs),
+      padding: const EdgeInsets.only(
+        top: GochanoSpacing.sm,
+        bottom: GochanoSpacing.xs,
+      ),
       child: Row(
         children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: GochanoSpacing.xs),
-          Text(' ()', style: context.type.caption.copyWith(color: color, fontWeight: FontWeight.w600)),
+          Text(
+            '$label ($count)',
+            style: context.type.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -393,8 +597,12 @@ class _MaterialPickerSheetState extends State<_MaterialPickerSheet> {
     final createdAt = data['createdAt'];
     final selected = _selectedIds.contains(id);
     return _MaterialTile(
-      id: id, title: title, mimeType: mimeType, fileName: fileName,
-      createdAt: createdAt, selected: selected,
+      id: id,
+      title: title,
+      mimeType: mimeType,
+      fileName: fileName,
+      createdAt: createdAt,
+      selected: selected,
       onTap: () => _toggle(id),
       onDelete: widget.allowImages ? () => _deleteMaterial(id, title) : null,
     );
@@ -425,10 +633,19 @@ class _MaterialTile extends StatelessWidget {
   IconData _fileIcon() {
     final mime = mimeType.toLowerCase();
     final name = fileName.toLowerCase();
-    if (mime.contains('pdf') || name.endsWith('.pdf')) return Icons.picture_as_pdf_rounded;
-    if (name.endsWith('.doc') || name.endsWith('.docx')) return Icons.description_rounded;
+    if (mime.contains('pdf') || name.endsWith('.pdf')) {
+      return Icons.picture_as_pdf_rounded;
+    }
+    if (name.endsWith('.doc') || name.endsWith('.docx')) {
+      return Icons.description_rounded;
+    }
     if (name.endsWith('.txt')) return Icons.article_rounded;
-    if (mime.startsWith('image/') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png')) return Icons.image_rounded;
+    if (mime.startsWith('image/') ||
+        name.endsWith('.jpg') ||
+        name.endsWith('.jpeg') ||
+        name.endsWith('.png')) {
+      return Icons.image_rounded;
+    }
     return Icons.insert_drive_file_rounded;
   }
 
@@ -447,11 +664,18 @@ class _MaterialTile extends StatelessWidget {
 
   Color _fileIconColor(GochanoColors colors) {
     switch (_fileExtension()) {
-      case 'PDF': return colors.error;
-      case 'DOC': return colors.brand;
-      case 'TXT': return colors.textSecondary;
-      case 'JPG': case 'PNG': case 'IMG': return colors.study;
-      default: return colors.textSecondary;
+      case 'PDF':
+        return colors.error;
+      case 'DOC':
+        return colors.brand;
+      case 'TXT':
+        return colors.textSecondary;
+      case 'JPG':
+      case 'PNG':
+      case 'IMG':
+        return colors.study;
+      default:
+        return colors.textSecondary;
     }
   }
 
@@ -478,7 +702,9 @@ class _MaterialTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(GochanoSpacing.sm),
           decoration: BoxDecoration(
-            color: selected ? colors.ai.withValues(alpha: 0.08) : colors.surface,
+            color: selected
+                ? colors.ai.withValues(alpha: 0.08)
+                : colors.surface,
             borderRadius: GochanoRadius.mdAll,
             border: Border.all(
               color: selected ? colors.ai : colors.border,
@@ -488,25 +714,47 @@ class _MaterialTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 40, height: 40,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: _fileIconColor(colors).withValues(alpha: 0.12),
                   borderRadius: GochanoRadius.smAll,
                 ),
-                child: Icon(_fileIcon(), size: 22, color: _fileIconColor(colors)),
+                child: Icon(
+                  _fileIcon(),
+                  size: 22,
+                  color: _fileIconColor(colors),
+                ),
               ),
               const SizedBox(width: GochanoSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: context.type.body.copyWith(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      title,
+                      style: context.type.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Text(_fileExtension(), style: context.type.caption.copyWith(color: colors.textSecondary)),
+                        Text(
+                          _fileExtension(),
+                          style: context.type.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
                         if (_formatDate(createdAt).isNotEmpty)
-                          Text(' \u00b7 ', style: context.type.caption.copyWith(color: colors.textSecondary)),
+                          Text(
+                            ' \u00b7 ',
+                            style: context.type.caption.copyWith(
+                              color: colors.textSecondary,
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -514,15 +762,27 @@ class _MaterialTile extends StatelessWidget {
               ),
               if (onDelete != null)
                 IconButton(
+                  tooltip: GochanoLanguage.text('Delete', 'মুছুন'),
                   onPressed: onDelete,
-                  icon: Icon(Icons.delete_outline_rounded, size: 20, color: colors.error),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    size: 20,
+                    color: colors.error,
+                  ),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
               if (selected)
                 Icon(Icons.check_circle_rounded, size: 22, color: colors.ai)
               else
-                Icon(Icons.radio_button_unchecked_rounded, size: 22, color: colors.textTertiary),
+                Icon(
+                  Icons.radio_button_unchecked_rounded,
+                  size: 22,
+                  color: colors.textTertiary,
+                ),
             ],
           ),
         ),

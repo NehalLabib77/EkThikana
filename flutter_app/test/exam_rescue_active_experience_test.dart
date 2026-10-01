@@ -29,8 +29,8 @@ class MockExamRescueSessionService extends ExamRescueSessionService {
   MockExamRescueSessionService({
     Stream<ExamRescueSession?>? sessionStream,
     DateTime? now,
-  })  : _sessionStream = sessionStream ?? Stream.value(null),
-        super(now: now != null ? () => now : null);
+  }) : _sessionStream = sessionStream ?? Stream.value(null),
+       super(now: now != null ? () => now : null);
 
   @override
   Stream<ExamRescueSession?> streamNearestActiveSession() => _sessionStream;
@@ -48,14 +48,21 @@ Widget _wrapWithTheme(
 }) {
   GochanoLanguage.current.value = locale;
   return MaterialApp(
-    theme: GochanoTheme.light,
+    theme: GochanoTheme.light(),
     home: MediaQuery(
       data: MediaQueryData(
         size: size,
         textScaler: TextScaler.linear(textScaleFactor),
       ),
       child: Scaffold(
-        body: SingleChildScrollView(child: child),
+        // Bound the child's height: scrollable roots (WorkspaceView, PlanView)
+        // must not receive unbounded height inside this scroll view.
+        body: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: size.height),
+            child: child,
+          ),
+        ),
       ),
     ),
   );
@@ -108,15 +115,20 @@ void main() {
 
   group('1. ExamRescueSession Model & Days Remaining', () {
     test('isEligibleActive returns true for future exam within bounds', () {
-      final session = makeSession(examDate: baseNow.add(const Duration(days: 2)));
+      final session = makeSession(
+        examDate: baseNow.add(const Duration(days: 2)),
+      );
       expect(session.isEligibleActive(baseNow), isTrue);
     });
 
-    test('isEligibleActive returns true for same day exam (even if earlier hour)', () {
-      final sameDayMorning = DateTime(2026, 6, 10, 8, 0, 0);
-      final session = makeSession(examDate: sameDayMorning);
-      expect(session.isEligibleActive(baseNow), isTrue);
-    });
+    test(
+      'isEligibleActive returns true for same day exam (even if earlier hour)',
+      () {
+        final sameDayMorning = DateTime(2026, 6, 10, 8, 0, 0);
+        final session = makeSession(examDate: sameDayMorning);
+        expect(session.isEligibleActive(baseNow), isTrue);
+      },
+    );
 
     test('isEligibleActive returns false for yesterday exam', () {
       final yesterday = DateTime(2026, 6, 9, 23, 59, 59);
@@ -132,16 +144,25 @@ void main() {
       expect(cancelled.isEligibleActive(baseNow), isFalse);
     });
 
-    test('localDaysRemaining computes 0 for today, 1 for tomorrow, 3 for in 3 days', () {
-      final todaySession = makeSession(examDate: DateTime(2026, 6, 10, 18, 0, 0));
-      expect(todaySession.localDaysRemaining(baseNow), equals(0));
+    test(
+      'localDaysRemaining computes 0 for today, 1 for tomorrow, 3 for in 3 days',
+      () {
+        final todaySession = makeSession(
+          examDate: DateTime(2026, 6, 10, 18, 0, 0),
+        );
+        expect(todaySession.localDaysRemaining(baseNow), equals(0));
 
-      final tomorrowSession = makeSession(examDate: DateTime(2026, 6, 11, 9, 0, 0));
-      expect(tomorrowSession.localDaysRemaining(baseNow), equals(1));
+        final tomorrowSession = makeSession(
+          examDate: DateTime(2026, 6, 11, 9, 0, 0),
+        );
+        expect(tomorrowSession.localDaysRemaining(baseNow), equals(1));
 
-      final futureSession = makeSession(examDate: DateTime(2026, 6, 13, 14, 0, 0));
-      expect(futureSession.localDaysRemaining(baseNow), equals(3));
-    });
+        final futureSession = makeSession(
+          examDate: DateTime(2026, 6, 13, 14, 0, 0),
+        );
+        expect(futureSession.localDaysRemaining(baseNow), equals(3));
+      },
+    );
   });
 
   group('2. ExamRescueSessionService.calculateTodayProgress', () {
@@ -301,7 +322,9 @@ void main() {
   });
 
   group('3. ExamRescueActiveCard Widget Tests', () {
-    testWidgets('renders category label, exam title, badge, and CTA button', (tester) async {
+    testWidgets('renders category label, exam title, badge, and CTA button', (
+      tester,
+    ) async {
       final session = makeSession(
         examTitle: 'Optical Fiber Midterm',
         examDate: baseNow.add(const Duration(days: 3)),
@@ -339,7 +362,9 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('displays warning badge when exam is today (0 days left)', (tester) async {
+    testWidgets('displays warning badge when exam is today (0 days left)', (
+      tester,
+    ) async {
       final session = makeSession(
         examTitle: 'Digital Signal Processing',
         examDate: DateTime(2026, 6, 10, 14, 0, 0),
@@ -387,7 +412,10 @@ void main() {
         ),
       );
 
-      expect(find.text("All of today's rescue tasks are completed!"), findsOneWidget);
+      expect(
+        find.text("All of today's rescue tasks are completed!"),
+        findsOneWidget,
+      );
       expect(find.text('Open Plan'), findsOneWidget);
     });
 
@@ -412,11 +440,16 @@ void main() {
         ),
       );
 
-      expect(find.text('All rescue tasks completed! Great work!'), findsOneWidget);
+      expect(
+        find.text('All rescue tasks completed! Great work!'),
+        findsOneWidget,
+      );
       expect(find.text('Review Plan'), findsOneWidget);
     });
 
-    testWidgets('displays no tasks scheduled for today message', (tester) async {
+    testWidgets('displays no tasks scheduled for today message', (
+      tester,
+    ) async {
       final session = makeSession();
       const progress = ExamRescueTodayProgress(
         overallTotal: 4,
@@ -441,8 +474,12 @@ void main() {
       expect(find.text('Open Plan'), findsOneWidget);
     });
 
-    testWidgets('renders cleanly on 320dp width without overflow', (tester) async {
-      final session = makeSession(examTitle: 'Super Long Subject Midterm Examination');
+    testWidgets('renders cleanly on 320dp width without overflow', (
+      tester,
+    ) async {
+      final session = makeSession(
+        examTitle: 'Super Long Subject Midterm Examination',
+      );
       const progress = ExamRescueTodayProgress(
         overallTotal: 4,
         overallCompleted: 1,
@@ -464,35 +501,43 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Super Long Subject Midterm Examination'), findsOneWidget);
+      expect(
+        find.text('Super Long Subject Midterm Examination'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('renders cleanly with 2.0x text scale factor without overflow', (tester) async {
-      final session = makeSession();
-      const progress = ExamRescueTodayProgress(
-        overallTotal: 4,
-        overallCompleted: 2,
-        todayTotal: 4,
-        todayCompleted: 2,
-        todayPlannedMinutes: 120,
-      );
+    testWidgets(
+      'renders cleanly with 2.0x text scale factor without overflow',
+      (tester) async {
+        final session = makeSession();
+        const progress = ExamRescueTodayProgress(
+          overallTotal: 4,
+          overallCompleted: 2,
+          todayTotal: 4,
+          todayCompleted: 2,
+          todayPlannedMinutes: 120,
+        );
 
-      await tester.pumpWidget(
-        _wrapWithTheme(
-          ExamRescueActiveCard(
-            session: session,
-            progress: progress,
-            onContinueRescue: () {},
-            now: baseNow,
+        await tester.pumpWidget(
+          _wrapWithTheme(
+            ExamRescueActiveCard(
+              session: session,
+              progress: progress,
+              onContinueRescue: () {},
+              now: baseNow,
+            ),
+            textScaleFactor: 2.0,
           ),
-          textScaleFactor: 2.0,
-        ),
-      );
+        );
 
-      expect(tester.takeException(), isNull);
-    });
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets('renders Bengali labels correctly when language is Bangla', (tester) async {
+    testWidgets('renders Bengali labels correctly when language is Bangla', (
+      tester,
+    ) async {
       final session = makeSession(
         examTitle: 'পদার্থবিজ্ঞান পরীক্ষা',
         examDate: baseNow.add(const Duration(days: 3)),
@@ -525,37 +570,41 @@ void main() {
   });
 
   group('4. WorkspaceView Quick Access Tile', () {
-    testWidgets('displays remaining days and invokes onOpenPlan when active session exists',
-        (tester) async {
-      final session = makeSession(
-        examTitle: 'Chemistry Final',
-        examDate: baseNow.add(const Duration(days: 3)),
-      );
-      final mockService = MockExamRescueSessionService(
-        sessionStream: Stream.value(session),
-        now: baseNow,
-      );
+    testWidgets(
+      'displays remaining days and invokes onOpenPlan when active session exists',
+      (tester) async {
+        final session = makeSession(
+          examTitle: 'Chemistry Final',
+          examDate: baseNow.add(const Duration(days: 3)),
+        );
+        final mockService = MockExamRescueSessionService(
+          sessionStream: Stream.value(session),
+          now: baseNow,
+        );
 
-      bool planOpened = false;
+        bool planOpened = false;
 
-      await tester.pumpWidget(
-        _wrapWithTheme(
-          WorkspaceView(
-            onOpenPlan: () => planOpened = true,
-            examRescueSessionService: mockService,
+        await tester.pumpWidget(
+          _wrapWithTheme(
+            WorkspaceView(
+              onOpenPlan: () => planOpened = true,
+              examRescueSessionService: mockService,
+            ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      expect(find.text('Exam Rescue'), findsOneWidget);
-      expect(find.text('Exam in 3 days · View plan'), findsOneWidget);
+        expect(find.text('Exam Rescue'), findsOneWidget);
+        expect(find.text('Exam in 3 days · View plan'), findsOneWidget);
 
-      await tester.tap(find.text('Exam Rescue'));
-      expect(planOpened, isTrue);
-    });
+        await tester.tap(find.text('Exam Rescue'));
+        expect(planOpened, isTrue);
+      },
+    );
 
-    testWidgets('displays fallback subtitle when no active session exists', (tester) async {
+    testWidgets('displays fallback subtitle when no active session exists', (
+      tester,
+    ) async {
       final mockService = MockExamRescueSessionService(
         sessionStream: Stream.value(null),
         now: baseNow,
@@ -572,74 +621,85 @@ void main() {
       await tester.pump();
 
       expect(find.text('Exam Rescue'), findsOneWidget);
-      expect(find.text('Exam close? Build a quick rescue plan.'), findsOneWidget);
+      expect(
+        find.text('Exam close? Build a quick rescue plan.'),
+        findsOneWidget,
+      );
     });
   });
 
   group('5. PlanView Adaptive Exam Rescue Banner', () {
-    testWidgets('displays active session title and days remaining when active', (tester) async {
-      final session = makeSession(
-        examTitle: 'Optical Fiber Midterm',
-        examDate: baseNow.add(const Duration(days: 2)),
-      );
-      final mockService = MockExamRescueSessionService(
-        sessionStream: Stream.value(session),
-        now: baseNow,
-      );
+    testWidgets(
+      'displays active session title and days remaining when active',
+      (tester) async {
+        final session = makeSession(
+          examTitle: 'Optical Fiber Midterm',
+          examDate: baseNow.add(const Duration(days: 2)),
+        );
+        final mockService = MockExamRescueSessionService(
+          sessionStream: Stream.value(session),
+          now: baseNow,
+        );
 
-      await tester.pumpWidget(
-        _wrapWithTheme(
-          PlanView(examRescueSessionService: mockService),
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          _wrapWithTheme(PlanView(examRescueSessionService: mockService)),
+        );
+        await tester.pump();
 
-      expect(find.text('Exam Rescue: Optical Fiber Midterm'), findsOneWidget);
-      expect(find.text('2 days remaining · Active Plan'), findsOneWidget);
-      expect(find.text('+ New Plan'), findsOneWidget);
-    });
+        expect(find.text('Exam Rescue: Optical Fiber Midterm'), findsOneWidget);
+        expect(find.text('2 days remaining · Active Plan'), findsOneWidget);
+        expect(find.text('+ New Plan'), findsOneWidget);
+      },
+    );
 
-    testWidgets('displays default banner when no active session exists', (tester) async {
+    testWidgets('displays default banner when no active session exists', (
+      tester,
+    ) async {
       final mockService = MockExamRescueSessionService(
         sessionStream: Stream.value(null),
         now: baseNow,
       );
 
       await tester.pumpWidget(
-        _wrapWithTheme(
-          PlanView(examRescueSessionService: mockService),
-        ),
+        _wrapWithTheme(PlanView(examRescueSessionService: mockService)),
       );
       await tester.pump();
 
       expect(find.text('Exam Rescue'), findsOneWidget);
-      expect(find.text('Exam close? Build a focused rescue plan.'), findsOneWidget);
+      expect(
+        find.text('Exam close? Build a focused rescue plan.'),
+        findsOneWidget,
+      );
       expect(find.text('Build Plan'), findsOneWidget);
     });
   });
 
   group('6. HomeScreen Mode & Role Gating', () {
-    testWidgets('cardsForMode includes ExamRescueActiveCard inside _TodaysTasksCard only in study mode',
-        (tester) async {
-      final home = HomeScreen(
-        role: 'student',
-        displayName: 'Test Student',
-        onOpenDestination: (_) {},
-        onOpenProfile: () {},
-      );
+    testWidgets(
+      'cardsForMode includes ExamRescueActiveCard inside _TodaysTasksCard only in study mode',
+      (tester) async {
+        final home = HomeScreen(
+          role: 'student',
+          displayName: 'Test Student',
+          onOpenDestination: (_) {},
+          onOpenProfile: () {},
+        );
 
-      // In Study mode: returns 7 elements (SyncStatusIndicator, SizedBox, _TodaysTasksCard, SizedBox, _StudyProgressCard, SizedBox, _RecentMaterialsCard)
-      final studyCards = _cardsForMode(home, GochanoAppMode.study);
-      expect(studyCards.length, equals(7));
+        // In Study mode: returns 7 elements (SyncStatusIndicator, SizedBox, _TodaysTasksCard, SizedBox, _StudyProgressCard, SizedBox, _RecentMaterialsCard)
+        final studyCards = _cardsForMode(home, GochanoAppMode.study);
+        expect(studyCards.length, equals(7));
 
-      // In Utility mode: returns 5 elements (SyncStatusIndicator, SizedBox, _CommuteCard, SizedBox, _MoneyCard)
-      final utilityCards = _cardsForMode(home, GochanoAppMode.utility);
-      expect(utilityCards.length, equals(5));
+        // In Utility mode: returns 5 elements (SyncStatusIndicator, SizedBox, _CommuteCard, SizedBox, _MoneyCard)
+        final utilityCards = _cardsForMode(home, GochanoAppMode.utility);
+        expect(utilityCards.length, equals(5));
 
-      final utilityTypes = utilityCards.map((w) => w.runtimeType.toString()).toList();
-      expect(utilityTypes, isNot(contains('_TodaysTasksCard')));
-      expect(utilityTypes, contains('_CommuteCard'));
-      expect(utilityTypes, contains('_MoneyCard'));
-    });
+        final utilityTypes = utilityCards
+            .map((w) => w.runtimeType.toString())
+            .toList();
+        expect(utilityTypes, isNot(contains('_TodaysTasksCard')));
+        expect(utilityTypes, contains('_CommuteCard'));
+        expect(utilityTypes, contains('_MoneyCard'));
+      },
+    );
   });
 }

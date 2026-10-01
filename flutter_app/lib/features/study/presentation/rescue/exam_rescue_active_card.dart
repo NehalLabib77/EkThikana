@@ -1,13 +1,14 @@
-// Phase T5/T6 — Active Exam Rescue Experience Card
+// Phase T5/T6/T7 — Active Exam Rescue Experience Card
 //
 // Displays the active Exam Rescue status on Home / Study Today:
 // - Exam title & days remaining
 // - Today's rescue task completion count and progress bar
 // - Planned minutes for today
-// - "Continue Rescue" CTA navigating to PlanView
+// - State-specific CTA ("Continue Rescue" / "Open Plan" / "Review Plan")
 //
 // Source-of-truth driven: progress is derived entirely from the Firestore
-// task stream via [calculateTodayProgress] — no local fake progress increments.
+// task stream via [ExamRescueSessionService.calculateTodayProgress] — no local
+// fake progress increments.
 
 import 'package:flutter/material.dart';
 
@@ -16,27 +17,9 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
+import 'exam_rescue_models.dart';
 
-/// Pure progress statistics derived from real tasks for the current day.
-@immutable
-class ExamRescueTodayProgress {
-  final int completedTasks;
-  final int totalTasks;
-  final int plannedMinutes;
-
-  const ExamRescueTodayProgress({
-    required this.completedTasks,
-    required this.totalTasks,
-    required this.plannedMinutes,
-  });
-
-  double get ratio =>
-      totalTasks > 0 ? (completedTasks / totalTasks).clamp(0.0, 1.0) : 0.0;
-
-  int get percentage => (ratio * 100).round();
-}
-
-/// Pure helper to calculate today's rescue progress from tasks.
+/// Pure helper to calculate today's rescue progress from task maps.
 ExamRescueTodayProgress calculateTodayProgress({
   required List<Map<String, dynamic>> tasks,
   required DateTime today,
@@ -61,6 +44,8 @@ ExamRescueTodayProgress calculateTodayProgress({
     DateTime? dueAt;
     if (dueAtRaw is DateTime) {
       dueAt = dueAtRaw;
+    } else if (dueAtRaw is String && dueAtRaw.isNotEmpty) {
+      dueAt = DateTime.tryParse(dueAtRaw);
     } else if (dueAtRaw != null && dueAtRaw.toString().isNotEmpty) {
       try {
         dueAt = (dueAtRaw as dynamic).toDate() as DateTime?;
@@ -82,9 +67,11 @@ ExamRescueTodayProgress calculateTodayProgress({
   }
 
   return ExamRescueTodayProgress(
-    completedTasks: completed,
-    totalTasks: total,
-    plannedMinutes: minutes,
+    overallTotal: total,
+    overallCompleted: completed,
+    todayTotal: total,
+    todayCompleted: completed,
+    todayPlannedMinutes: minutes,
   );
 }
 
@@ -92,62 +79,109 @@ ExamRescueTodayProgress calculateTodayProgress({
 class ExamRescueActiveCard extends StatelessWidget {
   const ExamRescueActiveCard({
     super.key,
-    required this.examTitle,
-    required this.daysRemaining,
+    required this.session,
     required this.progress,
-    this.onContinue,
+    required this.onContinueRescue,
+    this.now,
   });
 
-  final String examTitle;
-  final int daysRemaining;
+  final ExamRescueSession session;
   final ExamRescueTodayProgress progress;
-  final VoidCallback? onContinue;
+  final VoidCallback onContinueRescue;
+  final DateTime? now;
+
+  String _daysLabel(BuildContext context) {
+    final isBangla = GochanoLanguage.current.value == GochanoLocale.bangla;
+    final days = session.localDaysRemaining(now ?? DateTime.now());
+    if (isBangla) {
+      if (days <= 0) return 'পরীক্ষা আজ';
+      if (days == 1) return '১ দিন বাকি';
+      return '${GochanoLanguage.formatNumber(days)} দিন বাকি';
+    }
+    if (days <= 0) return 'Exam Today';
+    if (days == 1) return '1 day left';
+    return '$days days left';
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
 
-    final daysLabel = daysRemaining == 1
-        ? GochanoLanguage.text('1 day remaining', '১ দিন বাকি')
-        : GochanoLanguage.text(
-            '$daysRemaining days remaining',
-            '${GochanoLanguage.formatNumber(daysRemaining)} দিন বাকি',
-          );
+    // State precedence: whole-plan done > nothing today > everything today
+    // done > in progress.
+    final String headline;
+    final String ctaLabel;
+    if (progress.isPlanAllDone) {
+      headline = GochanoLanguage.text(
+        'All rescue tasks completed! Great work!',
+        'সব রেসকিউ কাজ সম্পন্ন! দারুণ কাজ!',
+      );
+      ctaLabel = GochanoLanguage.text('Review Plan', 'প্ল্যান দেখুন');
+    } else if (!progress.hasTasksToday) {
+      headline = GochanoLanguage.text(
+        'No rescue tasks scheduled for today.',
+        'আজ কোনো রেসকিউ কাজ নির্ধারিত নেই।',
+      );
+      ctaLabel = GochanoLanguage.text('Open Plan', 'প্ল্যান খুলুন');
+    } else if (progress.isTodayAllDone) {
+      headline = GochanoLanguage.text(
+        "All of today's rescue tasks are completed!",
+        'আজকের সব রেসকিউ কাজ সম্পন্ন হয়েছে!',
+      );
+      ctaLabel = GochanoLanguage.text('Open Plan', 'প্ল্যান খুলুন');
+    } else {
+      headline = GochanoLanguage.text(
+        '${progress.todayCompleted} of ${progress.todayTotal} rescue tasks completed',
+        '${GochanoLanguage.formatNumber(progress.todayTotal)}-এর মধ্যে ${GochanoLanguage.formatNumber(progress.todayCompleted)}টি কাজ সম্পন্ন',
+      );
+      ctaLabel = GochanoLanguage.text('Continue Rescue', 'উদ্ধার চালিয়ে যান');
+    }
+
+    final showProgress = progress.hasTasksToday && !progress.isPlanAllDone;
 
     return AppCard(
       padding: const EdgeInsets.all(GochanoSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               Icon(Icons.bolt_rounded, size: 18, color: colors.brand),
               const SizedBox(width: GochanoSpacing.xxs),
-              Flexible(
+              Expanded(
                 child: Text(
-                  GochanoLanguage.text('EXAM RESCUE', 'পরীক্ষা রেসকিউ'),
+                  GochanoLanguage.text('EXAM RESCUE', 'পরীক্ষা উদ্ধার'),
                   style: type.caption.copyWith(
                     color: colors.brand,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
                   ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: GochanoSpacing.xs),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: colors.brand.withValues(alpha: 0.1),
-                  borderRadius: GochanoRadius.smAll,
-                ),
-                child: Text(
-                  daysLabel,
-                  style: type.caption.copyWith(
-                    color: colors.brand,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.brand.withValues(alpha: 0.1),
+                    borderRadius: GochanoRadius.smAll,
+                  ),
+                  child: Text(
+                    _daysLabel(context),
+                    style: type.caption.copyWith(
+                      color: colors.brand,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -155,7 +189,7 @@ class ExamRescueActiveCard extends StatelessWidget {
           ),
           const SizedBox(height: GochanoSpacing.xs),
           Text(
-            examTitle,
+            session.examTitle,
             style: type.cardHeading.copyWith(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -165,72 +199,71 @@ class ExamRescueActiveCard extends StatelessWidget {
           ),
           const SizedBox(height: GochanoSpacing.xs),
           Text(
-            GochanoLanguage.text(
-              'Today: ${progress.completedTasks} of ${progress.totalTasks} rescue tasks completed',
-              'আজ: ${GochanoLanguage.formatNumber(progress.totalTasks)}-এর মধ্যে ${GochanoLanguage.formatNumber(progress.completedTasks)}টি কাজ সম্পন্ন',
-            ),
+            headline,
             style: type.bodySecondary.copyWith(
               color: colors.textSecondary,
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: GochanoSpacing.xs),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress.ratio,
-              minHeight: 8,
-              backgroundColor: colors.surfaceVariant,
-              valueColor: AlwaysStoppedAnimation(colors.brand),
+          if (showProgress) ...[
+            const SizedBox(height: GochanoSpacing.xs),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress.ratio,
+                minHeight: 8,
+                backgroundColor: colors.surfaceVariant,
+                valueColor: AlwaysStoppedAnimation(colors.brand),
+              ),
             ),
-          ),
-          const SizedBox(height: GochanoSpacing.xs),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: GochanoSpacing.xs,
-            runSpacing: 2,
-            children: [
-              Text(
-                '${progress.percentage}%',
-                style: type.caption.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colors.textPrimary,
-                ),
-              ),
-              Text(
-                GochanoLanguage.text(
-                  '${progress.plannedMinutes} min planned today',
-                  'আজ ${GochanoLanguage.formatNumber(progress.plannedMinutes)} মিনিট নির্ধারিত',
-                ),
-                style: type.caption.copyWith(color: colors.textTertiary),
-              ),
-            ],
-          ),
-          if (onContinue != null) ...[
-            const SizedBox(height: GochanoSpacing.sm),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onContinue,
-                style: FilledButton.styleFrom(
-                  backgroundColor: colors.brand,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: GochanoRadius.smAll,
+            const SizedBox(height: GochanoSpacing.xs),
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: GochanoSpacing.xs,
+              runSpacing: 2,
+              children: [
+                Text(
+                  '${progress.percentage}%',
+                  style: type.caption.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colors.textPrimary,
                   ),
                 ),
-                child: Text(
-                  GochanoLanguage.text('Continue Rescue', 'রেসকিউ চালিয়ে যান'),
-                  style: type.button.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                Text(
+                  GochanoLanguage.text(
+                    '${progress.todayPlannedMinutes} min planned today',
+                    'আজ ${GochanoLanguage.formatNumber(progress.todayPlannedMinutes)} মিনিট নির্ধারিত',
                   ),
+                  style: type.caption.copyWith(color: colors.textTertiary),
                 ),
-              ),
+              ],
             ),
           ],
+          const SizedBox(height: GochanoSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: onContinueRescue,
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.brand,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: GochanoRadius.smAll,
+                ),
+              ),
+              child: Text(
+                ctaLabel,
+                style: type.button.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
         ],
       ),
     );

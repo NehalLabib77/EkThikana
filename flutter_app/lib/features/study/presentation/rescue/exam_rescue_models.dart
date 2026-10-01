@@ -319,6 +319,54 @@ class ExamRescuePlan {
   }
 }
 
+/// Pure progress statistics derived from real tasks.
+///
+/// `overall*` covers the whole rescue plan (all days), `today*` covers the
+/// current calendar day only — Today progress is never mixed with plan
+/// progress from another rescue session.
+@immutable
+class ExamRescueTodayProgress {
+  const ExamRescueTodayProgress({
+    required this.overallTotal,
+    required this.overallCompleted,
+    required this.todayTotal,
+    required this.todayCompleted,
+    required this.todayPlannedMinutes,
+  });
+
+  final int overallTotal;
+  final int overallCompleted;
+  final int todayTotal;
+  final int todayCompleted;
+  final int todayPlannedMinutes;
+
+  double get todayProgressFraction =>
+      todayTotal > 0 ? (todayCompleted / todayTotal).clamp(0.0, 1.0) : 0.0;
+
+  double get overallProgressFraction => overallTotal > 0
+      ? (overallCompleted / overallTotal).clamp(0.0, 1.0)
+      : 0.0;
+
+  /// Progress surfaced on the Today card (falls back to plan progress when
+  /// nothing is scheduled today).
+  double get ratio =>
+      todayTotal > 0 ? todayProgressFraction : overallProgressFraction;
+
+  int get percentage => (ratio * 100).round();
+
+  bool get hasTasksToday => todayTotal > 0;
+
+  bool get isTodayAllDone => todayTotal > 0 && todayCompleted >= todayTotal;
+
+  bool get isPlanAllDone =>
+      overallTotal > 0 && overallCompleted >= overallTotal;
+
+  // Legacy aliases (top-level `calculateTodayProgress` helper consumers).
+  int get totalTasks => todayTotal;
+  int get completedTasks => todayCompleted;
+  int get plannedMinutes => todayPlannedMinutes;
+}
+
 /// Function signature for generating an Exam Rescue Plan (used for production and test seams).
 typedef ExamRescuePlanGenerator =
     Future<ExamRescuePlan> Function({
@@ -328,3 +376,98 @@ typedef ExamRescuePlanGenerator =
       List<String> materialIds,
       String? extraTopics,
     });
+
+/// Persisted Exam Rescue session envelope
+/// (`users/{uid}/exam_rescue/{sessionId}`) as read back for the active
+/// experience surfaces (Today hero, Workspace tile, Plan banner).
+@immutable
+class ExamRescueSession {
+  const ExamRescueSession({
+    required this.sessionId,
+    required this.examTitle,
+    required this.examDate,
+    this.sourceMode = '',
+    this.generationMode = '',
+    this.totalTasks = 0,
+    this.totalMinutes = 0,
+    this.taskIds = const [],
+    this.createdAt,
+    this.status = 'active',
+  });
+
+  final String sessionId;
+  final String examTitle;
+  final DateTime examDate;
+  final String sourceMode;
+  final String generationMode;
+
+  /// Total materialised tasks for the whole plan (all days).
+  final int totalTasks;
+
+  /// Daily study budget in minutes captured when the plan was applied.
+  final int totalMinutes;
+
+  final List<String> taskIds;
+  final DateTime? createdAt;
+  final String status;
+
+  /// A session drives the active experience only while its status is
+  /// `active` and its exam is today or in the future (local calendar days).
+  /// Expired (past-exam) and completed sessions are never surfaced.
+  bool isEligibleActive(DateTime now) {
+    if (status != 'active') return false;
+    return !localExamDay(now).isBefore(localDay(now));
+  }
+
+  /// Whole-day distance to the exam in the device's local calendar:
+  /// 0 = today, 1 = tomorrow, 3 = in three days.
+  int localDaysRemaining(DateTime now) =>
+      localExamDay(now).difference(localDay(now)).inDays;
+
+  DateTime localExamDay(DateTime now) => _dayOf(examDate);
+
+  static DateTime _dayOf(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  static DateTime localDay(DateTime now) =>
+      DateTime(now.year, now.month, now.day);
+
+  factory ExamRescueSession.fromFirestore(
+    String id,
+    Map<String, dynamic> data,
+  ) {
+    DateTime? asDate(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      try {
+        final dynamic timestamp = value;
+        return timestamp.toDate() as DateTime;
+      } catch (_) {
+        if (value is String) return DateTime.tryParse(value);
+        return null;
+      }
+    }
+
+    final rawTaskIds = data['taskIds'];
+    final taskIds = <String>[
+      if (rawTaskIds is List)
+        for (final rawId in rawTaskIds)
+          if (rawId != null && rawId.toString().isNotEmpty) rawId.toString(),
+    ];
+
+    final daily = data['dailyTargetMinutes'];
+
+    return ExamRescueSession(
+      sessionId: id,
+      examTitle: (data['examTitle'] ?? '').toString().trim(),
+      examDate: asDate(data['examDate']) ?? DateTime.now(),
+      sourceMode: (data['sourceMode'] ?? '').toString(),
+      generationMode: (data['generationMode'] ?? '').toString(),
+      totalTasks: taskIds.length,
+      totalMinutes: daily is num ? daily.toInt() : 0,
+      taskIds: taskIds,
+      createdAt: asDate(data['createdAt']),
+      status: (data['status'] ?? 'active').toString(),
+    );
+  }
+}

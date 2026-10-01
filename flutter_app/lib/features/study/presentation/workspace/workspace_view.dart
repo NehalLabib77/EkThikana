@@ -23,21 +23,152 @@ import '../ai/smart_planner_screen.dart';
 import '../materials/material_reader_screen.dart';
 import '../materials/materials_screen.dart';
 import '../materials/saved_materials_screen.dart';
+import '../rescue/exam_rescue_models.dart';
+import '../rescue/exam_rescue_session_service.dart';
 import 'semester_list_screen.dart';
 import '../../../../features/community/presentation/shared_box_screen.dart';
 
 class WorkspaceView extends StatelessWidget {
-  const WorkspaceView({super.key});
+  const WorkspaceView({
+    super.key,
+    this.onOpenPlan,
+    this.examRescueSessionService,
+  });
+
+  /// Jumps to the Plan tab (index 2) where the Exam Rescue banner lives.
+  final VoidCallback? onOpenPlan;
+  final ExamRescueSessionService? examRescueSessionService;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: GochanoSpacing.scrollBody,
       children: [
+        ExamRescueTile(
+          onOpenPlan: onOpenPlan,
+          examRescueSessionService: examRescueSessionService,
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
         const _QuickAccess(),
         const SizedBox(height: GochanoSpacing.sm),
         _RecentMaterials(),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Exam Rescue discovery tile
+// ---------------------------------------------------------------------------
+
+/// Discovery entry point for the active Exam Rescue plan.
+///
+/// Shows the nearest active session (days remaining) and jumps to the Plan
+/// tab; falls back to a generic prompt when no session is active.
+class ExamRescueTile extends StatelessWidget {
+  const ExamRescueTile({
+    super.key,
+    this.onOpenPlan,
+    this.examRescueSessionService,
+  });
+
+  final VoidCallback? onOpenPlan;
+  final ExamRescueSessionService? examRescueSessionService;
+
+  String _subtitle(ExamRescueSession? session, DateTime now) {
+    if (session == null) {
+      return GochanoLanguage.text(
+        'Exam close? Build a quick rescue plan.',
+        'পরীক্ষা কাছে? দ্রুত একটি রেসকিউ প্ল্যান বানান।',
+      );
+    }
+    final days = session.localDaysRemaining(now);
+    if (days <= 0) {
+      return GochanoLanguage.text(
+        'Exam today · View plan',
+        'পরীক্ষা আজ · প্ল্যান দেখুন',
+      );
+    }
+    if (days == 1) {
+      return GochanoLanguage.text(
+        'Exam in 1 day · View plan',
+        'আগামীকাল পরীক্ষা · প্ল্যান দেখুন',
+      );
+    }
+    final banglaDays = GochanoLanguage.formatNumber(days);
+    return GochanoLanguage.text(
+      'Exam in $days days · View plan',
+      '$banglaDays দিন পরে পরীক্ষা · প্ল্যান দেখুন',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final service =
+        examRescueSessionService ?? ExamRescueSessionService.instance;
+
+    return StreamBuilder<ExamRescueSession?>(
+      stream: service.streamNearestActiveSession(),
+      builder: (context, snapshot) {
+        final session = snapshot.data;
+        return AppCard(
+          child: InkWell(
+            onTap: onOpenPlan,
+            borderRadius: GochanoRadius.mdAll,
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: colors.brand.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.bolt_rounded,
+                    size: 24,
+                    color: colors.brand,
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        GochanoLanguage.text('Exam Rescue', 'এক্সাম রেসকিউ'),
+                        style: context.type.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _subtitle(session, service.now),
+                        style: context.type.caption.copyWith(
+                          color: session != null
+                              ? colors.brand
+                              : colors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: colors.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -89,9 +220,9 @@ class _QuickAccessState extends State<_QuickAccess> {
         icon: Icons.assignment_rounded,
         label: GochanoLanguage.text('Assignment AI', 'এসাইনমেন্ট এআই'),
         accent: colors.ai,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const AssignmentAssistantScreen())),
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const AssignmentAssistantScreen()),
+        ),
       ),
       _QuickAccessItem(
         icon: Icons.quiz_rounded,
