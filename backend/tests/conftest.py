@@ -519,6 +519,7 @@ def fake_db(monkeypatch) -> FakeFirestore:
     db = FakeFirestore()
     import app.core.firebase as fb_mod
     import app.services.ai_service as ai_mod
+    monkeypatch.setattr(fb_mod, "_ensure_firebase", lambda: None)
     monkeypatch.setattr(fb_mod, "get_firestore", lambda: db)
     monkeypatch.setattr(ai_mod, "get_firestore", lambda: db)
     return db
@@ -712,13 +713,42 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     from app.routers import account as account_router_mod
     from app.routers import groups as groups_router_mod
     from app.routers import part3 as part3_router_mod
+    from app.routers import ai_study as ai_study_router_mod
+    from app.routers import exams as exams_router_mod
+    from app.routers import focus as focus_router_mod
+    # Phase 7 - the community / group-ziku / family routers delegate every
+    # read to community_service, but they are listed here too so a future
+    # direct binding can never reach a real client from a test.
+    from app.routers import community as community_router_mod
+    from app.routers import group_ziku as group_ziku_router_mod
+    from app.routers import family as family_router_mod
 
     monkeypatch.setattr(mat_router_mod, "_consume_upload_quota", lambda uid: None)
 
     # Routers that call ``from app.core.firebase import _ensure_firebase,
     # get_firestore`` need their own module-bound copies patched too — the
     # `from X import Y` form captures the name at import time.
-    for _r_mod in (account_router_mod, groups_router_mod, mat_router_mod, part3_router_mod):
+    #
+    # ``ai_study`` earns its place here because ``test_role_gate_coverage``
+    # imports ``app.main`` at *collection* time, before any fixture runs, so
+    # its bound ``get_firestore`` would otherwise be the real (unpatched)
+    # function for the whole session — every quiz/exam-rescue test then read
+    # an unconfigured client instead of the session's FakeFirestore.
+    for _r_mod in (
+        account_router_mod,
+        groups_router_mod,
+        mat_router_mod,
+        part3_router_mod,
+        ai_study_router_mod,
+        exams_router_mod,
+        # Phase 5 - the Ziku Focus Engine router binds the reader too; its
+        # four /api/focus/* routes must hit the same fake db as part3.
+        focus_router_mod,
+        # Phase 7 - community surfaces (posts/challenges/moderator).
+        community_router_mod,
+        group_ziku_router_mod,
+        family_router_mod,
+    ):
         if hasattr(_r_mod, "_ensure_firebase"):
             monkeypatch.setattr(_r_mod, "_ensure_firebase", lambda: None)
         if hasattr(_r_mod, "get_firestore"):
@@ -728,6 +758,49 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     import app.services.permission_service as perm_mod
     if hasattr(perm_mod, "get_firestore"):
         monkeypatch.setattr(perm_mod, "get_firestore", lambda: fake_db)
+
+    # Phase 1 — mistake memory keeps its own bound copy too, and it must be
+    # hermetic in every test: a missing patch here would make quiz save-result
+    # silently skip the capture step instead of exercising it.
+    import app.services.mistake_memory_service as mistake_mod
+    if hasattr(mistake_mod, "get_firestore"):
+        monkeypatch.setattr(mistake_mod, "get_firestore", lambda: fake_db)
+
+    # Quiz mastery binds its own reader as well. It feeds the Learning Brain's
+    # weak topics (Phase 1) and the Study Coach's strong topics (Phase 4), so
+    # leaving it on the real client made both depend on import order: whichever
+    # test happened to import it first froze that test's database into the
+    # module for the rest of the session.
+    import app.services.weak_topic_service as weak_mod
+    if hasattr(weak_mod, "get_firestore"):
+        monkeypatch.setattr(weak_mod, "get_firestore", lambda: fake_db)
+
+    # Phase 2 — academic health binds its own copy of the reader too; the
+    # score endpoint must never touch a real client from a test.
+    import app.services.academic_health_service as health_mod
+    if hasattr(health_mod, "get_firestore"):
+        monkeypatch.setattr(health_mod, "get_firestore", lambda: fake_db)
+
+    # Phase 3 — exam simulator writes exams, attempts and results through its
+    # own bound reader; the same "never a real client" rule applies, and the
+    # analysis endpoint reads Academic Health back through the patch above.
+    import app.services.exam_simulator_service as exam_mod
+    if hasattr(exam_mod, "get_firestore"):
+        monkeypatch.setattr(exam_mod, "get_firestore", lambda: fake_db)
+
+    # Phase 4 — the Study Coach caches its profile, daily mission and weekly
+    # report through its own bound reader, so /api/coach stays hermetic for
+    # exactly the same reason: a coach read must never reach a real client.
+    import app.services.study_coach_service as coach_mod
+    if hasattr(coach_mod, "get_firestore"):
+        monkeypatch.setattr(coach_mod, "get_firestore", lambda: fake_db)
+
+    # Phase 7 - the Learning Community service owns posts, reputation,
+    # challenges, family links and the Ziku Moderator; it binds its own
+    # reader, so it joins the same "never a real client" list.
+    import app.services.community_service as community_svc_mod
+    if hasattr(community_svc_mod, "get_firestore"):
+        monkeypatch.setattr(community_svc_mod, "get_firestore", lambda: fake_db)
 
     # Settings: zero out limits we want to assert against during tests.
     from app.core.config import get_settings

@@ -40,6 +40,26 @@ STUDENT_ONLY_PREFIXES = (
     "/api/materials",
     "/api/groups",
     "/api/reports",
+    # Phase 3 — the exam simulator grades and stores attempts server-side, so
+    # the whole surface is student-only: no general user may create a paper,
+    # open the hall or read another student's analysis.
+    "/api/exams",
+    # Phase 4 — a learning profile is built from quiz scores, recorded mistakes
+    # and exam attempts, so the Study Coach surface is student-only too.
+    "/api/coach",
+    # Phase 5 — the Ziku Focus Engine reads and writes the student's focus
+    # sessions and daily goal, so the whole surface is student-only.
+    "/api/focus",
+    # Phase 7 — the Learning Community (Question Bank, Learning Points,
+    # Exam Challenges) is student-only. ``/api/family`` is deliberately NOT
+    # here: a parent (role "general") must redeem a link code, so that
+    # surface authenticates with get_current_user and gates per-route.
+    "/api/community",
+    # Phase 8 — the Ziku Personal Intelligence layer (Learning Journey, daily
+    # brief, learning personality, next best action, achievements) is built
+    # from quiz scores, recorded mistakes, focus sessions and exam attempts,
+    # so every read is student-only.
+    "/api/ziku",
 )
 
 

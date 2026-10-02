@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     ai_limit_note_monthly: int = 5
     ai_limit_quiz_monthly: int = 3
     ai_limit_study_plan_active: int = 1
+    # Phase 1 — mistake memory. One request analyses a whole batch of
+    # mistakes, so a daily allowance covers a student's revision habit
+    # without opening a quota sink: a repeat mistake costs no new request.
+    ai_limit_mistake_daily: int = 10
 
     # Phase AI-FLOAT-1 — app-level AI quota enforcement switch.
     # Safe default is True (production). Setting AI_QUOTA_ENFORCEMENT=false

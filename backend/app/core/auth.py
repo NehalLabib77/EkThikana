@@ -64,7 +64,7 @@ async def get_current_user(
 
     data = profile.to_dict() or {}
     role = data.get("role")
-    if role not in {"student", "general"}:
+    if role not in {"student", "general", "admin"}:
         raise HTTPException(status_code=403, detail="Invalid user role")
 
     return CurrentUser(
@@ -82,5 +82,16 @@ async def require_student(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Student account required",
+        )
+    return user
+
+
+async def require_admin(
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator account required",
         )
     return user

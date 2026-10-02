@@ -44,6 +44,9 @@ import '../../life/presentation/expense/monthly_budget_sheet.dart';
 import '../../../services/sync_coordinator.dart';
 import '../../../widgets/sync_status_sheet.dart';
 import 'ai_usage_screen.dart';
+import 'academic_health_card.dart';
+import 'learning_brain_card.dart';
+import '../../admin/presentation/admin_analytics_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.role});
@@ -72,6 +75,18 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: GochanoSpacing.sm),
               _SettingsCard(isStudent: role == 'student'),
+
+              if (role == 'student') ...[
+                const SizedBox(height: GochanoSpacing.sm),
+                const LearningBrainCard(),
+                const SizedBox(height: GochanoSpacing.sm),
+                const AcademicHealthCard(),
+              ],
+
+              if (role == 'admin') ...[
+                const SizedBox(height: GochanoSpacing.sm),
+                const _AdminAnalyticsCard(),
+              ],
 
               const SizedBox(height: GochanoSpacing.md),
               _DangerCard(),
@@ -1360,4 +1375,61 @@ Future<void> _unsubscribe(BuildContext context) async {
     MaterialPageRoute<void>(builder: (_) => const AuthGate()),
     (route) => false,
   );
+}
+
+class _AdminAnalyticsCard extends StatelessWidget {
+  const _AdminAnalyticsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+
+    return AppCard(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const AdminAnalyticsScreen(userRole: 'admin'),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(GochanoSpacing.md),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colors.brandSoft,
+                borderRadius: GochanoRadius.mdAll,
+              ),
+              child: Icon(Icons.analytics_outlined, color: colors.brand),
+            ),
+            const SizedBox(width: GochanoSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    GochanoLanguage.text('Platform Analytics', 'প্ল্যাটফর্ম অ্যানালিটিক্স'),
+                    style: type.cardHeading,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    GochanoLanguage.text(
+                      'Platform overview, subject demand & difficulty',
+                      'প্ল্যাটফর্ম ওভারভিউ, বিষয় চাহিদা ও কাঠিন্য',
+                    ),
+                    style: type.caption.copyWith(color: colors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: colors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
 }

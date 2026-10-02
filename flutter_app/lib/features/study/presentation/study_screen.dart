@@ -19,6 +19,7 @@ import '../../../core/page_route.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../../widgets/language_toggle.dart';
+import '../../exams/presentation/exam_setup_screen.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import '../../community/presentation/community_view.dart';
 import 'ai/ai_assistant_screen.dart';
@@ -74,6 +75,13 @@ class _StudyScreenState extends State<StudyScreen>
               label: GochanoLanguage.text('History', 'ইতিহাস'),
               onPressed: () => openPlanHistory(context),
             ),
+          IconActionButton(
+            icon: Icons.timer_outlined,
+            label: GochanoLanguage.text('Exam simulator', 'পরীক্ষা হল'),
+            onPressed: () => Navigator.of(context).push(
+              GochanoRoute.to(builder: (_) => const ExamSetupScreen()),
+            ),
+          ),
           IconActionButton(
             icon: Icons.search_rounded,
             label: GochanoLanguage.text('Search', 'অনুসন্ধান'),

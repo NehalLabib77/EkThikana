@@ -139,6 +139,12 @@ class AiFeature:
     QUIZ = "quiz"
     STUDY_PLAN = "study_plan"
 
+    # Phase 1 — mistake memory: one request analyses a whole batch of a
+    # student's recorded mistakes (see mistake_memory_service).
+    MISTAKE = "mistake_analysis"
+    ADAPTIVE_TEXTBOOK = "adaptive_textbook"
+    CONTENT = "content_generation"
+
     # Legacy / alias features
     NOTE = "note"
     PDF_QUESTION = "pdf_question"
@@ -158,6 +164,8 @@ def _get_feature_limit(feature: str) -> tuple[int, str]:
         return settings.ai_limit_quiz_monthly, "monthly"
     if feature == AiFeature.STUDY_PLAN:
         return settings.ai_limit_study_plan_active, "active"
+    if feature in (AiFeature.MISTAKE, AiFeature.ADAPTIVE_TEXTBOOK, AiFeature.CONTENT):
+        return settings.ai_limit_mistake_daily, "daily"
     if feature == AiFeature.PDF_QUESTION:
         return settings.ai_daily_limit_pdf, "daily"
     if feature == AiFeature.IMAGE_QUESTION:
@@ -349,6 +357,11 @@ AI_ACTIVITY_TYPES: tuple[str, ...] = (
     "exam_rescue_plans",
     "study_recommendations",
     "commute_guides",
+    "mistake_analyses",
+    "content_explanations",
+    "content_flashcards",
+    "content_revision_sheets",
+    "content_study_packs",
 )
 
 
@@ -388,6 +401,17 @@ def record_ai_activity(uid: str, activity_type: str, count: int = 1) -> None:
             )
 
         bump(tx)
+        event_name = {
+            "ai_chat_messages": "ai_chat_used",
+            "content_explanations": "ai_teacher_used",
+            "content_flashcards": "content_generated",
+            "content_revision_sheets": "content_generated",
+            "content_study_packs": "study_pack_created",
+        }.get(activity_type)
+        if event_name:
+            from app.services.analytics_service import track_event
+
+            track_event(uid, event_name, {"feature": activity_type})
     except Exception:  # pragma: no cover - defensive
         logger.exception("record_ai_activity failed for activity_type=%s", activity_type)
 
@@ -1215,10 +1239,55 @@ def normalize_chat_messages(raw: Any) -> list[dict[str, str]]:
     return cleaned[-CHAT_HISTORY_LIMIT:]
 
 
+def _academic_health_context(uid: str) -> str | None:
+    """Score + weak topic + revision queue, or ``None`` when unavailable.
+
+    Chat must never fail because scoring did, so every path here swallows.
+    """
+    try:
+        from app.services.academic_health_service import chat_context_line
+
+        return chat_context_line(uid)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("academic health: chat context unavailable (%s)", exc)
+        return None
+
+
+def _coach_context(uid: str) -> str | None:
+    """Today's Study Coach mission, or ``None`` when there is nothing to add.
+
+    Phase 4 — Ziku answers with the student's real plan in hand (weakest
+    topic, why it is weak, the mission steps, the exam countdown) instead of
+    generic advice. The service is cache-first and swallows every failure, so
+    a chat message can never go down with the coach.
+    """
+    try:
+        from app.services.study_coach_service import chat_context
+
+        return chat_context(uid)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("study coach: chat context unavailable (%s)", exc)
+        return None
+
+
+def _adaptive_context(uid: str) -> str | None:
+    """Phase 9 learning focus, kept optional so chat never depends on it."""
+    try:
+        from app.services.learning_memory_service import chat_context
+
+        return chat_context(uid)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("adaptive context unavailable (%s)", exc)
+        return None
+
+
 def build_chat_system_prompt(
     current_destination: str | None = None,
     app_mode: str | None = None,
     context_material_title: str | None = None,
+    academic_health: str | None = None,
+    coach_context: str | None = None,
+    adaptive_context: str | None = None,
 ) -> str:
     lines = [
         "You are Ziku, the in-app study assistant for Gochano, a university "
@@ -1247,6 +1316,22 @@ def build_chat_system_prompt(
     ]
     if context_material_title:
         lines.append(f"Attached study material: {context_material_title}.")
+    if academic_health:
+        lines.append(
+            f"{academic_health} Use it to personalise advice; do not quote "
+            "exact numbers back unless the student asks for them."
+        )
+    if coach_context:
+        lines.append(
+            f"Personalised plan: {coach_context} Use it to steer the advice "
+            "and to open with what matters today. Weave it in naturally - "
+            "never dump analytics, and never claim certainty beyond it."
+        )
+    if adaptive_context:
+        lines.append(
+            f"Adaptive learning focus: {adaptive_context} Use this to tailor "
+            "the explanation and revision advice without dumping analytics."
+        )
     if current_destination:
         lines.append(f"Student is currently on: {current_destination}.")
     if app_mode:
@@ -1480,6 +1565,9 @@ async def chat_generate(
         current_destination=current_destination,
         app_mode=app_mode,
         context_material_title=context_material_title,
+        academic_health=_academic_health_context(uid),
+        coach_context=_coach_context(uid),
+        adaptive_context=_adaptive_context(uid),
     )
 
     errors: list[tuple[str, HTTPException]] = []

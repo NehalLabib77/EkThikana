@@ -93,3 +93,5 @@ tessdata-main/
 # Migration progress file, written by scripts/migrate_firebase_to_b2.py
 backend/.migration_state.json
 backend/.migration_state.json.tmp
+backend/data/commute_seed/deployment_audit/
+flutter_app/reminders_manifest.json

@@ -40,6 +40,7 @@ import '../../study/presentation/materials/material_reader_screen.dart';
 import '../../study/presentation/materials/material_upload_screen.dart';
 import '../../study/presentation/notes/note_editor_screen.dart';
 import 'group_chat_view.dart';
+import 'group_moderator_screen.dart';
 
 class GroupDetailScreen extends StatefulWidget {
   const GroupDetailScreen({
@@ -104,6 +105,19 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               '${memberIds.length} জন সদস্য',
             ),
             actions: [
+              IconActionButton(
+                icon: Icons.auto_awesome_outlined,
+                label: GochanoLanguage.text('Ziku Moderator', 'জিকু মডারেটর'),
+                accent: context.colors.ai,
+                onPressed: () => Navigator.of(context).push(
+                  GochanoRoute.to(
+                    builder: (_) => GroupModeratorScreen(
+                      groupId: widget.groupId,
+                      groupName: name,
+                    ),
+                  ),
+                ),
+              ),
               GochanoOverflowMenu(
                 items: [
                   if (isAdmin)
@@ -714,9 +728,11 @@ class _ProjectCard extends StatelessWidget {
           final tasks = [...?snapshot.data?.docs];
           final total = tasks.length;
           final completed = tasks
-              .where((t) =>
-                  t.data()['completed'] == true ||
-                  t.data()['status']?.toString() == 'completed')
+              .where(
+                (t) =>
+                    t.data()['completed'] == true ||
+                    t.data()['status']?.toString() == 'completed',
+              )
               .length;
           final progress = total > 0 ? completed / total : 0.0;
           final progressPercent = (progress * 100).round();
@@ -1143,12 +1159,8 @@ class _ProjectDetailScreenState extends State<_ProjectDetailScreen> {
             return data['status']?.toString() == 'completed';
           }
 
-          final incomplete = docs
-              .where((d) => !isCompleted(d.data()))
-              .toList();
-          final completed = docs
-              .where((d) => isCompleted(d.data()))
-              .toList();
+          final incomplete = docs.where((d) => !isCompleted(d.data())).toList();
+          final completed = docs.where((d) => isCompleted(d.data())).toList();
 
           return ListView(
             padding: GochanoSpacing.scrollBody,
@@ -1257,7 +1269,9 @@ class _TaskTile extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: completed ? colors.success : colors.border,
                         border: Border.all(
-                          color: completed ? colors.success : colors.textTertiary,
+                          color: completed
+                              ? colors.success
+                              : colors.textTertiary,
                         ),
                       ),
                       child: completed
@@ -1277,7 +1291,9 @@ class _TaskTile extends StatelessWidget {
                       Text(
                         title,
                         style: context.type.body.copyWith(
-                          decoration: completed ? TextDecoration.lineThrough : null,
+                          decoration: completed
+                              ? TextDecoration.lineThrough
+                              : null,
                           color: completed ? colors.textTertiary : null,
                         ),
                       ),
@@ -1299,10 +1315,17 @@ class _TaskTile extends StatelessWidget {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.person_outline_rounded, size: 12, color: colors.textTertiary),
+                                Icon(
+                                  Icons.person_outline_rounded,
+                                  size: 12,
+                                  color: colors.textTertiary,
+                                ),
                                 const SizedBox(width: 2),
                                 Text(
-                                  GochanoLanguage.text('by $createdByName', '$createdByName দ্বারা'),
+                                  GochanoLanguage.text(
+                                    'by $createdByName',
+                                    '$createdByName দ্বারা',
+                                  ),
                                   style: context.type.caption.copyWith(
                                     color: colors.textSecondary,
                                   ),
@@ -1325,7 +1348,11 @@ class _TaskTile extends StatelessWidget {
                             Text(
                               _formatDeadline(deadline),
                               style: context.type.caption.copyWith(
-                                color: _deadlineColor(context, deadline, completed),
+                                color: _deadlineColor(
+                                  context,
+                                  deadline,
+                                  completed,
+                                ),
                               ),
                             ),
                         ],
@@ -1354,7 +1381,10 @@ class _TaskTile extends StatelessWidget {
                         PopupMenuItem(
                           value: 'reminder',
                           child: Text(
-                            GochanoLanguage.text('Set reminder', 'রিমাইন্ডার সেট'),
+                            GochanoLanguage.text(
+                              'Set reminder',
+                              'রিমাইন্ডার সেট',
+                            ),
                           ),
                         ),
                       PopupMenuItem(
@@ -1428,7 +1458,11 @@ class _TaskTile extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle_rounded, size: 14, color: colors.success),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: colors.success,
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         GochanoLanguage.text('Completed', 'সম্পন্ন'),

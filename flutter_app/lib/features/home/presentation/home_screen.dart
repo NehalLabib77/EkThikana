@@ -27,6 +27,7 @@ import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../exams/exam_simulator_card.dart';
 import '../../life/domain/medicine_schedule.dart';
 import '../../life/presentation/commute/commute_place_picker.dart';
 import '../../life/presentation/commute/commute_screen.dart';
@@ -34,8 +35,12 @@ import '../../life/presentation/commute/planned_trip_models.dart';
 import '../../life/presentation/commute/plan_trip_sheet.dart';
 import '../../life/presentation/medicine/medicine_screen.dart';
 import '../../notifications/presentation/notification_center_screen.dart';
+import '../../profile/presentation/academic_health_card.dart';
 import '../../search/presentation/universal_search_screen.dart';
+import '../../study/presentation/focus/ziku_session_card.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
+import '../../study/presentation/planner/ziku_coach_card.dart';
+import '../../study/presentation/memory/learning_recommendation_card.dart';
 import '../../study/presentation/rescue/exam_rescue_active_card.dart';
 import '../../study/presentation/rescue/exam_rescue_models.dart';
 import '../../study/presentation/rescue/exam_rescue_session_service.dart';
@@ -164,13 +169,9 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: GochanoSpacing.sm),
         const _MedicineScheduleCard(),
         const SizedBox(height: GochanoSpacing.sm),
-        _CommuteCard(
-          onOpenCommute: () => onOpenDestination(1),
-        ),
+        _CommuteCard(onOpenCommute: () => onOpenDestination(1)),
         const SizedBox(height: GochanoSpacing.sm),
-        _MoneyCard(
-          onOpenExpense: () => onOpenDestination(1),
-        ),
+        _MoneyCard(onOpenExpense: () => onOpenDestination(1)),
       ];
     }
 
@@ -188,6 +189,16 @@ class HomeScreen extends StatelessWidget {
         _RecentMaterialsCard(
           onOpenStudy: () => onOpenDestination(1), // Workspace tab
         ),
+        const SizedBox(height: GochanoSpacing.sm),
+        const AcademicHealthCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        const LearningRecommendationCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        const ExamSimulatorCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        ZikuCoachCard(onOpenPlan: onOpenDestination),
+        const SizedBox(height: GochanoSpacing.sm),
+        const ZikuSessionCard(),
       ];
     }
 
@@ -627,7 +638,11 @@ class _TodaysTasksCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.today_rounded, size: 18, color: colors.brand),
+                        Icon(
+                          Icons.today_rounded,
+                          size: 18,
+                          color: colors.brand,
+                        ),
                         const SizedBox(width: GochanoSpacing.xs),
                         Text(
                           GochanoLanguage.text("Today", 'আজ'),
@@ -664,7 +679,14 @@ class _TodaysTasksCard extends StatelessWidget {
             }
 
             final now = DateTime.now();
-            final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+            final endOfToday = DateTime(
+              now.year,
+              now.month,
+              now.day,
+              23,
+              59,
+              59,
+            );
             final open = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
             var overdue = 0;
 
@@ -685,12 +707,11 @@ class _TodaysTasksCard extends StatelessWidget {
 
             ExamRescueTodayProgress? rescueProgress;
             if (activeSession != null) {
-              final allTaskMaps =
-                  docs.map((d) {
-                    final map = Map<String, dynamic>.from(d.data());
-                    map['id'] = d.id;
-                    return map;
-                  }).toList();
+              final allTaskMaps = docs.map((d) {
+                final map = Map<String, dynamic>.from(d.data());
+                map['id'] = d.id;
+                return map;
+              }).toList();
 
               rescueProgress = ExamRescueSessionService.calculateTodayProgress(
                 session: activeSession,
@@ -765,7 +786,10 @@ class _TodaysTasksCard extends StatelessWidget {
                         const SizedBox(width: GochanoSpacing.xs),
                         Expanded(
                           child: Text(
-                            GochanoLanguage.text('All clear today.', 'আজ ফাঁকা।'),
+                            GochanoLanguage.text(
+                              'All clear today.',
+                              'আজ ফাঁকা।',
+                            ),
                             style: context.type.bodySecondary,
                           ),
                         ),

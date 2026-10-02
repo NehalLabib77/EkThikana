@@ -41,46 +41,57 @@ void main() {
       );
     });
 
-    test('HomeScreen reacts to GochanoAppModePreferences.current via builder', () {
-      expect(
-        source,
-        contains('ValueListenableBuilder<GochanoAppMode>'),
-      );
-      expect(
-        source,
-        contains('valueListenable: GochanoAppModePreferences.current'),
-      );
-    });
+    test(
+      'HomeScreen reacts to GochanoAppModePreferences.current via builder',
+      () {
+        expect(source, contains('ValueListenableBuilder<GochanoAppMode>'));
+        expect(
+          source,
+          contains('valueListenable: GochanoAppModePreferences.current'),
+        );
+      },
+    );
 
-    test('HomeScreen composes Study Mode cards: Tasks, StudyProgress, RecentMaterials', () {
-      final studyIndex = source.indexOf('if (mode == GochanoAppMode.study)');
-      expect(studyIndex, greaterThan(0));
-      final studyBlock = source.substring(studyIndex, studyIndex + 500);
+    test(
+      'HomeScreen composes Study Mode cards: Tasks, StudyProgress, RecentMaterials',
+      () {
+        final studyIndex = source.indexOf('if (mode == GochanoAppMode.study)');
+        expect(studyIndex, greaterThan(0));
+        final studyBlock = source.substring(studyIndex, studyIndex + 500);
 
-      expect(studyBlock, contains('_TodaysTasksCard'));
-      expect(studyBlock, contains('_StudyProgressCard'));
-      expect(studyBlock, contains('_RecentMaterialsCard'));
-      expect(studyBlock, isNot(contains('_CommuteCard')));
-      expect(studyBlock, isNot(contains('_MoneyCard')));
-    });
+        expect(studyBlock, contains('_TodaysTasksCard'));
+        expect(studyBlock, contains('_StudyProgressCard'));
+        expect(studyBlock, contains('_RecentMaterialsCard'));
+        expect(studyBlock, isNot(contains('_CommuteCard')));
+        expect(studyBlock, isNot(contains('_MoneyCard')));
+      },
+    );
 
-    test('HomeScreen composes Utility Mode cards: Commute and Money (no Medicine or Tasks)', () {
-      final utilityIndex = source.indexOf('// Utility Mode: Commute -> Money / Expense');
-      expect(utilityIndex, greaterThan(0));
-      final utilityBlock = source.substring(utilityIndex, utilityIndex + 500);
+    test(
+      'HomeScreen composes Utility Mode cards: Commute and Money (no Medicine or Tasks)',
+      () {
+        final utilityIndex = source.indexOf(
+          '// Utility Mode: Commute -> Money / Expense',
+        );
+        expect(utilityIndex, greaterThan(0));
+        final utilityBlock = source.substring(utilityIndex, utilityIndex + 500);
 
-      expect(utilityBlock, contains('_CommuteCard'));
-      expect(utilityBlock, contains('_MoneyCard'));
-      expect(utilityBlock, isNot(contains('_MedicineScheduleCard')));
-      expect(utilityBlock, isNot(contains('_TodaysTasksCard')));
-      expect(utilityBlock, isNot(contains('_StudyProgressCard')));
-      expect(utilityBlock, isNot(contains('_RecentMaterialsCard')));
-    });
+        expect(utilityBlock, contains('_CommuteCard'));
+        expect(utilityBlock, contains('_MoneyCard'));
+        expect(utilityBlock, isNot(contains('_MedicineScheduleCard')));
+        expect(utilityBlock, isNot(contains('_TodaysTasksCard')));
+        expect(utilityBlock, isNot(contains('_StudyProgressCard')));
+        expect(utilityBlock, isNot(contains('_RecentMaterialsCard')));
+      },
+    );
 
     test('Non-student role retains default cards in standard order', () {
       final nonStudentIndex = source.indexOf('if (!_isStudent)');
       expect(nonStudentIndex, greaterThan(0));
-      final nonStudentBlock = source.substring(nonStudentIndex, nonStudentIndex + 600);
+      final nonStudentBlock = source.substring(
+        nonStudentIndex,
+        nonStudentIndex + 600,
+      );
 
       final taskIdx = nonStudentBlock.indexOf('_TodaysTasksCard');
       final medIdx = nonStudentBlock.indexOf('_MedicineScheduleCard');
@@ -95,121 +106,142 @@ void main() {
   });
 
   group('HomeScreen Mode Cards Composition Unit Tests', () {
-    testWidgets('study mode cards list contains task, study progress, and recent materials',
-        (tester) async {
-      int? navigatedDestination;
-      final home = HomeScreen(
-        role: 'student',
-        displayName: 'Student User',
-        onOpenDestination: (idx) => navigatedDestination = idx,
-        onOpenProfile: () {},
-      );
+    testWidgets(
+      'study mode cards list contains task, study progress, and recent materials',
+      (tester) async {
+        int? navigatedDestination;
+        final home = HomeScreen(
+          role: 'student',
+          displayName: 'Student User',
+          onOpenDestination: (idx) => navigatedDestination = idx,
+          onOpenProfile: () {},
+        );
 
-      final cards = cardsForMode(home, GochanoAppMode.study);
-      // 7 elements: SyncStatusIndicator, SizedBox, _TodaysTasksCard, SizedBox, _StudyProgressCard, SizedBox, _RecentMaterialsCard
-      expect(cards.length, equals(7));
+        final cards = cardsForMode(home, GochanoAppMode.study);
+        // The study surface may gain additive cards. Assert the required
+        // semantic cards and their important ordering instead of a brittle
+        // total count.
+        expect(cards.length, greaterThanOrEqualTo(15));
 
-      final typeNames = cards.map((w) => w.runtimeType.toString()).toList();
-      expect(typeNames, contains('_TodaysTasksCard'));
-      expect(typeNames, contains('_StudyProgressCard'));
-      expect(typeNames, contains('_RecentMaterialsCard'));
-      expect(typeNames, isNot(contains('_CommuteCard')));
-      expect(typeNames, isNot(contains('_MoneyCard')));
-    });
+        final typeNames = cards.map((w) => w.runtimeType.toString()).toList();
+        expect(typeNames, contains('_TodaysTasksCard'));
+        expect(typeNames, contains('_StudyProgressCard'));
+        expect(typeNames, contains('_RecentMaterialsCard'));
+        expect(typeNames, contains('AcademicHealthCard'));
+        expect(typeNames, contains('LearningRecommendationCard'));
+        expect(typeNames, contains('ExamSimulatorCard'));
+        expect(typeNames, contains('ZikuCoachCard'));
+        expect(typeNames, contains('ZikuSessionCard'));
+        expect(
+          typeNames.indexOf('AcademicHealthCard'),
+          lessThan(typeNames.indexOf('LearningRecommendationCard')),
+        );
+        expect(
+          typeNames.indexOf('LearningRecommendationCard'),
+          lessThan(typeNames.indexOf('ExamSimulatorCard')),
+        );
+        expect(typeNames, isNot(contains('_CommuteCard')));
+        expect(typeNames, isNot(contains('_MoneyCard')));
+      },
+    );
 
-    testWidgets('utility mode cards list contains commute and money only (no medicine)',
-        (tester) async {
-      final home = HomeScreen(
-        role: 'student',
-        displayName: 'Student User',
-        onOpenDestination: (_) {},
-        onOpenProfile: () {},
-      );
+    testWidgets(
+      'utility mode cards list contains commute and money only (no medicine)',
+      (tester) async {
+        final home = HomeScreen(
+          role: 'student',
+          displayName: 'Student User',
+          onOpenDestination: (_) {},
+          onOpenProfile: () {},
+        );
 
-      final cards = cardsForMode(home, GochanoAppMode.utility);
-      // 5 elements: SyncStatusIndicator, SizedBox, _CommuteCard, SizedBox, _MoneyCard
-      expect(cards.length, equals(5));
+        final cards = cardsForMode(home, GochanoAppMode.utility);
+        // 5 elements: SyncStatusIndicator, SizedBox, _CommuteCard, SizedBox, _MoneyCard
+        expect(cards.length, equals(5));
 
-      final typeNames = cards.map((w) => w.runtimeType.toString()).toList();
-      expect(typeNames, contains('_CommuteCard'));
-      expect(typeNames, contains('_MoneyCard'));
-      expect(typeNames, isNot(contains('_MedicineScheduleCard')));
-      expect(typeNames, isNot(contains('_TodaysTasksCard')));
-      expect(typeNames, isNot(contains('_StudyProgressCard')));
-      expect(typeNames, isNot(contains('_RecentMaterialsCard')));
-    });
+        final typeNames = cards.map((w) => w.runtimeType.toString()).toList();
+        expect(typeNames, contains('_CommuteCard'));
+        expect(typeNames, contains('_MoneyCard'));
+        expect(typeNames, isNot(contains('_MedicineScheduleCard')));
+        expect(typeNames, isNot(contains('_TodaysTasksCard')));
+        expect(typeNames, isNot(contains('_StudyProgressCard')));
+        expect(typeNames, isNot(contains('_RecentMaterialsCard')));
+      },
+    );
 
-    testWidgets('non-student role cards contain task, medicine, commute, and money',
-        (tester) async {
-      final home = HomeScreen(
-        role: 'teacher',
-        displayName: 'Teacher User',
-        onOpenDestination: (_) {},
-        onOpenProfile: () {},
-      );
+    testWidgets(
+      'non-student role cards contain task, medicine, commute, and money',
+      (tester) async {
+        final home = HomeScreen(
+          role: 'teacher',
+          displayName: 'Teacher User',
+          onOpenDestination: (_) {},
+          onOpenProfile: () {},
+        );
 
-      final cards = cardsForMode(home, GochanoAppMode.study);
-      expect(cards.length, equals(9));
+        final cards = cardsForMode(home, GochanoAppMode.study);
+        expect(cards.length, equals(9));
 
-      final typeNames = cards.map((w) => w.runtimeType.toString()).toList();
-      expect(typeNames, contains('_TodaysTasksCard'));
-      expect(typeNames, contains('_MedicineScheduleCard'));
-      expect(typeNames, contains('_CommuteCard'));
-      expect(typeNames, contains('_MoneyCard'));
-      expect(typeNames, isNot(contains('_StudyProgressCard')));
-      expect(typeNames, isNot(contains('_RecentMaterialsCard')));
-    });
+        final typeNames = cards.map((w) => w.runtimeType.toString()).toList();
+        expect(typeNames, contains('_TodaysTasksCard'));
+        expect(typeNames, contains('_MedicineScheduleCard'));
+        expect(typeNames, contains('_CommuteCard'));
+        expect(typeNames, contains('_MoneyCard'));
+        expect(typeNames, isNot(contains('_StudyProgressCard')));
+        expect(typeNames, isNot(contains('_RecentMaterialsCard')));
+      },
+    );
 
-    testWidgets('reactive switching from study to utility updates cards list immediately',
-        (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ValueListenableBuilder<GochanoAppMode>(
-              valueListenable: GochanoAppModePreferences.current,
-              builder: (context, mode, _) {
-                const home = HomeScreen(
-                  role: 'student',
-                  displayName: 'Reactive User',
-                  onOpenDestination: _dummyDestination,
-                  onOpenProfile: _dummyProfile,
-                );
-                return ListView(
-                  children: home.buildModeCards(context, mode),
-                );
-              },
+    testWidgets(
+      'reactive switching from study to utility updates cards list immediately',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ValueListenableBuilder<GochanoAppMode>(
+                valueListenable: GochanoAppModePreferences.current,
+                builder: (context, mode, _) {
+                  const home = HomeScreen(
+                    role: 'student',
+                    displayName: 'Reactive User',
+                    onOpenDestination: _dummyDestination,
+                    onOpenProfile: _dummyProfile,
+                  );
+                  return ListView(children: home.buildModeCards(context, mode));
+                },
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Initially study mode
-      expect(GochanoAppModePreferences.current.value, GochanoAppMode.study);
-      var currentCards = find.byWidgetPredicate(
-        (w) => w.runtimeType.toString() == '_StudyProgressCard',
-      );
-      expect(currentCards, findsOneWidget);
+        // Initially study mode
+        expect(GochanoAppModePreferences.current.value, GochanoAppMode.study);
+        var currentCards = find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == '_StudyProgressCard',
+        );
+        expect(currentCards, findsOneWidget);
 
-      var commuteCards = find.byWidgetPredicate(
-        (w) => w.runtimeType.toString() == '_CommuteCard',
-      );
-      expect(commuteCards, findsNothing);
+        var commuteCards = find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == '_CommuteCard',
+        );
+        expect(commuteCards, findsNothing);
 
-      // Switch to utility mode
-      GochanoAppModePreferences.current.value = GochanoAppMode.utility;
-      await tester.pump();
+        // Switch to utility mode
+        GochanoAppModePreferences.current.value = GochanoAppMode.utility;
+        await tester.pump();
 
-      // Now utility mode
-      currentCards = find.byWidgetPredicate(
-        (w) => w.runtimeType.toString() == '_StudyProgressCard',
-      );
-      expect(currentCards, findsNothing);
+        // Now utility mode
+        currentCards = find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == '_StudyProgressCard',
+        );
+        expect(currentCards, findsNothing);
 
-      commuteCards = find.byWidgetPredicate(
-        (w) => w.runtimeType.toString() == '_CommuteCard',
-      );
-      expect(commuteCards, findsOneWidget);
-    });
+        commuteCards = find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == '_CommuteCard',
+        );
+        expect(commuteCards, findsOneWidget);
+      },
+    );
   });
 }
 

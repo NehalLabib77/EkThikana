@@ -9,6 +9,7 @@ import '../../../core/localization/gochano_language.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
+import 'community_labels.dart';
 
 enum _GroupSheetAction { create, join }
 
@@ -91,6 +92,7 @@ class _GroupForm extends StatefulWidget {
 class _GroupFormState extends State<_GroupForm> {
   final _first = TextEditingController();
   final _description = TextEditingController();
+  String _category = '';
   bool _busy = false;
   String? _error;
 
@@ -124,7 +126,11 @@ class _GroupFormState extends State<_GroupForm> {
       if (widget.join) {
         await ApiService.joinGroup(value);
       } else {
-        await ApiService.createGroup(value, _description.text.trim());
+        await ApiService.createGroup(
+          value,
+          _description.text.trim(),
+          category: _category,
+        );
       }
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -199,6 +205,31 @@ class _GroupFormState extends State<_GroupForm> {
                     'কীসের জন্য? (ঐচ্ছিক)',
                   ),
                 ),
+              ),
+              const SizedBox(height: GochanoSpacing.sm),
+              DropdownButtonFormField<String>(
+                initialValue: _category,
+                decoration: InputDecoration(
+                  labelText: GochanoLanguage.text(
+                    'Study category',
+                    'স্টাডি বিভাগ',
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: '',
+                    child: Text(
+                      GochanoLanguage.text('Any subject', 'যেকোনো বিষয়'),
+                    ),
+                  ),
+                  for (final value in kStudyCategories)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(studyCategoryLabel(value)),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _category = value ?? ''),
               ),
             ],
             if (_error != null) ...[
