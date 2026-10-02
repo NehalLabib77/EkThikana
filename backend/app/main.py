@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.latency import latency_middleware, router as latency_router
 from app.database.connection import describe_active_database
 from app.services.storage_service import describe_active_storage
-from app.routers import account, ai, ai_study, commute, groups, health, materials, me, part3, prescriptions, reports, study, telecom
+from app.routers import account, academic_health, adaptive, admin_analytics, ai, ai_study, coach, commute, community, content, exams, family, focus, group_ziku, groups, health, learning, materials, me, mistakes, part3, prescriptions, reports, study, telecom, tutor, ziku
 
 logger = logging.getLogger("gochano")
 
@@ -107,5 +107,35 @@ app.include_router(part3.router, prefix="/api", tags=["PART3"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Moderation"])
 app.include_router(account.router, prefix="/api", tags=["Account"])
 app.include_router(ai_study.router, prefix="/api/ai", tags=["AI Study Intelligence"])
+app.include_router(mistakes.router, prefix="/api/ai", tags=["AI Mistake Memory"])
+app.include_router(
+    academic_health.router, prefix="/api/ai", tags=["AI Academic Health"]
+)
+app.include_router(exams.router, prefix="/api/exams", tags=["AI Exam Simulator"])
+app.include_router(coach.router, prefix="/api/coach", tags=["AI Study Coach"])
+# Phase 5 - Ziku Focus Engine: the focus score / history / today surface.
+# Session lifecycle is shared with the legacy /api/study/focus/* routes via
+# app.services.focus_service, so this mount adds endpoints, not a second
+# tracking system.
+app.include_router(focus.router, prefix="/api/focus", tags=["Ziku Focus Engine"])
+# Phase 7 - Ziku Learning Community: Question Bank, Learning Points and
+# Exam Challenges sit beside the existing group/chat surface (never a
+# second community system).
+app.include_router(community.router, prefix="/api/community", tags=["Community"])
+# Phase 7 - the Ziku Moderator and group quizzes hang off the same
+# /api/groups prefix so membership gating stays in one place.
+app.include_router(group_ziku.router, prefix="/api/groups", tags=["Group Ziku"])
+# Phase 7 - family links (parent/teacher architecture only, no UI).
+app.include_router(family.router, prefix="/api/family", tags=["Family Links"])
+# Phase 8 - Ziku Personal Intelligence: the Learning Journey, the daily brief,
+# the learning personality, the next-best-action ranking and the achievement
+# scoreboard. Pure aggregation over the five existing systems - it writes only
+# its own caches under users/{uid}/learning_*.
+app.include_router(ziku.router, prefix="/api/ziku", tags=["Ziku Intelligence"])
+app.include_router(adaptive.router, prefix="/api/adaptive", tags=["Ziku Adaptive Learning"])
+app.include_router(content.router, prefix="/api/content", tags=["Ziku Content Studio"])
+app.include_router(learning.router, prefix="/api/learning", tags=["Ziku Learning Memory"])
+app.include_router(tutor.router, prefix="/api/tutor", tags=["Ziku Socratic Tutor"])
+app.include_router(admin_analytics.router, prefix="/api/admin/analytics", tags=["Admin Analytics"])
 app.include_router(commute.router, prefix="/api/commute", tags=["CommuteBD"])
 app.include_router(telecom.router, prefix="/v1/auth/telecom", tags=["Telecom"])
