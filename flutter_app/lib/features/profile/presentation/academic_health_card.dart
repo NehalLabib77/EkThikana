@@ -22,10 +22,17 @@ import '../../../shared/widgets/gochano_surfaces.dart';
 import 'academic_health_screen.dart';
 
 class AcademicHealthCard extends StatefulWidget {
-  const AcademicHealthCard({super.key, this.healthFn});
+  const AcademicHealthCard({
+    super.key,
+    this.healthFn,
+    this.initialData,
+  });
 
   /// Read hook, injected in tests so the widget never opens a socket.
   final Future<Map<String, dynamic>> Function()? healthFn;
+
+  /// Optional preloaded bootstrap data from consolidated Home startup.
+  final Map<String, dynamic>? initialData;
 
   @override
   State<AcademicHealthCard> createState() => _AcademicHealthCardState();
@@ -41,7 +48,29 @@ class _AcademicHealthCardState extends State<AcademicHealthCard> {
   @override
   void initState() {
     super.initState();
-    _read();
+    if (widget.initialData != null) {
+      _applyInitialData(widget.initialData!);
+    } else {
+      _read();
+    }
+  }
+
+  void _applyInitialData(Map<String, dynamic> data) {
+    if (data['available'] == false) {
+      _health = null;
+      _failed = true;
+    } else {
+      _health = data;
+      _failed = false;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AcademicHealthCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialData != null && widget.initialData != oldWidget.initialData) {
+      _applyInitialData(widget.initialData!);
+    }
   }
 
   Future<void> _read() async {

@@ -2366,6 +2366,16 @@ class ApiService {
       return _listField(decoded, 'data');
     });
   }
+
+  // ---- Phase 12.2.3: Dashboard Bootstrap ---------------------------------
+
+  /// Single aggregate bootstrap call for student home & study dashboard.
+  static Future<Map<String, dynamic>> studentDashboardBootstrap() async {
+    return _guard(() async {
+      final res = await _get('/api/student/dashboard-bootstrap');
+      return _decode(res);
+    });
+  }
 }
 
 

@@ -802,6 +802,16 @@ def client(monkeypatch, fake_db, fake_auth, fake_storage, request):
     if hasattr(community_svc_mod, "get_firestore"):
         monkeypatch.setattr(community_svc_mod, "get_firestore", lambda: fake_db)
 
+    # Phase 12.2.3 — Consolidated student dashboard bootstrap service
+    import app.services.dashboard_bootstrap_service as bootstrap_svc_mod
+    if hasattr(bootstrap_svc_mod, "get_firestore"):
+        monkeypatch.setattr(bootstrap_svc_mod, "get_firestore", lambda: fake_db)
+
+    # Phase 12.2.4 — Canonical learning memory service
+    import app.services.learning_memory_service as memory_svc_mod
+    if hasattr(memory_svc_mod, "get_firestore"):
+        monkeypatch.setattr(memory_svc_mod, "get_firestore", lambda: fake_db)
+
     # Settings: zero out limits we want to assert against during tests.
     from app.core.config import get_settings
 

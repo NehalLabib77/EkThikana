@@ -15,6 +15,7 @@ from typing import Any
 from app.core.firebase import get_firestore
 from app.services import academic_health_service as health
 from app.services import ai_service
+from app.services import learning_memory_service as memory
 from app.services import mistake_memory_service as mistakes
 
 logger = logging.getLogger("gochano.adaptive")
@@ -69,6 +70,20 @@ def _health_signals(uid: str) -> dict[str, Any]:
 
 
 def _topic_scores(uid: str) -> dict[str, float]:
+    try:
+        all_mastery = memory.get_all_topics_mastery(uid)
+        if all_mastery:
+            return {
+                t["topic"]: round(
+                    t["signals"]["quizAccuracy"]
+                    if t["signals"]["quizAccuracy"] is not None
+                    else t["mastery"] * 100.0,
+                    1,
+                )
+                for t in all_mastery
+            }
+    except Exception as exc:  # pragma: no cover
+        logger.debug("adaptive canonical topic mastery read fallback: %s", exc)
     quizzes = _health_signals(uid).get("quizzes") or {}
     return {str(topic): _number(score) for topic, score in (quizzes.get("topicAverages") or {}).items()}
 

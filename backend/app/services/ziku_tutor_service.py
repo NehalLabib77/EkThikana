@@ -98,21 +98,28 @@ def _gather_student_adaptation(uid: str, subject: str, topic: str) -> dict[str, 
     # 2. Learning Memory
     try:
         mem = memory.build_memory(uid, persist=False)
-        style = str(mem.get("preferredLearningStyle") or "")
+        style = str((mem.get("profile") or {}).get("preferredLearningStyle") or "")
         if "example" in style.lower():
             preferred_style = "example_first"
-
-        topics_data = mem.get("topics") or {}
-        if isinstance(topics_data, dict) and topic in topics_data:
-            acc = topics_data[topic].get("accuracy")
-            if acc is not None:
-                if acc < 50:
-                    level = "beginner"
-                    is_weak_topic = True
-                elif acc >= 75:
-                    level = "advanced"
     except Exception as exc:
         logger.debug("Tutor adaptation: learning memory read skipped: %s", exc)
+
+    # 2b. Canonical topic mastery (Phase 12.2.4) drives the Socratic level.
+    #     Weak topic -> beginner, high mastery -> advanced, no evidence ->
+    #     keep the safe intermediate default.
+    try:
+        topic_memory = memory.get_topic_mastery(uid, topic)
+        evidence_count = int(topic_memory.get("evidenceCount") or 0)
+        mastery = float(topic_memory.get("mastery") or 0.0)
+        if evidence_count > 0:
+            if topic_memory.get("isWeak") or mastery < 0.50:
+                level = "beginner"
+                is_weak_topic = True
+            elif mastery >= 0.75:
+                level = "advanced"
+                is_weak_topic = False
+    except Exception as exc:
+        logger.debug("Tutor adaptation: canonical mastery read skipped: %s", exc)
 
     # 3. Academic Health
     try:
@@ -401,8 +408,62 @@ def _load_session(uid: str, session_id: str) -> dict[str, Any]:
     if not doc_snap.exists:
         raise HTTPException(status_code=404, detail="Tutoring session not found")
     data = doc_snap.to_dict() or {}
-    if data.get("studentId") != uid:
+    if data.get("studentId") != uid and data.get("uid") != uid:
         raise HTTPException(status_code=403, detail="Forbidden: session ownership required")
+
+    # Load turns from subcollection if available
+    turns_col = col.document(session_id).collection("turns")
+    turn_docs = []
+    try:
+        for snap in turns_col.stream():
+            td = snap.to_dict() or {}
+            td["turnId"] = snap.id or td.get("turnId")
+            turn_docs.append(td)
+    except Exception as exc:
+        logger.debug("Failed streaming turns subcollection for %s: %s", session_id, exc)
+
+    if turn_docs:
+        turn_docs.sort(key=lambda t: (t.get("turnId") or "", t.get("timestamp") or ""))
+        data["turns"] = turn_docs
+        data["history"] = [
+            {
+                "role": t.get("role", "tutor"),
+                "content": t.get("content") or t.get("message") or "",
+                "message": t.get("message") or t.get("content") or "",
+                "stepType": t.get("stepType") or t.get("teaching_step") or "",
+                "evaluation": t.get("evaluation"),
+                "timestamp": t.get("timestamp"),
+            }
+            for t in turn_docs
+        ]
+        data["turnCount"] = len(turn_docs)
+    else:
+        # Fallback for legacy embedded history
+        raw_history = data.get("history") or data.get("turns") or []
+        fallback_turns = []
+        for idx, t in enumerate(raw_history):
+            turn_id = t.get("turnId") or f"turn_{idx+1}"
+            msg = t.get("content") or t.get("message") or ""
+            fallback_turns.append({
+                "turnId": turn_id,
+                "role": t.get("role", "tutor"),
+                "content": msg,
+                "message": msg,
+                "stepType": t.get("stepType") or t.get("teaching_step") or "",
+                "evaluation": t.get("evaluation"),
+                "timestamp": t.get("timestamp") or "",
+            })
+        data["turns"] = fallback_turns
+        data["history"] = fallback_turns
+        data["turnCount"] = len(fallback_turns)
+
+    if "mastery" not in data:
+        data["mastery"] = data.get("confidenceBand") or str(data.get("masteryEstimate", "developing"))
+    if "createdAt" not in data and "startedAt" in data:
+        data["createdAt"] = data["startedAt"]
+    if "updatedAt" not in data:
+        data["updatedAt"] = data.get("lastActiveAt") or data.get("startedAt") or _now()
+
     return data
 
 
@@ -410,7 +471,36 @@ def _save_session(session_id: str, data: dict[str, Any]) -> None:
     col = _sessions_col()
     if col is not None:
         try:
-            col.document(session_id).set(data)
+            parent_doc = dict(data)
+            raw_history = parent_doc.get("history") or parent_doc.get("turns") or []
+            parent_doc["turnCount"] = len(raw_history)
+            if "createdAt" not in parent_doc:
+                parent_doc["createdAt"] = parent_doc.get("startedAt") or _now()
+            if "updatedAt" not in parent_doc:
+                parent_doc["updatedAt"] = _now()
+            if "mastery" not in parent_doc:
+                parent_doc["mastery"] = parent_doc.get("confidenceBand") or str(parent_doc.get("masteryEstimate", "developing"))
+
+            # Save parent document
+            col.document(session_id).set(parent_doc)
+
+            # Save individual turns to subcollection
+            turns_col = col.document(session_id).collection("turns")
+            for idx, turn in enumerate(raw_history):
+                turn_id = turn.get("turnId") or f"turn_{idx+1}"
+                msg = turn.get("content") or turn.get("message") or ""
+                turn_data = {
+                    "turnId": turn_id,
+                    "role": turn.get("role", "tutor"),
+                    "content": msg,
+                    "message": msg,
+                    "stepType": turn.get("stepType") or turn.get("teaching_step") or "",
+                    "teaching_step": turn.get("teaching_step") or turn.get("stepType") or "",
+                    "timestamp": turn.get("timestamp") or _to_iso(_now()),
+                }
+                if "evaluation" in turn:
+                    turn_data["evaluation"] = turn["evaluation"]
+                turns_col.document(turn_id).set(turn_data)
         except Exception:
             logger.exception("Could not save tutoring session %s", session_id)
 

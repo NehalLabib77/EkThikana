@@ -67,7 +67,12 @@ String coachZikuQuestion({String? topic, String? exam}) {
 }
 
 class ZikuCoachCard extends StatefulWidget {
-  const ZikuCoachCard({super.key, this.briefFn, this.onOpenPlan});
+  const ZikuCoachCard({
+    super.key,
+    this.briefFn,
+    this.onOpenPlan,
+    this.initialData,
+  });
 
   /// Read hook, injected in tests so the widget never opens a socket.
   final CoachBriefFn? briefFn;
@@ -75,6 +80,15 @@ class ZikuCoachCard extends StatefulWidget {
   /// Switches the shell to a study tab (1 = Workspace, 2 = Plan) so a mission
   /// step that belongs there can hand the student back to the app shell.
   final ValueChanged<int>? onOpenPlan;
+
+  /// Preloaded `coach` section of the consolidated dashboard bootstrap
+  /// (Phase 12.2.3).
+  ///
+  /// When present the card renders immediately and skips its own
+  /// `GET /api/coach/daily` read, which is what removes the startup waterfall.
+  /// A null value (standalone mount, non-bootstrap screens, tests) falls back
+  /// to the dedicated endpoint.
+  final Map<String, dynamic>? initialData;
 
   @override
   State<ZikuCoachCard> createState() => _ZikuCoachCardState();
@@ -89,19 +103,43 @@ class _ZikuCoachCardState extends State<ZikuCoachCard> {
   @override
   void initState() {
     super.initState();
-    _read();
+    if (widget.initialData != null) {
+      _applyInitialData(widget.initialData!);
+    } else {
+      _read();
+    }
+  }
+
+  void _applyInitialData(Map<String, dynamic> data) {
+    // Adopt the bootstrap section as-is — including a degraded
+    // ``available: false`` section, so the card renders its fallback content
+    // instead of waiting on a dedicated read it never issues.
+    _brief = data;
+    _failed = false;
+    _readError = null;
+  }
+
+  @override
+  void didUpdateWidget(covariant ZikuCoachCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialData != null &&
+        widget.initialData != oldWidget.initialData) {
+      _applyInitialData(widget.initialData!);
+    }
   }
 
   Future<void> _read() async {
     try {
       final body = await _load();
-      if (!mounted) return;
+      // Bootstrap may land while the dedicated read is still in flight; the
+      // preloaded payload wins so the card never flickers back to its own call.
+      if (!mounted || widget.initialData != null) return;
       setState(() {
         _brief = body;
         _failed = false;
       });
     } catch (err) {
-      if (!mounted) return;
+      if (!mounted || widget.initialData != null) return;
       setState(() {
         _brief = null;
         _failed = true;

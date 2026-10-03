@@ -13,15 +13,19 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from app.core.firebase import get_firestore
-from app.services import academic_health_service as health
 from app.services import mistake_memory_service as mistakes
-from app.services import ziku_adaptive_service as adaptive
 
 logger = logging.getLogger("gochano.learning_memory")
 
 MEMORY_COLLECTION = "learning_memory"
 EFFECTIVENESS_COLLECTION = "content_effectiveness"
 MAX_ROWS = 300
+
+# Phase 12.2.4 — canonical concept mastery constants.
+DEFAULT_MASTERY = 0.50
+WEAK_MASTERY_THRESHOLD = 0.60
+MAX_QUIZ_PENALTY = 0.35
+CONFIDENCE_SPAN = 5.0
 
 
 def _now() -> datetime:
@@ -282,6 +286,339 @@ def build_memory(uid: str, *, persist: bool = True) -> dict[str, Any]:
             except Exception as exc:  # pragma: no cover
                 logger.debug("learning memory cache write failed: %s", exc)
     return graph
+
+
+# ---------------------------------------------------------------------------
+# Phase 12.2.4 — Canonical concept / topic mastery.
+# ---------------------------------------------------------------------------
+#
+# Single source of truth for topic mastery, confidence and weakness flags.
+# Consumers (weak_topic_service, ziku_adaptive_service, ziku_tutor_service,
+# study_coach_service, dashboard bootstrap) read these functions instead of
+# re-deriving their own weakness heuristic.
+#
+# Rules:
+#   * strictly read-only against ``quiz_results`` and ``mistakes``;
+#   * mastery and confidence are bounded to [0.0, 1.0];
+#   * no raw answers, questions, notes, transcripts or answer keys are copied
+#     into a mastery record — only normalized numeric signals and timestamps;
+#   * every query is partitioned by student UID, so users never influence each
+#     other's records;
+#   * ``db`` may be injected by tests; production callers pass ``None`` and the
+#     module's Firestore getter is used.
+
+
+def _resolve_db(db: Any = None) -> Any:
+    if db is not None:
+        return db
+    try:
+        return get_firestore()
+    except Exception as exc:  # pragma: no cover - unconfigured environment
+        logger.debug("learning memory: firestore unavailable: %s", exc)
+        return None
+
+
+def _mastery_rows(
+    uid: str, collection: str, db: Any = None
+) -> list[tuple[str, dict[str, Any]]]:
+    client = _resolve_db(db)
+    if client is None:
+        return []
+    try:
+        ref = client.collection("users").document(uid).collection(collection)
+        return [(snap.id, snap.to_dict() or {}) for snap in ref.limit(MAX_ROWS).stream()]
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(
+            "learning memory: %s read failed for %s: %s", collection, uid, exc
+        )
+        return []
+
+
+def _new_evidence(topic: str) -> dict[str, Any]:
+    return {
+        "topic": topic,
+        "subject": None,
+        "chapter": None,
+        "scores": [],
+        "quizAttempts": 0,
+        "scoreTotal": 0.0,
+        "mistakeCount": 0,
+        "totalOccurrences": 0,
+        "repeatedMistakes": 0,
+        "reviewDue": 0,
+        "first": None,
+        "last": None,
+    }
+
+
+def _note_subject(entry: dict[str, Any], candidate: str) -> None:
+    if not candidate:
+        return
+    current = entry["subject"]
+    if current is None or (current == "General" and candidate != "General"):
+        entry["subject"] = candidate
+
+
+def _note_stamp(entry: dict[str, Any], stamp: datetime | None) -> None:
+    if stamp is None:
+        return
+    if entry["first"] is None or stamp < entry["first"]:
+        entry["first"] = stamp
+    if entry["last"] is None or stamp > entry["last"]:
+        entry["last"] = stamp
+
+
+def _collect_topic_evidence(uid: str, db: Any = None) -> dict[str, dict[str, Any]]:
+    """Read-only evidence pass over one student's quiz and mistake records."""
+    topics: dict[str, dict[str, Any]] = {}
+    today = _now().date().isoformat()
+
+    for _, data in _mastery_rows(uid, "quiz_results", db):
+        raw_scores = data.get("topicScores")
+        if not isinstance(raw_scores, dict):
+            continue
+        subject = str(data.get("subjectId") or data.get("subject") or "").strip()
+        chapter = str(data.get("chapter") or "").strip() or None
+        stamp = _to_datetime(data.get("createdAt") or data.get("dayKey")) or _now()
+        for raw_topic, raw_score in raw_scores.items():
+            topic = str(raw_topic or "").strip()
+            if not topic:
+                continue
+            try:
+                score = float(raw_score)
+            except (TypeError, ValueError):
+                continue
+            entry = topics.setdefault(topic, _new_evidence(topic))
+            entry["quizAttempts"] += 1
+            entry["scoreTotal"] += score
+            entry["scores"].append((stamp, score))
+            _note_subject(entry, subject)
+            if entry["chapter"] is None:
+                entry["chapter"] = chapter
+            _note_stamp(entry, stamp)
+
+    for _, data in _mastery_rows(uid, "mistakes", db):
+        topic = str(data.get("topic") or "").strip() or "General"
+        subject = str(data.get("subjectId") or data.get("subject") or "").strip()
+        chapter = str(data.get("chapter") or "").strip() or None
+        stamp = _to_datetime(data.get("lastSeenAt") or data.get("createdAt")) or _now()
+        entry = topics.setdefault(topic, _new_evidence(topic))
+        entry["mistakeCount"] += 1
+        occurrences = max(1, int(_number(data.get("occurrences"), 1.0)))
+        entry["totalOccurrences"] += occurrences
+        if occurrences >= 2:
+            entry["repeatedMistakes"] += 1
+        next_review = data.get("nextReviewDate")
+        if isinstance(next_review, str) and next_review and next_review <= today:
+            entry["reviewDue"] += 1
+        _note_subject(entry, subject)
+        if entry["chapter"] is None:
+            entry["chapter"] = chapter
+        _note_stamp(entry, stamp)
+
+    return topics
+
+
+def _trend(scores: list[tuple[datetime, float]]) -> tuple[float, str]:
+    if len(scores) < 2:
+        return 0.0, "insufficient_data"
+    ordered = sorted(scores, key=lambda item: item[0])
+    delta = round(ordered[-1][1] - ordered[0][1], 1)
+    if delta >= 5.0:
+        return delta, "improving"
+    if delta <= -5.0:
+        return delta, "declining"
+    return delta, "stable"
+
+
+def _build_mastery_record(entry: dict[str, Any]) -> dict[str, Any]:
+    attempts = int(entry["quizAttempts"])
+    total_occurrences = int(entry["totalOccurrences"])
+    repeated = int(entry["repeatedMistakes"])
+    review_due = int(entry["reviewDue"])
+    evidence_count = attempts + total_occurrences
+
+    quiz_accuracy = round(entry["scoreTotal"] / attempts, 1) if attempts else None
+    confidence = round(min(1.0, max(0.0, evidence_count / CONFIDENCE_SPAN)), 2)
+    improvement_delta, trend = _trend(entry["scores"])
+
+    if attempts:
+        # Deterministic quiz baseline minus a bounded mistake penalty.
+        base = (quiz_accuracy or 0.0) / 100.0
+        penalty = min(
+            MAX_QUIZ_PENALTY,
+            0.05 * repeated + 0.05 * review_due + 0.01 * total_occurrences,
+        )
+        mastery = max(0.0, min(1.0, base - penalty))
+    else:
+        # Mistake-only topics stay deliberately conservative.
+        penalty = 0.10 * repeated + 0.10 * review_due + 0.02 * total_occurrences
+        mastery = max(0.05, min(DEFAULT_MASTERY, DEFAULT_MASTERY - penalty))
+    mastery = round(float(mastery), 2)
+
+    if evidence_count == 0:
+        is_weak = False
+    elif mastery < WEAK_MASTERY_THRESHOLD:
+        is_weak = True
+    elif review_due > 0 and mastery < 0.70:
+        is_weak = True
+    elif repeated > 0 and mastery < 0.75:
+        is_weak = True
+    else:
+        is_weak = False
+
+    return {
+        "subject": entry["subject"] or "General",
+        "chapter": entry["chapter"],
+        "topic": entry["topic"],
+        "mastery": mastery,
+        "confidence": float(confidence),
+        "evidenceCount": evidence_count,
+        "lastObservedAt": entry["last"].isoformat() if entry["last"] else None,
+        "isWeak": is_weak,
+        "signals": {
+            "quizAccuracy": float(quiz_accuracy) if quiz_accuracy is not None else None,
+            "quizAttempts": attempts,
+            "mistakeCount": int(entry["mistakeCount"]),
+            "repeatedMistakes": repeated,
+            "reviewDue": review_due,
+            "improvementDelta": float(improvement_delta),
+            "trend": trend,
+        },
+    }
+
+
+def _empty_mastery_record(topic: str, subject: str | None = None) -> dict[str, Any]:
+    """Neutral default for a topic with no evidence yet — never flagged weak."""
+    return {
+        "subject": subject or "General",
+        "chapter": None,
+        "topic": topic,
+        "mastery": DEFAULT_MASTERY,
+        "confidence": 0.0,
+        "evidenceCount": 0,
+        "lastObservedAt": None,
+        "isWeak": False,
+        "signals": {
+            "quizAccuracy": None,
+            "quizAttempts": 0,
+            "mistakeCount": 0,
+            "repeatedMistakes": 0,
+            "reviewDue": 0,
+            "improvementDelta": 0.0,
+            "trend": "insufficient_data",
+        },
+    }
+
+
+def _subject_matches(record_subject: Any, subject: str | None) -> bool:
+    if not subject:
+        return True
+    return str(record_subject or "").strip().casefold() == str(subject).strip().casefold()
+
+
+def get_all_topics_mastery(
+    uid: str,
+    subject: str | None = None,
+    db: Any = None,
+) -> list[dict[str, Any]]:
+    """Every topic the student has evidence for, weakest first."""
+    entries = _collect_topic_evidence(uid, db=db)
+    records = [
+        _build_mastery_record(entry)
+        for entry in entries.values()
+        if _subject_matches(entry["subject"] or "General", subject)
+    ]
+    records.sort(key=lambda item: (item["mastery"], item["topic"].casefold()))
+    return records
+
+
+def get_topic_mastery(
+    uid: str,
+    topic: str,
+    subject: str | None = None,
+    db: Any = None,
+) -> dict[str, Any]:
+    """Canonical mastery for one topic; neutral defaults when evidence is absent."""
+    name = str(topic or "").strip()
+    if not name:
+        return _empty_mastery_record(str(topic or ""), subject)
+
+    entries = _collect_topic_evidence(uid, db=db)
+    key = name if name in entries else next(
+        (candidate for candidate in entries if candidate.casefold() == name.casefold()),
+        None,
+    )
+    if key is None:
+        return _empty_mastery_record(name, subject)
+
+    record = _build_mastery_record(entries[key])
+    if not _subject_matches(record["subject"], subject):
+        return _empty_mastery_record(name, subject)
+    return record
+
+
+def get_weak_topics(
+    uid: str,
+    threshold: float = WEAK_MASTERY_THRESHOLD,
+    min_attempts: int = 1,
+    limit: int = 10,
+    subject: str | None = None,
+    db: Any = None,
+) -> list[dict[str, Any]]:
+    """Canonical weak topics, weakest first.
+
+    ``threshold`` is a mastery bound in ``[0.0, 1.0]`` (the legacy adapter that
+    speaks the 0-100 scale converts before delegating).
+    """
+    records = get_all_topics_mastery(uid, subject=subject, db=db)
+    min_evidence = max(1, int(min_attempts or 1))
+    bound = float(threshold)
+    weak = [
+        record
+        for record in records
+        if record["evidenceCount"] >= min_evidence and record["mastery"] < bound
+    ]
+    return weak[: max(0, int(limit or 0))]
+
+
+def get_subject_mastery(
+    uid: str,
+    subject: str,
+    db: Any = None,
+) -> dict[str, Any]:
+    """Aggregate mastery for one subject, degrading to neutral with no evidence."""
+    records = get_all_topics_mastery(uid, subject=subject, db=db)
+    if not records:
+        return {
+            "subject": subject,
+            "totalTopics": 0,
+            "mastery": DEFAULT_MASTERY,
+            "confidence": 0.0,
+            "evidenceCount": 0,
+            "weakTopics": [],
+            "strongTopics": [],
+            "topics": [],
+        }
+
+    return {
+        "subject": records[0]["subject"],
+        "totalTopics": len(records),
+        "mastery": round(
+            sum(record["mastery"] for record in records) / len(records), 2
+        ),
+        "confidence": round(
+            sum(record["confidence"] for record in records) / len(records), 2
+        ),
+        "evidenceCount": sum(record["evidenceCount"] for record in records),
+        "weakTopics": [
+            record["topic"] for record in records if record["isWeak"]
+        ],
+        "strongTopics": [
+            record["topic"] for record in records if record["mastery"] >= 0.75
+        ],
+        "topics": records,
+    }
 
 
 def get_progress(uid: str) -> dict[str, Any]:

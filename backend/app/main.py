@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.latency import latency_middleware, router as latency_router
 from app.database.connection import describe_active_database
 from app.services.storage_service import describe_active_storage
-from app.routers import account, academic_health, adaptive, admin_analytics, ai, ai_study, coach, commute, community, content, exams, family, focus, group_ziku, groups, health, learning, materials, me, mistakes, part3, prescriptions, reports, study, telecom, tutor, ziku
+from app.routers import account, academic_health, adaptive, admin_analytics, ai, ai_study, coach, commute, community, content, exams, family, focus, group_ziku, groups, health, learning, materials, me, mistakes, part3, prescriptions, reports, student, study, telecom, tutor, ziku
 
 logger = logging.getLogger("gochano")
 
@@ -137,5 +137,6 @@ app.include_router(content.router, prefix="/api/content", tags=["Ziku Content St
 app.include_router(learning.router, prefix="/api/learning", tags=["Ziku Learning Memory"])
 app.include_router(tutor.router, prefix="/api/tutor", tags=["Ziku Socratic Tutor"])
 app.include_router(admin_analytics.router, prefix="/api/admin/analytics", tags=["Admin Analytics"])
+app.include_router(student.router, prefix="/api/student", tags=["Student"])
 app.include_router(commute.router, prefix="/api/commute", tags=["CommuteBD"])
 app.include_router(telecom.router, prefix="/v1/auth/telecom", tags=["Telecom"])

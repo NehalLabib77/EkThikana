@@ -65,10 +65,18 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    // Phase 12: Ziku Socratic Tutor sessions.
+    // Phase 12: Ziku Socratic Tutor sessions and turns.
     match /tutor_sessions/{sessionId} {
       allow read: if isStudent() && (resource.data.studentId == request.auth.uid || resource.data.uid == request.auth.uid);
       allow create, update, delete: if false;
+
+      match /turns/{turnId} {
+        allow read: if isStudent() && (
+          get(/databases/$(database)/documents/tutor_sessions/$(sessionId)).data.studentId == request.auth.uid
+          || get(/databases/$(database)/documents/tutor_sessions/$(sessionId)).data.uid == request.auth.uid
+        );
+        allow create, update, delete: if false;
+      }
     }
 
     function ownedCreate() {

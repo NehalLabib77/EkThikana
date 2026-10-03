@@ -60,6 +60,10 @@ STUDENT_ONLY_PREFIXES = (
     # from quiz scores, recorded mistakes, focus sessions and exam attempts,
     # so every read is student-only.
     "/api/ziku",
+    # Phase 12.2.3 — the consolidated dashboard bootstrap aggregates profile,
+    # academic health, coach, focus, AI usage and recommendations for one
+    # student, so the whole surface is student-only.
+    "/api/student",
 )
 
 

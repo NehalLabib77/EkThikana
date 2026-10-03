@@ -26,7 +26,12 @@ def _http() -> httpx.AsyncClient:
     global _client
     if _client is None:
         _client = httpx.AsyncClient(
-            timeout=httpx.Timeout(90.0, connect=15.0),
+            timeout=httpx.Timeout(
+                connect=8.0,
+                read=35.0,
+                write=35.0,
+                pool=10.0,
+            ),
             limits=httpx.Limits(max_connections=8, max_keepalive_connections=4),
         )
     return _client
@@ -1040,7 +1045,12 @@ async def _openrouter_generate_multimodal(parts: list[dict[str, Any]]) -> str:
 # ---------------------------------------------------------------------------
 # Public surface — Cascade: GROQ primary -> Gemini fallback -> OpenRouter emergency.
 # ---------------------------------------------------------------------------
-async def generate(uid: str, prompt: str, feature: str = AiFeature.NOTE) -> str:
+async def generate(
+    uid: str,
+    prompt: str,
+    feature: str = AiFeature.NOTE,
+    model_tier: str | None = None,
+) -> str:
     """Text generation: tries GROQ, falls back to Gemini, then OpenRouter."""
     settings = get_settings()
     try:
@@ -1117,6 +1127,7 @@ async def generate_multimodal(
     uid: str,
     parts: list[dict[str, Any]],
     feature: str = AiFeature.IMAGE_QUESTION,
+    model_tier: str | None = None,
 ) -> str:
     """Multimodal generation: tries GROQ vision, falls back to Gemini, then OpenRouter."""
     settings = get_settings()

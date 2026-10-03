@@ -28,10 +28,17 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import 'focus_session_screen.dart';
 
 class ZikuSessionCard extends StatefulWidget {
-  const ZikuSessionCard({super.key, this.todayFn});
+  const ZikuSessionCard({
+    super.key,
+    this.todayFn,
+    this.initialData,
+  });
 
   /// Read hook, injected in tests so the widget never opens a socket.
   final FocusTodayFn? todayFn;
+
+  /// Optional preloaded bootstrap data from consolidated Home startup.
+  final Map<String, dynamic>? initialData;
 
   @override
   State<ZikuSessionCard> createState() => _ZikuSessionCardState();
@@ -47,7 +54,29 @@ class _ZikuSessionCardState extends State<ZikuSessionCard> {
   @override
   void initState() {
     super.initState();
-    _read();
+    if (widget.initialData != null) {
+      _applyInitialData(widget.initialData!);
+    } else {
+      _read();
+    }
+  }
+
+  void _applyInitialData(Map<String, dynamic> data) {
+    if (data['available'] == false) {
+      _today = null;
+      _failed = true;
+    } else {
+      _today = data;
+      _failed = false;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ZikuSessionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialData != null && widget.initialData != oldWidget.initialData) {
+      _applyInitialData(widget.initialData!);
+    }
   }
 
   Future<void> _read() async {
