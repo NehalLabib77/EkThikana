@@ -68,7 +68,11 @@ void main() {
     test('the backend still sends both keys', () {
       // The alias is what lets an already-installed build recover from a
       // redeploy alone. Dropping it silently re-breaks those users.
-      final route = _source('../backend/app/routers/part3.py');
+      //
+      // Phase 5 moved the session store into `focus_service.py`, which both
+      // `part3.py`'s `/api/study/focus/list` and the engine's
+      // `/api/focus/history` read through, so the alias lives there now.
+      final route = _source('../backend/app/services/focus_service.py');
 
       expect(route, contains('"sessions": sessions, "items": sessions'));
     });

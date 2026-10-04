@@ -15,6 +15,12 @@ class _CamelModel(BaseModel):
 class GroupCreate(BaseModel):
     name: str = Field(min_length=2, max_length=80)
     description: str = Field(default="", max_length=240)
+    # Phase 7 - study categories (spec 7.5). Empty means "no category";
+    # anything else must be one of community_service.STUDY_CATEGORIES.
+    category: str = Field(default="", max_length=40)
+    # Phase 7 - spec 7.7: 'study' (default, has UI), 'class' / 'teacher'
+    # (architecture only - accepted and stored, no UI yet).
+    kind: str = Field(default="study", max_length=20)
 
 
 class GroupJoin(BaseModel):
@@ -158,7 +164,26 @@ class FocusStartRequest(_CamelModel):
     label: str = Field(default="", max_length=200)
     planned_minutes: int = Field(default=25, ge=1, le=480)
     note: str = Field(default="", max_length=200)
+    # Phase 2 — smart focus sessions: what was studied, so the Academic
+    # Health score can attribute minutes to a subject.
+    subject: str = Field(default="", max_length=80)
+    topic: str = Field(default="", max_length=120)
 
 
 class FocusPatchRequest(_CamelModel):
-    action: Literal["pause", "resume", "complete", "cancel"]
+    # ``interruption`` is the Phase 2 add: the client reports a phone / door
+    # distraction while the timer runs, and the focus score deducts for it.
+    action: Literal["pause", "resume", "complete", "cancel", "interruption"]
+    # Absolute value wins when supplied; otherwise an interruption counts +1.
+    interruptions: int | None = Field(default=None, ge=0, le=999)
+    subject: str | None = Field(default=None, max_length=80)
+    topic: str | None = Field(default=None, max_length=120)
+
+
+class FocusCompleteRequest(_CamelModel):
+    # Phase 5 - Ziku Focus Engine. ``POST /api/focus/complete`` finishes the
+    # session the client started (it holds the id). ``subject``/``topic`` may
+    # re-tag the block at finish time - same policy as the PATCH route.
+    focus_id: str = Field(min_length=1, max_length=80)
+    subject: str | None = Field(default=None, max_length=80)
+    topic: str | None = Field(default=None, max_length=120)

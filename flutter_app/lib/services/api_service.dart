@@ -290,11 +290,18 @@ class ApiService {
 
   static Future<Map<String, dynamic>> createGroup(
     String name,
-    String description,
-  ) async => _decode(
+    String description, {
+    String category = '',
+    String kind = 'study',
+  }) async => _decode(
     await _post(
       '/api/groups',
-      body: {'name': name, 'description': description},
+      body: {
+        'name': name,
+        'description': description,
+        if (category.isNotEmpty) 'category': category,
+        if (kind.isNotEmpty) 'kind': kind,
+      },
     ),
   );
 
@@ -654,10 +661,18 @@ class ApiService {
     String label = '',
     int plannedMinutes = 25,
     String note = '',
+    String subject = '',
+    String topic = '',
   }) async => _decode(
     await _post(
       '/api/study/focus/start',
-      body: {'label': label, 'planned_minutes': plannedMinutes, 'note': note},
+      body: {
+        'label': label,
+        'planned_minutes': plannedMinutes,
+        'note': note,
+        'subject': subject,
+        'topic': topic,
+      },
     ),
   );
 
@@ -666,11 +681,26 @@ class ApiService {
   /// The backend route is `PATCH /api/study/focus/{focus_id}`. This used to
   /// send POST, which FastAPI answered with 405 Method Not Allowed — so
   /// pause, resume and finish never reached the server.
+  ///
+  /// Phase 2 adds `action: 'interruption'` (counts a distraction while the
+  /// timer runs) and optional `subject` / `topic` so a finished session can
+  /// be re-tagged with what it actually covered.
   static Future<Map<String, dynamic>> patchFocus(
     String focusId,
-    String action,
-  ) async => _decode(
-    await _patch('/api/study/focus/$focusId', body: {'action': action}),
+    String action, {
+    int? interruptions,
+    String? subject,
+    String? topic,
+  }) async => _decode(
+    await _patch(
+      '/api/study/focus/$focusId',
+      body: {
+        'action': action,
+        'interruptions': ?interruptions,
+        'subject': ?subject,
+        'topic': ?topic,
+      },
+    ),
   );
 
   /// Recent focus sessions within the last [days] (backend accepts 1..365).
@@ -689,8 +719,60 @@ class ApiService {
     return _listField(body, 'items');
   }
 
+  /// Today's deep-work total plus the Focus Score the Home card shows.
+  static Future<Map<String, dynamic>> getFocusToday() async =>
+      _deduplicatedGet('/api/study/focus/today');
+
   static Future<Map<String, dynamic>> getStudyStats() async =>
       _deduplicatedGet('/api/study/stats');
+
+  // ---------------- Ziku Focus Engine (Phase 5) ----------------
+  //
+  // Same `focus_sessions` store as the legacy `/api/study/focus/*` routes
+  // above — the engine adds the Focus Score, weekly consistency and the
+  // smart nudge, it does not add a second tracking system.
+
+  /// Begin a deep-work block; returns the session id to finish later.
+  static Future<Map<String, dynamic>> focusEngineStart({
+    String label = '',
+    int plannedMinutes = 25,
+    String subject = '',
+    String topic = '',
+  }) async => _decode(
+    await _post(
+      '/api/focus/start',
+      body: {
+        'label': label,
+        'planned_minutes': plannedMinutes,
+        'subject': subject,
+        'topic': topic,
+      },
+    ),
+  );
+
+  /// Finish a block. Idempotent server-side; the response carries the fresh
+  /// `today` snapshot (minutes, Focus Score, nudge) for the completion card.
+  static Future<Map<String, dynamic>> focusEngineComplete(
+    String focusId, {
+    String? subject,
+    String? topic,
+  }) async => _decode(
+    await _post(
+      '/api/focus/complete',
+      body: {'focus_id': focusId, 'subject': subject, 'topic': topic},
+    ),
+  );
+
+  /// Today's minutes vs goal, the rolling Focus Score, weekly consistency,
+  /// live session ids and the smart nudge.
+  static Future<Map<String, dynamic>> focusEngineToday() async =>
+      _deduplicatedGet('/api/focus/today');
+
+  /// Session list + per-day buckets + score for the last [days] days.
+  static Future<Map<String, dynamic>> focusEngineHistory({
+    int days = 30,
+  }) async =>
+      _decode(await _get('/api/focus/history', query: {'days': '$days'}));
 
   // ---------------- Offline materials (metadata; device-local file is SoT) ----------------
   static Future<Map<String, dynamic>> registerOffline({
@@ -1259,10 +1341,7 @@ class ApiService {
     return _guard(() async {
       final body = await _post(
         '/api/ai/context',
-        body: {
-          'contextType': contextType,
-          'extraContext': extraContext,
-        },
+        body: {'contextType': contextType, 'extraContext': extraContext},
       );
       return _decode(body);
     });
@@ -1303,7 +1382,8 @@ class ApiService {
   static Future<Map<String, dynamic>> getQuizHistory({int limit = 20}) async {
     return _guard(() async {
       final body = await _get(
-        '/api/ai/quiz/history?limit=$limit',
+        '/api/ai/quiz/history',
+        query: {'limit': '$limit'},
       );
       return _decode(body);
     });
@@ -1312,18 +1392,19 @@ class ApiService {
   /// Get a single quiz result with full question details.
   static Future<Map<String, dynamic>> getQuizResult(String quizId) async {
     return _guard(() async {
-      final body = await _get(
-        '/api/ai/quiz/history/$quizId',
-      );
+      final body = await _get('/api/ai/quiz/history/$quizId');
       return _decode(body);
     });
   }
 
   /// Get weak topics from quiz history analysis.
-  static Future<Map<String, dynamic>> getWeakTopics({int threshold = 60}) async {
+  static Future<Map<String, dynamic>> getWeakTopics({
+    int threshold = 60,
+  }) async {
     return _guard(() async {
       final body = await _get(
-        '/api/ai/learning/weak-topics?threshold=$threshold',
+        '/api/ai/learning/weak-topics',
+        query: {'threshold': '$threshold'},
       );
       return _decode(body);
     });
@@ -1332,9 +1413,7 @@ class ApiService {
   /// Get learning summary (overall stats, strong/weak topics).
   static Future<Map<String, dynamic>> getLearningSummary() async {
     return _guard(() async {
-      final body = await _get(
-        '/api/ai/learning/summary',
-      );
+      final body = await _get('/api/ai/learning/summary');
       return _decode(body);
     });
   }
@@ -1342,9 +1421,58 @@ class ApiService {
   /// Get AI study recommendations.
   static Future<Map<String, dynamic>> getStudyRecommendations() async {
     return _guard(() async {
+      final body = await _get('/api/ai/learning/recommendations');
+      return _decode(body);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 1 — AI Mistake Memory.
+  //
+  // Wrong answers saved with a quiz become one record per distinct mistake.
+  // These four calls are the whole surface: read them, ask Ziku to explain
+  // the not-yet-explained ones, and advance a mistake's review schedule.
+  // -------------------------------------------------------------------------
+
+  /// Recorded mistakes, most repeated first. [status] filters the list:
+  /// `all`, `due`, `repeated` or `pending`.
+  static Future<Map<String, dynamic>> getMistakes({
+    String status = 'all',
+    int limit = 50,
+  }) async {
+    return _guard(() async {
       final body = await _get(
-        '/api/ai/learning/recommendations',
+        '/api/ai/mistakes',
+        query: {'status': status, 'limit': '$limit'},
       );
+      return _decode(body);
+    });
+  }
+
+  /// "My Learning Brain": totals, weak topics, repeats and revision queue.
+  static Future<Map<String, dynamic>> getLearningBrain() async {
+    return _guard(() async {
+      final body = await _get('/api/ai/mistakes/brain');
+      return _decode(body);
+    });
+  }
+
+  /// Ask Ziku to explain every mistake that is still awaiting analysis.
+  ///
+  /// One request covers a whole batch, so the daily AI allowance is spent on
+  /// batches, not on individual questions. Quota/provider failures surface as
+  /// an [ApiException] the caller shows rather than silently swallowing.
+  static Future<Map<String, dynamic>> analyzeMistakes() async {
+    return _guard(() async {
+      final body = await _post('/api/ai/mistakes/analyze');
+      return _decode(body);
+    });
+  }
+
+  /// Mark one mistake revised — advances it to the next review date.
+  static Future<Map<String, dynamic>> reviewMistake(String mistakeId) async {
+    return _guard(() async {
+      final body = await _post('/api/ai/mistakes/$mistakeId/review');
       return _decode(body);
     });
   }
@@ -1388,4 +1516,1157 @@ class ApiService {
       return _decode(body);
     });
   }
+
+  // ---------------- Phase 2 — Academic Health ----------------
+
+  /// The Academic Health payload: 0-100 score, per-metric breakdown, signals,
+  /// weak areas and the rule-based recommendations.
+  ///
+  /// [examDate] (YYYY-MM-DD) is optional — pass the target exam the student
+  /// is currently working towards to score readiness against it.
+  static Future<Map<String, dynamic>> getAcademicHealth({
+    String? examDate,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ai/academic-health',
+        query: examDate == null ? null : {'examDate': examDate},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Daily score snapshots (oldest first) for the trend line.
+  static Future<Map<String, dynamic>> getAcademicHealthHistory({
+    int days = 30,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ai/academic-health/history',
+        query: {'days': '$days'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Health-rule advice merged with Ziku's AI-authored recommendations.
+  static Future<Map<String, dynamic>> getAcademicHealthRecommendations() async {
+    return _guard(() async {
+      final body = await _get('/api/ai/academic-health/recommendations');
+      return _decode(body);
+    });
+  }
+
+  // ---------------- Phase 3 — Real Exam Simulator ----------------
+
+  /// Build a paper server-side (AI questions, saved quiz questions or a
+  /// clone of a previous exam). Returns the exam plus its questions.
+  static Future<Map<String, dynamic>> createExam(
+    Map<String, dynamic> body,
+  ) async {
+    return _guard(() async {
+      final response = await _post('/api/exams/create', body: body);
+      return _decode(response);
+    });
+  }
+
+  /// Extract questions from an uploaded paper (PDF/image/text). The response
+  /// carries the draft questions *with* their answers so the student can
+  /// correct them before the exam opens.
+  static Future<Map<String, dynamic>> uploadExamPaper({
+    required List<int> bytes,
+    required String filename,
+    String mimeType = '',
+    String subject = '',
+    int questionCount = 15,
+  }) async {
+    final uri = _uri('/api/exams/upload');
+    final response = await _sendMultipart(
+      method: 'POST',
+      uri: uri,
+      auth: true,
+      build: () async {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers['Authorization'] = 'Bearer ${await _token()}';
+        request.headers['Accept'] = 'application/json';
+        request.fields.addAll({
+          'subject': subject,
+          'questionCount': '$questionCount',
+        });
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: filename,
+            contentType: mimeType.isEmpty ? null : MediaType.parse(mimeType),
+          ),
+        );
+        return request;
+      },
+    );
+    return _decode(response);
+  }
+
+  /// Papers the student already has — the "saved questions" picker.
+  static Future<Map<String, dynamic>> listExams({int limit = 20}) async {
+    return _guard(() async {
+      final body = await _get('/api/exams', query: {'limit': '$limit'});
+      return _decode(body);
+    });
+  }
+
+  static Future<Map<String, dynamic>> getExam(
+    String examId, {
+    bool includeQuestions = false,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/exams/$examId',
+        query: {'includeQuestions': '$includeQuestions'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Open the hall: returns the attempt id, the deadline and the questions
+  /// (redacted — no answers).
+  static Future<Map<String, dynamic>> startExam(String examId) async {
+    return _guard(() async {
+      final body = await _post('/api/exams/$examId/start');
+      return _decode(body);
+    });
+  }
+
+  /// Hand the answers to the server for grading, mistake capture and Ziku's
+  /// plan. [withAiAnalysis] also generates the Ziku paragraph once.
+  static Future<Map<String, dynamic>> submitExam(
+    String examId, {
+    required String attemptId,
+    required List<String> answers,
+    int? timeSpentSeconds,
+    List<int> markedForReview = const <int>[],
+    bool withAiAnalysis = true,
+  }) async {
+    return _guard(() async {
+      final response = await _post(
+        '/api/exams/$examId/submit',
+        body: <String, dynamic>{
+          'attemptId': attemptId,
+          'answers': answers,
+          'timeSpentSeconds': ?timeSpentSeconds,
+          'markedForReview': markedForReview,
+          'withAiAnalysis': withAiAnalysis,
+        },
+      );
+      return _decode(response);
+    });
+  }
+
+  /// The score breakdown: weak topics, mistakes with review dates, the live
+  /// Academic Health read and Ziku's rescue plan for this paper.
+  static Future<Map<String, dynamic>> getExamAnalysis(
+    String examId, {
+    String? attemptId,
+    bool withAi = false,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/exams/$examId/analysis',
+        query: {'attemptId': ?attemptId, 'withAi': '$withAi'},
+      );
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 6: Real Exam Simulator Pro ------------------------------------
+
+  /// Reopen the unfinished attempt (spec 6.4). Throws an [ApiException] with
+  /// `statusCode` 404 when there is nothing to resume — the caller then
+  /// falls back to [startExam].
+  static Future<Map<String, dynamic>> resumeExam(
+    String examId, {
+    String? attemptId,
+  }) async {
+    return _guard(() async {
+      final response = await _post(
+        '/api/exams/$examId/resume',
+        body: <String, dynamic>{'attemptId': ?attemptId},
+      );
+      return _decode(response);
+    });
+  }
+
+  /// Save the selected answers, the review flags and the remaining time
+  /// while the paper is still open — the server owns the recovery point.
+  static Future<Map<String, dynamic>> saveExamProgress(
+    String examId, {
+    required String attemptId,
+    required List<String> answers,
+    List<int> markedForReview = const <int>[],
+    int? remainingSeconds,
+  }) async {
+    return _guard(() async {
+      final response = await _post(
+        '/api/exams/$examId/save',
+        body: <String, dynamic>{
+          'attemptId': attemptId,
+          'answers': answers,
+          'markedForReview': markedForReview,
+          'remainingSeconds': ?remainingSeconds,
+        },
+      );
+      return _decode(response);
+    });
+  }
+
+  /// Freeze the clock — only for papers whose builder allowed a pause.
+  static Future<Map<String, dynamic>> pauseExam(
+    String examId, {
+    required String attemptId,
+    int? remainingSeconds,
+  }) async {
+    return _guard(() async {
+      final response = await _post(
+        '/api/exams/$examId/pause',
+        body: <String, dynamic>{
+          'attemptId': attemptId,
+          'remainingSeconds': ?remainingSeconds,
+        },
+      );
+      return _decode(response);
+    });
+  }
+
+  /// "My Exams" (spec 6.9): recent results with the improvement between the
+  /// last two papers.
+  static Future<Map<String, dynamic>> examHistory({int limit = 20}) async {
+    return _guard(() async {
+      final body = await _get('/api/exams/history', query: {'limit': '$limit'});
+      return _decode(body);
+    });
+  }
+
+  /// One finished attempt in the submit payload shape — what the history
+  /// list opens when a row is tapped.
+  static Future<Map<String, dynamic>> getExamResult(
+    String examId, {
+    String? attemptId,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/exams/$examId/result',
+        query: {'attemptId': ?attemptId},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Turn a paper's share link on or off (spec 6.10). The link carries the
+  /// questions only — marks are never shared.
+  static Future<Map<String, dynamic>> shareExam(
+    String examId, {
+    required bool share,
+  }) async {
+    return _guard(() async {
+      final response = await _post(
+        '/api/exams/$examId/share',
+        body: <String, dynamic>{'share': share},
+      );
+      return _decode(response);
+    });
+  }
+
+  /// Open a paper someone shared by code: redacted questions, no answers.
+  static Future<Map<String, dynamic>> getSharedExam(String code) async {
+    return _guard(() async {
+      final body = await _get('/api/exams/shared/$code');
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 4: Ziku Personal Study Coach ----------------------------------
+
+  /// Student learning profile (cached today, rule-based, no AI call).
+  static Future<Map<String, dynamic>> coachProfile() async {
+    return _guard(() async {
+      final body = await _get('/api/coach/profile');
+      return _decode(body);
+    });
+  }
+
+  /// Today's coaching brief with mission items (rule-based, cached per day).
+  static Future<Map<String, dynamic>> coachDailyBrief() async {
+    return _guard(() async {
+      final body = await _get('/api/coach/daily');
+      return _decode(body);
+    });
+  }
+
+  /// Weekly academic report (AI narrative, cached per ISO-week).
+  static Future<Map<String, dynamic>> coachWeeklyReport() async {
+    return _guard(() async {
+      final body = await _get('/api/coach/weekly-report');
+      return _decode(body);
+    });
+  }
+
+  /// Force-refresh profile + daily brief (after quiz/exam completion).
+  static Future<Map<String, dynamic>> coachRecalculate() async {
+    return _guard(() async {
+      final body = await _post('/api/coach/recalculate', body: {});
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 7: Ziku Learning Community ----------------------------------
+
+  /// Question Bank / Learning posts. Filters are optional; `popular` sorts
+  /// by answer and useful counts instead of recency.
+  static Future<Map<String, dynamic>> listPosts({
+    String kind = '',
+    String category = '',
+    String groupId = '',
+    bool popular = false,
+    int limit = 30,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/community/posts',
+        query: {
+          if (kind.isNotEmpty) 'kind': kind,
+          if (category.isNotEmpty) 'category': category,
+          if (groupId.isNotEmpty) 'group_id': groupId,
+          if (popular) 'popular': 'true',
+          'limit': '$limit',
+        },
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Create a learning post (question / solution / notes / achievement).
+  static Future<Map<String, dynamic>> createPost({
+    required String kind,
+    required String title,
+    String body = '',
+    String category = '',
+    String groupId = '',
+    List<Map<String, dynamic>> attachments = const [],
+  }) async {
+    return _guard(() async {
+      final response = await _post(
+        '/api/community/posts',
+        body: {
+          'kind': kind,
+          'title': title,
+          'body': body,
+          'category': category,
+          'group_id': groupId,
+          'attachments': attachments,
+        },
+      );
+      return _decode(response);
+    });
+  }
+
+  /// One post with its answers (group membership enforced server-side).
+  static Future<Map<String, dynamic>> getPost(String postId) async {
+    return _guard(() async {
+      final body = await _get('/api/community/posts/$postId');
+      return _decode(body);
+    });
+  }
+
+  /// Answer a question. Returns the answer plus the post's new answer count.
+  static Future<Map<String, dynamic>> addAnswer(
+    String postId,
+    String text,
+  ) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/community/posts/$postId/answers',
+        body: {'body': text},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Asker-only: mark an answer as the accepted one (+5 Learning Points).
+  static Future<Map<String, dynamic>> acceptAnswer(
+    String postId,
+    String answerId,
+  ) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/community/posts/$postId/answers/$answerId/accept',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Mark someone else's answer helpful (+3 Learning Points, once).
+  static Future<Map<String, dynamic>> markAnswerHelpful(
+    String postId,
+    String answerId,
+  ) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/community/posts/$postId/answers/$answerId/helpful',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Mark a peer's notes post useful (+10 Learning Points for its author).
+  static Future<Map<String, dynamic>> markPostUseful(String postId) async {
+    return _guard(() async {
+      final body = await _post('/api/community/posts/$postId/useful');
+      return _decode(body);
+    });
+  }
+
+  /// Learning Points leaderboard — global, or one group's top contributors.
+  static Future<Map<String, dynamic>> leaderboard({
+    String scope = 'global',
+    String groupId = '',
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/community/leaderboard',
+        query: {'scope': scope, if (groupId.isNotEmpty) 'group_id': groupId},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Challenge a classmate with one of your own saved exams.
+  static Future<Map<String, dynamic>> createChallenge({
+    required String examId,
+    String title = '',
+    int questionCount = 10,
+    int timeLimitMinutes = 15,
+    String opponentId = '',
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/community/challenges',
+        body: {
+          if (title.isNotEmpty) 'title': title,
+          'exam_id': examId,
+          'question_count': questionCount,
+          'time_limit_minutes': timeLimitMinutes,
+          if (opponentId.isNotEmpty) 'opponent_id': opponentId,
+        },
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Accept a challenge with the invite code the challenger shared.
+  static Future<Map<String, dynamic>> joinChallenge(String code) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/community/challenges/join',
+        body: {'code': code},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Challenges I am part of (creator or opponent).
+  static Future<Map<String, dynamic>> listChallenges() async {
+    return _guard(() async {
+      final body = await _get('/api/community/challenges');
+      return _decode(body);
+    });
+  }
+
+  /// One challenge: state plus both participants' results once completed.
+  static Future<Map<String, dynamic>> getChallenge(String challengeId) async {
+    return _guard(() async {
+      final body = await _get('/api/community/challenges/$challengeId');
+      return _decode(body);
+    });
+  }
+
+  /// Refuse a challenge aimed at me.
+  static Future<Map<String, dynamic>> declineChallenge(
+    String challengeId,
+  ) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/community/challenges/$challengeId/decline',
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Start the clock: server serves redacted questions, never the answer key.
+  static Future<Map<String, dynamic>> startChallenge(String challengeId) async {
+    return _guard(() async {
+      final body = await _post('/api/community/challenges/$challengeId/start');
+      return _decode(body);
+    });
+  }
+
+  /// Submit answers for server-side grading (accuracy, topic breakdown).
+  static Future<Map<String, dynamic>> submitChallenge(
+    String challengeId, {
+    required List<dynamic> answers,
+    required int durationSeconds,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/community/challenges/$challengeId/submit',
+        body: {'answers': answers, 'duration_seconds': durationSeconds},
+      );
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 7: Ziku Moderator + group quizzes (on /api/groups) ----------
+
+  /// Ask Ziku a question with the group's study context attached.
+  static Future<Map<String, dynamic>> groupZikuAsk(
+    String groupId,
+    String question,
+  ) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/groups/$groupId/ziku/ask',
+        body: {'question': question},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Moderate two competing answers: one verdict + one explanation.
+  static Future<Map<String, dynamic>> groupZikuModerate(
+    String groupId, {
+    required String claimA,
+    required String claimB,
+    String context = '',
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/groups/$groupId/ziku/moderate',
+        body: {'claim_a': claimA, 'claim_b': claimB, 'context': context},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Suggested discussion topics from group questions (AI, rule fallback).
+  static Future<Map<String, dynamic>> groupZikuTopics(String groupId) async {
+    return _guard(() async {
+      final body = await _post('/api/groups/$groupId/ziku/topics');
+      return _decode(body);
+    });
+  }
+
+  /// Generate a revision quiz for the group (uses the QUIZ quota).
+  static Future<Map<String, dynamic>> groupZikuQuiz(
+    String groupId, {
+    String topic = '',
+    int questionCount = 5,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/groups/$groupId/ziku/quiz',
+        body: {
+          if (topic.isNotEmpty) 'topic': topic,
+          'question_count': questionCount,
+        },
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Group insights: hot chapters, weak topics, recent quiz attempts.
+  static Future<Map<String, dynamic>> groupInsights(String groupId) async {
+    return _guard(() async {
+      final body = await _get('/api/groups/$groupId/insights');
+      return _decode(body);
+    });
+  }
+
+  /// Quizzes saved for this group (redacted - no answer key).
+  static Future<Map<String, dynamic>> listGroupQuizzes(String groupId) async {
+    return _guard(() async {
+      final body = await _get('/api/groups/$groupId/quizzes');
+      return _decode(body);
+    });
+  }
+
+  /// One group quiz, still redacted until an attempt is submitted.
+  static Future<Map<String, dynamic>> getGroupQuiz(
+    String groupId,
+    String quizId,
+  ) async {
+    return _guard(() async {
+      final body = await _get('/api/groups/$groupId/quizzes/$quizId');
+      return _decode(body);
+    });
+  }
+
+  /// Submit a group quiz attempt: graded server-side, explanations unlock.
+  static Future<Map<String, dynamic>> attemptGroupQuiz(
+    String groupId,
+    String quizId, {
+    required List<dynamic> answers,
+    int durationSeconds = 0,
+  }) async {
+    return _guard(() async {
+      final body = await _post(
+        '/api/groups/$groupId/quizzes/$quizId/attempt',
+        body: {'answers': answers, 'duration_seconds': durationSeconds},
+      );
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 7: Family links (spec 7.7 - architecture only) --------------
+
+  /// Issue a one-time link code a parent redeems (student side).
+  static Future<Map<String, dynamic>> familyLinkCode() async {
+    return _guard(() async {
+      final body = await _post('/api/family/link-code');
+      return _decode(body);
+    });
+  }
+
+  /// Redeem a child's code (parent account).
+  static Future<Map<String, dynamic>> familyRedeem(String code) async {
+    return _guard(() async {
+      final body = await _post('/api/family/link/redeem', body: {'code': code});
+      return _decode(body);
+    });
+  }
+
+  /// Family links I belong to - ids, names and status only (no scores).
+  static Future<Map<String, dynamic>> familyLinks() async {
+    return _guard(() async {
+      final body = await _get('/api/family/links');
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 8: Ziku Personal Intelligence --------------------------------
+
+  /// "Your Learning Journey": 90 days of exams, quizzes, mistakes, focus
+  /// sessions and community activity as one timeline with improvement trends.
+  static Future<Map<String, dynamic>> zikuJourney({bool force = false}) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ziku/journey',
+        query: {if (force) 'force': 'true'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// The upgraded daily brief: morning headings (health, priority, why,
+  /// mission) and the evening recap (progress, mistakes, tomorrow).
+  static Future<Map<String, dynamic>> zikuBrief({
+    String phase = 'auto',
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ziku/brief',
+        query: {
+          if (phase != 'auto') 'phase': phase,
+          if (force) 'force': 'true',
+        },
+      );
+      return _decode(body);
+    });
+  }
+
+  /// The Student Learning Profile: preferred study time, learning style and
+  /// strong/weak subjects.
+  static Future<Map<String, dynamic>> zikuProfile({bool force = false}) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ziku/profile',
+        query: {if (force) 'force': 'true'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// The Smart Recommendation Engine: five systems ranked into one action,
+  /// plus the alternatives that explain why it won.
+  static Future<Map<String, dynamic>> zikuNextBestAction({
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ziku/next-best-action',
+        query: {if (force) 'force': 'true'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// The achievement scoreboard (earned stamps are write-once).
+  static Future<Map<String, dynamic>> zikuAchievements({
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/ziku/achievements',
+        query: {if (force) 'force': 'true'},
+      );
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 10.6: Admin Analytics ----------------------------------------
+
+  /// Platform overview metrics for administrators.
+  static Future<Map<String, dynamic>> adminAnalyticsOverview({
+    int days = 30,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/admin/analytics/overview',
+        query: {'days': '$days'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Subject demand metrics for administrators.
+  static Future<Map<String, dynamic>> adminAnalyticsSubjects({
+    int days = 30,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/admin/analytics/subjects',
+        query: {'days': '$days'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Topic difficulty metrics for administrators.
+  static Future<Map<String, dynamic>> adminAnalyticsTopics({
+    int days = 30,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/admin/analytics/topics',
+        query: {'days': '$days'},
+      );
+      return _decode(body);
+    });
+  }
+
+  /// Feature usage breakdown for administrators.
+  static Future<Map<String, dynamic>> adminAnalyticsFeatures({
+    int days = 30,
+  }) async {
+    return _guard(() async {
+      final body = await _get(
+        '/api/admin/analytics/features',
+        query: {'days': '$days'},
+      );
+      return _decode(body);
+    });
+  }
+
+  // ---- Phase 12: Ziku Socratic AI Tutor ------------------------------------
+
+  /// Start a new Socratic tutor session.
+  static Future<Map<String, dynamic>> tutorStartSession({
+    required String subject,
+    required String topic,
+    String? concept,
+    String mode = 'socratic',
+    String? materialId, // Phase 14.5: document-grounded tutor
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/tutor/session',
+        body: {
+          'subject': subject,
+          'topic': topic,
+          if (concept != null && concept.isNotEmpty) 'concept': concept,
+          'mode': mode,
+          if (materialId != null && materialId.isNotEmpty) 'material_id': materialId,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Submit student response / reasoning to current tutor step.
+  static Future<Map<String, dynamic>> tutorRespond({
+    required String sessionId,
+    required String response,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/tutor/$sessionId/respond',
+        body: {'response': response},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Request a progressive hint.
+  static Future<Map<String, dynamic>> tutorRequestHint({
+    required String sessionId,
+  }) async {
+    return _guard(() async {
+      final res = await _post('/api/tutor/$sessionId/hint');
+      return _decode(res);
+    });
+  }
+
+  /// Switch tutor mode (socratic, explain, practice, exam_prep).
+  static Future<Map<String, dynamic>> tutorSwitchMode({
+    required String sessionId,
+    required String mode,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/tutor/$sessionId/mode',
+        body: {'mode': mode},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Finalize tutor session and receive summary.
+  static Future<Map<String, dynamic>> tutorCompleteSession({
+    required String sessionId,
+  }) async {
+    return _guard(() async {
+      final res = await _post('/api/tutor/$sessionId/complete');
+      return _decode(res);
+    });
+  }
+
+  /// Get details of an active or past tutor session.
+  static Future<Map<String, dynamic>> tutorGetSession(String sessionId) async {
+    return _guard(() async {
+      final res = await _get('/api/tutor/$sessionId');
+      return _decode(res);
+    });
+  }
+
+  /// Get recent tutor sessions.
+  static Future<List<dynamic>> tutorGetRecentSessions({int limit = 10}) async {
+    return _guard(() async {
+      final res = await _get(
+        '/api/tutor/recent',
+        query: {'limit': '$limit'},
+      );
+      final decoded = _decode(res);
+      return _listField(decoded, 'data');
+    });
+  }
+
+  // ---- Phase 12.2.3: Dashboard Bootstrap ---------------------------------
+
+  /// Single aggregate bootstrap call for student home & study dashboard.
+  static Future<Map<String, dynamic>> studentDashboardBootstrap() async {
+    return _guard(() async {
+      final res = await _get('/api/student/dashboard-bootstrap');
+      return _decode(res);
+    });
+  }
+
+  // ---- Phase 14: Document Intelligence -----------------------------------
+
+  /// Trigger document ingestion & chunking.
+  /// Idempotent — safe to call again; set [force] to re-process.
+  static Future<Map<String, dynamic>> processMaterial(
+    String materialId, {
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/process',
+        body: {'force': force},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Get (or generate) document intelligence — overview, summary, concept map,
+  /// important topics.  Returns cached result when available.
+  static Future<Map<String, dynamic>> getMaterialIntelligence(
+    String materialId, {
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final res = await _get(
+        '/api/materials/$materialId/intelligence',
+        query: {if (force) 'force': 'true'},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// BM25 lexical retrieval of document chunks relevant to [query].
+  static Future<Map<String, dynamic>> retrieveDocumentChunks(
+    String materialId,
+    String query, {
+    int topK = 3,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/retrieve',
+        body: {'query': query, 'top_k': topK},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate flashcards grounded in document content.
+  static Future<Map<String, dynamic>> documentFlashcards(
+    String materialId, {
+    String topic = '',
+    String query = '',
+    int count = 10,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/flashcards',
+        body: {'topic': topic, 'query': query, 'count': count},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate revision sheet grounded in document content.
+  static Future<Map<String, dynamic>> documentRevisionSheet(
+    String materialId, {
+    String topic = '',
+    String query = '',
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/revision-sheet',
+        body: {'topic': topic, 'query': query},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate complete study pack grounded in document content.
+  static Future<Map<String, dynamic>> documentStudyPack(
+    String materialId, {
+    String topic = '',
+    String query = '',
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/study-pack',
+        body: {'topic': topic, 'query': query},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate quiz questions grounded in document content.
+  static Future<Map<String, dynamic>> documentQuiz(
+    String materialId, {
+    String topic = '',
+    String query = '',
+    String difficulty = 'medium',
+    int count = 5,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/quiz',
+        body: {
+          'topic': topic,
+          'query': query,
+          'difficulty': difficulty,
+          'count': count,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate a full mock exam grounded in document content.
+  static Future<Map<String, dynamic>> documentExam(
+    String materialId, {
+    String topic = '',
+    int timeLimitMinutes = 30,
+    int questionCount = 10,
+    String difficulty = 'real_exam',
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/exam',
+        body: {
+          'topic': topic,
+          'time_limit_minutes': timeLimitMinutes,
+          'question_count': questionCount,
+          'difficulty': difficulty,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  // =========================================================================
+  // Phase 15 — Exam Ecosystem
+  // Orchestration + intelligence layer. Reuses all canonical engines.
+  // =========================================================================
+
+  /// Single-request Exam Ecosystem dashboard bootstrap.
+  static Future<Map<String, dynamic>> examEcosystemDashboard() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/dashboard')));
+
+  /// Analyze a Workspace material as a historical exam paper.
+  /// Idempotent: returns cache unless [force] is true.
+  static Future<Map<String, dynamic>> analyzePastPaper({
+    required String materialId,
+    String? examName,
+    String? board,
+    String? subject,
+    int? year,
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/exam-ecosystem/papers/analyze',
+        body: {
+          'material_id': materialId,
+          'exam_name': ?examName,
+          'board': ?board,
+          'subject': ?subject,
+          'year': ?year,
+          'force': force,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// List all past papers analyzed by the current student.
+  static Future<Map<String, dynamic>> listPastPapers({int limit = 50}) =>
+      _guard(() async => _decode(
+            await _get('/api/exam-ecosystem/papers', query: {'limit': '$limit'}),
+          ));
+
+  /// Historical exam insights aggregated across all past papers.
+  static Future<Map<String, dynamic>> historicalInsights() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/insights')));
+
+  /// Recalculate priority scores for all known topics (deterministic formula).
+  static Future<Map<String, dynamic>> recalculatePriorities() =>
+      _guard(() async => _decode(
+            await _post('/api/exam-ecosystem/priority/recalculate', body: {}),
+          ));
+
+  /// Get persisted priority topics. Optionally filter by [priority] level.
+  static Future<Map<String, dynamic>> getPriorityTopics({
+    String? priority,
+    int limit = 20,
+  }) =>
+      _guard(() async => _decode(
+            await _get(
+              '/api/exam-ecosystem/priorities',
+              query: {
+                'limit': '$limit',
+                'priority': ?priority,
+              },
+            ),
+          ));
+
+  /// Create a personalized exam study plan.
+  static Future<Map<String, dynamic>> createExamPlan({
+    required String examName,
+    required String examDate,
+    List<String> subjects = const [],
+    int? dailyMinutes,
+    bool forceNew = false,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/exam-ecosystem/plans',
+        body: {
+          'exam_name': examName,
+          'exam_date': examDate,
+          'subjects': subjects,
+          'daily_minutes': ?dailyMinutes,
+          'force_new': forceNew,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Get the current active exam plan.
+  static Future<Map<String, dynamic>> getActivePlan() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/plans/active')));
+
+  /// Get today's study blocks for a plan.
+  static Future<Map<String, dynamic>> getPlanToday(String planId) =>
+      _guard(() async =>
+          _decode(await _get('/api/exam-ecosystem/plans/$planId/today')));
+
+  /// Recalculate an existing plan without losing completed work.
+  static Future<Map<String, dynamic>> recalculatePlan(String planId) =>
+      _guard(() async => _decode(
+            await _post('/api/exam-ecosystem/plans/$planId/recalculate', body: {}),
+          ));
+
+  /// Start a smart practice session. Selects WHAT to practice.
+  /// [mode]: quick_quiz | topic_drill | weak_topic_drill |
+  ///         mistake_revision | chapter_test | mixed_priority | full_mock
+  static Future<Map<String, dynamic>> startPractice({
+    required String mode,
+    String? topic,
+    String? subject,
+    int? questionCount,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/exam-ecosystem/practice/start',
+        body: {
+          'mode': mode,
+          'topic': ?topic,
+          'subject': ?subject,
+          'question_count': ?questionCount,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Calculate current exam readiness (deterministic formula).
+  static Future<Map<String, dynamic>> getExamReadiness() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/readiness')));
+
+  /// Get readiness history snapshots for trend visualization.
+  static Future<Map<String, dynamic>> getReadinessHistory({int days = 30}) =>
+      _guard(() async => _decode(
+            await _get('/api/exam-ecosystem/readiness/history',
+                query: {'days': '$days'}),
+          ));
+
+  /// Get today's Ziku Exam Coach recommendations.
+  static Future<Map<String, dynamic>> getDailyCoaching() =>
+      _guard(() async =>
+          _decode(await _get('/api/exam-ecosystem/coaching/daily')));
 }
+
+
+// ---- Phase 4: top-level convenience wrappers (delegate to ApiService) ----
+
+/// Today's Ziku coaching brief.
+Future<Map<String, dynamic>> fetchCoachDailyBrief() =>
+    ApiService.coachDailyBrief();
+
+/// Weekly academic report.
+Future<Map<String, dynamic>> fetchCoachWeeklyReport() =>
+    ApiService.coachWeeklyReport();

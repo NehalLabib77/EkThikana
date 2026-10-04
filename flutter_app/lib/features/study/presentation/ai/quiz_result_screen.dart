@@ -12,6 +12,8 @@ import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
+import '../../../../shared/widgets/ai_widgets.dart';
+import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 
 class QuizResultScreen extends StatefulWidget {
@@ -26,6 +28,7 @@ class QuizResultScreen extends StatefulWidget {
     this.timeSpentSeconds = 0,
     this.onResultSaved,
     this.saveResultFn,
+    this.analyzeFn,
   });
 
   final List<Map<String, dynamic>> questions;
@@ -49,6 +52,12 @@ class QuizResultScreen extends StatefulWidget {
   })?
   saveResultFn;
 
+  /// Phase 1 — explains the mistakes this quiz just recorded, in one batch.
+  ///
+  /// Null hides the offer entirely, so a caller that did not record mistakes
+  /// never shows a button that cannot do anything.
+  final Future<Map<String, dynamic>> Function()? analyzeFn;
+
   @override
   State<QuizResultScreen> createState() => _QuizResultScreenState();
 }
@@ -57,6 +66,14 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   bool _saving = false;
   bool _saved = false;
   String _saveError = '';
+
+  // Phase 1 — what the backend recorded while saving the result.
+  int _mistakeCount = 0;
+  int _newMistakes = 0;
+  int _pendingAnalysis = 0;
+  bool _analysing = false;
+  String _analysisNote = '';
+  String _analysisError = '';
 
   late int _correctCount;
   late int _totalCount;
@@ -145,31 +162,31 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     setState(() => _saving = true);
 
     try {
-      if (widget.saveResultFn != null) {
-        await widget.saveResultFn!(
-          questions: widget.questions,
-          userAnswers: widget.userAnswers,
-          correctAnswers: widget.correctAnswers,
-          score: _score,
-          topicScores: _topicScores,
-          subjectId: widget.subjectId,
-          materialId: widget.materialId,
-          difficulty: widget.difficulty,
-          timeSpentSeconds: widget.timeSpentSeconds,
-        );
-      } else {
-        await ApiService.saveQuizResult(
-          questions: widget.questions,
-          userAnswers: widget.userAnswers,
-          correctAnswers: widget.correctAnswers,
-          score: _score,
-          topicScores: _topicScores,
-          subjectId: widget.subjectId,
-          materialId: widget.materialId,
-          difficulty: widget.difficulty,
-          timeSpentSeconds: widget.timeSpentSeconds,
-        );
-      }
+      // The backend answers with the mistake counts it recorded while saving,
+      // so the feedback loop (saved → explained) needs no second round trip.
+      final response = widget.saveResultFn != null
+          ? await widget.saveResultFn!(
+              questions: widget.questions,
+              userAnswers: widget.userAnswers,
+              correctAnswers: widget.correctAnswers,
+              score: _score,
+              topicScores: _topicScores,
+              subjectId: widget.subjectId,
+              materialId: widget.materialId,
+              difficulty: widget.difficulty,
+              timeSpentSeconds: widget.timeSpentSeconds,
+            )
+          : await ApiService.saveQuizResult(
+              questions: widget.questions,
+              userAnswers: widget.userAnswers,
+              correctAnswers: widget.correctAnswers,
+              score: _score,
+              topicScores: _topicScores,
+              subjectId: widget.subjectId,
+              materialId: widget.materialId,
+              difficulty: widget.difficulty,
+              timeSpentSeconds: widget.timeSpentSeconds,
+            );
 
       if (widget.onResultSaved != null) {
         await widget.onResultSaved!();
@@ -179,7 +196,22 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
         setState(() {
           _saving = false;
           _saved = true;
+          _mistakeCount = _asInt(response['mistakeCount']);
+          _newMistakes = _asInt(response['newMistakes']);
+          _pendingAnalysis = _asInt(response['pendingAnalysis']);
         });
+      }
+
+      // Phase 4 — the Study Coach caches the profile and today's mission for
+      // the day, and this quiz just changed both. Rebuild them in the
+      // background (only when the real backend path saved); a failed rebuild
+      // leaves yesterday's cache to expire on its own.
+      if (widget.saveResultFn == null) {
+        unawaited(
+          ApiService.coachRecalculate().catchError(
+            (Object _) => <String, dynamic>{},
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -190,6 +222,43 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
       }
     }
   }
+
+  /// One batched AI call for everything this quiz recorded.
+  Future<void> _explainMistakes() async {
+    final analyze = widget.analyzeFn;
+    if (_analysing || analyze == null) return;
+    setState(() {
+      _analysing = true;
+      _analysisError = '';
+      _analysisNote = '';
+    });
+    try {
+      final result = await analyze();
+      if (!mounted) return;
+      final analysed = _asInt(result['analyzed']);
+      setState(() {
+        _analysing = false;
+        _pendingAnalysis = _asInt(result['pending']);
+        _analysisNote = analysed > 0
+            ? GochanoLanguage.text(
+                'Ziku explained $analysed mistakes.',
+                'জিকু $analysed টি ভুল ব্যাখ্যা করেছে।',
+              )
+            : GochanoLanguage.text(
+                'Nothing new to explain yet.',
+                'নতুন কিছু ব্যাখ্যা করার নেই।',
+              );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _analysing = false;
+        _analysisError = e.toString();
+      });
+    }
+  }
+
+  static int _asInt(dynamic value) => value is num ? value.toInt() : 0;
 
   Color _scoreColor(BuildContext context) {
     final colors = context.colors;
@@ -362,6 +431,82 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
               ),
             ],
           ),
+
+          // Phase 1 — the wrong answers just recorded, and the one action
+          // worth taking on them. Hidden when nothing was recorded, so a
+          // screen that only displays a score still only displays a score.
+          if (_mistakeCount > 0) ...[
+            const SizedBox(height: GochanoSpacing.md),
+            AppCard(
+              accent: colors.ai,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.psychology_alt_rounded,
+                        size: 18,
+                        color: colors.ai,
+                      ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Saved to My Learning Brain',
+                            'মাই লার্নিং ব্রেইনে সংরক্ষিত',
+                          ),
+                          style: context.type.cardHeading,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: GochanoSpacing.xs),
+                  Text(
+                    GochanoLanguage.text(
+                      '$_mistakeCount wrong answers kept for revision · '
+                      '$_newMistakes new',
+                      '$_mistakeCount টি ভুল পুনরাবৃত্তির জন্য রাখা হয়েছে',
+                    ),
+                    style: context.type.bodySecondary.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                  if (_pendingAnalysis > 0 &&
+                      widget.analyzeFn != null) ...[
+                    const SizedBox(height: GochanoSpacing.sm),
+                    PrimaryButton(
+                      label: GochanoLanguage.text(
+                        'Explain with Ziku',
+                        'জিকু দিয়ে ব্যাখ্যা',
+                      ),
+                      icon: Icons.auto_awesome_rounded,
+                      expand: false,
+                      busy: _analysing,
+                      busyLabel: GochanoLanguage.text(
+                        'Explaining…',
+                        'ব্যাখ্যা হচ্ছে…',
+                      ),
+                      onPressed: _explainMistakes,
+                    ),
+                  ],
+                  if (_analysisNote.isNotEmpty) ...[
+                    const SizedBox(height: GochanoSpacing.xs),
+                    Text(
+                      _analysisNote,
+                      style: context.type.caption.copyWith(
+                        color: colors.success,
+                      ),
+                    ),
+                  ],
+                  if (_analysisError.isNotEmpty) ...[
+                    const SizedBox(height: GochanoSpacing.xs),
+                    AiErrorBanner(message: _analysisError),
+                  ],
+                ],
+              ),
+            ),
+          ],
 
           const SizedBox(height: GochanoSpacing.md),
 

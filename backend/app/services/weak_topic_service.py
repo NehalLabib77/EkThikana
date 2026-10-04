@@ -21,12 +21,38 @@ DEFAULT_WEAK_THRESHOLD = 60
 MIN_ATTEMPTS = 1
 
 
+def _canonical_mastery(uid: str) -> dict[str, dict[str, Any]]:
+    """One canonical read per call, keyed by topic.
+
+    The adapter imports lazily so the module graph stays acyclic:
+    ``learning_memory_service`` already depends on Mistake Memory, which
+    depends on this module.
+    """
+    try:
+        from app.services import learning_memory_service as memory
+
+        return {
+            str(record.get("topic") or ""): record
+            for record in memory.get_all_topics_mastery(uid)
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("weak topic adapter: canonical mastery unavailable: %s", exc)
+        return {}
+
+
 def get_weak_topics(
     uid: str,
     threshold: int = DEFAULT_WEAK_THRESHOLD,
     min_attempts: int = MIN_ATTEMPTS,
 ) -> list[dict[str, Any]]:
     """Analyze quiz history and return topics below the mastery threshold.
+
+    Compatibility adapter: the legacy 0-100 contract (``topic``,
+    ``average_score``, ``attempts``, ``recommendation`` and the 0-100
+    ``threshold``) is preserved exactly, while ``mastery`` / ``confidence`` /
+    ``signals`` are delegated to the canonical
+    :func:`learning_memory_service.get_all_topics_mastery` so the numbers a
+    legacy consumer reads are the same numbers every other consumer reads.
 
     Args:
         uid: Firebase Auth UID of the student.
@@ -41,6 +67,8 @@ def get_weak_topics(
     if db is None:
         logger.warning("Firestore unavailable, cannot compute weak topics")
         return []
+
+    canonical = _canonical_mastery(uid)
 
     # Fetch all quiz results for the user
     docs = (
@@ -80,11 +108,26 @@ def get_weak_topics(
         avg_score = agg["total_score"] // attempts
         if avg_score < threshold:
             recommendation = _generate_recommendation(topic, avg_score, attempts)
+            record = canonical.get(topic)
+            if record is not None:
+                mastery = float(record["mastery"])
+                confidence = float(record["confidence"])
+                signals = dict(record["signals"])
+            else:
+                mastery = round(max(0.0, min(1.0, avg_score / 100.0)), 2)
+                confidence = round(min(1.0, max(0.0, attempts / 5.0)), 2)
+                signals = {
+                    "quizAccuracy": float(avg_score),
+                    "quizAttempts": attempts,
+                }
             weak_topics.append({
                 "topic": topic,
                 "average_score": avg_score,
                 "attempts": attempts,
                 "recommendation": recommendation,
+                "mastery": mastery,
+                "confidence": confidence,
+                "signals": signals,
             })
 
     # Sort by average score ascending (weakest first)

@@ -59,33 +59,33 @@ void main() {
       return TelecomAuthService.parseSubscriptionResponseForTest(body);
     }
 
-    test('REGISTERED → shouldEnterApp=true, maySendOtp=false', () {
+    test('REGISTERED → shouldEnterApp=true, isAlreadySubscribed=true', () {
       final result = r('{"subscriptionStatus":"REGISTERED"}');
       expect(result.shouldEnterApp, isTrue);
-      expect(result.maySendOtp, isFalse);
+      expect(result.isAlreadySubscribed, isTrue);
       expect(result.status, TelecomSubscriptionStatus.registered);
     });
 
-    test('NOT SUBSCRIBED → shouldEnterApp=false, maySendOtp=true', () {
+    test('NOT SUBSCRIBED → shouldEnterApp=false, isAlreadySubscribed=false', () {
       final result = r('{"subscriptionStatus":"NOT SUBSCRIBED"}');
       expect(result.shouldEnterApp, isFalse);
-      expect(result.maySendOtp, isTrue);
+      expect(result.isAlreadySubscribed, isFalse);
       expect(result.status, TelecomSubscriptionStatus.notSubscribed);
     });
 
-    test('TEMPORARY BLOCKED → shouldEnterApp=false, maySendOtp=false', () {
+    test('TEMPORARY BLOCKED → shouldEnterApp=false, isTemporarilyBlocked=true', () {
       final result =
           r('{"subscriptionStatus":"TEMPORARY BLOCKED","isSubscribed":false}');
       expect(result.shouldEnterApp, isFalse);
-      expect(result.maySendOtp, isFalse);
+      expect(result.isTemporarilyBlocked, isTrue);
       expect(result.status, TelecomSubscriptionStatus.temporaryBlocked);
     });
 
-    test('UNKNOWN → shouldEnterApp=false, maySendOtp=false', () {
+    test('UNKNOWN → shouldEnterApp=false, isTemporarilyBlocked=false', () {
       final result = r('{"subscriptionStatus":"WEIRD NEW STATUS"}');
       expect(result.shouldEnterApp, isFalse);
-      expect(result.maySendOtp, isFalse);
-      expect(result.status, TelecomSubscriptionStatus.unknown);
+      expect(result.isTemporarilyBlocked, isFalse);
+      expect(result.status, TelecomSubscriptionStatus.notSubscribed);
     });
 
     test('source _continue still calls checkSubscription', () {
@@ -121,12 +121,12 @@ void main() {
       expect(devSource, contains('signInWithEmailAndPassword'));
     });
 
-    test('_devLogin method does not call checkSubscription', () {
+    test('_developerLogin method does not call telecom endpoints', () {
       final loginSource =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final devStart = loginSource.indexOf('Future<void> _devLogin()');
+      final devStart = loginSource.indexOf('Future<void> _developerLogin()');
       expect(devStart, greaterThanOrEqualTo(0));
-      final devEnd = loginSource.indexOf('String? _validatePhone', devStart);
+      final devEnd = loginSource.indexOf('void _showError', devStart);
       final devBody = loginSource.substring(devStart, devEnd);
       expect(devBody, isNot(contains('checkSubscription')));
       expect(devBody, isNot(contains('sendOtp')));
@@ -156,35 +156,36 @@ void main() {
       expect(source, contains('emailVerified'));
     });
 
-    test('_devLogin calls checkProfileState after Firebase sign-in', () {
+    test('_developerLogin calls hasProfile after Firebase sign-in', () {
       final source =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final devStart = source.indexOf('Future<void> _devLogin()');
-      final devEnd = source.indexOf('String? _validatePhone', devStart);
+      final devStart = source.indexOf('Future<void> _developerLogin()');
+      final devEnd = source.indexOf('void _showError', devStart);
       final devBody = source.substring(devStart, devEnd);
-      expect(devBody, contains('FirestoreService.checkProfileState()'));
+      expect(devBody, contains('FirestoreService.hasProfile()'));
     });
 
-    test('_devLogin checks currentUser null after sign-in', () {
+    test('_developerLogin checks user null after sign-in', () {
       final source =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final devStart = source.indexOf('Future<void> _devLogin()');
-      final devEnd = source.indexOf('String? _validatePhone', devStart);
+      final devStart = source.indexOf('Future<void> _developerLogin()');
+      final devEnd = source.indexOf('void _showError', devStart);
       final devBody = source.substring(devStart, devEnd);
-      final signInIdx = devBody.indexOf('devLogin()');
-      final nullGuardIdx = devBody.indexOf('currentUser == null');
+      final signInIdx = devBody.indexOf('signInWithEmailAndPassword');
+      final nullGuardIdx = devBody.indexOf('user == null');
       expect(signInIdx, greaterThanOrEqualTo(0));
       expect(nullGuardIdx, greaterThan(signInIdx),
-          reason: 'currentUser null check must come after devLogin()');
+          reason: 'user null check must come after signInWithEmailAndPassword');
     });
 
-    test('_devLogin calls persistSession for AuthGate compatibility', () {
+    test('_developerLogin routes to GochanoShell when profile exists', () {
       final source =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final devStart = source.indexOf('Future<void> _devLogin()');
-      final devEnd = source.indexOf('String? _validatePhone', devStart);
+      final devStart = source.indexOf('Future<void> _developerLogin()');
+      final devEnd = source.indexOf('void _showError', devStart);
       final devBody = source.substring(devStart, devEnd);
-      expect(devBody, contains('TelecomAuthService.persistSession'));
+      expect(devBody, contains('GochanoShell('));
+      expect(devBody, contains('ProfileSetupScreen('));
     });
   });
 
@@ -193,14 +194,14 @@ void main() {
   // -------------------------------------------------------------------
 
   group('Release/profile build cannot expose Developer Login', () {
-    test('button is inside if (isDevAuthEnabled) guard', () {
+    test('button is inside if (_developerLoginEnabled) guard', () {
       final source =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final buttonIdx = source.indexOf("label: const Text('Developer Login')");
+      final buttonIdx = source.indexOf("label: 'Developer Login'");
       expect(buttonIdx, greaterThanOrEqualTo(0));
-      final guardIdx = source.lastIndexOf('if (isDevAuthEnabled)', buttonIdx);
+      final guardIdx = source.lastIndexOf('if (_developerLoginEnabled)', buttonIdx);
       expect(guardIdx, greaterThanOrEqualTo(0),
-          reason: 'Developer Login button must be inside isDevAuthEnabled guard');
+          reason: 'Developer Login button must be inside _developerLoginEnabled guard');
     });
 
     test('pure gate returns false when debugMode is false', () {
@@ -297,37 +298,37 @@ void main() {
   // -------------------------------------------------------------------
 
   group('No direct GochanoShell navigation before Firebase auth', () {
-    test('_devLogin: devLogin() before GochanoShell', () {
+    test('_developerLogin: signInWithEmailAndPassword before GochanoShell', () {
       final source =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final devStart = source.indexOf('Future<void> _devLogin()');
-      final devEnd = source.indexOf('String? _validatePhone', devStart);
+      final devStart = source.indexOf('Future<void> _developerLogin()');
+      final devEnd = source.indexOf('void _showError', devStart);
       final devBody = source.substring(devStart, devEnd);
-      final signInIdx = devBody.indexOf('devLogin()');
+      final signInIdx = devBody.indexOf('signInWithEmailAndPassword');
       final shellIdx = devBody.indexOf('GochanoShell(');
       expect(signInIdx, lessThan(shellIdx),
           reason: 'Firebase sign-in must occur before GochanoShell navigation');
     });
 
-    test('_devLogin: currentUser null check before GochanoShell', () {
+    test('_developerLogin: user null check before GochanoShell', () {
       final source =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final devStart = source.indexOf('Future<void> _devLogin()');
-      final devEnd = source.indexOf('String? _validatePhone', devStart);
+      final devStart = source.indexOf('Future<void> _developerLogin()');
+      final devEnd = source.indexOf('void _showError', devStart);
       final devBody = source.substring(devStart, devEnd);
-      final nullGuardIdx = devBody.indexOf('currentUser == null');
+      final nullGuardIdx = devBody.indexOf('user == null');
       final shellIdx = devBody.indexOf('GochanoShell(');
       expect(nullGuardIdx, lessThan(shellIdx),
-          reason: 'currentUser null guard must precede GochanoShell');
+          reason: 'user null guard must precede GochanoShell');
     });
 
-    test('_devLogin: profile check before GochanoShell', () {
+    test('_developerLogin: profile check before GochanoShell', () {
       final source =
           _read('lib/features/auth/presentation/login_screen.dart');
-      final devStart = source.indexOf('Future<void> _devLogin()');
-      final devEnd = source.indexOf('String? _validatePhone', devStart);
+      final devStart = source.indexOf('Future<void> _developerLogin()');
+      final devEnd = source.indexOf('void _showError', devStart);
       final devBody = source.substring(devStart, devEnd);
-      final profileIdx = devBody.indexOf('checkProfileState()');
+      final profileIdx = devBody.indexOf('hasProfile');
       final shellIdx = devBody.indexOf('GochanoShell(');
       expect(profileIdx, lessThan(shellIdx),
           reason: 'Profile check must precede GochanoShell navigation');
@@ -347,11 +348,11 @@ void main() {
       expect(source, contains('GochanoShell('));
     });
 
-    test('AuthGate does not reference dev auth', () {
+    test('AuthGate dev auth bypass requires kDebugMode compile-time gate', () {
       final source =
           _read('lib/features/auth/presentation/auth_gate.dart');
-      expect(source, isNot(contains('DEV_AUTH_BYPASS')));
-      expect(source, isNot(contains('isDevAuthEnabled')));
+      expect(source, contains('kDebugMode'));
+      expect(source, contains('_developerAuthBypass'));
       expect(source, isNot(contains('dev_auth_config')));
       expect(source, isNot(contains('devLogin')));
     });

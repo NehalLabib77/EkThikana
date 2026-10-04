@@ -616,6 +616,15 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
         accent: colors.commute,
         value: count('commute_guides'),
       ),
+      (
+        // One request analyses a whole batch of recorded mistakes, so this
+        // counts batches explained — not questions examined.
+        icon: Icons.psychology_outlined,
+        en: 'Mistake analyses',
+        bn: 'ভুল বিশ্লেষণ',
+        accent: colors.ai,
+        value: count('mistake_analyses'),
+      ),
     ];
 
     final rows = <Widget>[];

@@ -470,3 +470,224 @@ async def replace_material_file(
         mimeType=mime,
         sizeBytes=len(raw),
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 14: Document Intelligence Endpoints
+# ---------------------------------------------------------------------------
+
+class ProcessMaterialRequest(BaseModel):
+    force: bool = False
+
+
+class RetrieveChunksRequest(BaseModel):
+    query: str
+    top_k: int = 3
+
+
+class DocumentContentRequest(BaseModel):
+    topic: str = ""
+    query: str = ""
+    count: int = 10
+    difficulty: str = "medium"
+    time_limit_minutes: int = 30
+    question_count: int = 5
+
+
+@router.post("/{material_id}/process")
+async def process_material_endpoint(
+    material_id: str,
+    payload: ProcessMaterialRequest = ProcessMaterialRequest(),
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_ingestion_service
+    return await document_ingestion_service.process_material(
+        material_id, user, force=payload.force
+    )
+
+
+@router.get("/{material_id}/intelligence")
+async def get_material_intelligence_endpoint(
+    material_id: str,
+    force: bool = False,
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_intelligence_service
+    return await document_intelligence_service.get_document_intelligence(
+        material_id, user, force=force
+    )
+
+
+@router.post("/{material_id}/retrieve")
+async def retrieve_material_chunks_endpoint(
+    material_id: str,
+    payload: RetrieveChunksRequest,
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_retrieval_service
+    chunks = document_retrieval_service.retrieve_relevant_chunks(
+        uid=user.uid,
+        material_id=material_id,
+        query=payload.query,
+        top_k=payload.top_k,
+        user=user,
+    )
+    return {"materialId": material_id, "chunks": chunks, "count": len(chunks)}
+
+
+@router.post("/{material_id}/flashcards")
+async def generate_material_flashcards_endpoint(
+    material_id: str,
+    payload: DocumentContentRequest = DocumentContentRequest(),
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_retrieval_service, ziku_content_service
+    chunks = document_retrieval_service.retrieve_relevant_chunks(
+        uid=user.uid,
+        material_id=material_id,
+        query=payload.query or payload.topic or "key concepts formulas definitions",
+        top_k=5,
+        user=user,
+    )
+    grounded = document_retrieval_service.build_grounded_context(chunks)
+    mat = get_material_for_user(material_id, user)
+    topic = payload.topic or mat.get("title") or "Study Material"
+    result = await ziku_content_service.generate_flashcards(
+        user.uid,
+        topic=topic,
+        source=grounded or topic,
+        count=payload.count or 10,
+    )
+    return {"materialId": material_id, "topic": topic, "result": result}
+
+
+@router.post("/{material_id}/revision-sheet")
+async def generate_material_revision_sheet_endpoint(
+    material_id: str,
+    payload: DocumentContentRequest = DocumentContentRequest(),
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_retrieval_service, ziku_content_service
+    chunks = document_retrieval_service.retrieve_relevant_chunks(
+        uid=user.uid,
+        material_id=material_id,
+        query=payload.query or payload.topic or "summary key points formulas",
+        top_k=5,
+        user=user,
+    )
+    grounded = document_retrieval_service.build_grounded_context(chunks)
+    mat = get_material_for_user(material_id, user)
+    topic = payload.topic or mat.get("title") or "Study Material"
+    result = await ziku_content_service.generate_revision_sheet(
+        user.uid,
+        topic=topic,
+        source=grounded or topic,
+    )
+    return {"materialId": material_id, "topic": topic, "result": result}
+
+
+@router.post("/{material_id}/study-pack")
+async def generate_material_study_pack_endpoint(
+    material_id: str,
+    payload: DocumentContentRequest = DocumentContentRequest(),
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_retrieval_service, ziku_content_service
+    chunks = document_retrieval_service.retrieve_relevant_chunks(
+        uid=user.uid,
+        material_id=material_id,
+        query=payload.query or payload.topic or "overview summary questions",
+        top_k=5,
+        user=user,
+    )
+    grounded = document_retrieval_service.build_grounded_context(chunks)
+    mat = get_material_for_user(material_id, user)
+    topic = payload.topic or mat.get("title") or "Study Material"
+    result = await ziku_content_service.generate_study_pack(
+        user.uid,
+        topic=topic,
+        source=grounded or topic,
+        question_count=payload.question_count or 5,
+    )
+    return {"materialId": material_id, "topic": topic, "result": result}
+
+
+@router.post("/{material_id}/quiz")
+async def generate_material_quiz_endpoint(
+    material_id: str,
+    payload: DocumentContentRequest = DocumentContentRequest(),
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_retrieval_service, ziku_content_service
+    chunks = document_retrieval_service.retrieve_relevant_chunks(
+        uid=user.uid,
+        material_id=material_id,
+        query=payload.query or payload.topic or "quiz questions practice",
+        top_k=5,
+        user=user,
+    )
+    grounded = document_retrieval_service.build_grounded_context(chunks)
+    mat = get_material_for_user(material_id, user)
+    topic = payload.topic or mat.get("title") or "Study Material"
+    result = await ziku_content_service.generate_quiz(
+        user.uid,
+        topic=topic,
+        source=grounded or topic,
+        difficulty=payload.difficulty or "medium",
+        count=payload.count or 5,
+    )
+    gen_content = result.get("generatedContent", {})
+    if isinstance(gen_content, dict):
+        questions = gen_content.get("questions", [])
+    elif isinstance(gen_content, list):
+        questions = gen_content
+    else:
+        questions = []
+    return {
+        "materialId": material_id,
+        "topic": topic,
+        "result": result,
+        "questions": questions,
+    }
+
+
+@router.post("/{material_id}/exam")
+async def generate_material_exam_endpoint(
+    material_id: str,
+    payload: DocumentContentRequest = DocumentContentRequest(),
+    user: CurrentUser = Depends(require_student),
+):
+    from app.services import document_retrieval_service, ziku_content_service
+    chunks = document_retrieval_service.retrieve_relevant_chunks(
+        uid=user.uid,
+        material_id=material_id,
+        query=payload.query or payload.topic or "comprehensive exam questions problems",
+        top_k=6,
+        user=user,
+    )
+    grounded = document_retrieval_service.build_grounded_context(chunks)
+    mat = get_material_for_user(material_id, user)
+    topic = payload.topic or mat.get("title") or "Study Material"
+    quiz_res = await ziku_content_service.generate_quiz(
+        user.uid,
+        topic=topic,
+        source=grounded or topic,
+        difficulty=payload.difficulty or "hard",
+        count=payload.count or 10,
+    )
+    gen_content = quiz_res.get("generatedContent", {})
+    if isinstance(gen_content, dict):
+        questions = gen_content.get("questions", [])
+    elif isinstance(gen_content, list):
+        questions = gen_content
+    else:
+        questions = []
+    return {
+        "materialId": material_id,
+        "topic": topic,
+        "exam": {
+            "title": f"Mock Exam: {topic}",
+            "timeLimitMinutes": payload.time_limit_minutes or 30,
+            "questions": questions,
+        },
+    }

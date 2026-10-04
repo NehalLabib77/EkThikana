@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     openrouter_model: str = "qwen/qwen-2.5-72b-instruct:free"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    max_upload_mb: int = 15
+    max_upload_mb: int = 25
     user_storage_limit_mb: int = 100
     upload_daily_limit: int = 10
     # Spec §8.10: signed download/view URLs must expire in 15 minutes or less.
@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     ai_limit_note_monthly: int = 5
     ai_limit_quiz_monthly: int = 3
     ai_limit_study_plan_active: int = 1
+    # Phase 1 — mistake memory. One request analyses a whole batch of
+    # mistakes, so a daily allowance covers a student's revision habit
+    # without opening a quota sink: a repeat mistake costs no new request.
+    ai_limit_mistake_daily: int = 10
 
     # Phase AI-FLOAT-1 — app-level AI quota enforcement switch.
     # Safe default is True (production). Setting AI_QUOTA_ENFORCEMENT=false

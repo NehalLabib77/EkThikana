@@ -62,9 +62,7 @@ class _ReactionPickerBody extends StatelessWidget {
                 'Type normal emoji from your keyboard, or pick a Gochano reaction below.',
                 'আপনার কীবোর্ড থেকে সাধারণ ইমোজি টাইপ করুন, অথবা নিচে থেকে গোচানো রিঅ্যাকশন বাছুন।',
               ),
-              style: context.type.caption.copyWith(
-                color: colors.textSecondary,
-              ),
+              style: context.type.caption.copyWith(color: colors.textSecondary),
             ),
             const SizedBox(height: GochanoSpacing.sm),
 
@@ -88,10 +86,7 @@ class _ReactionPickerBody extends StatelessWidget {
 }
 
 class _PackSection extends StatelessWidget {
-  const _PackSection({
-    required this.pack,
-    required this.onReactionSelected,
-  });
+  const _PackSection({required this.pack, required this.onReactionSelected});
 
   final AnimatedReactionPack pack;
   final ValueChanged<AnimatedReaction> onReactionSelected;
@@ -109,9 +104,7 @@ class _PackSection extends StatelessWidget {
                 'Level ${pack.level}',
                 'লেভেল ${pack.level}',
               ),
-              style: context.type.label.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: context.type.label.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -138,10 +131,7 @@ class _PackSection extends StatelessWidget {
 }
 
 class _ReactionTile extends StatelessWidget {
-  const _ReactionTile({
-    required this.reaction,
-    required this.onTap,
-  });
+  const _ReactionTile({required this.reaction, required this.onTap});
 
   final AnimatedReaction reaction;
   final VoidCallback onTap;

@@ -382,3 +382,30 @@ def test_replace_rejects_empty_body(client, fake_db, fake_auth, fake_storage):
         files={"file": ("empty.pdf", b"", "application/pdf")},
     )
     assert resp.status_code == 400, resp.text
+
+
+def test_upload_rejects_file_over_25mb(client, fake_db, fake_auth):
+    uid = "uploader-size-check"
+    fake_db.seed("users", uid, {"role": "student"})
+    oversized = b"a" * (25 * 1024 * 1024 + 1)
+    resp = client.post(
+        "/api/materials/upload",
+        headers=_h(fake_auth, uid),
+        files={"file": ("large.txt", oversized, "text/plain")},
+        data={"title": "Oversized document"},
+    )
+    assert resp.status_code == 413, resp.text
+    assert "Maximum file size is 25 MB" in resp.json().get("detail", "")
+
+
+def test_upload_accepts_file_within_25mb(client, fake_db, fake_auth, fake_storage):
+    uid = "uploader-valid-size"
+    fake_db.seed("users", uid, {"role": "student"})
+    valid_data = b"Hello valid content"
+    resp = client.post(
+        "/api/materials/upload",
+        headers=_h(fake_auth, uid),
+        files={"file": ("valid.txt", valid_data, "text/plain")},
+        data={"title": "Valid document"},
+    )
+    assert resp.status_code == 200, resp.text

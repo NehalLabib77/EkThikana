@@ -115,7 +115,9 @@ class _MediaPickerBodyState extends State<_MediaPickerBody>
             child: TabBarView(
               controller: _tabCtrl,
               children: [
-                _EmojiTab(onSelected: (e) => Navigator.of(context).pop(EmojiPick(e))),
+                _EmojiTab(
+                  onSelected: (e) => Navigator.of(context).pop(EmojiPick(e)),
+                ),
                 _ReactionTab(
                   onSelected: (r) => Navigator.of(context).pop(ReactionPick(r)),
                 ),
@@ -138,29 +140,74 @@ class _MediaPickerBodyState extends State<_MediaPickerBody>
 /// Curated emoji categories for the Study context.
 const Map<String, List<String>> _emojiCategories = {
   'Smileys': [
-    '\u{1F60A}', '\u{1F604}', '\u{1F60E}', '\u{1F913}',
-    '\u{1F60C}', '\u{1F622}', '\u{1F631}', '\u{1F914}',
-    '\u{1F92F}', '\u{1F609}', '\u{1F60D}', '\u{1F970}',
+    '\u{1F60A}',
+    '\u{1F604}',
+    '\u{1F60E}',
+    '\u{1F913}',
+    '\u{1F60C}',
+    '\u{1F622}',
+    '\u{1F631}',
+    '\u{1F914}',
+    '\u{1F92F}',
+    '\u{1F609}',
+    '\u{1F60D}',
+    '\u{1F970}',
   ],
   'Study': [
-    '\u{1F4DA}', '\u{1F4D6}', '\u{270D}\u{FE0F}', '\u{1F4DD}',
-    '\u{1F4AF}', '\u{1F4A4}', '\u{1F4BB}', '\u{1F9E0}',
-    '\u{23F0}', '\u{1F514}', '\u{1F4A1}', '\u{2728}',
+    '\u{1F4DA}',
+    '\u{1F4D6}',
+    '\u{270D}\u{FE0F}',
+    '\u{1F4DD}',
+    '\u{1F4AF}',
+    '\u{1F4A4}',
+    '\u{1F4BB}',
+    '\u{1F9E0}',
+    '\u{23F0}',
+    '\u{1F514}',
+    '\u{1F4A1}',
+    '\u{2728}',
   ],
   'Celebration': [
-    '\u{1F389}', '\u{1F38A}', '\u{1F388}', '\u{1F381}',
-    '\u{1F973}', '\u{1F60E}', '\u{1F3C6}', '\u{1F44F}',
-    '\u{1F382}', '\u{1F386}', '\u{2B50}', '\u{1F31F}',
+    '\u{1F389}',
+    '\u{1F38A}',
+    '\u{1F388}',
+    '\u{1F381}',
+    '\u{1F973}',
+    '\u{1F60E}',
+    '\u{1F3C6}',
+    '\u{1F44F}',
+    '\u{1F382}',
+    '\u{1F386}',
+    '\u{2B50}',
+    '\u{1F31F}',
   ],
   'Hearts': [
-    '\u{2764}\u{FE0F}', '\u{1F49B}', '\u{1F49A}', '\u{1F499}',
-    '\u{1F5A4}', '\u{1F90D}', '\u{1F90E}', '\u{1F49C}',
-    '\u{1F9E1}', '\u{2764}\u{FE0F}\u{200D}\u{1F525}', '\u{1F494}', '\u{1F495}',
+    '\u{2764}\u{FE0F}',
+    '\u{1F49B}',
+    '\u{1F49A}',
+    '\u{1F499}',
+    '\u{1F5A4}',
+    '\u{1F90D}',
+    '\u{1F90E}',
+    '\u{1F49C}',
+    '\u{1F9E1}',
+    '\u{2764}\u{FE0F}\u{200D}\u{1F525}',
+    '\u{1F494}',
+    '\u{1F495}',
   ],
   'Hands': [
-    '\u{1F44D}', '\u{1F44E}', '\u{1F44B}', '\u{1F64C}',
-    '\u{1F525}', '\u{1F4AA}', '\u{270A}', '\u{1F91C}',
-    '\u{1F91B}', '\u{1F44F}', '\u{1F64F}', '\u{1F91F}',
+    '\u{1F44D}',
+    '\u{1F44E}',
+    '\u{1F44B}',
+    '\u{1F64C}',
+    '\u{1F525}',
+    '\u{1F4AA}',
+    '\u{270A}',
+    '\u{1F91C}',
+    '\u{1F91B}',
+    '\u{1F44F}',
+    '\u{1F64F}',
+    '\u{1F91F}',
   ],
 };
 
@@ -175,7 +222,10 @@ class _EmojiTab extends StatelessWidget {
       padding: const EdgeInsets.all(GochanoSpacing.sm),
       children: [
         for (final entry in _emojiCategories.entries) ...[
-          Text(entry.key, style: context.type.label.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            entry.key,
+            style: context.type.label.copyWith(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: GochanoSpacing.xxs),
           Wrap(
             spacing: 2,
@@ -209,9 +259,7 @@ class _EmojiTab extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ReactionTab extends StatelessWidget {
-  const _ReactionTab({
-    required this.onSelected,
-  });
+  const _ReactionTab({required this.onSelected});
 
   final ValueChanged<AnimatedReaction> onSelected;
 
@@ -232,10 +280,7 @@ class _ReactionTab extends StatelessWidget {
         const SizedBox(height: GochanoSpacing.sm),
 
         for (final pack in animatedReactionPackets) ...[
-          _AnimatedPackSection(
-            pack: pack,
-            onSelected: onSelected,
-          ),
+          _AnimatedPackSection(pack: pack, onSelected: onSelected),
           const SizedBox(height: GochanoSpacing.sm),
         ],
       ],
@@ -246,10 +291,7 @@ class _ReactionTab extends StatelessWidget {
 List<AnimatedReactionPack> get animatedReactionPackets => animatedReactionPacks;
 
 class _AnimatedPackSection extends StatelessWidget {
-  const _AnimatedPackSection({
-    required this.pack,
-    required this.onSelected,
-  });
+  const _AnimatedPackSection({required this.pack, required this.onSelected});
 
   final AnimatedReactionPack pack;
   final ValueChanged<AnimatedReaction> onSelected;
@@ -266,9 +308,7 @@ class _AnimatedPackSection extends StatelessWidget {
                 'Level ${pack.level}',
                 'লেভেল ${pack.level}',
               ),
-              style: context.type.label.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: context.type.label.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -293,10 +333,7 @@ class _AnimatedPackSection extends StatelessWidget {
 }
 
 class _AnimatedReactionTile extends StatelessWidget {
-  const _AnimatedReactionTile({
-    required this.reaction,
-    required this.onTap,
-  });
+  const _AnimatedReactionTile({required this.reaction, required this.onTap});
 
   final AnimatedReaction reaction;
   final VoidCallback onTap;
@@ -351,9 +388,7 @@ class _AnimatedReactionTile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _StickerTab extends StatelessWidget {
-  const _StickerTab({
-    required this.onSelected,
-  });
+  const _StickerTab({required this.onSelected});
 
   final ValueChanged<StickerItem> onSelected;
 
@@ -394,10 +429,7 @@ class _StickerTab extends StatelessWidget {
 }
 
 class _StickerTile extends StatelessWidget {
-  const _StickerTile({
-    required this.sticker,
-    required this.onTap,
-  });
+  const _StickerTile({required this.sticker, required this.onTap});
 
   final StickerItem sticker;
   final VoidCallback onTap;

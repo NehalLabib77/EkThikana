@@ -43,6 +43,25 @@ def create_group(
     body: GroupCreate,
     user: CurrentUser = Depends(require_student),
 ):
+    from app.services.community_service import GROUP_KINDS, STUDY_CATEGORIES
+
+    category = body.category.strip().lower()
+    if category and category not in STUDY_CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"category must be one of {list(STUDY_CATEGORIES)}",
+        )
+    kind = (body.kind or "study").strip().lower()
+    if kind not in GROUP_KINDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"kind must be one of {list(GROUP_KINDS)}",
+        )
+    # Phase 7 (spec 7.7) - class/teacher groups record an explicit teacher
+    # role from day one; study groups record everyone as student. The UI
+    # for class/teacher groups arrives in a later phase.
+    owner_role = "teacher" if kind in ("class", "teacher") else "student"
+
     db = get_firestore()
     ref = db.collection("groups").document()
     code = _invite_code()
@@ -51,6 +70,9 @@ def create_group(
         {
             "name": body.name.strip(),
             "description": body.description.strip(),
+            "category": category,
+            "kind": kind,
+            "roles": {user.uid: owner_role},
             "ownerId": user.uid,
             "adminIds": [user.uid],
             "memberIds": [user.uid],
@@ -60,7 +82,7 @@ def create_group(
             "updatedAt": firestore.SERVER_TIMESTAMP,
         }
     )
-    return {"id": ref.id, "inviteCode": code}
+    return {"id": ref.id, "inviteCode": code, "category": category, "kind": kind}
 
 
 @router.post("/join")
@@ -90,6 +112,9 @@ def join_group(
             "updatedAt": firestore.SERVER_TIMESTAMP,
         }
     )
+    from app.services.analytics_service import track_event
+
+    track_event(user.uid, "study_group_joined", {"source": "groups"})
     return {"id": snap.id, "alreadyMember": False}
 
 

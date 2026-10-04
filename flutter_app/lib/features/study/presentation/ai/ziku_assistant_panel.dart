@@ -3,7 +3,11 @@ import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
+import '../../../../core/page_route.dart';
+import '../tutor/ziku_tutor_screen.dart';
 import 'ai_conversation_service.dart';
+
+
 import 'ziku_markdown_text.dart';
 
 class ZikuAssistantPanel extends StatefulWidget {
@@ -224,7 +228,20 @@ class _ZikuAssistantPanelState extends State<ZikuAssistantPanel> {
             ),
           ),
           IconButton(
+            key: const ValueKey('ziku_panel_tutor_button'),
+            tooltip: GochanoLanguage.text('Socratic Tutor', 'সক্রেটিক টিউটর'),
+            icon: Icon(Icons.school_outlined, size: 20, color: colors.brand),
+            onPressed: () {
+              Navigator.of(context).push(
+                GochanoRoute.to(
+                  builder: (_) => const ZikuTutorScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             tooltip: GochanoLanguage.text('Clear conversation', 'নতুন চ্যাট শুরু করুন'),
+
             icon: Icon(Icons.refresh_rounded, size: 20, color: colors.textSecondary),
             onPressed: () => _service.clearConversation(),
           ),

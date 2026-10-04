@@ -27,6 +27,7 @@ import '../../../services/notification_service.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
+import '../../exams/exam_simulator_card.dart';
 import '../../life/domain/medicine_schedule.dart';
 import '../../life/presentation/commute/commute_place_picker.dart';
 import '../../life/presentation/commute/commute_screen.dart';
@@ -34,8 +35,12 @@ import '../../life/presentation/commute/planned_trip_models.dart';
 import '../../life/presentation/commute/plan_trip_sheet.dart';
 import '../../life/presentation/medicine/medicine_screen.dart';
 import '../../notifications/presentation/notification_center_screen.dart';
+import '../../profile/presentation/academic_health_card.dart';
 import '../../search/presentation/universal_search_screen.dart';
+import '../../study/presentation/focus/ziku_session_card.dart';
 import '../../study/presentation/materials/material_reader_screen.dart';
+import '../../study/presentation/planner/ziku_coach_card.dart';
+import '../../study/presentation/memory/learning_recommendation_card.dart';
 import '../../study/presentation/rescue/exam_rescue_active_card.dart';
 import '../../study/presentation/rescue/exam_rescue_models.dart';
 import '../../study/presentation/rescue/exam_rescue_session_service.dart';
@@ -43,7 +48,7 @@ import '../../../services/local_reminder_store.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../../widgets/sync_status_indicator.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.role,
@@ -51,6 +56,7 @@ class HomeScreen extends StatelessWidget {
     required this.onOpenDestination,
     required this.onOpenProfile,
     this.examRescueSessionService,
+    this.bootstrapFn,
   });
 
   final String role;
@@ -58,16 +64,128 @@ class HomeScreen extends StatelessWidget {
   final ValueChanged<int> onOpenDestination;
   final VoidCallback onOpenProfile;
   final ExamRescueSessionService? examRescueSessionService;
+  final Future<Map<String, dynamic>> Function()? bootstrapFn;
 
   bool get _isStudent => role == 'student';
+
+  @visibleForTesting
+  List<Widget> buildModeCards(
+    BuildContext context,
+    GochanoAppMode mode, [
+    Map<String, dynamic>? bootstrapData,
+  ]) {
+    if (!_isStudent) {
+      return [
+        const SyncStatusIndicator(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _TodaysTasksCard(
+          onSeeAll: () => onOpenDestination(2),
+          examRescueSessionService: examRescueSessionService,
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        const _MedicineScheduleCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _CommuteCard(onOpenCommute: () => onOpenDestination(1)),
+        const SizedBox(height: GochanoSpacing.sm),
+        _MoneyCard(onOpenExpense: () => onOpenDestination(1)),
+      ];
+    }
+
+    if (mode == GochanoAppMode.study) {
+      return [
+        const SyncStatusIndicator(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _TodaysTasksCard(
+          onSeeAll: () => onOpenDestination(2), // Plan tab
+          examRescueSessionService: examRescueSessionService,
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        const _StudyProgressCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        _RecentMaterialsCard(
+          onOpenStudy: () => onOpenDestination(1), // Workspace tab
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        AcademicHealthCard(
+          initialData: bootstrapData?['academicHealth'] is Map<String, dynamic>
+              ? bootstrapData!['academicHealth'] as Map<String, dynamic>
+              : null,
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        LearningRecommendationCard(
+          initialData: bootstrapData?['recommendation'] is Map<String, dynamic>
+              ? bootstrapData!['recommendation'] as Map<String, dynamic>
+              : null,
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        const ExamSimulatorCard(),
+        const SizedBox(height: GochanoSpacing.sm),
+        ZikuCoachCard(
+          onOpenPlan: onOpenDestination,
+          initialData: bootstrapData?['coach'] is Map<String, dynamic>
+              ? bootstrapData!['coach'] as Map<String, dynamic>
+              : null,
+        ),
+        const SizedBox(height: GochanoSpacing.sm),
+        bootstrapData != null
+            ? ZikuSessionCard(
+                initialData: bootstrapData['focus'] is Map<String, dynamic>
+                    ? bootstrapData['focus'] as Map<String, dynamic>
+                    : null,
+              )
+            : const ZikuSessionCard(),
+      ];
+    }
+
+    // Utility Mode: Commute -> Money / Expense
+    return [
+      const SyncStatusIndicator(),
+      const SizedBox(height: GochanoSpacing.sm),
+      _CommuteCard(
+        onOpenCommute: () => onOpenDestination(2), // Commute tab (via handler)
+      ),
+      const SizedBox(height: GochanoSpacing.sm),
+      _MoneyCard(
+        onOpenExpense: () => onOpenDestination(3), // Money tab (via handler)
+      ),
+    ];
+  }
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  Map<String, dynamic>? _bootstrapData;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget._isStudent) {
+      _loadBootstrap();
+    }
+  }
+
+  Future<void> _loadBootstrap() async {
+    try {
+      final fn = widget.bootstrapFn ?? ApiService.studentDashboardBootstrap;
+      final data = await fn();
+      if (!mounted) return;
+      setState(() {
+        _bootstrapData = data;
+      });
+    } catch (_) {
+      // Degrade gracefully; individual cards will fall back to their own endpoints if needed
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
       padBody: false,
       appBar: _HomeAppBar(
-        displayName: displayName,
-        onOpenProfile: onOpenProfile,
+        displayName: widget.displayName,
+        onOpenProfile: widget.onOpenProfile,
         actions: [
           const LanguageToggle(),
           IconButton(
@@ -131,7 +249,7 @@ class HomeScreen extends StatelessWidget {
             },
           ),
           IconButton(
-            onPressed: onOpenProfile,
+            onPressed: widget.onOpenProfile,
             tooltip: GochanoLanguage.text('Profile', 'প্রোফাইল'),
             icon: const Icon(Icons.account_circle_outlined),
           ),
@@ -142,67 +260,16 @@ class HomeScreen extends StatelessWidget {
       body: ValueListenableBuilder<GochanoAppMode>(
         valueListenable: GochanoAppModePreferences.current,
         builder: (context, mode, _) {
-          return ListView(
-            padding: GochanoSpacing.scrollBody,
-            children: buildModeCards(context, mode),
+          return RefreshIndicator(
+            onRefresh: widget._isStudent ? _loadBootstrap : () async {},
+            child: ListView(
+              padding: GochanoSpacing.scrollBody,
+              children: widget.buildModeCards(context, mode, _bootstrapData),
+            ),
           );
         },
       ),
     );
-  }
-
-  @visibleForTesting
-  List<Widget> buildModeCards(BuildContext context, GochanoAppMode mode) {
-    if (!_isStudent) {
-      return [
-        const SyncStatusIndicator(),
-        const SizedBox(height: GochanoSpacing.sm),
-        _TodaysTasksCard(
-          onSeeAll: () => onOpenDestination(2),
-          examRescueSessionService: examRescueSessionService,
-        ),
-        const SizedBox(height: GochanoSpacing.sm),
-        const _MedicineScheduleCard(),
-        const SizedBox(height: GochanoSpacing.sm),
-        _CommuteCard(
-          onOpenCommute: () => onOpenDestination(1),
-        ),
-        const SizedBox(height: GochanoSpacing.sm),
-        _MoneyCard(
-          onOpenExpense: () => onOpenDestination(1),
-        ),
-      ];
-    }
-
-    if (mode == GochanoAppMode.study) {
-      return [
-        const SyncStatusIndicator(),
-        const SizedBox(height: GochanoSpacing.sm),
-        _TodaysTasksCard(
-          onSeeAll: () => onOpenDestination(2), // Plan tab
-          examRescueSessionService: examRescueSessionService,
-        ),
-        const SizedBox(height: GochanoSpacing.sm),
-        const _StudyProgressCard(),
-        const SizedBox(height: GochanoSpacing.sm),
-        _RecentMaterialsCard(
-          onOpenStudy: () => onOpenDestination(1), // Workspace tab
-        ),
-      ];
-    }
-
-    // Utility Mode: Commute -> Money / Expense
-    return [
-      const SyncStatusIndicator(),
-      const SizedBox(height: GochanoSpacing.sm),
-      _CommuteCard(
-        onOpenCommute: () => onOpenDestination(2), // Commute tab (via handler)
-      ),
-      const SizedBox(height: GochanoSpacing.sm),
-      _MoneyCard(
-        onOpenExpense: () => onOpenDestination(3), // Money tab (via handler)
-      ),
-    ];
   }
 }
 
@@ -627,7 +694,11 @@ class _TodaysTasksCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.today_rounded, size: 18, color: colors.brand),
+                        Icon(
+                          Icons.today_rounded,
+                          size: 18,
+                          color: colors.brand,
+                        ),
                         const SizedBox(width: GochanoSpacing.xs),
                         Text(
                           GochanoLanguage.text("Today", 'আজ'),
@@ -664,7 +735,14 @@ class _TodaysTasksCard extends StatelessWidget {
             }
 
             final now = DateTime.now();
-            final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+            final endOfToday = DateTime(
+              now.year,
+              now.month,
+              now.day,
+              23,
+              59,
+              59,
+            );
             final open = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
             var overdue = 0;
 
@@ -685,12 +763,11 @@ class _TodaysTasksCard extends StatelessWidget {
 
             ExamRescueTodayProgress? rescueProgress;
             if (activeSession != null) {
-              final allTaskMaps =
-                  docs.map((d) {
-                    final map = Map<String, dynamic>.from(d.data());
-                    map['id'] = d.id;
-                    return map;
-                  }).toList();
+              final allTaskMaps = docs.map((d) {
+                final map = Map<String, dynamic>.from(d.data());
+                map['id'] = d.id;
+                return map;
+              }).toList();
 
               rescueProgress = ExamRescueSessionService.calculateTodayProgress(
                 session: activeSession,
@@ -765,7 +842,10 @@ class _TodaysTasksCard extends StatelessWidget {
                         const SizedBox(width: GochanoSpacing.xs),
                         Expanded(
                           child: Text(
-                            GochanoLanguage.text('All clear today.', 'আজ ফাঁকা।'),
+                            GochanoLanguage.text(
+                              'All clear today.',
+                              'আজ ফাঁকা।',
+                            ),
                             style: context.type.bodySecondary,
                           ),
                         ),

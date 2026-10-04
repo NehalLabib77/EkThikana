@@ -27,6 +27,7 @@ import '../rescue/exam_rescue_models.dart';
 import '../rescue/exam_rescue_session_service.dart';
 import 'semester_list_screen.dart';
 import '../../../../features/community/presentation/shared_box_screen.dart';
+import '../exam_ecosystem/exam_hub_screen.dart';
 
 class WorkspaceView extends StatelessWidget {
   const WorkspaceView({
@@ -286,6 +287,14 @@ class _QuickAccessState extends State<_QuickAccess> {
         onTap: () => Navigator.of(
           context,
         ).push(GochanoRoute.to(builder: (_) => const SharedBoxScreen())),
+      ),
+      _QuickAccessItem(
+        icon: Icons.fact_check_rounded,
+        label: GochanoLanguage.text('Exam Prep', 'পরীক্ষা প্রস্তুতি'),
+        accent: colors.study,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const ExamHubScreen())),
       ),
     ];
 

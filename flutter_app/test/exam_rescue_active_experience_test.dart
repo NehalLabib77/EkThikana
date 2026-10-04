@@ -685,9 +685,15 @@ void main() {
           onOpenProfile: () {},
         );
 
-        // In Study mode: returns 7 elements (SyncStatusIndicator, SizedBox, _TodaysTasksCard, SizedBox, _StudyProgressCard, SizedBox, _RecentMaterialsCard)
+        // Study mode keeps the required cards and may include additive learning
+        // intelligence cards such as the Phase 10.5 recommendation card.
         final studyCards = _cardsForMode(home, GochanoAppMode.study);
-        expect(studyCards.length, equals(7));
+        expect(studyCards.length, greaterThanOrEqualTo(15));
+        final studyTypes = studyCards
+            .map((w) => w.runtimeType.toString())
+            .toList();
+        expect(studyTypes, contains('LearningRecommendationCard'));
+        expect(studyTypes, contains('ZikuCoachCard'));
 
         // In Utility mode: returns 5 elements (SyncStatusIndicator, SizedBox, _CommuteCard, SizedBox, _MoneyCard)
         final utilityCards = _cardsForMode(home, GochanoAppMode.utility);

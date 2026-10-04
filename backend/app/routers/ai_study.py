@@ -26,6 +26,7 @@ from app.services.ai_service import (
 from app.services.pdf_service import extract_pdf_text
 from app.services.ocr_service import extract_text as ocr_extract_text
 from app.services.permission_service import get_material_for_user, get_note_for_user
+from app.services import mistake_memory_service as mistake_memory
 from app.services import storage_provider
 from app.routers.ai import _material_bytes
 
@@ -135,7 +136,7 @@ async def _extract_source_material_text(
     note_id: str | None = None,
 ) -> str:
     """Extract and ground context from an existing note, uploaded material, or raw text.
-    
+
     Safe, permission-checked, and reuses existing B2/Firestore pipelines.
     Never duplicates file storage or leaks other users' data.
     """
@@ -660,9 +661,14 @@ async def quiz_save_result(
         raise HTTPException(status_code=503, detail="Firestore unavailable")
 
     total = len(body.questions)
+    # Score with the same rules the quiz screen uses (see
+    # ``mistake_memory_service.answers_match``): MCQ reference answers are
+    # bare option letters while the screen stores the tapped option text,
+    # so plain equality scored a correct tap as wrong.
     correct_count = sum(
         1 for i, qa in enumerate(body.user_answers)
-        if i < len(body.correct_answers) and qa.strip().lower() == body.correct_answers[i].strip().lower()
+        if i < len(body.correct_answers)
+        and mistake_memory.answers_match(qa, body.correct_answers[i])
     )
 
     doc_ref = (
@@ -698,11 +704,56 @@ async def quiz_save_result(
         user.uid, correct_count, total, body.difficulty,
     )
 
+    # Phase 1 — mistake memory. Every wrong answer becomes a durable record
+    # for the Learning Brain. Storage failure must never cost the student the
+    # result they are waiting to see, so it degrades to an empty summary.
+    try:
+        mistake_summary = mistake_memory.capture_mistakes(
+            user.uid,
+            quiz_id=doc_ref.id,
+            subject_id=body.subject_id or "",
+            material_id=body.material_id or "",
+            difficulty=body.difficulty,
+            questions=body.questions,
+            user_answers=body.user_answers,
+            correct_answers=body.correct_answers,
+        )
+    except Exception as memo_err:
+        logger.warning("Mistake capture failed for quiz=%s: %s", doc_ref.id, memo_err)
+        mistake_summary = {
+            "captured": 0,
+            "new": 0,
+            "repeated": 0,
+            "pendingAnalysis": 0,
+            "mistakeIds": [],
+        }
+
+    from app.services.analytics_service import track_event
+
+    track_event(
+        user.uid,
+        "quiz_completed",
+        {
+            "subject": body.subject_id,
+            "topic": next(iter((body.topic_scores or {}).keys()), "") if isinstance(body.topic_scores, dict) else "",
+            "score": body.score,
+            "total": total,
+            "mistake_count": mistake_summary["captured"],
+            "source": "quiz",
+        },
+    )
+
     return {
         "quizId": doc_ref.id,
         "score": body.score,
         "correctCount": correct_count,
         "totalQuestions": total,
+        # Phase 1 — feedback loop: how many wrong answers were remembered,
+        # and how many of them still owe the student a Ziku analysis.
+        "mistakeCount": mistake_summary["captured"],
+        "newMistakes": mistake_summary["new"],
+        "repeatedMistakes": mistake_summary["repeated"],
+        "pendingAnalysis": mistake_summary["pendingAnalysis"],
     }
 
 
@@ -736,6 +787,9 @@ async def quiz_history(
             "quizId": snap.id,
             "subjectId": data.get("subjectId", ""),
             "materialId": data.get("materialId", ""),
+            # Phase 3 — a submitted exam also lands here, so the history list
+            # can tell a mock apart from a generated quiz.
+            "examId": data.get("examId", ""),
             "totalQuestions": data.get("totalQuestions", 0),
             "correctCount": data.get("correctCount", 0),
             "score": data.get("score", 0),
@@ -1362,6 +1416,22 @@ async def exam_rescue_plan(
     except Exception as wt_err:
         logger.warning("Could not fetch weak topics for exam rescue: %s", wt_err)
 
+    # 3b. Recorded mistakes (Phase 1) — the topics the student has actually
+    # answered wrong, which mastery percentages alone can hide. Kept in its
+    # own try/except so a mistake-memory outage never blocks the plan.
+    mistake_topics_summary: list[str] = []
+    try:
+        for mt in mistake_memory.get_priority_topics(user.uid, limit=3):
+            topic_name = str(mt.get("topic") or "").strip()
+            if not topic_name:
+                continue
+            if mt.get("repeated"):
+                mistake_topics_summary.append(f"{topic_name} (missed repeatedly)")
+            else:
+                mistake_topics_summary.append(f"{topic_name} (recorded miss)")
+    except Exception as memo_err:
+        logger.warning("Could not fetch recorded mistakes for exam rescue: %s", memo_err)
+
     # 4. Construct AI prompt
     prompt = (
         "You are an expert academic study strategist and exam rescue assistant for university students.\n"
@@ -1380,6 +1450,9 @@ async def exam_rescue_plan(
 
     if weak_topics_summary:
         prompt += f"STUDENT'S WEAK TOPICS FROM PREVIOUS QUIZZES (PRIORITIZE THESE):\n- " + "\n- ".join(weak_topics_summary) + "\n\n"
+
+    if mistake_topics_summary:
+        prompt += "STUDENT'S RECORDED MISTAKES (PRIORITIZE THESE TOO):\n- " + "\n- ".join(mistake_topics_summary) + "\n\n"
 
     if valid_materials_meta:
         mat_ids_str = ", ".join(f"'{m['id']}' ({m['title']})" for m in valid_materials_meta)
@@ -1461,7 +1534,7 @@ async def exam_rescue_plan(
             daily_minutes=body.daily_minutes,
             materials_meta=valid_materials_meta,
             extra_topics=body.extra_topics,
-            weak_topics=weak_topics_summary,
+            weak_topics=weak_topics_summary + mistake_topics_summary,
             source_mode=source_mode,
         )
     else:

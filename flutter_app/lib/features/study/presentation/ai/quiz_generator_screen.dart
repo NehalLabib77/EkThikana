@@ -418,6 +418,7 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
               materialId: materialId,
               timeSpentSeconds: timeSpent,
               saveResultFn: widget.saveResultFn,
+              analyzeFn: ApiService.analyzeMistakes,
               onResultSaved: () async {
                 if (!_quizCompletedAndSaved) {
                   _quizCompletedAndSaved = true;

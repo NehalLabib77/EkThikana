@@ -3,6 +3,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Phase 10.6: analytics are backend-only aggregate events. Students and
+    // normal clients must never read platform-wide activity or write events.
+    match /analytics_events/{eventId} {
+      allow read, write: if false;
+    }
+
     function signedIn() {
       return request.auth != null;
     }
@@ -34,6 +40,43 @@ service cloud.firestore {
         || data.visibility == 'public'
         || (data.visibility == 'group' && isGroupMember(data.groupId))
       );
+    }
+
+    // Phase 10 content is written by the trusted backend and keyed by the
+    // authenticated student's id inside the document.
+    match /ai_content/{contentId} {
+      allow read: if isStudent() && resource.data.studentId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // Phase 10.5: derived long-term learning memory and recommendations.
+    match /learning_memory/{studentId} {
+      allow read: if isStudent() && studentId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /content_effectiveness/{contentId} {
+      allow read: if isStudent() && resource.data.studentId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /learning_recommendations/{studentId} {
+      allow read: if isStudent() && studentId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // Phase 12: Ziku Socratic Tutor sessions and turns.
+    match /tutor_sessions/{sessionId} {
+      allow read: if isStudent() && (resource.data.studentId == request.auth.uid || resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+
+      match /turns/{turnId} {
+        allow read: if isStudent() && (
+          get(/databases/$(database)/documents/tutor_sessions/$(sessionId)).data.studentId == request.auth.uid
+          || get(/databases/$(database)/documents/tutor_sessions/$(sessionId)).data.uid == request.auth.uid
+        );
+        allow create, update, delete: if false;
+      }
     }
 
     function ownedCreate() {
@@ -122,6 +165,119 @@ service cloud.firestore {
       match /exam_rescue/{sessionId} {
         allow read, write: if verified() && request.auth.uid == uid;
       }
+
+      // Phase 1: AI mistake memory per user. Capture, the Ziku analysis and
+      // the review ladder all run on the trusted backend (admin SDK bypasses
+      // these rules); the client only ever reads its own records.
+      match /mistakes/{mistakeId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      // Phase 2: Academic Health daily snapshots. Written and recomputed by
+      // the trusted backend only, so a client can never inflate its own
+      // score or rewrite yesterday's trend point.
+      match /health_history/{dayKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      // Phase 4: Study Coach caches (learning profile, daily mission, weekly
+      // report). Pure derived advice - the backend is the only writer so a
+      // client can never hand itself a kinder recommendation, and a student
+      // only reads their own.
+      match /learning_profiles/{docId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /daily_coach_recommendations/{dayKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /weekly_reports/{weekKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      // Phase 8: Ziku Personal Intelligence caches (Learning Journey, daily
+      // brief, learning personality, next best action, achievement stamps).
+      // Pure derived memory of the student's own history - the trusted
+      // backend is the only writer so a client can never hand itself a
+      // better trend, a kinder brief or an earned stamp, and a student only
+      // ever reads their own.
+      match /learning_journeys/{dayKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /ziku_briefs/{dayKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /learning_personalities/{docId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /next_best_actions/{dayKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /learning_achievements/{docId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      // Phase 9: Adaptive Learning Engine caches. These are derived from
+      // Mistake Memory, Academic Health and quiz history; only the trusted
+      // backend writes them.
+      match /adaptive_revision/{dayKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /adaptive_curriculum/{dayKey} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /adaptive_textbooks/{docId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /adaptive_learning_paths/{docId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      // Phase 3: Real Exam Simulator. Papers, attempts and results are all
+      // graded by the trusted backend (admin SDK bypasses these rules), so a
+      // student can read its own exam hall data but never rewrite a score,
+      // an attempt's answers or a result. The per-exam question paper lives
+      // under the exam document.
+      match /exams/{examId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+        match /exam_questions/{index} {
+          allow read: if isStudent() && request.auth.uid == uid;
+          allow create, update, delete: if false;
+        }
+      }
+
+      match /exam_attempts/{attemptId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
+
+      match /exam_results/{resultId} {
+        allow read: if isStudent() && request.auth.uid == uid;
+        allow create, update, delete: if false;
+      }
     }
 
     // ---------------- STUDENT-ONLY ACADEMIC DATA ----------------
@@ -182,6 +338,86 @@ service cloud.firestore {
           );
         }
       }
+
+      // Phase 7: Ziku group quizzes. The answer key lives in the quiz doc
+      // and attempts are graded by the trusted backend (admin SDK bypasses
+      // these rules), so clients read quizzes only through the API —
+      // never directly, where the "correct" field would leak.
+      match /quizzes/{quizId} {
+        allow read, write: if false;
+        match /attempts/{attemptId} {
+          allow read, write: if false;
+        }
+      }
+    }
+
+    // ---------------- PHASE 7 — ZIKU LEARNING COMMUNITY ----------------
+
+    // Learning posts (Question Bank + learning kinds). Writes are backend-
+    // only because AI tagging, duplicate detection and Learning Points
+    // must be trusted; reads respect the group boundary for group posts.
+    match /community_posts/{postId} {
+      allow read: if isStudent() && (
+        !(resource.data.groupId is string)
+        || resource.data.groupId == ''
+        || isGroupMember(resource.data.groupId)
+      );
+      allow create, update, delete: if false;
+
+      match /answers/{answerId} {
+        allow read: if isStudent() && (
+          !(get(/databases/$(database)/documents/community_posts/$(postId)).data.groupId is string)
+          || get(/databases/$(database)/documents/community_posts/$(postId)).data.groupId == ''
+          || isGroupMember(get(/databases/$(database)/documents/community_posts/$(postId)).data.groupId)
+        );
+        allow create, update, delete: if false;
+      }
+    }
+
+    // Learning Points — readable by any student for the leaderboard,
+    // writable only by the trusted backend so points cannot be granted.
+    match /community_reputation/{uid} {
+      allow read: if isStudent();
+      allow create, update, delete: if false;
+    }
+
+    // Exam challenges — participants only, and even they go through the
+    // API so the answer key never reaches a client.
+    match /community_challenges/{challengeId} {
+      allow read, write: if false;
+    }
+
+    // Phase 11: AI community intelligence caches. Existing groups,
+    // community_posts, community_reputation and community_challenges remain
+    // the source of truth; these derived collections are backend-only.
+    match /group_insights/{groupId} {
+      allow read: if isGroupMember(groupId);
+      allow create, update, delete: if false;
+    }
+
+    match /study_groups/{groupId} {
+      allow read: if isGroupMember(groupId);
+      allow create, update, delete: if false;
+    }
+
+    match /group_members/{memberId} {
+      allow read: if isStudent() && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /learning_points/{uid} {
+      allow read: if isStudent();
+      allow create, update, delete: if false;
+    }
+
+    match /exam_challenges/{challengeId} {
+      allow read, write: if false;
+    }
+
+    // Family links (spec 7.7 architecture) — API-only; a parent view will
+    // exist in a later phase behind its own permission check.
+    match /family_links/{linkId} {
+      allow read, write: if false;
     }
 
     // ---------------- STUDENT + GENERAL PERSONAL DATA ----------------
@@ -332,5 +568,30 @@ service cloud.firestore {
     // Legacy LifeHub/finance collections (FamilyHub/RentMate/Wellness/old grocery/location/savings
     // stores) intentionally have no match rules and are therefore denied.
     // Note: dena_pawna_items is NOT legacy — it has explicit rules above.
+
+    // Phase 14: Document Intelligence subcollections.
+    // chunks and intelligence are written only by the backend Admin SDK.
+    // Clients may read their own material's chunks/intelligence.
+    match /materials/{materialId}/chunks/{chunkId} {
+      allow read: if isStudent() && (
+        get(/databases/$(database)/documents/materials/$(materialId)).data.ownerId == request.auth.uid
+        || (
+          get(/databases/$(database)/documents/materials/$(materialId)).data.visibility == 'group'
+          && isGroupMember(get(/databases/$(database)/documents/materials/$(materialId)).data.groupId)
+        )
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /materials/{materialId}/intelligence/{docId} {
+      allow read: if isStudent() && (
+        get(/databases/$(database)/documents/materials/$(materialId)).data.ownerId == request.auth.uid
+        || (
+          get(/databases/$(database)/documents/materials/$(materialId)).data.visibility == 'group'
+          && isGroupMember(get(/databases/$(database)/documents/materials/$(materialId)).data.groupId)
+        )
+      );
+      allow create, update, delete: if false;
+    }
   }
 }
