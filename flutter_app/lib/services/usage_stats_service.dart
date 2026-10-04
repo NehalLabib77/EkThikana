@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:usage_stats/usage_stats.dart';
 
 class AppUsageInfo {
   final String packageName;
@@ -123,197 +122,31 @@ class UsageSessionCalculator {
 
 class UsageStatsService {
   static const gochanoPackage = 'com.ekthikana.ekthikana';
-  static final _historicalDayCache = <String, Map<String, int>>{};
-  static final _inFlightDays = <String, Future<Map<String, int>>>{};
 
+  /// Cross-app usage tracking is intentionally disabled for Google Play compliance.
   static Future<bool> hasPermission() async {
-    if (kDebugMode) debugPrint('[UsageStats] hasPermission: checking…');
-    final granted = await UsageStats.checkUsagePermission();
-    final result = granted ?? false;
-    if (kDebugMode) debugPrint('[UsageStats] hasPermission: granted=$result');
-    return result;
+    return false;
   }
 
-  /// Opens Android's Usage Access settings. The user grants or revokes access
-  /// there; the app never changes this permission itself.
-  ///
-  /// Fires [UsageStats.grantUsagePermission] which sends the
-  /// `ACTION_USAGE_ACCESS_SETTINGS` intent on Android.
+  /// Opens Android's Usage Access settings if requested, or logs disabled status.
   static Future<void> openSettings() async {
     if (kDebugMode) {
       debugPrint(
-        '[UsageStats] openSettings: sending '
-        'ACTION_USAGE_ACCESS_SETTINGS intent…',
-      );
-    }
-    await UsageStats.grantUsagePermission();
-    if (kDebugMode) {
-      debugPrint(
-        '[UsageStats] openSettings: intent sent. '
-        'User is now in system settings.',
+        '[UsageStats] App usage tracking is unavailable in this release.',
       );
     }
   }
 
-  /// Today's screen time from LOCAL 00:00 → now.
-  /// Returns ALL apps (including Gochano) sorted by usage descending.
+  /// Today's screen time summary. Graceful fallback for this release.
   static Future<ScreenTimeSummary> getScreenTimeSummary({DateTime? day}) async {
-    final now = DateTime.now();
-    final requested = day ?? now;
-    final startTime = DateTime(requested.year, requested.month, requested.day);
-    final isToday = _dayKey(startTime) == _dayKey(now);
-    final endTime = isToday ? now : startTime.add(const Duration(days: 1));
-
-    final appUsageMap = await _getDayUsage(
-      startTime,
-      endTime,
-      refresh: isToday,
-    );
-
-    final sortedApps = appUsageMap.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final topPackages = sortedApps.take(20).map((e) => e.key).toList();
-    final appNames = await _resolveAppNames(topPackages);
-
-    final allApps = sortedApps.take(20).map((e) {
-      return AppUsageInfo(
-        packageName: e.key,
-        appName: appNames[e.key] ?? e.key.split('.').last,
-        usage: Duration(milliseconds: e.value),
-      );
-    }).toList();
-
-    final totalMs = appUsageMap.values.fold<int>(0, (a, b) => a + b);
-
-    return ScreenTimeSummary(
-      totalScreenTime: Duration(milliseconds: totalMs),
-      allApps: allApps,
+    return const ScreenTimeSummary(
+      totalScreenTime: Duration.zero,
+      allApps: [],
     );
   }
 
-  /// 7 days of screen time ending today (Sun–Sat for current week).
-  /// Deduplicates by package within each day and caps at 24 hours.
+  /// 7 days of screen time ending today. Graceful fallback for this release.
   static Future<List<DayScreenTime>> getWeeklyScreenTime() async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final days = [
-      for (int i = 6; i >= 0; i--) today.subtract(Duration(days: i)),
-    ];
-    final usages = await Future.wait([
-      for (final day in days)
-        _getDayUsage(
-          day,
-          _dayKey(day) == _dayKey(today)
-              ? now
-              : day.add(const Duration(days: 1)),
-          refresh: _dayKey(day) == _dayKey(today),
-        ),
-    ]);
-    return [
-      for (int i = 0; i < days.length; i++)
-        DayScreenTime(
-          date: days[i],
-          total: Duration(
-            milliseconds: usages[i].values.fold<int>(0, (a, b) => a + b),
-          ),
-        ),
-    ];
-  }
-
-  static String _dayKey(DateTime day) => '${day.year}-${day.month}-${day.day}';
-
-  static Future<Map<String, int>> _getDayUsage(
-    DateTime start,
-    DateTime end, {
-    required bool refresh,
-  }) {
-    final key = _dayKey(start);
-    if (!refresh && _historicalDayCache.containsKey(key)) {
-      _debug('usage cache hit day=$key');
-      return Future.value(_historicalDayCache[key]!);
-    }
-    final existing = _inFlightDays[key];
-    if (existing != null) {
-      _debug('usage request coalesced day=$key');
-      return existing;
-    }
-    final future = _foregroundUsage(start, end).then((usage) {
-      if (!refresh) _historicalDayCache[key] = usage;
-      return usage;
-    });
-    _inFlightDays[key] = future;
-    return future.whenComplete(() => _inFlightDays.remove(key));
-  }
-
-  static Future<Map<String, int>> _foregroundUsage(
-    DateTime start,
-    DateTime end,
-  ) async {
-    if (!end.isAfter(start)) return const {};
-
-    // Include the preceding day so an activity already foreground at local
-    // midnight can be clipped into the requested window.
-    final queryStarted = DateTime.now();
-    _debug('usage query start=$start end=$end');
-    final events = await UsageStats.queryEvents(
-      start.subtract(const Duration(days: 1)),
-      end,
-    );
-    _debug(
-      'usage query end=${DateTime.now()} '
-      'elapsedMs=${DateTime.now().difference(queryStarted).inMilliseconds}',
-    );
-    final samples = events
-        .where(
-          (event) =>
-              event.packageName != null &&
-              event.timeStampDate != null &&
-              event.eventTypeValue != null,
-        )
-        .map(
-          (event) => UsageEventSample(
-            packageName: event.packageName!,
-            timestamp: event.timeStampDate!,
-            eventType: event.eventTypeValue!,
-          ),
-        );
-    final totals = UsageSessionCalculator.calculate(
-      samples,
-      start: start,
-      end: end,
-      diagnostic: _debug,
-    );
-    for (final entry in totals.entries) {
-      _debug('package total=${entry.key} durationMs=${entry.value}');
-    }
-    _debug('daily totalMs=${totals.values.fold<int>(0, (a, b) => a + b)}');
-    return totals;
-  }
-
-  static Future<Map<String, String>> _resolveAppNames(
-    List<String> packages,
-  ) async {
-    final names = <String, String>{};
-    await Future.wait([
-      for (final pkg in packages)
-        Future<void>(() async {
-          try {
-            final info = await UsageStats.getAppInfo(pkg);
-            if (info != null &&
-                info.appName != null &&
-                info.appName!.isNotEmpty) {
-              names[pkg] = info.appName!;
-            }
-          } catch (_) {
-            // Fall back to package name parsing
-          }
-        }),
-    ]);
-    return names;
-  }
-
-  static void _debug(String message) {
-    if (kDebugMode) debugPrint('[UsageStats] $message');
+    return const [];
   }
 }
