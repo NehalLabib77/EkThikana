@@ -636,7 +636,19 @@ async def generate_material_quiz_endpoint(
         difficulty=payload.difficulty or "medium",
         count=payload.count or 5,
     )
-    return {"materialId": material_id, "topic": topic, "result": result}
+    gen_content = result.get("generatedContent", {})
+    if isinstance(gen_content, dict):
+        questions = gen_content.get("questions", [])
+    elif isinstance(gen_content, list):
+        questions = gen_content
+    else:
+        questions = []
+    return {
+        "materialId": material_id,
+        "topic": topic,
+        "result": result,
+        "questions": questions,
+    }
 
 
 @router.post("/{material_id}/exam")
@@ -663,12 +675,19 @@ async def generate_material_exam_endpoint(
         difficulty=payload.difficulty or "hard",
         count=payload.count or 10,
     )
+    gen_content = quiz_res.get("generatedContent", {})
+    if isinstance(gen_content, dict):
+        questions = gen_content.get("questions", [])
+    elif isinstance(gen_content, list):
+        questions = gen_content
+    else:
+        questions = []
     return {
         "materialId": material_id,
         "topic": topic,
         "exam": {
             "title": f"Mock Exam: {topic}",
             "timeLimitMinutes": payload.time_limit_minutes or 30,
-            "questions": quiz_res.get("generatedContent", []),
+            "questions": questions,
         },
     }

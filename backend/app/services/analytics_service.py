@@ -40,6 +40,15 @@ EVENT_NAMES = {
     "document_quiz_generated",
     "document_exam_generated",
     "document_artifact_generated",
+    # Phase 15: Exam Ecosystem events
+    "past_paper_analyzed",
+    "exam_priority_viewed",
+    "exam_plan_created",
+    "exam_plan_recalculated",
+    "smart_practice_started",
+    "exam_readiness_viewed",
+    "ziku_exam_action_started",
+    "exam_ecosystem_opened",
 }
 _STRING_FIELDS = {
     "subject",
@@ -52,8 +61,34 @@ _STRING_FIELDS = {
     "mode",
     "mastery_band",
     "mime_type",   # Phase 14
+    # Phase 15 dimensions
+    "exam_name",
+    "examName",
+    "plan_id",
+    "planId",
+    "material_id",
+    "materialId",
+    "label",
+    "type",
+    "difficulty",
 }
-_NUMBER_FIELDS = {"score", "total", "mistake_count", "duration_seconds", "hints_used", "page_count", "chunk_count"}  # Phase 14
+_NUMBER_FIELDS = {
+    "score",
+    "total",
+    "mistake_count",
+    "duration_seconds",
+    "hints_used",
+    "page_count",
+    "chunk_count",  # Phase 14
+    # Phase 15 metrics
+    "question_count",
+    "questionCount",
+    "topic_count",
+    "topicCount",
+    "duration_days",
+    "durationDays",
+    "readiness",
+}
 
 
 def _string(value: Any, limit: int = 160) -> str:
@@ -111,3 +146,7 @@ def track_event(user_id: str, event_name: str, metadata: dict[str, Any] | None =
     except Exception:  # analytics must never break the product event
         logger.exception("Could not write analytics event %s", event_name)
     return event_id
+
+
+# Canonical alias for callers using record_event
+record_event = track_event

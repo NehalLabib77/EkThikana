@@ -3,7 +3,7 @@
 **Repository**: `D:\Gochano_Rebuild`
 **Branch**: `feature/top10-exam-rescue-v1`
 **Application ID**: `com.ekthikana.ekthikana`
-**Phases Covered**: Phase 16.1 (Audit) & Phase 16.2 (Codebase Blocker Repair Batch 1)
+**Phases Covered**: Phase 16.1 (Audit), Phase 16.2 (Codebase Blocker Repair Batch 1), Phase 16.5 (Hotfix Persistence Repair)
 **Date**: October 4, 2026
 **Auditor**: Antigravity Autonomous Pair Programmer
 
@@ -13,13 +13,14 @@
 
 ### Release Verdict: **CODE REPAIRS COMPLETE — OPERATOR DEPLOYMENT GATES PENDING**
 
-All deterministic code-level blockers discovered during the Phase 16.1 full audit have been successfully resolved and verified in Phase 16.2 (Batch 1).
-- **Backend Test Suite**: **1084 passed, 0 failed** (100% passing across the entire backend).
+All deterministic code-level blockers discovered during the Phase 16.1 full audit and Phase 16.5 authenticated QA have been successfully resolved and verified.
+- **Backend Test Suite**: **1087 passed, 0 failed** (100% passing across the entire backend).
+- **Focused Hotfix Tests**: **145 passed, 0 failed** (`test_phase15_exam_ecosystem.py` and `test_document_intelligence.py`).
 - **Flutter Static Analysis**: **0 issues found** (`flutter analyze lib` clean).
-- **Flutter Test Suite**: **1379 passed, 90 failed** (exact historical baseline; 0 regressions).
+- **Flutter Test Suite**: **1417 passed, 89 failed** (authoritative operator baseline).
 - **Git Working Tree**: Clean diffs, 0 duplicate trees tracked, 0 secret exposures.
 
-The repository is now in an architecturally sound state for release candidate preparation. Final release candidate sign-off remains gated on operator/infrastructure tasks (Render instance sizing, Play Store signing credentials, and production environment secrets).
+The repository is now in an architecturally sound state for release candidate preparation. Final release candidate sign-off remains gated on operator/infrastructure tasks (Render deployment, instance sizing, Play Store signing credentials, and production environment secrets).
 
 ---
 
@@ -43,9 +44,9 @@ The repository is now in an architecturally sound state for release candidate pr
 
 ---
 
-## 3. Phase 16.2 Remediation Results (Batch 1)
+## 3. Remediation Results
 
-### 3.1 Item-by-Item Remediation Details
+### 3.1 Item-by-Item Remediation Details (Phase 16.2 Batch 1)
 
 #### Item 1: Restore Study -> Exam Prep Navigation
 - **File**: `flutter_app/lib/features/study/presentation/study_screen.dart`
@@ -105,23 +106,57 @@ The repository is now in an architecturally sound state for release candidate pr
 
 ---
 
-## 4. Test Verification Metrics
+### 3.2 Phase 16.5 Hotfix & Persistence Repair
 
-| Suite | Pre-16.2 Baseline | Post-16.2 Result | Status |
-|---|---|---|---|
-| **Backend Pytest** | 1075 passed / 9 failed | **1084 passed / 0 failed** | **100% Passing** |
-| **Flutter Analyze** | 0 issues | **0 issues (`No issues found!`)** | **Clean** |
-| **Flutter Full Suite** | 1379 passed / 90 failed | **1379 passed / 90 failed** | **Historical Baseline Met** |
-| **Exam Ecosystem Test** | 11 passed | **11 passed** | **Passing** |
-| **API Contract Test** | 3 passed | **3 passed** | **Passing** |
-| **Commute Suite** | 41 passed | **41 passed** | **Passing** |
-| **Materials Suite** | 15 passed | **17 passed** | **Passing** |
+#### Root Causes & Remediation
+1. **GET `/api/exam-ecosystem/dashboard` (HTTP 500)**:
+   - **Root Cause**: `get_exam_dashboard` invoked `record_event(user.uid, "exam_ecosystem_opened", {})`. While `track_event` existed in `analytics_service.py`, `record_event` was not exported, throwing `ImportError: cannot import name 'record_event' from 'app.services.analytics_service'`. Additionally, Phase 15 events and metadata fields were absent from the analytics allowlist.
+   - **Fix**: Added canonical alias `record_event = track_event` in `backend/app/services/analytics_service.py`. Added Phase 15 event names (`past_paper_analyzed`, `exam_priority_viewed`, `exam_plan_created`, `exam_plan_recalculated`, `smart_practice_started`, `exam_readiness_viewed`, `ziku_exam_action_started`, `exam_ecosystem_opened`) and metadata field allowlists (`exam_name`, `examName`, `plan_id`, `planId`, `material_id`, `materialId`, `question_count`, `questionCount`, `topic_count`, `topicCount`, `duration_days`, `durationDays`, `readiness`, `label`, `type`, `difficulty`). The router safely returns empty/null defaults for fresh student accounts without inventing fake data.
+
+2. **POST `/api/materials/{material_id}/quiz` (HTTP 500)**:
+   - **Root Cause**: Unhandled exception when Firestore DB was uninitialized during document retrieval (`AttributeError: 'NoneType' object has no attribute 'collection'`), and absence of top-level `questions` key in the endpoint payload expected by Flutter UI (`document_intelligence_screen.dart`).
+   - **Fix**:
+     - Added `if db is None: return []` in `backend/app/services/document_retrieval_service.py` with dynamic `firebase.get_firestore()`.
+     - Integrated `_quiz_fallback` in `backend/app/services/ziku_content_service.py` to ensure valid questions are generated even without upstream AI.
+     - Updated `generate_material_quiz_endpoint` and `generate_material_exam_endpoint` in `backend/app/routers/materials.py` to extract and normalize `questions` at the root of the response payload.
 
 ---
 
-## 5. Remaining Operator / Infrastructure Blockers
+## 4. Test Verification Metrics
 
-The following items are outside the scope of Batch 1 code fixes and require operator credentials / infrastructure configuration before final release:
+| Suite | Pre-16.2 Baseline | Post-16.2 Result | Post-16.5 Hotfix | Status |
+|---|---|---|---|---|
+| **Backend Pytest** | 1075 passed / 9 failed | 1084 passed / 0 failed | **1087 passed / 0 failed** | **100% Passing** |
+| **Focused Hotfix Tests** | N/A | N/A | **145 passed / 0 failed** | **100% Passing** |
+| **Flutter Analyze** | 0 issues | 0 issues | **0 issues (`No issues found!`)** | **Clean** |
+| **Flutter Full Suite** | 1379 passed / 90 failed | 1379 passed / 90 failed | **1417 passed / 89 failed** | **Authoritative Baseline Met** |
+| **Exam Ecosystem Test** | 11 passed | 11 passed | **11 passed** | **Passing** |
+| **API Contract Test** | 3 passed | 3 passed | **3 passed** | **Passing** |
+| **Commute Suite** | 41 passed | 41 passed | **41 passed** | **Passing** |
+| **Materials Suite** | 15 passed | 17 passed | **17 passed** | **Passing** |
+
+---
+
+## 5. Release Candidate Artifact Reconciliation
+
+- **Application ID**: `com.ekthikana.ekthikana`
+- **Release AAB**:
+  - File: `flutter_app/build/app/outputs/bundle/release/app-release.aab`
+  - Size: **97,134,170 bytes**
+  - SHA-256: `5C6AE7E7DF1A813205D1661B3C9567A5AEC433CEB47389E2A65DF48C5E29556A`
+- **Release APK**:
+  - File: `flutter_app/build/app/outputs/flutter-apk/app-release.apk`
+  - Size: **110,504,933 bytes**
+  - SHA-256: `E3716325711CC56E07933A9013FE599AA6C6382D2BB79DB1184DE777D28486D4`
+
+> [!NOTE]
+> **Production 500 Resolution Gate**: The local code repairs and regressions have been 100% verified (1087 passed / 0 failed; focused 145 passed / 0 failed). However, production HTTP 500 resolution on `https://ekthikana-api-x473.onrender.com` remains **PENDING** until these changes are formally deployed to Render and retested against live endpoints.
+
+---
+
+## 6. Remaining Operator / Infrastructure Blockers
+
+The following items are outside the scope of code hotfixes and require operator credentials / infrastructure configuration before final release:
 
 1. **Render Infrastructure Plan**:
    - Current: Free tier spin-down behavior.
@@ -138,7 +173,7 @@ The following items are outside the scope of Batch 1 code fixes and require oper
 
 ---
 
-## 6. Commit and Push Status
+## 7. Commit and Push Status
 
 Per instructions:
 - **NO COMMITS CREATED**

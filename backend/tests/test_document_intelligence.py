@@ -351,6 +351,79 @@ class TestMaterialsPhase14Auth:
         assert resp.status_code in (401, 403, 422)
 
 
+class TestMaterialsDocumentContent:
+    """Authenticated generation tests for materials quiz and exam endpoints."""
+
+    def test_materials_quiz_ready_document_success(self, client, fake_auth, fake_db):
+        uid = "student-quiz-uid"
+        fake_db.collection("users").document(uid).set({"role": "student"})
+        token = fake_auth.issue(uid)
+        material_id = "mat-ready-1"
+        fake_db.collection("materials").document(material_id).set({
+            "ownerId": uid,
+            "title": "Quantum Physics Fundamentals",
+            "fileName": "quantum.pdf",
+            "mimeType": "application/pdf",
+            "visibility": "private",
+        })
+        # Add 1 chunk
+        fake_db.collection("materials").document(material_id).collection("chunks").document("chunk-0").set({
+            "chunkIndex": 0,
+            "page": 1,
+            "text": "Wave-particle duality posits that all particles exhibit wave properties and vice versa.",
+            "characterCount": 85,
+            "keywords": ["duality", "quantum", "wave"],
+        })
+
+        resp = client.post(
+            f"/api/materials/{material_id}/quiz",
+            json={"difficulty": "medium", "count": 5},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data.get("materialId") == material_id
+        assert "Quantum Physics" in data.get("topic", "")
+        assert "result" in data
+        assert "questions" in data
+        questions = data["questions"]
+        assert len(questions) >= 1
+        for q in questions:
+            assert "question" in q
+            assert "options" in q
+            assert len(q["options"]) >= 2
+            assert "correct" in q
+
+    def test_materials_exam_ready_document_success(self, client, fake_auth, fake_db):
+        uid = "student-exam-uid"
+        fake_db.collection("users").document(uid).set({"role": "student"})
+        token = fake_auth.issue(uid)
+        material_id = "mat-exam-1"
+        fake_db.collection("materials").document(material_id).set({
+            "ownerId": uid,
+            "title": "Thermodynamics Core",
+            "fileName": "thermo.pdf",
+            "mimeType": "application/pdf",
+            "visibility": "private",
+        })
+
+        resp = client.post(
+            f"/api/materials/{material_id}/exam",
+            json={"difficulty": "hard", "count": 5, "time_limit_minutes": 45},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data.get("materialId") == material_id
+        assert "exam" in data
+        exam = data["exam"]
+        assert "Mock Exam" in exam.get("title", "")
+        assert exam.get("timeLimitMinutes") == 45
+        assert isinstance(exam.get("questions"), list)
+        assert len(exam["questions"]) >= 1
+
+
+
 # ---------------------------------------------------------------------------
 # 6. Processing limits — unit constants check
 # ---------------------------------------------------------------------------

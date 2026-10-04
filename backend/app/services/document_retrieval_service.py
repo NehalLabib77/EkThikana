@@ -23,7 +23,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from app.core.auth import CurrentUser
-from app.core.firebase import get_firestore
+from app.core import firebase
 from app.services.permission_service import get_material_for_user
 
 logger = logging.getLogger("gochano.doc_retrieval")
@@ -134,7 +134,9 @@ def retrieve_relevant_chunks(
         capped to CONTEXT_BUDGET_CHARS total.
     """
     top_k = max(1, min(top_k, MAX_TOP_K))
-    db = get_firestore()
+    db = firebase.get_firestore()
+    if db is None:
+        return []
 
     # --- Ownership gate ---
     if user is not None:

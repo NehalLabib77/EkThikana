@@ -915,6 +915,26 @@ class TestExamEcosystemSecurity:
         resp = client.get("/api/exam-ecosystem/dashboard")
         assert resp.status_code in (401, 403), resp.status_code
 
+    def test_dashboard_fresh_student_account_returns_200(self, client, fake_auth, fake_db):
+        uid = "fresh-student-uid"
+        fake_db.collection("users").document(uid).set({"role": "student"})
+        token = fake_auth.issue(uid)
+        resp = client.get(
+            "/api/exam-ecosystem/dashboard",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data.get("activePlan") is None
+        assert data.get("daysRemaining") is None
+        assert data.get("examName") is None
+        assert isinstance(data.get("topPriorityTopics"), list)
+        assert isinstance(data.get("todayPlan"), list)
+        assert data.get("papersAnalyzed") == 0
+        assert "overallReadiness" in data
+        assert "readinessLabel" in data
+        assert "recommendedAction" in data
+
 
 # ---------------------------------------------------------------------------
 # INTEGRATION — router is mounted

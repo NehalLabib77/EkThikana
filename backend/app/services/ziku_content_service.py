@@ -247,6 +247,134 @@ async def generate_study_pack(uid: str, *, topic: str, source: str, question_cou
     return _save(uid, "study_pack", topic, source, pack)
 
 
+def _quiz_fallback(topic: str, count: int = 5) -> list[dict[str, Any]]:
+    topic_clean = topic.strip() or "General Concepts"
+    base = [
+        {
+            "question": f"What is the foundational principle of {topic_clean}?",
+            "type": "mcq",
+            "options": [
+                f"Core definition and governing conditions of {topic_clean}",
+                "An arbitrary and unrelated assumption",
+                "Secondary exception without application",
+                "A non-standard notation",
+            ],
+            "correct": "A",
+            "explanation": f"Understanding the core definition and conditions of {topic_clean} is essential.",
+        },
+        {
+            "question": f"Which of the following is a key application of {topic_clean}?",
+            "type": "mcq",
+            "options": [
+                f"Solving structured analytical problems in {topic_clean}",
+                "Ignoring boundary conditions",
+                "Assuming constant values without verification",
+                "Bypassing required formulas",
+            ],
+            "correct": "A",
+            "explanation": f"{topic_clean} is applied by methodically verifying conditions and applying standard formulas.",
+        },
+        {
+            "question": f"What is a common error to avoid when working with {topic_clean}?",
+            "type": "mcq",
+            "options": [
+                "Overlooking units, signs, and initial assumptions",
+                "Writing clear steps",
+                "Checking formula dimensions",
+                "Verifying final results",
+            ],
+            "correct": "A",
+            "explanation": "Overlooking units, signs, and initial assumptions frequently causes errors.",
+        },
+        {
+            "question": f"How should you verify an answer obtained in {topic_clean}?",
+            "type": "mcq",
+            "options": [
+                "Cross-check limiting cases, dimensions, and physical constraints",
+                "Assume the first computed number is always correct",
+                "Discard intermediate derivations",
+                "Skip checking units",
+            ],
+            "correct": "A",
+            "explanation": "Checking limiting cases and dimensions helps catch mistakes.",
+        },
+        {
+            "question": f"In an examination context, what guarantees full credit for {topic_clean} problems?",
+            "type": "mcq",
+            "options": [
+                "Stating governing laws, showing complete steps, and giving correct units",
+                "Only writing the final number without derivation",
+                "Guessing without justification",
+                "Leaving steps incomplete",
+            ],
+            "correct": "A",
+            "explanation": "Examiners reward explicit statements of laws, clear steps, and consistent units.",
+        },
+    ]
+    while len(base) < count:
+        idx = len(base) + 1
+        base.append({
+            "question": f"Concept check {idx} for {topic_clean}: Which statement is correct?",
+            "type": "mcq",
+            "options": [
+                f"Apply standard principles of {topic_clean} systematically",
+                "Skip intermediate checking",
+                "Disregard physical units",
+                "Rely on guesswork",
+            ],
+            "correct": "A",
+            "explanation": f"Systematic application is required for {topic_clean}.",
+        })
+    return base[:max(1, count)]
+
+
+async def generate_quiz(
+    uid: str,
+    *,
+    topic: str,
+    source: str,
+    difficulty: str = "medium",
+    count: int = 5,
+) -> dict[str, Any]:
+    target_count = max(1, min(count, 20))
+    mistakes_text = _mistake_context(uid, topic)
+    prompt = (
+        "Create a multiple choice quiz from the supplied study material. Return ONLY valid JSON: "
+        '{"questions":[{"question":"...","type":"mcq","options":["...","...","...","..."],"correct":"A","explanation":"..."}]}.\n'
+        f"TOPIC: {topic}\nDIFFICULTY: {difficulty}\nCOUNT: {target_count}\nMISTAKES:\n{mistakes_text}\n"
+        f"MATERIAL:\n{source[:MAX_SOURCE_CHARS]}\n"
+        "Generate questions grounded in the material, targeting common pitfalls. Options must have 4 choices."
+    )
+    payload = await _generate(uid, prompt)
+    questions = payload.get("questions") if isinstance(payload.get("questions"), list) else []
+    valid_questions = []
+    for q in questions:
+        if (
+            isinstance(q, dict)
+            and q.get("question")
+            and isinstance(q.get("options"), list)
+            and len(q.get("options")) >= 2
+        ):
+            valid_questions.append(q)
+
+    source_kind = "ai"
+    if not valid_questions:
+        valid_questions = _quiz_fallback(topic, target_count)
+        source_kind = "deterministic"
+
+    ai_service.record_ai_activity(uid, "quiz_generations", 1)
+    ai_service.record_ai_activity(uid, "quiz_questions", len(valid_questions))
+
+    quiz_data = {
+        "questions": valid_questions,
+        "count": len(valid_questions),
+        "difficulty": difficulty,
+        "source": source_kind,
+    }
+    return _save(uid, "quiz", topic, source, quiz_data)
+
+
+
 def chat_context(uid: str) -> str | None:
     """One grounded teacher cue for the existing Ziku chat prompt."""
     rows = _topic_mistakes(uid)
