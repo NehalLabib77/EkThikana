@@ -72,19 +72,26 @@ class ZikuTutorScreen extends StatefulWidget {
     this.initialTopic = 'Optics',
     this.initialConcept,
     this.initialMode = 'socratic',
+    this.materialId,
+    String? subject,
+    String? topic,
     this.startSessionFn,
     this.respondFn,
     this.hintFn,
     this.switchModeFn,
     this.completeFn,
-  });
+  })  : _paramSubject = subject,
+        _paramTopic = topic;
 
   final String initialSubject;
   final String initialTopic;
   final String? initialConcept;
   final String initialMode;
+  final String? materialId;
+  final String? _paramSubject;
+  final String? _paramTopic;
 
-  final TutorStartSessionFn? startSessionFn;
+  final Function? startSessionFn;
   final TutorRespondFn? respondFn;
   final TutorRequestHintFn? hintFn;
   final TutorSwitchModeFn? switchModeFn;
@@ -117,8 +124,43 @@ class _ZikuTutorScreenState extends State<ZikuTutorScreen> {
 
   final List<_DialogueMessage> _messages = [];
 
-  TutorStartSessionFn get _startFn =>
-      widget.startSessionFn ?? ApiService.tutorStartSession;
+  Future<Map<String, dynamic>> _callStartSession({
+    required String subject,
+    required String topic,
+    String? concept,
+    required String mode,
+    String? materialId,
+  }) async {
+    if (widget.startSessionFn != null) {
+      final fn = widget.startSessionFn!;
+      try {
+        final dynamic res = await (fn as dynamic)(
+          subject: subject,
+          topic: topic,
+          concept: concept,
+          mode: mode,
+          materialId: materialId,
+        );
+        return res as Map<String, dynamic>;
+      } catch (_) {
+        final dynamic res = await (fn as dynamic)(
+          subject: subject,
+          topic: topic,
+          concept: concept,
+          mode: mode,
+        );
+        return res as Map<String, dynamic>;
+      }
+    }
+    return ApiService.tutorStartSession(
+      subject: subject,
+      topic: topic,
+      concept: concept,
+      mode: mode,
+      materialId: materialId,
+    );
+  }
+
   TutorRespondFn get _respondFn =>
       widget.respondFn ?? ApiService.tutorRespond;
   TutorRequestHintFn get _hintFn =>
@@ -132,8 +174,8 @@ class _ZikuTutorScreenState extends State<ZikuTutorScreen> {
   void initState() {
     super.initState();
     _currentMode = widget.initialMode;
-    _subject = widget.initialSubject;
-    _topic = widget.initialTopic;
+    _subject = widget._paramSubject ?? widget.initialSubject;
+    _topic = widget._paramTopic ?? widget.initialTopic;
     _concept = widget.initialConcept;
     _initializeSession();
   }
@@ -164,11 +206,12 @@ class _ZikuTutorScreenState extends State<ZikuTutorScreen> {
     });
 
     try {
-      final res = await _startFn(
+      final res = await _callStartSession(
         subject: _subject,
         topic: _topic,
         concept: _concept,
         mode: _currentMode,
+        materialId: widget.materialId,
       );
 
       final sessionId = res['sessionId']?.toString() ?? '';

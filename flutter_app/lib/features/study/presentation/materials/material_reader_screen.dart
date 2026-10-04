@@ -27,6 +27,7 @@ import '../../../../services/offline_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../ai/ai_assistant_screen.dart';
+import 'document_intelligence_screen.dart';
 
 class MaterialReaderScreen extends StatefulWidget {
   const MaterialReaderScreen({
@@ -164,6 +165,16 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
     );
   }
 
+  void _openIntelligence() {
+    Navigator.of(context).push(
+      DocumentIntelligenceScreen.route(
+        materialId: widget.materialId,
+        materialTitle: widget.title,
+        mimeType: widget.mimeType,
+      ),
+    );
+  }
+
   /// Remembers where the student stopped reading.
   ///
   /// Written to `material_state/{uid}_{materialId}` rather than to the shared
@@ -219,6 +230,15 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
         ),
         actions: [
           IconActionButton(
+            icon: Icons.psychology_outlined,
+            label: GochanoLanguage.text(
+              'Document Intelligence',
+              'ডকুমেন্ট ইন্টেলিজেন্স',
+            ),
+            accent: colors.study,
+            onPressed: _openIntelligence,
+          ),
+          IconActionButton(
             icon: Icons.auto_awesome_outlined,
             label: GochanoLanguage.text(
               'Ask AI about this',
@@ -229,6 +249,14 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
           ),
           GochanoOverflowMenu(
             items: [
+              GochanoMenuAction(
+                label: GochanoLanguage.text(
+                  'Document Intelligence',
+                  'ডকুমেন্ট ইন্টেলিজেন্স',
+                ),
+                icon: Icons.psychology_outlined,
+                onSelected: _openIntelligence,
+              ),
               GochanoMenuAction(
                 label: GochanoLanguage.text(
                   'Save to library',

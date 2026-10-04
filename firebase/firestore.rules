@@ -568,5 +568,30 @@ service cloud.firestore {
     // Legacy LifeHub/finance collections (FamilyHub/RentMate/Wellness/old grocery/location/savings
     // stores) intentionally have no match rules and are therefore denied.
     // Note: dena_pawna_items is NOT legacy — it has explicit rules above.
+
+    // Phase 14: Document Intelligence subcollections.
+    // chunks and intelligence are written only by the backend Admin SDK.
+    // Clients may read their own material's chunks/intelligence.
+    match /materials/{materialId}/chunks/{chunkId} {
+      allow read: if isStudent() && (
+        get(/databases/$(database)/documents/materials/$(materialId)).data.ownerId == request.auth.uid
+        || (
+          get(/databases/$(database)/documents/materials/$(materialId)).data.visibility == 'group'
+          && isGroupMember(get(/databases/$(database)/documents/materials/$(materialId)).data.groupId)
+        )
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /materials/{materialId}/intelligence/{docId} {
+      allow read: if isStudent() && (
+        get(/databases/$(database)/documents/materials/$(materialId)).data.ownerId == request.auth.uid
+        || (
+          get(/databases/$(database)/documents/materials/$(materialId)).data.visibility == 'group'
+          && isGroupMember(get(/databases/$(database)/documents/materials/$(materialId)).data.groupId)
+        )
+      );
+      allow create, update, delete: if false;
+    }
   }
 }

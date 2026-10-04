@@ -516,6 +516,7 @@ async def start_session(
     concept: str | None = None,
     mode: str = "socratic",
     user_id: str | None = None,
+    material_id: str | None = None,
 ) -> dict[str, Any]:
     uid = uid or user_id or ""
     norm_mode = mode.lower().strip()
@@ -525,6 +526,26 @@ async def start_session(
     concept_str = (concept or topic).strip()
     session_id = f"tutor_{uuid4().hex}"
     now = _now()
+
+    # Phase 14: Document-grounded tutor context
+    grounded_chunks: list[dict] = []
+    citations: list[dict] = []
+    if material_id:
+        try:
+            from app.services.document_retrieval_service import retrieve_relevant_chunks
+            grounded_chunks = retrieve_relevant_chunks(
+                uid, material_id, topic or concept_str, top_k=2
+            )
+            citations = [
+                {
+                    "chunkId": c.get("chunkId", ""),
+                    "page": c.get("page", 1),
+                    "section": c.get("section", ""),
+                }
+                for c in grounded_chunks
+            ]
+        except Exception as exc:
+            logger.info("Tutor: material grounding retrieval skipped (%s)", exc)
 
     # Gather prior signals (Mistake Memory, Learning Memory, Health)
     adaptation = _gather_student_adaptation(uid, subject, topic)
@@ -549,6 +570,8 @@ async def start_session(
         "topic": topic.strip(),
         "concept": concept_str,
         "mode": norm_mode,
+        "materialId": material_id,
+        "citations": citations,
         "currentStep": 1,
         "stepType": step_type,
         "tutorMessage": initial_message,
@@ -589,6 +612,16 @@ async def start_session(
             "feature": "ai_tutor",
         },
     )
+    if material_id:
+        analytics.track_event(
+            user_id=uid,
+            event_name="document_tutor_started",
+            metadata={
+                "material_id": material_id,
+                "subject": subject,
+                "topic": topic,
+            },
+        )
 
     return {
         "sessionId": session_id,
@@ -597,6 +630,8 @@ async def start_session(
         "subject": subject,
         "topic": topic,
         "concept": concept_str,
+        "materialId": material_id,
+        "citations": citations,
         "step": 1,
         "currentStep": 1,
         "stepType": step_type,

@@ -16,6 +16,7 @@ class StartSessionRequest(BaseModel):
     topic: str = Field(..., min_length=1)
     concept: Optional[str] = None
     mode: Optional[str] = "socratic"
+    material_id: Optional[str] = None  # Phase 14.5: document grounding
 
 
 class RespondRequest(BaseModel):
@@ -60,6 +61,7 @@ async def start_session(
         topic=body.topic,
         concept=body.concept,
         mode=body.mode or "socratic",
+        material_id=body.material_id,
     )
 
 

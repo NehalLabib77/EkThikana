@@ -33,6 +33,13 @@ EVENT_NAMES = {
     "tutor_session_completed",
     "tutor_hint_used",
     "tutor_mode_changed",
+    # Phase 14: Document Intelligence events
+    "document_processed",
+    "document_process_failed",
+    "document_tutor_started",
+    "document_quiz_generated",
+    "document_exam_generated",
+    "document_artifact_generated",
 }
 _STRING_FIELDS = {
     "subject",
@@ -44,8 +51,9 @@ _STRING_FIELDS = {
     "exam_type",
     "mode",
     "mastery_band",
+    "mime_type",   # Phase 14
 }
-_NUMBER_FIELDS = {"score", "total", "mistake_count", "duration_seconds", "hints_used"}
+_NUMBER_FIELDS = {"score", "total", "mistake_count", "duration_seconds", "hints_used", "page_count", "chunk_count"}  # Phase 14
 
 
 def _string(value: Any, limit: int = 160) -> str:

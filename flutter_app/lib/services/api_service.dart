@@ -2284,6 +2284,7 @@ class ApiService {
     required String topic,
     String? concept,
     String mode = 'socratic',
+    String? materialId, // Phase 14.5: document-grounded tutor
   }) async {
     return _guard(() async {
       final res = await _post(
@@ -2293,6 +2294,7 @@ class ApiService {
           'topic': topic,
           if (concept != null && concept.isNotEmpty) 'concept': concept,
           'mode': mode,
+          if (materialId != null && materialId.isNotEmpty) 'material_id': materialId,
         },
       );
       return _decode(res);
@@ -2373,6 +2375,143 @@ class ApiService {
   static Future<Map<String, dynamic>> studentDashboardBootstrap() async {
     return _guard(() async {
       final res = await _get('/api/student/dashboard-bootstrap');
+      return _decode(res);
+    });
+  }
+
+  // ---- Phase 14: Document Intelligence -----------------------------------
+
+  /// Trigger document ingestion & chunking.
+  /// Idempotent — safe to call again; set [force] to re-process.
+  static Future<Map<String, dynamic>> processMaterial(
+    String materialId, {
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/process',
+        body: {'force': force},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Get (or generate) document intelligence — overview, summary, concept map,
+  /// important topics.  Returns cached result when available.
+  static Future<Map<String, dynamic>> getMaterialIntelligence(
+    String materialId, {
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final res = await _get(
+        '/api/materials/$materialId/intelligence',
+        query: {if (force) 'force': 'true'},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// BM25 lexical retrieval of document chunks relevant to [query].
+  static Future<Map<String, dynamic>> retrieveDocumentChunks(
+    String materialId,
+    String query, {
+    int topK = 3,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/retrieve',
+        body: {'query': query, 'top_k': topK},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate flashcards grounded in document content.
+  static Future<Map<String, dynamic>> documentFlashcards(
+    String materialId, {
+    String topic = '',
+    String query = '',
+    int count = 10,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/flashcards',
+        body: {'topic': topic, 'query': query, 'count': count},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate revision sheet grounded in document content.
+  static Future<Map<String, dynamic>> documentRevisionSheet(
+    String materialId, {
+    String topic = '',
+    String query = '',
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/revision-sheet',
+        body: {'topic': topic, 'query': query},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate complete study pack grounded in document content.
+  static Future<Map<String, dynamic>> documentStudyPack(
+    String materialId, {
+    String topic = '',
+    String query = '',
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/study-pack',
+        body: {'topic': topic, 'query': query},
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate quiz questions grounded in document content.
+  static Future<Map<String, dynamic>> documentQuiz(
+    String materialId, {
+    String topic = '',
+    String query = '',
+    String difficulty = 'medium',
+    int count = 5,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/quiz',
+        body: {
+          'topic': topic,
+          'query': query,
+          'difficulty': difficulty,
+          'count': count,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Generate a full mock exam grounded in document content.
+  static Future<Map<String, dynamic>> documentExam(
+    String materialId, {
+    String topic = '',
+    int timeLimitMinutes = 30,
+    int questionCount = 10,
+    String difficulty = 'real_exam',
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/materials/$materialId/exam',
+        body: {
+          'topic': topic,
+          'time_limit_minutes': timeLimitMinutes,
+          'question_count': questionCount,
+          'difficulty': difficulty,
+        },
+      );
       return _decode(res);
     });
   }
