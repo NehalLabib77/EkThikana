@@ -42,7 +42,7 @@ from app.core.auth import CurrentUser, require_student
 
 logger = logging.getLogger("gochano.exam_ecosystem")
 
-router = APIRouter(prefix="/exam-ecosystem", tags=["exam-ecosystem"])
+router = APIRouter(tags=["Phase 15 Exam Ecosystem"])
 
 
 # ---------------------------------------------------------------------------

@@ -74,6 +74,12 @@ def _db():
     return db
 
 
+try:
+    from app.services.mistake_memory_service import get_review_queue
+except ImportError:
+    get_review_queue = None
+
+
 # ---------------------------------------------------------------------------
 # Topic selection logic
 # ---------------------------------------------------------------------------
@@ -110,7 +116,6 @@ def _select_topic_for_mode(
     if mode == "mistake_revision":
         # Use canonical review queue
         try:
-            from app.services.mistake_memory_service import get_review_queue
             queue = get_review_queue(uid, due_only=True)
             if queue:
                 top = queue[0]

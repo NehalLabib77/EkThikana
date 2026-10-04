@@ -923,9 +923,27 @@ class TestExamEcosystemSecurity:
 class TestRouterMounted:
     def test_exam_ecosystem_routes_registered(self):
         from app.main import app
-        routes = [r.path for r in app.routes]
-        exam_routes = [r for r in routes if "exam-ecosystem" in r]
-        assert len(exam_routes) >= 5, f"Expected ≥5 routes, got: {exam_routes}"
+
+        routes = set(app.openapi().get("paths", {}).keys())
+
+        required = {
+            "/api/exam-ecosystem/papers/analyze",
+            "/api/exam-ecosystem/papers",
+            "/api/exam-ecosystem/insights",
+            "/api/exam-ecosystem/priority/recalculate",
+            "/api/exam-ecosystem/priorities",
+            "/api/exam-ecosystem/plans",
+            "/api/exam-ecosystem/plans/active",
+            "/api/exam-ecosystem/practice/start",
+            "/api/exam-ecosystem/readiness",
+            "/api/exam-ecosystem/readiness/history",
+            "/api/exam-ecosystem/coaching/daily",
+            "/api/exam-ecosystem/dashboard",
+        }
+
+        assert required.issubset(routes), (
+            f"Missing Phase 15 routes: {sorted(required - routes)}"
+        )
 
     def test_no_duplicate_quiz_engine(self):
         """Verify Smart Practice reuses existing quiz engine, not a duplicate."""

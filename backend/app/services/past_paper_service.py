@@ -48,7 +48,7 @@ QUESTIONS_SUB = "paper_questions"
 
 # Deterministic question-type detection
 _MCQ_OPTION_RE = re.compile(
-    r"^\s*(?:[a-dA-D][).\]]|[iI]{1,3}[).\]]|\([a-dA-D]\))\s+\S",
+    r"(?:^|\n|\s)(?:[a-dA-D][).\]]|[iI]{1,3}[).\]]|\([a-dA-D]\))\s+\S",
     re.MULTILINE,
 )
 _QUESTION_NUM_RE = re.compile(
@@ -255,7 +255,9 @@ def _extract_questions_deterministic(
     page_number = 1
 
     def _flush(q_num: str | None, block: list[str], marks: int | None) -> None:
-        text_block = " ".join(block).strip()
+        text_block = "\n".join(
+            b.strip() for b in block if b.strip()
+        ).strip()
         if not text_block or len(text_block) < 10:
             return
         q_type = "mcq" if _MCQ_OPTION_RE.search(text_block) else "unknown"
