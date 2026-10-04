@@ -89,14 +89,41 @@ def _set_status(db, material_id: str, status: str, extra: dict | None = None) ->
 
 
 def _fetch_bytes(material: dict) -> bytes:
-    """Download the raw file bytes from canonical storage (B2 / legacy Firebase)."""
+    """
+    Download raw material bytes through the canonical storage provider.
+
+    Supports the storage backends already handled by storage_provider,
+    including Backblaze B2 and the legacy Firebase fallback.
+    """
     file_path = material.get("filePath") or ""
+
     if not file_path:
-        raise HTTPException(status_code=502, detail="Material has no file path")
+        raise HTTPException(
+            status_code=502,
+            detail="Material has no file path",
+        )
+
     try:
-        return storage_provider.download_bytes(file_path)
+        resolution = storage_provider.resolve(material)
+        data = storage_provider.download_for(resolution)
+
+        if data is None:
+            raise HTTPException(
+                status_code=502,
+                detail="Stored material file could not be downloaded",
+            )
+
+        return data
+
+    except HTTPException:
+        raise
+
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Storage download failed: {exc}") from exc
+        logger.exception("Material storage download failed")
+        raise HTTPException(
+            status_code=502,
+            detail="Storage download failed",
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
