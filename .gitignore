@@ -95,3 +95,9 @@ backend/.migration_state.json
 backend/.migration_state.json.tmp
 backend/data/commute_seed/deployment_audit/
 flutter_app/reminders_manifest.json
+
+# JVM crash dumps and duplicate directory copies
+hs_err_pid*
+replay_pid*
+* - Copy/
+* - Copy (*)/

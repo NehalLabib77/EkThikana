@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     openrouter_model: str = "qwen/qwen-2.5-72b-instruct:free"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    max_upload_mb: int = 15
+    max_upload_mb: int = 25
     user_storage_limit_mb: int = 100
     upload_daily_limit: int = 10
     # Spec §8.10: signed download/view URLs must expire in 15 minutes or less.

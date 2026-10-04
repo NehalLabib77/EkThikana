@@ -381,7 +381,6 @@ def get_bus_service(
 ):
     """Get a single bus service by ID with its ordered stops."""
     try:
-        repo = get_commute_repository()
         repo = CommutePostgresRepository()
         result = repo.get_bus_service(service_id)
         if not result:
@@ -476,25 +475,6 @@ async def resolve_place(
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Place resolution failed: {exc}")
 
-
-@router.get("/bus-services/{service_id}")
-def get_bus_service(
-    service_id: str,
-    user: CurrentUser = Depends(get_current_user),
-):
-    """Get a single bus service by ID with its ordered stops."""
-    try:
-        repo = CommutePostgresRepository()
-        result = repo.get_bus_service(service_id)
-        if not result:
-            raise HTTPException(status_code=404, detail=f"Bus service '{service_id}' not found")
-        return result
-    except HTTPException:
-        raise
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
-    except Exception:
-        raise HTTPException(status_code=503, detail="Bus service lookup is unavailable")
 
 
 @router.post("/single-fare")

@@ -46,7 +46,7 @@ services:
         # app/core/config.py.
         value: gemini-2.5-flash
       - key: MAX_UPLOAD_MB
-        value: "15"
+        value: "25"
       - key: USER_STORAGE_LIMIT_MB
         value: "100"
       - key: UPLOAD_DAILY_LIMIT
