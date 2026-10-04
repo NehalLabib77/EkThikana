@@ -2515,6 +2515,149 @@ class ApiService {
       return _decode(res);
     });
   }
+
+  // =========================================================================
+  // Phase 15 — Exam Ecosystem
+  // Orchestration + intelligence layer. Reuses all canonical engines.
+  // =========================================================================
+
+  /// Single-request Exam Ecosystem dashboard bootstrap.
+  static Future<Map<String, dynamic>> examEcosystemDashboard() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/dashboard')));
+
+  /// Analyze a Workspace material as a historical exam paper.
+  /// Idempotent: returns cache unless [force] is true.
+  static Future<Map<String, dynamic>> analyzePastPaper({
+    required String materialId,
+    String? examName,
+    String? board,
+    String? subject,
+    int? year,
+    bool force = false,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/exam-ecosystem/papers/analyze',
+        body: {
+          'material_id': materialId,
+          'exam_name': ?examName,
+          'board': ?board,
+          'subject': ?subject,
+          'year': ?year,
+          'force': force,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// List all past papers analyzed by the current student.
+  static Future<Map<String, dynamic>> listPastPapers({int limit = 50}) =>
+      _guard(() async => _decode(
+            await _get('/api/exam-ecosystem/papers', query: {'limit': '$limit'}),
+          ));
+
+  /// Historical exam insights aggregated across all past papers.
+  static Future<Map<String, dynamic>> historicalInsights() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/insights')));
+
+  /// Recalculate priority scores for all known topics (deterministic formula).
+  static Future<Map<String, dynamic>> recalculatePriorities() =>
+      _guard(() async => _decode(
+            await _post('/api/exam-ecosystem/priority/recalculate', body: {}),
+          ));
+
+  /// Get persisted priority topics. Optionally filter by [priority] level.
+  static Future<Map<String, dynamic>> getPriorityTopics({
+    String? priority,
+    int limit = 20,
+  }) =>
+      _guard(() async => _decode(
+            await _get(
+              '/api/exam-ecosystem/priorities',
+              query: {
+                'limit': '$limit',
+                'priority': ?priority,
+              },
+            ),
+          ));
+
+  /// Create a personalized exam study plan.
+  static Future<Map<String, dynamic>> createExamPlan({
+    required String examName,
+    required String examDate,
+    List<String> subjects = const [],
+    int? dailyMinutes,
+    bool forceNew = false,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/exam-ecosystem/plans',
+        body: {
+          'exam_name': examName,
+          'exam_date': examDate,
+          'subjects': subjects,
+          'daily_minutes': ?dailyMinutes,
+          'force_new': forceNew,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Get the current active exam plan.
+  static Future<Map<String, dynamic>> getActivePlan() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/plans/active')));
+
+  /// Get today's study blocks for a plan.
+  static Future<Map<String, dynamic>> getPlanToday(String planId) =>
+      _guard(() async =>
+          _decode(await _get('/api/exam-ecosystem/plans/$planId/today')));
+
+  /// Recalculate an existing plan without losing completed work.
+  static Future<Map<String, dynamic>> recalculatePlan(String planId) =>
+      _guard(() async => _decode(
+            await _post('/api/exam-ecosystem/plans/$planId/recalculate', body: {}),
+          ));
+
+  /// Start a smart practice session. Selects WHAT to practice.
+  /// [mode]: quick_quiz | topic_drill | weak_topic_drill |
+  ///         mistake_revision | chapter_test | mixed_priority | full_mock
+  static Future<Map<String, dynamic>> startPractice({
+    required String mode,
+    String? topic,
+    String? subject,
+    int? questionCount,
+  }) async {
+    return _guard(() async {
+      final res = await _post(
+        '/api/exam-ecosystem/practice/start',
+        body: {
+          'mode': mode,
+          'topic': ?topic,
+          'subject': ?subject,
+          'question_count': ?questionCount,
+        },
+      );
+      return _decode(res);
+    });
+  }
+
+  /// Calculate current exam readiness (deterministic formula).
+  static Future<Map<String, dynamic>> getExamReadiness() =>
+      _guard(() async => _decode(await _get('/api/exam-ecosystem/readiness')));
+
+  /// Get readiness history snapshots for trend visualization.
+  static Future<Map<String, dynamic>> getReadinessHistory({int days = 30}) =>
+      _guard(() async => _decode(
+            await _get('/api/exam-ecosystem/readiness/history',
+                query: {'days': '$days'}),
+          ));
+
+  /// Get today's Ziku Exam Coach recommendations.
+  static Future<Map<String, dynamic>> getDailyCoaching() =>
+      _guard(() async =>
+          _decode(await _get('/api/exam-ecosystem/coaching/daily')));
 }
 
 

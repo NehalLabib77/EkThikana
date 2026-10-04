@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.latency import latency_middleware, router as latency_router
 from app.database.connection import describe_active_database
 from app.services.storage_service import describe_active_storage
-from app.routers import account, academic_health, adaptive, admin_analytics, ai, ai_study, coach, commute, community, content, exams, family, focus, group_ziku, groups, health, learning, materials, me, mistakes, part3, prescriptions, reports, student, study, telecom, tutor, ziku
+from app.routers import account, academic_health, adaptive, admin_analytics, ai, ai_study, coach, commute, community, content, exam_ecosystem, exams, family, focus, group_ziku, groups, health, learning, materials, me, mistakes, part3, prescriptions, reports, student, study, telecom, tutor, ziku
 
 logger = logging.getLogger("gochano")
 
@@ -140,3 +140,8 @@ app.include_router(admin_analytics.router, prefix="/api/admin/analytics", tags=[
 app.include_router(student.router, prefix="/api/student", tags=["Student"])
 app.include_router(commute.router, prefix="/api/commute", tags=["CommuteBD"])
 app.include_router(telecom.router, prefix="/v1/auth/telecom", tags=["Telecom"])
+app.include_router(
+    exam_ecosystem.router,
+    prefix="/api/exam-ecosystem",
+    tags=["Phase 15 Exam Ecosystem"],
+)

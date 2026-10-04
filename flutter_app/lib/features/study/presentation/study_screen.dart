@@ -23,6 +23,7 @@ import '../../exams/presentation/exam_setup_screen.dart';
 import '../../search/presentation/universal_search_screen.dart';
 import '../../community/presentation/community_view.dart';
 import 'ai/ai_assistant_screen.dart';
+import 'exam_ecosystem/exam_hub_screen.dart';
 import 'planner/plan_view.dart' show PlanView, openPlanHistory;
 import 'workspace/workspace_view.dart';
 
@@ -80,6 +81,13 @@ class _StudyScreenState extends State<StudyScreen>
             label: GochanoLanguage.text('Exam simulator', 'পরীক্ষা হল'),
             onPressed: () => Navigator.of(context).push(
               GochanoRoute.to(builder: (_) => const ExamSetupScreen()),
+            ),
+          ),
+          IconActionButton(
+            icon: Icons.fact_check_outlined,
+            label: GochanoLanguage.text('Exam Prep', 'পরীক্ষা প্রস্তুতি'),
+            onPressed: () => Navigator.of(context).push(
+              GochanoRoute.to(builder: (_) => const ExamHubScreen()),
             ),
           ),
           IconActionButton(
