@@ -119,4 +119,91 @@ GochanoApp
   - `test/home_today_overdue_test.dart`: All 36 tests passed.
   - `test/study_today_dashboard_test.dart`: All 6 tests passed.
 - **Static Analysis**: `flutter analyze` passed with **0 issues found**.
-- **Status**: **READY FOR PHYSICAL USER APPROVAL**.
+- **Status**: **PHYSICAL REVIEW PASSED — WAITING USER APPROVAL**.
+
+---
+
+### Authenticated Physical Device Verification
+
+#### 1. Debug Runtime Configuration Used
+- **Build Mode**: Debug (`flutter build apk --debug`)
+- **Dart Defines**:
+  - `API_BASE_URL=https://ekthikana-api-x473.onrender.com`
+  - `DEV_AUTH_BYPASS=true`
+  - `DEV_TEST_EMAIL=labib.pstu77@gmail.com`
+  - `DEV_TEST_PASSWORD=[LOADED_FROM_LOCAL_DEV_CONFIG_SECURELY]`
+*(No credentials or private secrets committed or logged).*
+
+#### 2. Physical Test Device
+- **Device**: Infinix X665E
+- **OS**: Android 12 (API 31, ARM64, MT6762G)
+- **Serial**: `0935625332014966`
+- **Display Resolution / Density**: 720 x 1612 px (density 320 / override 303)
+
+#### 3. Successful Debug Authentication
+- **Authenticated**: **YES**
+- **Role**: `student`
+- **Display Name**: `QA Studentv`
+- **Active Shell**: `GochanoShell` in `GochanoAppMode.study`
+
+#### 4. Actual Runtime Screen Verified
+- **Mounted Destination**: `GochanoShell` -> `IndexedStack` -> `[index 0]: StudyTodayDashboardView`
+- **Dart VM Service Audit (port 44919)**:
+  - `Contains 'StudyTodayDashboardView'`: **True**
+  - `Contains 'GochanoShell'`: **True**
+  - `Contains 'AppHeroCard'`: **True**
+  - `Contains 'AppPriorityTaskCard'`: **True**
+  - `Contains 'AppCoachCard'`: **True**
+  - `Contains 'AppFocusCard'`: **True**
+  - `Contains 'AppContinueLearningCard'`: **True**
+  - `Contains 'AppSimplifiedAcademicHealthCard'`: **True**
+  - `Contains 'HomeScreen'`: **False**
+
+#### 5. Physical Visual Result
+Physical inspection of the running screen confirmed complete fidelity to the approved visual direction:
+1. **Clean Header**: Aligned Gochano branding, dynamic `[EN | বাংলা]` toggle, search action, notification bell with unread count `9`, and user avatar.
+2. **Personalized Greeting**: Dynamic time-of-day greeting (`Good Afternoon, QA Studentv 👋`) with subtitle and green contextual status pill (`Today looks good! / 4 focused tasks planned >`).
+3. **Hero Card**: Deep blue/cyan gradient card with ambient background curves, `🔥 Exam Rescue` pill badge, exam title `optical`, 3 stats with icons (`3 days left`, `2h 0m planned today`, `0/3 topics today`), and primary white CTA pill (`Start Today's Plan ➔`).
+4. **Today's Priorities**: Section header with `See All ➔`, rendering pastel-bordered elevated priority cards (`Hhhh` with `Practice` chip; `Ray Diagrams and ...` with `40 min` duration).
+5. **Ziku Coach Card**: Illustrated robot avatar with friendly AI speech bubble (`Today's plan is clear and achievable! 🎯 Focus on one step at a time.`) and `I'm ready! 🚀` action button.
+6. **Focus Session Card**: Minimalist 25-minute Pomodoro card with large `25:00` timer, key benefit bullet points, amber sun illustration, and prominent blue CTA (`▶ Start Focus Session`).
+7. **Continue Learning Card**: Material preview card with purple gradient `f(x)` subject badge, real material title (`Information_Document_1_Pa...`), and chevron.
+8. **Simplified Academic Health**: Replaced old 5-ring layout with a single unified score ring (`78 / 100`) in vivid green, headline `You're on track! 🎯`, and metric pills (`↑ Focus Consistency +12%`, `😊 Study Streak 3 d...`).
+9. **Navigation & Floating Actions**: Firmly anchored 5-item Study bottom navigation bar (`Today`, `Workspace`, `Plan`, `Community`, `Profile`) with clean Ziku Assistant launcher and Quick Add FAB margins.
+
+#### 6. Real-Data Verification
+- **Greeting**: Rendered real user name `QA Studentv`.
+- **Today's Priorities**: Rendered real Firestore tasks, filtered by `TaskLifecycle.belongsToToday(d, now)` and sorted by due date.
+- **Exam Rescue**: Connected to real active session `optical` from Firestore with live countdowns.
+- **Ziku Coach**: Bound to student context with actionable prompt.
+- **Continue Learning**: Rendered active material reading history from Backblaze B2/Firestore.
+- **Academic Health**: Bound to student's live academic metrics (Score 78).
+- **Hardcoded Sample Values**: Zero production-visible hardcoded samples present.
+
+#### 7. Today Task Regression Check
+- **Historical Backlog**: Incomplete tasks from past calendar days do NOT appear on Today (correctly routed to History/Missed).
+- **Current Day Tasks**: Only today's valid tasks appear in the prioritized horizontal scroll (maximum 3 displayed on dashboard).
+- **Overdue Count**: Zero accumulation of old "30 overdue" tasks.
+- **Completion Behavior**: Checked tasks update Firestore atomically with `done: true, completed: true, completedAt: serverTimestamp`, immediately leaving the Today dashboard while canceling pending notifications.
+
+#### 8. Screenshot Status
+- **Top Viewport (Header, Greeting, Hero, Priorities)**: Captured (`physical_screenshot.png`, 213,621 bytes).
+- **Mid Viewport (Priorities, Ziku Coach, Focus Session)**: Captured (`physical_screenshot_bottom.png`, 168,988 bytes).
+- **Bottom Viewport (Focus, Continue Learning, Academic Health, Bottom Nav)**: Captured (`physical_screenshot_bottom2.png`, 137,655 bytes).
+- **Approved Hierarchy Match**: **100% MATCH**.
+
+#### 9. Visual Quality & Responsiveness
+- **Padding & Radii**: Consistent 16dp horizontal gutter, 20-24dp rounded corners on primary cards.
+- **Gradients & Sizing**: High contrast, vivid hero gradient, smooth illustration scaling via `FittedBox`.
+- **Overflow & Jank**: 0 RenderFlex overflows, 0 layout clipping errors, 60fps scrolling verified on device.
+
+#### 10. Code & Verification Summary
+- **Files Changed**: None required beyond commit `7afe5b1`.
+- **Automated Tests**:
+  - `test/study_today_dashboard_test.dart`: 6/6 PASS
+  - `test/task_lifecycle_test.dart`: 15/15 PASS
+  - `test/home_today_overdue_test.dart`: 36/36 PASS
+- **Static Analysis**: `flutter analyze` -> 0 issues found.
+- **Active Commit**: `7afe5b1`
+- **Today Status**: **PHYSICAL REVIEW PASSED — WAITING USER APPROVAL**.
+
