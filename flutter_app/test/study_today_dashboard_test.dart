@@ -6,7 +6,9 @@ import 'package:gochano/core/design_system/app_design_system.dart';
 import 'package:gochano/core/localization/gochano_language.dart';
 import 'package:gochano/features/study/presentation/rescue/exam_rescue_models.dart';
 import 'package:gochano/features/study/presentation/rescue/exam_rescue_session_service.dart';
+import 'package:gochano/features/study/presentation/today/greeting_presentation.dart';
 import 'package:gochano/features/study/presentation/today/study_today_dashboard_view.dart';
+import 'package:gochano/widgets/language_toggle.dart';
 
 class _MockRescueService extends ExamRescueSessionService {
   _MockRescueService({required this.sessionStream, required this.now});
@@ -28,14 +30,13 @@ void main() {
     GochanoLanguage.current.value = GochanoLocale.english;
   });
 
-  group('StudyTodayDashboardView - Hierarchy & Components', () {
-    testWidgets('renders all 7 approved sections with fallback hero', (tester) async {
+  group('StudyTodayDashboardView - Grouped Architecture & Header Cleanup', () {
+    testWidgets('renders all approved sections, dynamic greeting, grouped containers, and clean header', (tester) async {
       tester.view.physicalSize = const Size(800, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
       int openedDestination = -1;
-      bool profileOpened = false;
 
       final bootstrapData = {
         'profile': {
@@ -62,7 +63,7 @@ void main() {
             body: StudyTodayDashboardView(
               displayName: 'Farhan',
               onOpenDestination: (idx) => openedDestination = idx,
-              onOpenProfile: () => profileOpened = true,
+              onOpenProfile: () {},
               bootstrapData: bootstrapData,
             ),
           ),
@@ -71,35 +72,43 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // SECTION 1: HEADER
+      // 1. TOP APP BAR CLEANUP
+      // Left: Brand icon + name
       expect(find.text('Gochano'), findsOneWidget);
-      expect(find.byType(CircleAvatar), findsWidgets);
+      // Right: Language toggle, Search, Notification
+      expect(find.byType(LanguageToggle), findsOneWidget);
       expect(find.byIcon(Icons.search_rounded), findsOneWidget);
       expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
+      // Profile avatar ABSENT from app bar
+      expect(find.byType(CircleAvatar), findsNothing);
 
-      // SECTION 2: GREETING & CONTEXTUAL STATUS
+      // 2. DYNAMIC GREETING CARD
+      expect(find.byType(AppGreetingCard), findsOneWidget);
       expect(find.textContaining('Farhan'), findsOneWidget);
+      // "Today looks good" status card no longer renders
+      expect(find.text('Today looks good!'), findsNothing);
+      expect(find.text('Your day is clear'), findsNothing);
 
-      // SECTION 3: HERO (Fallback hero when no active exam rescue)
+      // 3. HERO (Fallback hero when no active exam rescue)
       expect(find.text('Alkanes Revision'), findsOneWidget);
       expect(find.text('Weak area identified in mock test'), findsOneWidget);
       expect(find.text('Start Study Session'), findsOneWidget);
 
-      // SECTION 4: TODAY'S PRIORITIES
-      expect(find.text("Today's Priorities"), findsOneWidget);
+      // 4. TODAY'S PRIORITIES (Grouped inside AppSectionContainer)
+      expect(find.widgetWithText(AppSectionContainer, "Today's Priorities"), findsOneWidget);
       expect(find.text('See All'), findsWidgets);
 
-      // SECTION 5: ZIKU COACH + FOCUS SESSION
+      // 5. ZIKU COACH + FOCUS SESSION
       expect(find.text('Ziku Coach'), findsOneWidget);
       expect(find.text("I'm ready! 🚀"), findsOneWidget);
       expect(find.text('Focus Session'), findsOneWidget);
       expect(find.text('Start Focus Session'), findsOneWidget);
 
-      // SECTION 6: CONTINUE LEARNING
-      expect(find.text('Continue Learning'), findsOneWidget);
+      // 6. CONTINUE LEARNING (Grouped inside AppSectionContainer)
+      expect(find.widgetWithText(AppSectionContainer, 'Continue Learning'), findsOneWidget);
 
-      // SECTION 7: SIMPLIFIED ACADEMIC HEALTH
-      expect(find.text('Academic Health'), findsOneWidget);
+      // 7. SIMPLIFIED ACADEMIC HEALTH (Grouped inside AppSectionContainer)
+      expect(find.widgetWithText(AppSectionContainer, 'Academic Health'), findsOneWidget);
       expect(find.text('88'), findsOneWidget);
       expect(find.text('Consistent study streak'), findsOneWidget);
       expect(find.text('View Details'), findsOneWidget);
@@ -108,11 +117,6 @@ void main() {
       await tester.tap(find.text('Start Study Session'));
       await tester.pumpAndSettle();
       expect(openedDestination, equals(2)); // Plan tab
-
-      // Test tapping profile avatar
-      await tester.tap(find.byType(CircleAvatar).first);
-      await tester.pumpAndSettle();
-      expect(profileOpened, isTrue);
     });
 
     testWidgets('renders Active Exam Rescue hero when session is active', (tester) async {
@@ -181,11 +185,140 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('Gochano'), findsOneWidget);
-      expect(find.text('Your day is clear'), findsOneWidget);
+      expect(find.byType(AppGreetingCard), findsOneWidget);
+      expect(find.byType(CircleAvatar), findsNothing);
+    });
+
+    testWidgets('handles large text scaling gracefully without critical overflow', (tester) async {
+      tester.view.physicalSize = const Size(400, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            textTheme: const TextTheme(
+              bodyMedium: TextStyle(fontSize: 22),
+            ),
+          ),
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+            child: Scaffold(
+              body: StudyTodayDashboardView(
+                displayName: 'Student With A Very Long Name',
+                onOpenDestination: (_) {},
+                onOpenProfile: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Gochano'), findsOneWidget);
+    });
+  });
+
+  group('GreetingPresentation Deterministic Tests', () {
+    test('Early Morning (5:00 - 8:59) resolves correctly', () {
+      final early = DateTime(2026, 10, 5, 6, 30);
+      final p = GreetingPresentation.forTime(early);
+      expect(p.period, GreetingPeriod.earlyMorning);
+      expect(p.greetingEn, 'Good Morning');
+      expect(p.greetingBn, 'শুভ সকাল');
+      expect(p.icon, Icons.wb_twilight_rounded);
+      expect(p.gradient, AppGradients.greetingEarlyMorning);
+    });
+
+    test('Morning (9:00 - 11:59) resolves correctly', () {
+      final morning = DateTime(2026, 10, 5, 10, 15);
+      final p = GreetingPresentation.forTime(morning);
+      expect(p.period, GreetingPeriod.morning);
+      expect(p.greetingEn, 'Good Morning');
+      expect(p.greetingBn, 'শুভ সকাল');
+      expect(p.icon, Icons.wb_sunny_rounded);
+      expect(p.gradient, AppGradients.greetingMorning);
+    });
+
+    test('Afternoon (12:00 - 16:59) resolves correctly', () {
+      final afternoon = DateTime(2026, 10, 5, 14, 0);
+      final p = GreetingPresentation.forTime(afternoon);
+      expect(p.period, GreetingPeriod.afternoon);
+      expect(p.greetingEn, 'Good Afternoon');
+      expect(p.greetingBn, 'শুভ অপরাহ্ন');
+      expect(p.icon, Icons.wb_cloudy_rounded);
+      expect(p.gradient, AppGradients.greetingAfternoon);
+    });
+
+    test('Evening (17:00 - 19:59) resolves correctly', () {
+      final evening = DateTime(2026, 10, 5, 18, 30);
+      final p = GreetingPresentation.forTime(evening);
+      expect(p.period, GreetingPeriod.evening);
+      expect(p.greetingEn, 'Good Evening');
+      expect(p.greetingBn, 'শুভ সন্ধ্যা');
+      expect(p.icon, Icons.wb_twilight_rounded);
+      expect(p.gradient, AppGradients.greetingEvening);
+    });
+
+    test('Night (20:00 - 4:59) resolves correctly', () {
+      final night = DateTime(2026, 10, 5, 22, 45);
+      final p = GreetingPresentation.forTime(night);
+      expect(p.period, GreetingPeriod.night);
+      expect(p.greetingEn, 'Good Evening');
+      expect(p.greetingBn, 'শুভ সন্ধ্যা');
+      expect(p.icon, Icons.nights_stay_rounded);
+      expect(p.gradient, AppGradients.greetingNight);
     });
   });
 
   group('Design System Components Verification', () {
+    testWidgets('AppGreetingCard renders greeting, name, and visual icon badge', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppGreetingCard(
+              userName: 'Nafis',
+              dateTime: DateTime(2026, 10, 5, 14, 30),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Good Afternoon'), findsOneWidget);
+      expect(find.textContaining('Nafis'), findsOneWidget);
+      expect(find.text('Keep the momentum going.'), findsOneWidget);
+      expect(find.byIcon(Icons.wb_cloudy_rounded), findsOneWidget);
+    });
+
+    testWidgets('AppSectionContainer renders header row and content', (tester) async {
+      bool tappedAction = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppSectionContainer(
+              title: "Today's Priorities",
+              icon: Icons.track_changes_rounded,
+              actionLabel: 'See All',
+              onAction: () => tappedAction = true,
+              child: const Text('Priority Task Item'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      expect(find.text("Today's Priorities"), findsOneWidget);
+      expect(find.text('See All'), findsOneWidget);
+      expect(find.text('Priority Task Item'), findsOneWidget);
+      expect(find.byIcon(Icons.track_changes_rounded), findsOneWidget);
+
+      await tester.tap(find.text('See All'));
+      expect(tappedAction, isTrue);
+    });
+
     testWidgets('AppHeroCard renders stats and responds to CTA tap', (tester) async {
       bool tapped = false;
 

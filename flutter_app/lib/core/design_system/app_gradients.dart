@@ -80,6 +80,76 @@ class AppGradients {
       Color(0xFFCCFBF1), // Teal 100
     ],
   );
+
+  /// Today's Priorities subtle grouped container gradient.
+  static const LinearGradient prioritiesContainer = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFAFAFE), // Very soft lavender white
+      Color(0xFFF1F5F9), // Slate 100
+    ],
+  );
+
+  /// Time-of-day greeting gradients:
+  /// Early Morning (5:00 - 8:59): warm sunrise (peach -> pale yellow -> soft blue)
+  static const LinearGradient greetingEarlyMorning = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFEDD5), // Peach / Orange 100
+      Color(0xFFFEF3C7), // Amber 100
+      Color(0xFFE0F2FE), // Sky 100
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
+
+  /// Morning (9:00 - 11:59): soft yellow -> light sky blue
+  static const LinearGradient greetingMorning = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFEF9C3), // Yellow 100
+      Color(0xFFE0F2FE), // Sky 100
+    ],
+    stops: [0.0, 1.0],
+  );
+
+  /// Afternoon (12:00 - 16:59): soft sky blue -> cyan -> light lavender
+  static const LinearGradient greetingAfternoon = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFE0F2FE), // Sky 100
+      Color(0xFFE0F7FA), // Cyan 50
+      Color(0xFFEDE9FE), // Violet 100
+    ],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  /// Evening (17:00 - 19:59): soft orange -> rose -> violet
+  static const LinearGradient greetingEvening = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFEDD5), // Orange 100
+      Color(0xFFFFE4E6), // Rose 100
+      Color(0xFFEDE9FE), // Violet 100
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
+
+  /// Night (20:00 - 4:59): deep navy -> indigo -> soft violet
+  static const LinearGradient greetingNight = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF0F172A), // Slate 900
+      Color(0xFF1E1B4B), // Indigo 950
+      Color(0xFF311042), // Dark Violet
+    ],
+    stops: [0.0, 0.55, 1.0],
+  );
 }
 
 /// Category soft tint definitions for priority cards (spec §8).

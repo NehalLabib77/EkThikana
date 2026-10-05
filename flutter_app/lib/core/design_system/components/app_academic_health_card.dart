@@ -19,6 +19,7 @@ class AppSimplifiedAcademicHealthCard extends StatelessWidget {
     this.attentionOrStreakMetric,
     required this.onTap,
     this.hasData = true,
+    this.isEmbedded = false,
   });
 
   final int? score;
@@ -28,6 +29,7 @@ class AppSimplifiedAcademicHealthCard extends StatelessWidget {
   final String? attentionOrStreakMetric;
   final VoidCallback onTap;
   final bool hasData;
+  final bool isEmbedded;
 
   @override
   Widget build(BuildContext context) {
@@ -36,24 +38,26 @@ class AppSimplifiedAcademicHealthCard extends StatelessWidget {
     final isDark = context.isDark;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: isDark ? null : AppGradients.academicHealth,
-        color: isDark ? colors.surface : null,
-        borderRadius: const BorderRadius.all(Radius.circular(18)),
-        border: Border.all(
-          color: isDark ? colors.border : const Color(0xFFA7F3D0),
-          width: 1.1,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
+      decoration: isEmbedded
+          ? null
+          : BoxDecoration(
+              gradient: isDark ? null : AppGradients.academicHealth,
+              color: isDark ? colors.surface : null,
+              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              border: Border.all(
+                color: isDark ? colors.border : const Color(0xFFA7F3D0),
+                width: 1.1,
+              ),
+            ),
+      clipBehavior: isEmbedded ? Clip.none : Clip.antiAlias,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 11,
+            padding: EdgeInsets.symmetric(
+              horizontal: isEmbedded ? 2 : 14,
+              vertical: isEmbedded ? 2 : 11,
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {

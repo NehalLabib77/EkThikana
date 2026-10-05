@@ -18,4 +18,6 @@ export 'components/app_coach_card.dart';
 export 'components/app_focus_card.dart';
 export 'components/app_continue_learning_card.dart';
 export 'components/app_academic_health_card.dart';
+export 'components/app_greeting_card.dart';
+export 'components/app_section_container.dart';
 export 'components/app_skeleton.dart';

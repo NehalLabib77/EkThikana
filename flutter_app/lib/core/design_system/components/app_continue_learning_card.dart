@@ -18,6 +18,7 @@ class AppContinueLearningCard extends StatelessWidget {
     this.progressLabel,
     this.thumbnail,
     required this.onTap,
+    this.isEmbedded = false,
   });
 
   final String title;
@@ -26,6 +27,7 @@ class AppContinueLearningCard extends StatelessWidget {
   final String? progressLabel;
   final Widget? thumbnail;
   final VoidCallback onTap;
+  final bool isEmbedded;
 
   @override
   Widget build(BuildContext context) {
@@ -34,24 +36,26 @@ class AppContinueLearningCard extends StatelessWidget {
     final isDark = context.isDark;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: isDark ? null : AppGradients.continueLearning,
-        color: isDark ? colors.surface : null,
-        borderRadius: const BorderRadius.all(Radius.circular(18)),
-        border: Border.all(
-          color: isDark ? colors.border : const Color(0xFFDDD6FE),
-          width: 1.1,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
+      decoration: isEmbedded
+          ? null
+          : BoxDecoration(
+              gradient: isDark ? null : AppGradients.continueLearning,
+              color: isDark ? colors.surface : null,
+              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              border: Border.all(
+                color: isDark ? colors.border : const Color(0xFFDDD6FE),
+                width: 1.1,
+              ),
+            ),
+      clipBehavior: isEmbedded ? Clip.none : Clip.antiAlias,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 11,
+            padding: EdgeInsets.symmetric(
+              horizontal: isEmbedded ? 2 : 14,
+              vertical: isEmbedded ? 4 : 11,
             ),
             child: Row(
               children: [

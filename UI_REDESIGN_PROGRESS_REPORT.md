@@ -271,4 +271,66 @@ Refined the approved Study Mode Today dashboard without modifying the structural
 #### 6. Section Status
 - **Today Status**: **READY FOR USER REVIEW**.
 
+---
+
+### Structural Polish Pass — Grouped Sections, Dynamic Greeting & Header Cleanup
+
+#### 1. Scope & Objectives
+Refined the visual grouping and header/greeting structure on `ui/today-redesign` without a full redesign from scratch:
+1. **Group Each Section Inside One Outer Container**:
+   - `Today's Priorities`: Grouped section header (`🎯 Today's Priorities [See All ➔]`) and priority task cards into a single rounded outer container (`#F8FAFC` -> `#F1F5F9`).
+   - `Continue Learning`: Grouped section header (`📘 Continue Learning [See All ➔]`) and recent learning material card into a single rounded outer container (`#FAF5FF` -> `#F3E8FF`).
+   - `Academic Health`: Grouped section header (`📊 Academic Health [View Details ➔]`) and health score ring / metric chips into a single rounded outer container (`#F0FDF4` -> `#DCFCE7`).
+   - `Ziku Coach` & `Focus Session`: Preserved as self-contained compact cards with title, icon, and actions cleanly integrated inside their respective boxes.
+2. **Top App Bar Cleanup**:
+   - Removed profile avatar from the top app bar entirely.
+   - App bar now strictly contains Gochano branding & tagline (left), Language toggle `[EN | বাংলা]`, Search action, and Notification bell with unread badge (right).
+3. **Bottom Navigation Profile Item ("You" / "আপনি")**:
+   - In Study Mode, the 5th bottom navigation destination is labeled `You` (English) or `আপনি` (Bangla).
+   - Displays a circular profile photo (`BoxFit.cover`) if the user has an uploaded avatar, with safe fallback to `Icons.person_outline_rounded` / `Icons.person_rounded`.
+   - Navigates cleanly to `ProfileScreen(role: widget.role)`.
+4. **Eliminated "Today looks good!" Status Card**:
+   - Removed the separate status card from the greeting section for a cleaner, more focused top-of-screen experience.
+5. **Dynamic Greeting Box**:
+   - Implemented a unified visual card driven by deterministic local-time logic (no AI, no single hardcoded string).
+   - 5 distinct periods: Early Morning (5:00-8:59), Morning (9:00-11:59), Afternoon (12:00-16:59), Evening (17:00-19:59), Night (20:00-4:59).
+   - Dynamic English and Bangla subtitles, time-of-day micro-badge (sun, sunrise, cloud, moon, stars), and soft ambient gradients.
+
+#### 2. Components Created & Modified
+
+| Component / File | Purpose & Architecture |
+|---|---|
+| `AppSectionContainer` (`app_section_container.dart`) | Reusable outer grouping card that encapsulates an integrated header row (`title`, `leadingIcon`, `actionLabel`, `onActionTap`) and child content into a unified border-radius card with subtle border and gradient. |
+| `AppGreetingCard` (`app_greeting_card.dart`) | Compact dynamic greeting card that displays user greeting, dynamic subtitle, and time-of-day micro-icon badge on time-specific gradient backgrounds. |
+| `GreetingPresentation` (`greeting_presentation.dart`) | Deterministic presentation logic resolving 5 time periods with localized English/Bangla text, semantic icons, accent colors, and background gradient tokens. |
+| `AppContinueLearningCard` | Added `isEmbedded` parameter to strip redundant outer borders and background when hosted inside `AppSectionContainer`. |
+| `AppAcademicHealthCard` | Added `isEmbedded` parameter to strip redundant outer borders and background when hosted inside `AppSectionContainer`. |
+| `GochanoShell` (`gochano_shell.dart`) | Updated 5th Study Mode navigation tab to `'You'` / `'আপনি'` with `_StudyProfileNavAvatar` (safe Firebase try/catch fallback for test/offline environments). |
+| `StudyTodayDashboardView` (`study_today_dashboard_view.dart`) | Removed top bar avatar, removed old status card, integrated `AppGreetingCard`, and wrapped Today's Priorities, Continue Learning, and Academic Health in `AppSectionContainer`. |
+
+#### 3. Automated Quality Gates
+
+| Test Suite / Tool | Tests Passed | Status |
+|---|---|---|
+| `test/study_today_dashboard_test.dart` | 14 / 14 | **PASS** (Covers all 5 greeting periods, section containers, header cleanup, and 320dp responsive scaling) |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** (Verifies Study Mode 5th tab is 'You' / 'আপনি' with profile avatar) |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** (Verifies task lifecycle, today filtering, overdue separation) |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** (Verifies today vs overdue partition and completion behavior) |
+| `test/design_system_test.dart` | 31 / 31 | **PASS** (Verifies design system tokens and component contracts) |
+| `flutter analyze lib` | 0 issues | **PASS** (0 warnings, 0 errors) |
+| **Total Automated Tests** | **106 / 106** | **ALL PASS** |
+
+#### 4. Physical Device Verification (Infinix X665E)
+- **Device Details**: Infinix X665E (Android 12, serial `0935625332014966`).
+- **Configuration**: Authenticated debug build with `API_BASE_URL`, `DEV_AUTH_BYPASS=true`, and local test credentials (`QA Studentv`).
+- **Physical Screenshots Verified**:
+  - `physical_grouped_top.png` (219,269 bytes): Top app bar has no profile avatar (clean brand, lang toggle, search, notification bell with badge 8); dynamic greeting box displays "Good Afternoon, QA Studentv 👋" with cloud micro-badge; old status card is gone; Exam Rescue hero card is compact and vibrant; Today's Priorities is a unified outer container with integrated header and internal task cards.
+  - `physical_grouped_mid.png` (216,262 bytes): Today's Priorities cleanly grouped; Ziku Coach and Focus Session remain compact and self-contained cards.
+  - `physical_grouped_bottom.png` (179,117 bytes): Continue Learning and Academic Health are unified outer containers with integrated headers and clean padding; bottom navigation displays `Today`, `Workspace`, `Plan`, `Community`, and `You`.
+- **Render Quality**: 0 `RenderFlex` overflows, smooth 60fps scrolling, high contrast and visual clarity across all cards.
+
+#### 5. Section Status
+- **Today Redesign Status**: **READY FOR USER REVIEW**.
+
+
 

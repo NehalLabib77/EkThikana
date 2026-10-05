@@ -61,17 +61,6 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
   ExamRescueSessionService get _rescueService =>
       widget.examRescueSessionService ?? ExamRescueSessionService.instance;
 
-  String _greetingText() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) {
-      return GochanoLanguage.text('Good Morning', 'শুভ সকাল');
-    } else if (hour >= 12 && hour < 17) {
-      return GochanoLanguage.text('Good Afternoon', 'শুভ দুপুর');
-    } else {
-      return GochanoLanguage.text('Good Evening', 'শুভ সন্ধ্যা');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -328,42 +317,6 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                 );
               },
             ),
-
-            // Profile avatar
-            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirestoreService.profileStream(),
-              builder: (context, snapshot) {
-                final data = snapshot.data?.data();
-                final photoURL = data?['photoURL'] as String?;
-                final name = (data?['displayName'] as String?)?.trim() ??
-                    widget.displayName.trim();
-
-                return InkWell(
-                  onTap: widget.onOpenProfile,
-                  borderRadius: const BorderRadius.all(Radius.circular(999)),
-                  child: Padding(
-                    padding: EdgeInsets.all(isVeryNarrow ? 2 : 4),
-                    child: CircleAvatar(
-                      radius: isVeryNarrow ? 15 : 17,
-                      backgroundColor: colors.brand,
-                      backgroundImage: photoURL != null && photoURL.isNotEmpty
-                          ? NetworkImage(photoURL)
-                          : null,
-                      child: photoURL == null || photoURL.isEmpty
-                          ? Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : '?',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: isVeryNarrow ? 12 : 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                );
-              },
-            ),
           ],
         );
       },
@@ -371,12 +324,9 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. Greeting & Contextual Status
+  // 2. Greeting (Dynamic Time-of-Day Box)
   // ---------------------------------------------------------------------------
   Widget _buildGreeting(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.profileStream(),
       builder: (context, profileSnap) {
@@ -385,165 +335,9 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
             widget.displayName.trim();
         final name = rawName.isNotEmpty ? rawName : 'Friend';
 
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirestoreService.ownerStream('tasks', limit: 100),
-          builder: (context, taskSnap) {
-            final now = DateTime.now();
-            final docs = taskSnap.data?.docs ?? const [];
-            var todayTaskCount = 0;
-            var completedCount = 0;
-
-            for (final doc in docs) {
-              final d = doc.data();
-              if (TaskLifecycle.belongsToToday(d, now)) {
-                todayTaskCount++;
-                if (TaskLifecycle.isTaskCompleted(d)) {
-                  completedCount++;
-                }
-              }
-            }
-
-            final String statusHeadline;
-            final String statusSubtitle;
-            if (todayTaskCount == 0) {
-              statusHeadline = GochanoLanguage.text('Your day is clear', 'আজকের দিনটি মুক্ত');
-              statusSubtitle = GochanoLanguage.text('No tasks scheduled', 'কোনো কাজ নির্ধারিত নেই');
-            } else if (completedCount == todayTaskCount && todayTaskCount > 0) {
-              statusHeadline = GochanoLanguage.text('Great work today!', 'দারুণ কাজ সম্পন্ন!');
-              statusSubtitle = GochanoLanguage.text('All tasks finished', 'সব কাজ সম্পন্ন হয়েছে');
-            } else {
-              final remaining = todayTaskCount - completedCount;
-              statusHeadline = GochanoLanguage.text('Today looks good!', 'আজকের দিন চমৎকার!');
-              statusSubtitle = GochanoLanguage.text(
-                '$remaining focused task${remaining > 1 ? 's' : ''} planned',
-                '$remaining টি কাজ নির্ধারিত',
-              );
-            }
-
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 380;
-
-                final greetingColumn = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${_greetingText()}, $name 👋',
-                      style: type.pageTitle.copyWith(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                        color: colors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      GochanoLanguage.text(
-                        "Today's the day to make progress.",
-                        'আজই নতুন লক্ষ্য অর্জনের দিন।',
-                      ),
-                      style: type.bodySecondary.copyWith(
-                        fontSize: 13,
-                        color: colors.textSecondary,
-                      ),
-                    ),
-                  ],
-                );
-
-                final statusCard = InkWell(
-                  onTap: () => widget.onOpenDestination(2), // Plan tab
-                  borderRadius: const BorderRadius.all(Radius.circular(16)),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: GochanoSpacing.sm,
-                      vertical: GochanoSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: context.isDark ? null : AppGradients.statusPill,
-                      color: context.isDark ? colors.surface : null,
-                      borderRadius: const BorderRadius.all(Radius.circular(16)),
-                      border: Border.all(
-                        color: context.isDark
-                            ? colors.border
-                            : const Color(0xFFBBF7D0),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.eco_rounded,
-                          size: 18,
-                          color: Color(0xFF16A34A),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                statusHeadline,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF15803D),
-                                  fontFamily: GochanoTypography.fontFamily,
-                                ),
-                              ),
-                              Text(
-                                statusSubtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF166534),
-                                  fontFamily: GochanoTypography.fontFamily,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 14,
-                          color: Color(0xFF15803D),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-
-                if (isCompact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      greetingColumn,
-                      const SizedBox(height: GochanoSpacing.xs),
-                      statusCard,
-                    ],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: greetingColumn),
-                    const SizedBox(width: GochanoSpacing.sm),
-                    statusCard,
-                  ],
-                );
-              },
-            );
-          },
+        return AppGreetingCard(
+          userName: name,
+          dateTime: DateTime.now().toLocal(),
         );
       },
     );
@@ -732,144 +526,125 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
   // 4. Today's Priorities (Maximum 3 cards)
   // ---------------------------------------------------------------------------
   Widget _buildPrioritiesSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppSectionHeader(
-          icon: Icons.track_changes_rounded,
-          iconColor: const Color(0xFF7048F5),
-          title: GochanoLanguage.text("Today's Priorities", 'আজকের অগ্রাধিকার'),
-          actionLabel: GochanoLanguage.text('See All', 'সব দেখুন'),
-          onAction: () => widget.onOpenDestination(2), // Plan tab
-        ),
-        const SizedBox(height: GochanoSpacing.xs),
-        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirestoreService.ownerStream('tasks', limit: 100),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const AppSkeleton(height: 120);
+    return AppSectionContainer(
+      icon: Icons.track_changes_rounded,
+      iconColor: const Color(0xFF7048F5),
+      title: GochanoLanguage.text("Today's Priorities", 'আজকের অগ্রাধিকার'),
+      actionLabel: GochanoLanguage.text('See All', 'সব দেখুন'),
+      onAction: () => widget.onOpenDestination(2), // Plan tab
+      gradient: context.isDark ? null : AppGradients.prioritiesContainer,
+      borderColor: context.isDark ? context.colors.border : const Color(0xFFE2E8F0),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirestoreService.ownerStream('tasks', limit: 100),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AppSkeleton(height: 120);
+          }
+
+          final now = DateTime.now();
+          final docs = snapshot.data?.docs ?? const [];
+          final todayOpenTasks = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+          for (final doc in docs) {
+            final d = doc.data();
+            // Canonical TaskLifecycle rule: only include open tasks belonging to Today
+            if (TaskLifecycle.belongsToToday(d, now) &&
+                !TaskLifecycle.isTaskCompleted(d)) {
+              todayOpenTasks.add(doc);
             }
+          }
 
-            final now = DateTime.now();
-            final docs = snapshot.data?.docs ?? const [];
-            final todayOpenTasks = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+          // Sort by due date ascending
+          todayOpenTasks.sort((a, b) {
+            final at = TaskLifecycle.parseDateTime(a.data()['dueAt']);
+            final bt = TaskLifecycle.parseDateTime(b.data()['dueAt']);
+            if (at == null && bt == null) return 0;
+            if (at == null) return 1;
+            if (bt == null) return -1;
+            return at.compareTo(bt);
+          });
 
-            for (final doc in docs) {
-              final d = doc.data();
-              // Canonical TaskLifecycle rule: only include open tasks belonging to Today
-              if (TaskLifecycle.belongsToToday(d, now) &&
-                  !TaskLifecycle.isTaskCompleted(d)) {
-                todayOpenTasks.add(doc);
-              }
-            }
-
-            // Sort by due date ascending
-            todayOpenTasks.sort((a, b) {
-              final at = TaskLifecycle.parseDateTime(a.data()['dueAt']);
-              final bt = TaskLifecycle.parseDateTime(b.data()['dueAt']);
-              if (at == null && bt == null) return 0;
-              if (at == null) return 1;
-              if (bt == null) return -1;
-              return at.compareTo(bt);
-            });
-
-            if (todayOpenTasks.isEmpty) {
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(GochanoSpacing.lg),
-                decoration: BoxDecoration(
-                  color: context.isDark
-                      ? context.colors.surface
-                      : const Color(0xFFF8FAFC),
-                  borderRadius: const BorderRadius.all(Radius.circular(20)),
-                  border: Border.all(
-                    color: context.colors.border,
-                    width: 1,
+          if (todayOpenTasks.isEmpty) {
+            return Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFECFDF5),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: Color(0xFF059669),
+                    size: 22,
                   ),
                 ),
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        GochanoLanguage.text(
+                          'All priorities clear!',
+                          'আজকের সব কাজ সম্পন্ন!',
+                        ),
+                        style: context.type.cardHeading.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        GochanoLanguage.text(
+                          'Add new tasks from Plan or enjoy your day.',
+                          'পরিকল্পনা থেকে নতুন কাজ যোগ করুন।',
+                        ),
+                        style: context.type.bodySecondary.copyWith(
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // Show maximum 3 cards
+          final displayDocs = todayOpenTasks.take(3).toList();
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              // Responsive card width calculation
+              final cardWidth = constraints.maxWidth >= 500
+                  ? (constraints.maxWidth - 24) / 3
+                  : (constraints.maxWidth >= 380
+                      ? (constraints.maxWidth - 12) / 2.2
+                      : 200.0);
+
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
                 child: Row(
                   children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFECFDF5),
-                        shape: BoxShape.circle,
+                    for (int i = 0; i < displayDocs.length; i++) ...[
+                      if (i > 0) const SizedBox(width: GochanoSpacing.sm),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _buildPriorityItem(displayDocs[i]),
                       ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.check_circle_outline_rounded,
-                        color: Color(0xFF059669),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: GochanoSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            GochanoLanguage.text(
-                              'All priorities clear!',
-                              'আজকের সব কাজ সম্পন্ন!',
-                            ),
-                            style: context.type.cardHeading.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            GochanoLanguage.text(
-                              'Add new tasks from Plan or enjoy your day.',
-                              'পরিকল্পনা থেকে নতুন কাজ যোগ করুন।',
-                            ),
-                            style: context.type.bodySecondary.copyWith(
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               );
-            }
-
-            // Show maximum 3 cards
-            final displayDocs = todayOpenTasks.take(3).toList();
-
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                // Responsive card width calculation
-                final cardWidth = constraints.maxWidth >= 500
-                    ? (constraints.maxWidth - 24) / 3
-                    : (constraints.maxWidth >= 380
-                        ? (constraints.maxWidth - 12) / 2.2
-                        : 200.0);
-
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: [
-                      for (int i = 0; i < displayDocs.length; i++) ...[
-                        if (i > 0) const SizedBox(width: GochanoSpacing.sm),
-                        SizedBox(
-                          width: cardWidth,
-                          child: _buildPriorityItem(displayDocs[i]),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -1016,146 +791,130 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
   // 6. Continue Learning
   // ---------------------------------------------------------------------------
   Widget _buildContinueLearningSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppSectionHeader(
-          icon: Icons.menu_book_rounded,
-          iconColor: const Color(0xFF2563EB),
-          title: GochanoLanguage.text('Continue Learning', 'পড়া চালিয়ে যান'),
-          actionLabel: GochanoLanguage.text('See All', 'সব দেখুন'),
-          onAction: () => widget.onOpenDestination(1), // Workspace tab
-        ),
-        const SizedBox(height: GochanoSpacing.xs),
-        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirestoreService.ownerStream('materials', limit: 10),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const AppSkeleton(height: 75);
-            }
+    return AppSectionContainer(
+      icon: Icons.menu_book_rounded,
+      iconColor: const Color(0xFF2563EB),
+      title: GochanoLanguage.text('Continue Learning', 'পড়া চালিয়ে যান'),
+      actionLabel: GochanoLanguage.text('See All', 'সব দেখুন'),
+      onAction: () => widget.onOpenDestination(1), // Workspace tab
+      gradient: context.isDark ? null : AppGradients.continueLearning,
+      borderColor: context.isDark ? context.colors.border : const Color(0xFFDDD6FE),
+      padding: const EdgeInsets.all(GochanoSpacing.md),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirestoreService.ownerStream('materials', limit: 10),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AppSkeleton(height: 70);
+          }
 
-            final docs = snapshot.data?.docs ?? const [];
-            if (docs.isEmpty) {
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(GochanoSpacing.md),
-                decoration: BoxDecoration(
-                  color: context.isDark
-                      ? context.colors.surface
-                      : const Color(0xFFF8FAFC),
-                  borderRadius: const BorderRadius.all(Radius.circular(20)),
-                  border: Border.all(
-                    color: context.colors.border,
-                    width: 1,
+          final docs = snapshot.data?.docs ?? const [];
+          if (docs.isEmpty) {
+            return Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.library_books_rounded,
+                    color: Color(0xFF2563EB),
+                    size: 20,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEFF6FF),
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.library_books_rounded,
-                        color: Color(0xFF2563EB),
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: GochanoSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            GochanoLanguage.text(
-                              'No recent material yet',
-                              'সাম্প্রতিক কোনো ফাইল নেই',
-                            ),
-                            style: context.type.cardHeading.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            GochanoLanguage.text(
-                              'Upload a note or PDF in Workspace to start.',
-                              'ওয়ার্কস্পেস থেকে নোট বা পিডিএফ যুক্ত করুন।',
-                            ),
-                            style: context.type.bodySecondary.copyWith(
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    ElevatedButton(
-                      onPressed: () => widget.onOpenDestination(1),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2F6BFF),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: GochanoSpacing.sm,
-                          vertical: GochanoSpacing.xs,
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        GochanoLanguage.text(
+                          'No recent material yet',
+                          'সাম্প্রতিক কোনো ফাইল নেই',
                         ),
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        style: context.type.cardHeading.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
                         ),
                       ),
-                      child: Text(
-                        GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস'),
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      const SizedBox(height: 2),
+                      Text(
+                        GochanoLanguage.text(
+                          'Upload a note or PDF in Workspace to start.',
+                          'ওয়ার্কস্পেস থেকে নোট বা পিডিএফ যুক্ত করুন।',
+                        ),
+                        style: context.type.bodySecondary.copyWith(
+                          fontSize: 11.5,
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.xs),
+                ElevatedButton(
+                  onPressed: () => widget.onOpenDestination(1),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2F6BFF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
                     ),
-                  ],
+                    minimumSize: const Size(0, 32),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
+                  ),
+                  child: Text(
+                    GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস'),
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          final latestDoc = docs.first;
+          final data = latestDoc.data();
+          final title = (data['title']?.toString().trim().isNotEmpty ?? false)
+              ? data['title'].toString()
+              : data['fileName']?.toString() ?? 'Study Material';
+          final subject = data['subject']?.toString() ??
+              data['category']?.toString() ??
+              'Learning Note';
+
+          // Honest progress: only show progress if genuinely present
+          final rawProgress = data['progressFraction'];
+          final double? progress = rawProgress is num
+              ? rawProgress.toDouble()
+              : null;
+          final String? progressLabel =
+              progress != null ? '${(progress * 100).toInt()}%' : null;
+
+          return AppContinueLearningCard(
+            title: title,
+            subtitle: subject,
+            progressFraction: progress,
+            progressLabel: progressLabel,
+            isEmbedded: true,
+            onTap: () {
+              Navigator.of(context).push(
+                GochanoRoute.to(
+                  builder: (_) => MaterialReaderScreen(
+                    materialId: latestDoc.id,
+                    title: title,
+                    mimeType: data['mimeType']?.toString() ?? '',
+                  ),
                 ),
               );
-            }
-
-            final latestDoc = docs.first;
-            final data = latestDoc.data();
-            final title = (data['title']?.toString().trim().isNotEmpty ?? false)
-                ? data['title'].toString()
-                : data['fileName']?.toString() ?? 'Study Material';
-            final subject = data['subject']?.toString() ??
-                data['category']?.toString() ??
-                'Learning Note';
-
-            // Honest progress: only show progress if genuinely present
-            final rawProgress = data['progressFraction'];
-            final double? progress = rawProgress is num
-                ? rawProgress.toDouble()
-                : null;
-            final String? progressLabel =
-                progress != null ? '${(progress * 100).toInt()}%' : null;
-
-            return AppContinueLearningCard(
-              title: title,
-              subtitle: subject,
-              progressFraction: progress,
-              progressLabel: progressLabel,
-              onTap: () {
-                Navigator.of(context).push(
-                  GochanoRoute.to(
-                    builder: (_) => MaterialReaderScreen(
-                      materialId: latestDoc.id,
-                      title: title,
-                      mimeType: data['mimeType']?.toString() ?? '',
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -1163,61 +922,58 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
   // 7. Simplified Academic Health
   // ---------------------------------------------------------------------------
   Widget _buildAcademicHealthSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppSectionHeader(
-          icon: Icons.bar_chart_rounded,
-          iconColor: const Color(0xFF10B981),
-          title: GochanoLanguage.text('Academic Health', 'একাডেমিক হেলথ'),
-          actionLabel: GochanoLanguage.text('View Details', 'বিস্তারিত দেখুন'),
-          onAction: () {
-            Navigator.of(context).push(
-              GochanoRoute.to(builder: (_) => const AcademicHealthScreen()),
-            );
-          },
-        ),
-        const SizedBox(height: GochanoSpacing.xs),
-        Builder(
-          builder: (context) {
-            final health = widget.bootstrapData?['academicHealth'];
-            final hasData = health is Map<String, dynamic>
-                ? health['hasData'] == true
-                : true;
-            final score = health is Map<String, dynamic> && health['score'] is num
-                ? (health['score'] as num).toInt()
-                : 78;
-            final headline = health is Map<String, dynamic> &&
-                    health['headline']?.toString().isNotEmpty == true
-                ? health['headline'].toString()
-                : GochanoLanguage.text("You're on track! 🎯", 'আপনি সঠিক পথে আছেন! 🎯');
+    return AppSectionContainer(
+      icon: Icons.bar_chart_rounded,
+      iconColor: const Color(0xFF10B981),
+      title: GochanoLanguage.text('Academic Health', 'একাডেমিক হেলথ'),
+      actionLabel: GochanoLanguage.text('View Details', 'বিস্তারিত দেখুন'),
+      onAction: () {
+        Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const AcademicHealthScreen()),
+        );
+      },
+      gradient: context.isDark ? null : AppGradients.academicHealth,
+      borderColor: context.isDark ? context.colors.border : const Color(0xFFA7F3D0),
+      padding: const EdgeInsets.all(GochanoSpacing.md),
+      child: Builder(
+        builder: (context) {
+          final health = widget.bootstrapData?['academicHealth'];
+          final hasData = health is Map<String, dynamic>
+              ? health['hasData'] == true
+              : true;
+          final score = health is Map<String, dynamic> && health['score'] is num
+              ? (health['score'] as num).toInt()
+              : 78;
+          final headline = health is Map<String, dynamic> &&
+                  health['headline']?.toString().isNotEmpty == true
+              ? health['headline'].toString()
+              : GochanoLanguage.text("You're on track! 🎯", 'আপনি সঠিক পথে আছেন! 🎯');
 
-            return AppSimplifiedAcademicHealthCard(
-              score: score,
-              hasData: hasData,
-              headline: headline,
-              subtitle: GochanoLanguage.text(
-                'Keep up the consistent study and practice.',
-                'নিয়মিত অনুশীলন এবং পড়াশোনা চালিয়ে যান।',
-              ),
-              strongestMetric: GochanoLanguage.text(
-                'Focus Consistency +12%',
-                'ফোকাস বৃদ্ধি +১২%',
-              ),
-              attentionOrStreakMetric: GochanoLanguage.text(
-                'Study Streak 3 days',
-                'স্টাডি স্ট্রিক ৩ দিন',
-              ),
-              onTap: () {
-                Navigator.of(context).push(
-                  GochanoRoute.to(builder: (_) => const AcademicHealthScreen()),
-                );
-              },
-            );
-          },
-        ),
-      ],
+          return AppSimplifiedAcademicHealthCard(
+            score: score,
+            hasData: hasData,
+            headline: headline,
+            subtitle: GochanoLanguage.text(
+              'Keep up the consistent study and practice.',
+              'নিয়মিত অনুশীলন এবং পড়াশোনা চালিয়ে যান।',
+            ),
+            strongestMetric: GochanoLanguage.text(
+              'Focus Consistency +12%',
+              'ফোকাস বৃদ্ধি +১২%',
+            ),
+            attentionOrStreakMetric: GochanoLanguage.text(
+              'Study Streak 3 days',
+              'স্টাডি স্ট্রিক ৩ দিন',
+            ),
+            isEmbedded: true,
+            onTap: () {
+              Navigator.of(context).push(
+                GochanoRoute.to(builder: (_) => const AcademicHealthScreen()),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
