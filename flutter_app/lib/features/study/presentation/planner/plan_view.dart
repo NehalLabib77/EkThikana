@@ -26,6 +26,7 @@ import '../../../../core/page_route.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../services/notification_service.dart';
 import '../../../../services/study_service.dart';
+import '../../../tasks/domain/task_lifecycle.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -360,20 +361,10 @@ class _CombinedPlannerList extends StatelessWidget {
         }
         if (snapshot.hasError) return const SizedBox.shrink();
 
-        final dayKey = DateTime(
-          selectedDay.year,
-          selectedDay.month,
-          selectedDay.day,
-        );
-        final endOfDay = dayKey.add(const Duration(days: 1));
-
         final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
         for (final doc in [...?snapshot.data?.docs]) {
           final data = doc.data();
-          if (data['done'] == true) continue;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-          if (due == null) continue;
-          if (!due.isBefore(dayKey) && due.isBefore(endOfDay)) {
+          if (TaskLifecycle.belongsToPlanDay(data, selectedDay)) {
             docs.add(doc);
           }
         }
@@ -766,17 +757,14 @@ class _PlanHistoryScreen extends StatelessWidget {
           final now = DateTime.now();
           final docs = [...?snapshot.data?.docs]
             ..removeWhere((doc) {
-              final d = doc.data();
-              if (d['done'] == true) return false;
-              final due = (d['dueAt'] as Timestamp?)?.toDate();
-              if (due == null) return true;
-              // Canonical missed rule: incomplete task whose deadline has passed.
-              return due.isAfter(now);
+              return !TaskLifecycle.belongsToHistory(doc.data(), now);
             })
             ..sort((a, b) {
-              final at = (a.data()['dueAt'] as Timestamp?)?.toDate();
-              final bt = (b.data()['dueAt'] as Timestamp?)?.toDate();
-              if (at == null || bt == null) return 0;
+              final at = TaskLifecycle.parseDateTime(a.data()['dueAt']);
+              final bt = TaskLifecycle.parseDateTime(b.data()['dueAt']);
+              if (at == null && bt == null) return 0;
+              if (at == null) return 1;
+              if (bt == null) return -1;
               return bt.compareTo(at);
             });
           if (docs.isEmpty) {
@@ -798,9 +786,9 @@ class _PlanHistoryScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final doc = docs[index];
               final data = doc.data();
-              final isDone = data['done'] == true;
+              final isDone = TaskLifecycle.isTaskCompleted(data);
               final assignment = data['type']?.toString() == 'assignment';
-              final due = (data['dueAt'] as Timestamp?)?.toDate();
+              final due = TaskLifecycle.parseDateTime(data['dueAt']);
               return AppCard(
                 child: Row(
                   children: [

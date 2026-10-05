@@ -11,6 +11,7 @@ import '../core/localization/gochano_language.dart';
 import '../models/local_reminder.dart';
 import 'firestore_service.dart';
 import 'local_reminder_store.dart';
+import '../features/tasks/domain/task_lifecycle.dart';
 
 class MedicineNotificationAction {
   const MedicineNotificationAction({
@@ -1853,16 +1854,17 @@ class NotificationService {
         for (final task in tasks) {
           final id = task['id']?.toString() ?? '';
           if (id.isEmpty) continue;
-          final isCompleted = task['completed'] == true;
-          final dueAt = task['dueAt'] is DateTime
-              ? task['dueAt'] as DateTime
-              : (task['dueAt'] != null
-                    ? DateTime.tryParse(task['dueAt'].toString())
-                    : null);
+          final isCompleted = TaskLifecycle.isTaskCompleted(task);
+          final isCancelled = TaskLifecycle.isTaskCancelled(task);
+          final dueAt = TaskLifecycle.parseDateTime(task['dueAt']);
           final title = task['title']?.toString() ?? '';
           final type = task['type']?.toString() ?? 'task';
+          final isMissed =
+              dueAt != null && TaskLifecycle.isPastCalendarDay(dueAt, now);
 
           if (isCompleted ||
+              isCancelled ||
+              isMissed ||
               dueAt == null ||
               !dueAt.add(const Duration(minutes: 30)).isAfter(now)) {
             // Cancel stale/completed/missed task notifications
