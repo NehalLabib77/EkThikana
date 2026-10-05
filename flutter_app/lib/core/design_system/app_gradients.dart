@@ -29,23 +29,55 @@ class AppGradients {
     stops: [0.0, 0.6, 1.0],
   );
 
-  /// Soft accent gradient for Ziku Coach cards.
+  /// Status pill soft green gradient.
+  static const LinearGradient statusPill = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF0FDF4), // Emerald 50
+      Color(0xFFDCFCE7), // Emerald 100
+    ],
+  );
+
+  /// Soft accent gradient for Ziku Coach cards (cyan -> soft blue).
   static const LinearGradient zikuCoach = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFF0FDF4),
-      Color(0xFFEFF6FF),
+      Color(0xFFF0FDFA), // Cyan 50
+      Color(0xFFE0F2FE), // Sky 100
     ],
   );
 
-  /// Focus session subtle background gradient.
+  /// Focus session subtle background gradient (violet -> lavender -> soft blue).
   static const LinearGradient focusSession = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFFAF5FF),
-      Color(0xFFF3E8FF),
+      Color(0xFFFAF5FF), // Purple 50
+      Color(0xFFEDE9FE), // Violet 100
+      Color(0xFFE0E7FF), // Indigo 100
+    ],
+  );
+
+  /// Continue Learning soft indigo / purple gradient.
+  static const LinearGradient continueLearning = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF5F3FF), // Purple 50
+      Color(0xFFEEF2FF), // Indigo 50
+    ],
+  );
+
+  /// Academic Health soft mint / teal / green gradient.
+  static const LinearGradient academicHealth = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF0FDF4), // Green 50
+      Color(0xFFECFDF5), // Emerald 50
+      Color(0xFFCCFBF1), // Teal 100
     ],
   );
 }
@@ -79,6 +111,41 @@ enum CategoryTint {
 }
 
 extension CategoryTintColors on CategoryTint {
+  LinearGradient get gradient {
+    switch (this) {
+      case CategoryTint.coral:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF1F2), Color(0xFFFFE4E6)],
+        );
+      case CategoryTint.blue:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+        );
+      case CategoryTint.mint:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFECFDF5), Color(0xFFD1FAE5)],
+        );
+      case CategoryTint.violet:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF5F3FF), Color(0xFFEDE9FE)],
+        );
+      case CategoryTint.amber:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+        );
+    }
+  }
+
   Color get background {
     switch (this) {
       case CategoryTint.coral:

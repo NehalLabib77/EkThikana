@@ -122,7 +122,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
               ),
 
               const SliverToBoxAdapter(
-                child: SizedBox(height: GochanoSpacing.lg),
+                child: SizedBox(height: GochanoSpacing.md),
               ),
 
               // SECTION 4: TODAY'S PRIORITIES (MAX 3)
@@ -134,7 +134,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
               ),
 
               const SliverToBoxAdapter(
-                child: SizedBox(height: GochanoSpacing.lg),
+                child: SizedBox(height: GochanoSpacing.md),
               ),
 
               // SECTION 5: ZIKU COACH + FOCUS SESSION
@@ -146,7 +146,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
               ),
 
               const SliverToBoxAdapter(
-                child: SizedBox(height: GochanoSpacing.lg),
+                child: SizedBox(height: GochanoSpacing.md),
               ),
 
               // SECTION 6: CONTINUE LEARNING
@@ -158,7 +158,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
               ),
 
               const SliverToBoxAdapter(
-                child: SizedBox(height: GochanoSpacing.lg),
+                child: SizedBox(height: GochanoSpacing.md),
               ),
 
               // SECTION 7: SIMPLIFIED ACADEMIC HEALTH
@@ -462,10 +462,13 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                       vertical: GochanoSpacing.xs,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
+                      gradient: context.isDark ? null : AppGradients.statusPill,
+                      color: context.isDark ? colors.surface : null,
                       borderRadius: const BorderRadius.all(Radius.circular(16)),
                       border: Border.all(
-                        color: const Color(0xFFBBF7D0),
+                        color: context.isDark
+                            ? colors.border
+                            : const Color(0xFFBBF7D0),
                         width: 1,
                       ),
                     ),
@@ -907,11 +910,23 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
     if (lower.contains('math') || lower.contains('গণিত')) {
       return Icons.functions_rounded;
     }
-    if (lower.contains('physic') || lower.contains('পদার্থ')) {
-      return Icons.description_rounded;
+    if (lower.contains('physic') || lower.contains('পদার্থ') || lower.contains('optic')) {
+      return Icons.wb_iridescent_rounded;
     }
     if (lower.contains('chem') || lower.contains('রসায়ন')) {
       return Icons.science_rounded;
+    }
+    if (lower.contains('bio') || lower.contains('জীব')) {
+      return Icons.biotech_rounded;
+    }
+    if (lower.contains('rev') || lower.contains('core')) {
+      return Icons.checklist_rounded;
+    }
+    if (lower.contains('assign') || lower.contains('হোমওয়ার্ক')) {
+      return Icons.assignment_outlined;
+    }
+    if (lower.contains('practice') || lower.contains('অনুশীলন')) {
+      return Icons.track_changes_rounded;
     }
     return Icons.menu_book_rounded;
   }

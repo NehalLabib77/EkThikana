@@ -94,7 +94,10 @@ class AppHeroCard extends StatelessWidget {
 
           // Main content
           Padding(
-            padding: const EdgeInsets.all(GochanoSpacing.lg),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 16,
+            ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 360;
@@ -133,7 +136,7 @@ class AppHeroCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: GochanoSpacing.sm),
+                    const SizedBox(height: GochanoSpacing.xs + 3),
 
                     // Title & Subtitle with optional right illustration
                     Row(
@@ -148,20 +151,20 @@ class AppHeroCard extends StatelessWidget {
                                 title,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 21,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w800,
                                   height: 1.25,
                                   letterSpacing: -0.3,
                                   fontFamily: GochanoTypography.fontFamily,
                                 ),
                               ),
-                              const SizedBox(height: GochanoSpacing.xxs),
+                              const SizedBox(height: 3),
                               Text(
                                 subtitle,
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.90),
-                                  fontSize: 13,
-                                  height: 1.4,
+                                  fontSize: 12.5,
+                                  height: 1.35,
                                   fontFamily: GochanoTypography.fontFamily,
                                 ),
                               ),
@@ -172,15 +175,15 @@ class AppHeroCard extends StatelessWidget {
                           const SizedBox(width: GochanoSpacing.sm),
                           ConstrainedBox(
                             constraints: const BoxConstraints(
-                              maxWidth: 110,
-                              maxHeight: 110,
+                              maxWidth: 100,
+                              maxHeight: 100,
                             ),
                             child: illustration!,
                           ),
                         ],
                       ],
                     ),
-                    const SizedBox(height: GochanoSpacing.md),
+                    const SizedBox(height: GochanoSpacing.sm + 2),
 
                     // Live stats chips row
                     if (stats.isNotEmpty) ...[
@@ -194,7 +197,7 @@ class AppHeroCard extends StatelessWidget {
                               children: [
                                 Icon(
                                   stat.icon,
-                                  size: 15,
+                                  size: 14,
                                   color: Colors.white.withValues(alpha: 0.95),
                                 ),
                                 const SizedBox(width: 5),
@@ -206,7 +209,7 @@ class AppHeroCard extends StatelessWidget {
                                       stat.value,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 13,
+                                        fontSize: 12.5,
                                         fontWeight: FontWeight.w700,
                                         fontFamily: GochanoTypography.fontFamily,
                                       ),
@@ -216,7 +219,7 @@ class AppHeroCard extends StatelessWidget {
                                         stat.label!,
                                         style: TextStyle(
                                           color: Colors.white.withValues(alpha: 0.80),
-                                          fontSize: 10,
+                                          fontSize: 9.5,
                                           fontFamily: GochanoTypography.fontFamily,
                                         ),
                                       ),
@@ -226,12 +229,12 @@ class AppHeroCard extends StatelessWidget {
                             ),
                         ],
                       ),
-                      const SizedBox(height: GochanoSpacing.md),
+                      const SizedBox(height: GochanoSpacing.sm + 2),
                     ],
 
                     // Primary CTA Button
                     SizedBox(
-                      height: 44,
+                      height: 40,
                       child: ElevatedButton(
                         onPressed: onCta,
                         style: ElevatedButton.styleFrom(

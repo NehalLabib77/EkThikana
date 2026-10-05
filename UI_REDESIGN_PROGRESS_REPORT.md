@@ -207,3 +207,68 @@ Physical inspection of the running screen confirmed complete fidelity to the app
 - **Active Commit**: `7afe5b1`
 - **Today Status**: **PHYSICAL REVIEW PASSED — WAITING USER APPROVAL**.
 
+---
+
+### Visual Polish Pass — Gradients, Icons, Compactness
+
+#### 1. Scope & Objectives
+Refined the approved Study Mode Today dashboard without modifying the structural hierarchy or section order:
+1. **Semantic Gradients on Every Major Card**: Applied purposeful, soft pastel and accent gradient treatments across all primary boxes while preserving high readability and contrast.
+2. **Small Meaningful Icons & Visual Cues**: Added purposeful micro-visual indicators to every card for instant user comprehension.
+3. **Compact Height & Density**: Reduced card heights, tightened internal padding and inter-section spacing, scaled illustrations, and streamlined button heights to make the screen feel significantly more compact and efficient.
+
+#### 2. Detailed Visual Changes Implemented
+
+| Component / Box | Visual Changes & Gradient Treatment | Meaningful Icons / Visual Cues | Compactness Optimizations |
+|---|---|---|---|
+| **Status Pill** | Soft emerald gradient (`#F0FDF4` -> `#DCFCE7`) with matching soft border. | Eco leaf indicator (`Icons.eco_rounded`) + chevron. | Compact vertical padding (4dp). |
+| **Hero Card (Exam Rescue)** | Rich multi-stop gradient (Violet `#7048F5` -> Royal Blue `#2F6BFF` -> Cyan `#38BDF8`). | Fire badge (`🔥 Exam Rescue`), calendar, clock, and topic progress icons. | Padding reduced from 24dp to 18x16dp; title scaled to 20sp; button height reduced to 40dp. |
+| **Today's Priorities** | Soft pastel gradient background per category via `CategoryTintColors.gradient` (Coral, Blue, Mint, Violet, Amber). | Dedicated category icons (optics, math, chem, bio, revision, homework, practice) in elevated 32x32 tinted containers. | Card padding reduced to 13x11dp; icon container 32x32dp; completion button 25x25dp with 44dp+ hit area. |
+| **Ziku Coach Card** | Soft cyan to sky blue gradient (`#F0FDFA` -> `#E0F2FE`) with soft blue border. | Robot avatar pill (`Icons.smart_toy_rounded`) + bolt cue on CTA (`⚡ I'm ready! 🚀`). | Card padding reduced to 14x12dp; mascot illustration scaled from 72x72dp to 54x54dp; CTA button height reduced to 34dp. |
+| **Focus Session Card** | Soft violet to lavender to indigo gradient (`#FAF5FF` -> `#EDE9FE` -> `#E0E7FF`). | Hourglass icon (`Icons.hourglass_top_rounded`) + cozy sunny focus badge (`Icons.wb_sunny_rounded`) + play icon on CTA. | Card padding reduced to 14x12dp; timer font size 24sp; side badge scaled from 58x58dp to 48x48dp; CTA button height reduced to 34dp. |
+| **Continue Learning Card** | Soft indigo to purple gradient (`#F5F3FF` -> `#EEF2FF`) with soft purple border. | Subject artwork badge (`Icons.auto_stories_rounded`) with purple gradient elevation. | Card padding reduced to 14x11dp; thumbnail scaled from 58x58dp to 46x46dp. |
+| **Simplified Academic Health Card** | Soft mint to teal to green gradient (`#F0FDF4` -> `#ECFDF5` -> `#CCFBF1`). | Score ring (`78/100`), trending up icon (`Icons.trending_up_rounded`), and streak flame icon (`Icons.local_fire_department_rounded`). | Card padding reduced to 14x11dp; score ring scaled from 60x60dp to 50x50dp; compact metric chips. |
+| **Dashboard Layout** | Cohesive background styling with edge-to-edge content harmony. | Consistent section headers (`AppSectionHeader`). | Inter-section spacing slivers reduced from 24dp (`GochanoSpacing.lg`) to 16dp (`GochanoSpacing.md`). |
+
+#### 3. Files Modified
+- `flutter_app/lib/core/design_system/app_gradients.dart`:
+  - Added card gradient tokens: `statusPill`, `continueLearning`, `academicHealth`, and refined `zikuCoach` & `focusSession`.
+  - Added `LinearGradient get gradient` to `CategoryTintColors` extension for pastel card tints.
+- `flutter_app/lib/core/design_system/components/app_priority_task_card.dart`:
+  - Added gradient container background, compact 13x11dp padding, 32x32dp icon container, 25x25dp completion circle with touch padding.
+- `flutter_app/lib/core/design_system/components/app_coach_card.dart`:
+  - Added `AppGradients.zikuCoach` background, 54x54dp mascot, 34dp CTA button height, and bolt icon cue.
+- `flutter_app/lib/core/design_system/components/app_focus_card.dart`:
+  - Added `AppGradients.focusSession` background, 48x48dp side badge, 24sp timer typography, and 34dp CTA button height.
+- `flutter_app/lib/core/design_system/components/app_continue_learning_card.dart`:
+  - Added `AppGradients.continueLearning` background, 46x46dp artwork thumbnail with book icon, and compact padding.
+- `flutter_app/lib/core/design_system/components/app_academic_health_card.dart`:
+  - Added `AppGradients.academicHealth` background, 50x50dp score ring, compact metric chips with trending and flame icons.
+- `flutter_app/lib/core/design_system/components/app_hero_card.dart`:
+  - Optimized internal padding to 18x16dp, tightened vertical gaps, scaled title to 20sp, and button height to 40dp.
+- `flutter_app/lib/features/study/presentation/today/study_today_dashboard_view.dart`:
+  - Applied `AppGradients.statusPill` to greeting status pill.
+  - Reduced inter-section spacing from 24dp to 16dp.
+  - Expanded `_iconForCategory` with specialized subject/task icons (optics, math, chem, bio, revision, homework, practice).
+
+#### 4. Physical Device Verification (Infinix X665E)
+- **Device**: Infinix X665E (Android 12, serial `0935625332014966`).
+- **Runtime Execution**: Launched via `flutter run` with local debug configuration (`API_BASE_URL`, `DEV_AUTH_BYPASS=true`, `DEV_TEST_EMAIL=labib.pstu77@gmail.com`).
+- **Physical Screenshots Captured**:
+  - `physical_polished_top.png` (222,067 bytes): Shows header, greeting, soft green status pill, compact Exam Rescue hero card, and pastel Priority task cards.
+  - `physical_polished_mid.png` (212,499 bytes): Shows compact Ziku Coach card (54x54 mascot, soft cyan gradient, bolt CTA) and Focus Session card (soft violet gradient, 24sp timer, sunny badge).
+  - `physical_polished_bottom.png` (184,433 bytes): Shows Continue Learning card (soft indigo gradient, 46x46 artwork badge), Academic Health card (soft mint gradient, 50x50 score ring, flame/trending chips), and Study bottom navigation bar.
+- **Visual Outcome**: Every card has a distinct, soft, purpose-driven gradient; icons clearly cue purpose; vertical density is tightened and balanced; 0 RenderFlex overflows.
+
+#### 5. Automated Quality Gates
+- **Static Analysis**: `flutter analyze` -> **0 issues found**.
+- **Unit & Widget Test Suites**:
+  - `test/study_today_dashboard_test.dart`: 6/6 PASS.
+  - `test/task_lifecycle_test.dart`: 15/15 PASS.
+  - `test/home_today_overdue_test.dart`: 36/36 PASS.
+  - **Total**: **51/51 tests passing**.
+
+#### 6. Section Status
+- **Today Status**: **READY FOR USER REVIEW**.
+
+

@@ -70,9 +70,6 @@ class _AppPriorityTaskCardState extends State<AppPriorityTaskCard> {
     final tint = widget.categoryTint ??
         CategoryTint.resolve(widget.category, isDark: isDark);
 
-    final cardBg = isDark
-        ? colors.surface
-        : tint.background;
     final cardBorder = isDark
         ? colors.border
         : tint.border;
@@ -80,156 +77,166 @@ class _AppPriorityTaskCardState extends State<AppPriorityTaskCard> {
     return Semantics(
       container: true,
       label: 'Task: ${widget.title}, ${widget.subtitle ?? ""}',
-      child: Material(
-        color: cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(20)),
-          side: BorderSide(color: cardBorder, width: 1.2),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: isDark ? null : tint.gradient,
+          color: isDark ? colors.surface : null,
+          borderRadius: const BorderRadius.all(Radius.circular(18)),
+          border: Border.all(color: cardBorder, width: 1.1),
         ),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: widget.onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(GochanoSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Top row: Icon container + completion circle
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: isDark ? colors.surfaceVariant : Colors.white,
-                        borderRadius: const BorderRadius.all(Radius.circular(10)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: tint.accent.withValues(alpha: 0.12),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        widget.icon,
-                        size: 20,
-                        color: tint.accent,
-                      ),
-                    ),
-                    Semantics(
-                      button: true,
-                      label: _checked ? 'Completed' : 'Mark task completed',
-                      child: InkWell(
-                        key: const Key('task_complete_button'),
-                        onTap: _handleComplete,
-                        borderRadius: const BorderRadius.all(Radius.circular(999)),
-                        child: AnimatedContainer(
-                          duration: AppMotion.fast,
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _checked
-                                ? colors.success
-                                : (isDark ? colors.surfaceVariant : Colors.white),
-                            border: Border.all(
-                              color: _checked ? colors.success : colors.borderStrong,
-                              width: 1.6,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 13,
+                vertical: 11,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top row: Icon container + completion circle
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: isDark ? colors.surfaceVariant : Colors.white,
+                          borderRadius: const BorderRadius.all(Radius.circular(9)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: tint.accent.withValues(alpha: 0.12),
+                              blurRadius: 6,
+                              offset: const Offset(0, 1.5),
                             ),
-                          ),
-                          alignment: Alignment.center,
-                          child: _checked
-                              ? const Icon(
-                                  Icons.check_rounded,
-                                  size: 16,
-                                  color: Colors.white,
-                                )
-                              : null,
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          widget.icon,
+                          size: 18,
+                          color: tint.accent,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: GochanoSpacing.sm),
-
-                // Title
-                Text(
-                  widget.title,
-                  style: type.cardHeading.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
-                    color: colors.textPrimary,
-                    decoration: _checked ? TextDecoration.lineThrough : null,
+                      Semantics(
+                        button: true,
+                        label: _checked ? 'Completed' : 'Mark task completed',
+                        child: InkWell(
+                          key: const Key('task_complete_button'),
+                          onTap: _handleComplete,
+                          borderRadius: const BorderRadius.all(Radius.circular(999)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: AnimatedContainer(
+                              duration: AppMotion.fast,
+                              width: 25,
+                              height: 25,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _checked
+                                    ? colors.success
+                                    : (isDark ? colors.surfaceVariant : Colors.white),
+                                border: Border.all(
+                                  color: _checked ? colors.success : colors.borderStrong,
+                                  width: 1.6,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: _checked
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      size: 15,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
+                  const SizedBox(height: GochanoSpacing.xs + 3),
 
-                // Subtitle / context
-                if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
+                  // Title
                   Text(
-                    widget.subtitle!,
-                    style: type.bodySecondary.copyWith(
-                      fontSize: 12.5,
-                      color: colors.textSecondary,
+                    widget.title,
+                    style: type.cardHeading.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
+                      color: colors.textPrimary,
+                      decoration: _checked ? TextDecoration.lineThrough : null,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: GochanoSpacing.sm),
-                ] else ...[
-                  const SizedBox(height: GochanoSpacing.sm),
-                ],
+                  const SizedBox(height: 2),
 
-                // Bottom row: duration & action chip
-                Row(
-                  children: [
-                    if (widget.durationMinutes != null &&
-                        widget.durationMinutes! > 0) ...[
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 13,
-                        color: colors.textTertiary,
+                  // Subtitle / context
+                  if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
+                    Text(
+                      widget.subtitle!,
+                      style: type.bodySecondary.copyWith(
+                        fontSize: 12.5,
+                        color: colors.textSecondary,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${widget.durationMinutes} min',
-                        style: type.label.copyWith(
-                          fontSize: 11.5,
-                          color: colors.textTertiary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: GochanoSpacing.xs),
-                    ],
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: GochanoSpacing.xs + 2,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark ? colors.surfaceVariant : tint.chipBackground,
-                        borderRadius: const BorderRadius.all(Radius.circular(999)),
-                      ),
-                      child: Text(
-                        widget.category,
-                        style: TextStyle(
-                          color: isDark ? colors.textSecondary : tint.chipText,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: GochanoTypography.fontFamily,
-                        ),
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: GochanoSpacing.xs + 3),
+                  ] else ...[
+                    const SizedBox(height: GochanoSpacing.xs + 3),
                   ],
-                ),
-              ],
+
+                  // Bottom row: duration & action chip
+                  Row(
+                    children: [
+                      if (widget.durationMinutes != null &&
+                          widget.durationMinutes! > 0) ...[
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 13,
+                          color: colors.textTertiary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${widget.durationMinutes} min',
+                          style: type.label.copyWith(
+                            fontSize: 11.5,
+                            color: colors.textTertiary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                      ],
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.xs + 2,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark ? colors.surfaceVariant : tint.chipBackground,
+                          borderRadius: const BorderRadius.all(Radius.circular(999)),
+                        ),
+                        child: Text(
+                          widget.category,
+                          style: TextStyle(
+                            color: isDark ? colors.textSecondary : tint.chipText,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: GochanoTypography.fontFamily,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
