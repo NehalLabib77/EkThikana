@@ -30,6 +30,10 @@ void main() {
     testWidgets(
       'Home uses bootstrap for initial dashboard load and eliminates waterfalls',
       (tester) async {
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
         int bootstrapCalls = 0;
         final bootstrapData = {
           'profile': {
@@ -104,6 +108,10 @@ void main() {
     testWidgets('Partial section degradation leaves remaining cards intact', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       int bootstrapCalls = 0;
       final partialBootstrapData = {
         'profile': {

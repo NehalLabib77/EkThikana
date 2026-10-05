@@ -30,6 +30,7 @@ import '../../community/presentation/community_view.dart';
 import '../../tasks/presentation/tasks_screen.dart';
 import '../../../services/notification_service.dart';
 import '../../study/presentation/ai/ziku_assistant_panel.dart';
+import '../../study/presentation/today/study_today_dashboard_view.dart';
 import '../../../shared/widgets/ziku_floating_launcher.dart';
 import 'quick_add_sheet.dart';
 
@@ -189,8 +190,7 @@ class _GochanoShellState extends State<GochanoShell> {
 
     if (mode == GochanoAppMode.study) {
       return [
-        HomeScreen(
-          role: widget.role,
+        StudyTodayDashboardView(
           displayName: widget.displayName,
           onOpenDestination: _handleDestinationFromHome,
           onOpenProfile: () => Navigator.of(context).push(
