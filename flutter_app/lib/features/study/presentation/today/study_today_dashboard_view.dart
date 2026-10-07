@@ -68,35 +68,52 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: widget.onRefresh ?? () async {},
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // Top padding
-              const SliverToBoxAdapter(
-                child: SizedBox(height: GochanoSpacing.xs),
-              ),
-
-              // SECTION 1: HEADER
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
-                sliver: SliverToBoxAdapter(
-                  child: _buildHeader(context),
+        bottom: false,
+        child: Column(
+          children: [
+            // -----------------------------------------------------------------
+            // FIXED HEADER (Logo, Language Toggle, Search, Notification)
+            // Stays pinned at top when scrolling ("scroll করলেও থাকবে")
+            // -----------------------------------------------------------------
+            Container(
+              decoration: BoxDecoration(
+                color: colors.background,
+                border: Border(
+                  bottom: BorderSide(
+                    color: colors.border.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
                 ),
               ),
-
-              const SliverToBoxAdapter(
-                child: SizedBox(height: GochanoSpacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: GochanoSpacing.md,
+                vertical: GochanoSpacing.xs,
               ),
+              child: _buildHeader(context),
+            ),
 
-              // SECTION 2: GREETING & CONTEXTUAL STATUS
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
-                sliver: SliverToBoxAdapter(
-                  child: _buildGreeting(context),
-                ),
-              ),
+            // -----------------------------------------------------------------
+            // SCROLLABLE BODY ("scroll করবে")
+            // -----------------------------------------------------------------
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: widget.onRefresh ?? () async {},
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: GochanoSpacing.sm),
+                    ),
+
+                    // SECTION 2: GREETING & CONTEXTUAL STATUS
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: GochanoSpacing.md,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: _buildGreeting(context),
+                      ),
+                    ),
 
               const SliverToBoxAdapter(
                 child: SizedBox(height: GochanoSpacing.md),
@@ -162,11 +179,14 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
               const SliverToBoxAdapter(
                 child: SizedBox(height: GochanoSpacing.xxxl + GochanoSpacing.xl),
               ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      ],
+    ),
+  ),
+);
   }
 
   // ---------------------------------------------------------------------------

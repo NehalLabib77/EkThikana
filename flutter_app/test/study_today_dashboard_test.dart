@@ -218,6 +218,49 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Gochano'), findsOneWidget);
     });
+
+    testWidgets('fixed header stays pinned when scrolling while greeting and body cards scroll', (tester) async {
+      tester.view.physicalSize = const Size(400, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StudyTodayDashboardView(
+              displayName: 'Farhan',
+              onOpenDestination: (_) {},
+              onOpenProfile: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify header and greeting are initially visible
+      expect(find.text('Gochano'), findsOneWidget);
+      expect(find.byType(AppGreetingCard), findsOneWidget);
+
+      final initialHeaderTop = tester.getTopLeft(find.text('Gochano')).dy;
+      final initialGreetingTop = tester.getTopLeft(find.byType(AppGreetingCard)).dy;
+
+      // Scroll CustomScrollView up by 80px
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -80));
+      await tester.pumpAndSettle();
+
+      // FIXED HEADER: Top coordinate does not move even when scrolled
+      final scrolledHeaderTop = tester.getTopLeft(find.text('Gochano')).dy;
+      expect(scrolledHeaderTop, equals(initialHeaderTop));
+      expect(find.text('Gochano'), findsOneWidget);
+      expect(find.byType(LanguageToggle), findsOneWidget);
+      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
+
+      // SCROLLABLE GREETING: Position moved upwards
+      final scrolledGreetingTop = tester.getTopLeft(find.byType(AppGreetingCard)).dy;
+      expect(scrolledGreetingTop, lessThan(initialGreetingTop));
+    });
   });
 
   group('GreetingPresentation Deterministic Tests', () {

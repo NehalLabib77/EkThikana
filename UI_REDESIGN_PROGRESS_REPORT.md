@@ -332,5 +332,35 @@ Refined the visual grouping and header/greeting structure on `ui/today-redesign`
 #### 5. Section Status
 - **Today Redesign Status**: **READY FOR USER REVIEW**.
 
+---
+
+### Fixed Pinned Header & Scrolling Body Architecture
+
+#### 1. Scope & Objectives
+Addressed architectural scroll hierarchy requirement for Study Mode Today:
+- **Top Header**: Pinned / Fixed (`Logo`, `Gochano`, `EN | বাংলা`, `🔍`, `🔔`). Stays anchored at the top of the viewport when scrolling ("scroll করলেও থাকবে").
+- **Dynamic Greeting & Cards**: Scrollable underneath the fixed header (`Dynamic Greeting`, `Exam Rescue`, `Today's Priorities`, `Ziku Coach`, `Focus`, `Continue Learning`, `Academic Health`).
+
+#### 2. Architectural Implementation
+- Replaced the scrollable `SliverToBoxAdapter` header with an outer `Column` layout within `Scaffold`'s `SafeArea(bottom: false)`.
+- **Fixed Header Container**: Anchored at the top with `color: colors.background`, subtle bottom hairline border (`colors.border.withValues(alpha: 0.5)`), and standard gutter padding (`GochanoSpacing.md` horizontal, `GochanoSpacing.xs` vertical).
+- **Scrollable Content**: Wrapped in `Expanded` containing `RefreshIndicator` and `CustomScrollView`. Dynamic Greeting is placed as the first scrollable sliver item, ensuring pull-to-refresh and upward scroll behavior match standard mobile UX patterns.
+
+#### 3. Automated Quality Gates
+
+| Test Suite / Tool | Tests Passed | Status |
+|---|---|---|
+| `test/study_today_dashboard_test.dart` | 15 / 15 | **PASS** (Includes explicit test verifying fixed header top position remains unchanged while `AppGreetingCard` and body cards scroll) |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** (Study & Utility dynamic navigation) |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** (Task lifecycle & today filtering) |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** (Today vs overdue task behavior) |
+| `test/design_system_test.dart` | 31 / 31 | **PASS** (Design system tokens & components) |
+| `flutter analyze lib` | 0 issues | **PASS** (0 warnings, 0 errors) |
+| **Total Automated Tests** | **107 / 107** | **ALL PASS** |
+
+#### 4. Section Status
+- **Today Redesign Status**: **READY FOR USER REVIEW**.
+
+
 
 
