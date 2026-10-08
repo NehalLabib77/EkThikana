@@ -7,9 +7,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:gochano/core/design_system/app_gradients.dart';
 import 'package:gochano/core/design_system/gochano_art.dart';
 import 'package:gochano/core/design_system/gochano_colors.dart';
 import 'package:gochano/core/design_system/gochano_illustration.dart';
+import 'package:gochano/core/design_system/gochano_spacing.dart';
 import 'package:gochano/core/design_system/gochano_theme.dart';
 import 'package:gochano/core/localization/gochano_language.dart';
 import 'package:gochano/shared/states/gochano_states.dart';
@@ -390,6 +392,37 @@ void main() {
       final box = tester.getSize(find.byType(GochanoIllustration).first);
       expect(box.width, 48);
       expect(box.height, 48);
+    });
+  });
+
+  group('Today App Bar Gradients & Tokens', () {
+    test('appBarSurface radius tokens exist and match 18dp', () {
+      expect(GochanoRadius.appBarSurface, equals(18.0));
+      expect(
+        GochanoRadius.appBarSurfaceAll,
+        equals(const BorderRadius.all(Radius.circular(18.0))),
+      );
+    });
+
+    test('light gradient has brand blue, light indigo, and soft cyan stops', () {
+      final g = AppGradients.todayAppBar;
+      expect(g.colors.length, equals(3));
+      expect(g.colors[0], equals(const Color(0xFFEEF4FF)));
+      expect(g.colors[1], equals(const Color(0xFFF2EEFF)));
+      expect(g.colors[2], equals(const Color(0xFFE8F9FF)));
+    });
+
+    test('dark gradient has deep dark tones for night mode', () {
+      final g = AppGradients.todayAppBarDark;
+      expect(g.colors.length, equals(3));
+      expect(g.colors[0], equals(const Color(0xFF0B1120)));
+      expect(g.colors[1], equals(const Color(0xFF0F172A)));
+      expect(g.colors[2], equals(const Color(0xFF111827)));
+    });
+
+    test('todayAppBarFor returns theme-appropriate gradient', () {
+      expect(AppGradients.todayAppBarFor(isDark: false), equals(AppGradients.todayAppBar));
+      expect(AppGradients.todayAppBarFor(isDark: true), equals(AppGradients.todayAppBarDark));
     });
   });
 }

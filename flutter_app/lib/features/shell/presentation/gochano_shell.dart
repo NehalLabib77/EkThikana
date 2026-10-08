@@ -12,12 +12,15 @@
 // State between destinations is preserved with an IndexedStack, so switching
 // tabs does not reset user progress. Switching modes safely resets to index 0 (Today).
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../core/settings/gochano_app_mode.dart';
+import '../../../services/firestore_service.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../life/presentation/life_screen.dart';
 import '../../life/presentation/commute/commute_screen.dart';
@@ -30,6 +33,7 @@ import '../../community/presentation/community_view.dart';
 import '../../tasks/presentation/tasks_screen.dart';
 import '../../../services/notification_service.dart';
 import '../../study/presentation/ai/ziku_assistant_panel.dart';
+import '../../study/presentation/today/study_today_dashboard_view.dart';
 import '../../../shared/widgets/ziku_floating_launcher.dart';
 import 'quick_add_sheet.dart';
 
@@ -189,8 +193,7 @@ class _GochanoShellState extends State<GochanoShell> {
 
     if (mode == GochanoAppMode.study) {
       return [
-        HomeScreen(
-          role: widget.role,
+        StudyTodayDashboardView(
           displayName: widget.displayName,
           onOpenDestination: _handleDestinationFromHome,
           onOpenProfile: () => Navigator.of(context).push(
@@ -269,9 +272,9 @@ class _GochanoShellState extends State<GochanoShell> {
           selectedIcon: Icons.people_rounded,
         ),
         _Destination(
-          label: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-          icon: Icons.person_outline_rounded,
-          selectedIcon: Icons.person_rounded,
+          label: GochanoLanguage.text('You', 'আপনি'),
+          customIcon: const _StudyProfileNavAvatar(isSelected: false),
+          customSelectedIcon: const _StudyProfileNavAvatar(isSelected: true),
         ),
       ];
     }
@@ -353,8 +356,8 @@ class _GochanoShellState extends State<GochanoShell> {
         destinations: [
           for (final d in destinations)
             NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
+              icon: d.customIcon ?? Icon(d.icon!),
+              selectedIcon: d.customSelectedIcon ?? Icon(d.selectedIcon ?? d.icon!),
               label: d.label,
               tooltip: d.label,
             ),
@@ -367,11 +370,87 @@ class _GochanoShellState extends State<GochanoShell> {
 class _Destination {
   const _Destination({
     required this.label,
-    required this.icon,
-    required this.selectedIcon,
+    this.icon,
+    this.selectedIcon,
+    this.customIcon,
+    this.customSelectedIcon,
   });
 
   final String label;
-  final IconData icon;
-  final IconData selectedIcon;
+  final IconData? icon;
+  final IconData? selectedIcon;
+  final Widget? customIcon;
+  final Widget? customSelectedIcon;
+}
+
+class _StudyProfileNavAvatar extends StatelessWidget {
+  const _StudyProfileNavAvatar({required this.isSelected});
+
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    String? authPhotoUrl;
+    try {
+      authPhotoUrl = FirebaseAuth.instance.currentUser?.photoURL;
+    } catch (_) {}
+
+    Stream<DocumentSnapshot<Map<String, dynamic>>>? stream;
+    try {
+      stream = FirestoreService.profileStream();
+    } catch (_) {}
+
+    if (stream == null) {
+      if (authPhotoUrl != null && authPhotoUrl.isNotEmpty) {
+        return _buildAvatar(context, authPhotoUrl);
+      }
+      return Icon(
+        isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
+        size: 24,
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final photoURL = (data?['photoURL'] as String?)?.trim();
+        final effectiveUrl = (photoURL != null && photoURL.isNotEmpty)
+            ? photoURL
+            : authPhotoUrl;
+
+        if (effectiveUrl != null && effectiveUrl.isNotEmpty) {
+          return _buildAvatar(context, effectiveUrl);
+        }
+
+        return Icon(
+          isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
+          size: 24,
+        );
+      },
+    );
+  }
+
+  Widget _buildAvatar(BuildContext context, String url) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isSelected ? context.colors.brand : context.colors.border,
+          width: isSelected ? 2.0 : 1.0,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Icon(
+          isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
+          size: 20,
+        ),
+      ),
+    );
+  }
 }

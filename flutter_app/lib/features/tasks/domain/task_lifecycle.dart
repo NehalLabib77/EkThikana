@@ -110,8 +110,9 @@ class TaskLifecycle {
     if (isTaskCancelled(data)) return false;
 
     final dueAt = parseDateTime(data['dueAt']);
-    if (dueAt == null)
+    if (dueAt == null) {
       return true; // Undated tasks remain in Today active view.
+    }
 
     return isSameCalendarDay(dueAt, currentTime);
   }

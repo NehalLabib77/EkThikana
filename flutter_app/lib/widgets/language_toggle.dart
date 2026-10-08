@@ -16,7 +16,12 @@ import '../core/design_system/gochano_typography.dart';
 import '../core/localization/gochano_language.dart';
 
 class LanguageToggle extends StatelessWidget {
-  const LanguageToggle({super.key});
+  const LanguageToggle({
+    super.key,
+    this.isCompact = false,
+  });
+
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -25,21 +30,27 @@ class LanguageToggle extends StatelessWidget {
     return ValueListenableBuilder<GochanoLocale>(
       valueListenable: GochanoLanguage.current,
       builder: (context, currentLocale, _) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xs),
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: colors.surfaceVariant,
-              borderRadius: BorderRadius.circular(GochanoRadius.md),
-              border: Border.all(color: colors.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final locale in GochanoLocale.values)
-                  _Segment(locale: locale, selected: currentLocale == locale),
-              ],
+        return ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Center(
+            child: Container(
+              padding: EdgeInsets.all(isCompact ? 2 : 3),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: BorderRadius.circular(GochanoRadius.md),
+                border: Border.all(color: colors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final locale in GochanoLocale.values)
+                    _Segment(
+                      locale: locale,
+                      selected: currentLocale == locale,
+                      isCompact: isCompact,
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -49,10 +60,15 @@ class LanguageToggle extends StatelessWidget {
 }
 
 class _Segment extends StatelessWidget {
-  const _Segment({required this.locale, required this.selected});
+  const _Segment({
+    required this.locale,
+    required this.selected,
+    this.isCompact = false,
+  });
 
   final GochanoLocale locale;
   final bool selected;
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -66,11 +82,14 @@ class _Segment extends StatelessWidget {
         onTap: () => GochanoLanguage.select(locale),
         borderRadius: BorderRadius.circular(GochanoRadius.sm),
         child: Container(
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
+          constraints: BoxConstraints(
+            minWidth: isCompact ? 34 : 40,
+            minHeight: isCompact ? 26 : 32,
+          ),
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(
-            horizontal: GochanoSpacing.xs,
-            vertical: 4,
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 6 : GochanoSpacing.xs,
+            vertical: isCompact ? 2 : 4,
           ),
           decoration: BoxDecoration(
             color: selected ? colors.surface : Colors.transparent,
@@ -84,6 +103,7 @@ class _Segment extends StatelessWidget {
             style: context.type.caption.copyWith(
               color: selected ? colors.brand : colors.textSecondary,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: isCompact ? 11 : null,
             ),
           ),
         ),

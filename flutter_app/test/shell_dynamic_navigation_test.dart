@@ -64,7 +64,7 @@ void main() {
       expect(find.text('Workspace'), findsOneWidget);
       expect(find.text('Plan'), findsOneWidget);
       expect(find.text('Community'), findsOneWidget);
-      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('You'), findsOneWidget);
 
       expect(find.text('Commute'), findsNothing);
       expect(find.text('Money'), findsNothing);
@@ -97,8 +97,8 @@ void main() {
         await tester.pumpWidget(_buildTestShell());
         await tester.pumpAndSettle();
 
-        // Tap Profile (index 4 in Study Mode)
-        await tester.tap(find.text('Profile'));
+        // Tap You (index 4 in Study Mode)
+        await tester.tap(find.text('You'));
         await tester.pumpAndSettle();
 
         var navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
@@ -170,7 +170,7 @@ void main() {
 
       var navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
       var lastDest = navBar.destinations.last as NavigationDestination;
-      expect(lastDest.label, 'Profile');
+      expect(lastDest.label, 'You');
 
       await GochanoAppModePreferences.select(GochanoAppMode.utility);
       await tester.pumpAndSettle();
@@ -196,7 +196,7 @@ void main() {
         expect(find.text('ওয়ার্কস্পেস'), findsOneWidget);
         expect(find.text('পরিকল্পনা'), findsOneWidget);
         expect(find.text('কমিউনিটি'), findsOneWidget);
-        expect(find.text('প্রোফাইল'), findsOneWidget);
+        expect(find.text('আপনি'), findsOneWidget);
         expect(tester.takeException(), isNull);
 
         await GochanoAppModePreferences.select(GochanoAppMode.utility);
