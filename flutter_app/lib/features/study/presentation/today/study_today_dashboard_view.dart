@@ -98,7 +98,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                   return Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: horizontalInset,
-                      vertical: 5.0,
+                      vertical: 4.0,
                     ),
                     child: Container(
                       decoration: BoxDecoration(
@@ -122,7 +122,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                       ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: GochanoSpacing.md,
-                        vertical: GochanoSpacing.xs,
+                        vertical: 4.0,
                       ),
                       child: _buildHeader(context),
                     ),
@@ -235,7 +235,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isVeryNarrow = constraints.maxWidth < 340;
-        final logoSize = isVeryNarrow ? 30.0 : 34.0;
+        final logoSize = isVeryNarrow ? 28.0 : 30.0;
 
         return Row(
           children: [
@@ -253,7 +253,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                 errorBuilder: (context, error, stackTrace) => Icon(
                   Icons.school_rounded,
                   color: const Color(0xFF2F6BFF),
-                  size: isVeryNarrow ? 20 : 24,
+                  size: isVeryNarrow ? 18 : 20,
                 ),
               ),
             ),
@@ -261,8 +261,8 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
             const Spacer(),
 
             // RIGHT: Controls
-            const LanguageToggle(),
-            const SizedBox(width: 4),
+            const LanguageToggle(isCompact: true),
+            const SizedBox(width: 2),
 
             // Search icon
             IconButton(
@@ -272,12 +272,12 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                 );
               },
               tooltip: GochanoLanguage.text('Search', 'অনুসন্ধান'),
-              icon: Icon(Icons.search_rounded, size: isVeryNarrow ? 20 : 22),
-              padding: isVeryNarrow ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
+              icon: Icon(Icons.search_rounded, size: isVeryNarrow ? 19 : 20),
+              padding: const EdgeInsets.all(4),
               visualDensity: VisualDensity.compact,
-              constraints: BoxConstraints(
-                minWidth: isVeryNarrow ? 32 : 38,
-                minHeight: isVeryNarrow ? 32 : 38,
+              constraints: const BoxConstraints(
+                minWidth: 32,
+                minHeight: 32,
               ),
             ),
 
@@ -302,21 +302,19 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                       ),
                       icon: Icon(
                         Icons.notifications_outlined,
-                        size: isVeryNarrow ? 20 : 22,
+                        size: isVeryNarrow ? 19 : 20,
                       ),
-                      padding: isVeryNarrow
-                          ? const EdgeInsets.all(4)
-                          : const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(4),
                       visualDensity: VisualDensity.compact,
-                      constraints: BoxConstraints(
-                        minWidth: isVeryNarrow ? 32 : 38,
-                        minHeight: isVeryNarrow ? 32 : 38,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
                       ),
                     ),
                     if (unreadCount > 0)
                       Positioned(
-                        top: 4,
-                        right: 4,
+                        top: 2,
+                        right: 2,
                         child: Container(
                           padding: const EdgeInsets.all(2),
                           decoration: const BoxDecoration(

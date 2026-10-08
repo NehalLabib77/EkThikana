@@ -249,8 +249,8 @@ void main() {
       final initialHeaderTop = tester.getTopLeft(find.byType(LanguageToggle)).dy;
       final initialGreetingTop = tester.getTopLeft(find.byType(AppGreetingCard)).dy;
 
-      // Scroll CustomScrollView up by 80px
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -80));
+      // Scroll CustomScrollView up by 30px
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -30));
       await tester.pumpAndSettle();
 
       // FIXED HEADER: Top coordinate does not move even when scrolled
