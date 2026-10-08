@@ -497,7 +497,54 @@ Checked commit `42f3414` contents against current HEAD (`1341fe6`) to ensure zer
   - `physical_today_final_bottom.png` (185,412 bytes): Bottom viewport showing pinned compact inset header, Focus Session, Continue Learning, Academic Health (78/100), and Bottom Navigation.
 
 #### 7. Audit Verdict
-- **Status**: **TODAY REDESIGN — PHYSICAL QA PASSED, READY FOR USER FINAL APPROVAL**
+- **Status**: **TODAY REDESIGN — PHYSICAL QA PASSED**
+
+---
+
+### Approval & Integration Merge
+
+#### 1. Integration Record
+- **User Approval**: YES
+- **Approved Source Branch**: `ui/today-redesign`
+- **Approved Source HEAD**: `fba6d4a` (`fix(ui): preserve accessible tap targets in compact Today header`)
+- **Target Integration Branch**: `ui-redesign-v1`
+- **Merge Strategy**: Non-destructive merge (`git merge --no-ff ui/today-redesign -m "merge(ui): approve Study Today redesign"`)
+- **Merge Commit Hash**: `dabfd85`
+- **Working Tree Status**: Clean (`nothing to commit, working tree clean`)
+
+#### 2. Verification Gates (Pre-Merge & Post-Merge)
+
+| Gate / Test Suite | Pre-Merge Result (`fba6d4a`) | Post-Merge Result (`dabfd85`) | Status |
+|---|---|---|---|
+| `flutter analyze lib` | 0 issues found (6.0s) | 0 issues found (4.5s) | **PASS** |
+| `test/study_today_dashboard_test.dart` | 17 / 17 | 17 / 17 | **PASS** |
+| `test/design_system_test.dart` | 41 / 41 | 41 / 41 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | 10 / 10 | **PASS** |
+| `test/task_lifecycle_test.dart` | 15 / 15 | 15 / 15 | **PASS** |
+| `test/home_today_overdue_test.dart` | 36 / 36 | 36 / 36 | **PASS** |
+| **Total Automated Quality Tests** | **113 / 113** | **113 / 113** | **ALL PASS (100%)** |
+
+#### 3. TaskLifecycle Regression Audit
+- `TaskLifecycle.belongsToToday(task, now)` strictly isolates tasks due today.
+- Historical backlog and past calendar tasks do not leak into Today dashboard.
+- Atomic completion updates Firestore while immediately clearing tasks from Today view.
+- 0 regressions against canonical `task_lifecycle_test.dart` (15/15) and `home_today_overdue_test.dart` (36/36).
+
+#### 4. Authoritative Today Header Specification (Final Merged State)
+The final merged implementation on `ui-redesign-v1` supersedes earlier iterative passes with this authoritative specification:
+- **Logo Presentation**: Clean circular logo mark only (`AppAssets.logo`, 30dp normal / 28dp narrow width); zero "Gochano" brand text, zero tagline, zero avatar in top header.
+- **Header Dimensions**: Streamlined ultra-compact ~46dp visual height, 4dp vertical outer margin, 4dp internal vertical padding.
+- **Surface Geometry**: Floating inset container with 14dp normal horizontal inset (10dp below 340dp width), 18dp corner radius token (`GochanoRadius.appBarSurface = 18`, `GochanoRadius.appBarSurfaceAll`).
+- **Gradient & Theme**: Multi-stop gradient via `AppGradients.todayAppBarFor(isDark: isDark)` with subtle border and soft light-mode shadow.
+- **Accessibility Hit Targets**:
+  - Language toggle (`EN | বাংলা`): 26dp visual pill, $\ge 44\text{dp}$ vertical touch area (`ConstrainedBox(minHeight: 44)`).
+  - Search icon: 32dp visual container bounds, $44 \times 44\text{dp}$ hit area (`SizedBox(width: 44, height: 44)`).
+  - Notification icon: 32dp visual container bounds, $44 \times 44\text{dp}$ hit area (`SizedBox(width: 44, height: 44)`).
+  - Unread notification badge: Crisp 14dp indicator positioned cleanly at 4dp offset without clipping.
+- **Pinned Surface**: Fixed outside `CustomScrollView` in `SafeArea` -> `Column` -> `LayoutBuilder` -> `Expanded(CustomScrollView)`, permanently pinned during body scrolling.
+
+#### 5. Section Final Status
+- **Today Status**: **APPROVED + MERGED INTO ui-redesign-v1**
 
 
 
