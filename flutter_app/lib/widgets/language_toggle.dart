@@ -30,27 +30,27 @@ class LanguageToggle extends StatelessWidget {
     return ValueListenableBuilder<GochanoLocale>(
       valueListenable: GochanoLanguage.current,
       builder: (context, currentLocale, _) {
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            vertical: isCompact ? 0 : GochanoSpacing.xs,
-          ),
-          child: Container(
-            padding: EdgeInsets.all(isCompact ? 2 : 3),
-            decoration: BoxDecoration(
-              color: colors.surfaceVariant,
-              borderRadius: BorderRadius.circular(GochanoRadius.md),
-              border: Border.all(color: colors.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final locale in GochanoLocale.values)
-                  _Segment(
-                    locale: locale,
-                    selected: currentLocale == locale,
-                    isCompact: isCompact,
-                  ),
-              ],
+        return ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Center(
+            child: Container(
+              padding: EdgeInsets.all(isCompact ? 2 : 3),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: BorderRadius.circular(GochanoRadius.md),
+                border: Border.all(color: colors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final locale in GochanoLocale.values)
+                    _Segment(
+                      locale: locale,
+                      selected: currentLocale == locale,
+                      isCompact: isCompact,
+                    ),
+                ],
+              ),
             ),
           ),
         );

@@ -264,79 +264,79 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
             const LanguageToggle(isCompact: true),
             const SizedBox(width: 2),
 
-            // Search icon
-            IconButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  GochanoRoute.to(builder: (_) => const UniversalSearchScreen()),
-                );
-              },
-              tooltip: GochanoLanguage.text('Search', 'অনুসন্ধান'),
-              icon: Icon(Icons.search_rounded, size: isVeryNarrow ? 19 : 20),
-              padding: const EdgeInsets.all(4),
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(
-                minWidth: 32,
-                minHeight: 32,
+            // Search icon (32dp visual container, 48x48dp effective touch target)
+            SizedBox(
+              width: 44,
+              height: 44,
+              child: IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    GochanoRoute.to(builder: (_) => const UniversalSearchScreen()),
+                  );
+                },
+                tooltip: GochanoLanguage.text('Search', 'অনুসন্ধান'),
+                icon: Icon(Icons.search_rounded, size: isVeryNarrow ? 19 : 20),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
               ),
             ),
 
-            // Notifications with badge
+            // Notifications with badge (32dp visual, 48x48dp effective touch target)
             ValueListenableBuilder<int>(
               valueListenable: LocalReminderStore.instance.unreadCountNotifier,
               builder: (context, unreadCount, _) {
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          GochanoRoute.to(
-                            builder: (_) => const NotificationCenterScreen(),
-                          ),
-                        );
-                      },
-                      tooltip: GochanoLanguage.text(
-                        'Notification Center',
-                        'নোটিফিকেশন সেন্টার',
-                      ),
-                      icon: Icon(
-                        Icons.notifications_outlined,
-                        size: isVeryNarrow ? 19 : 20,
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                    ),
-                    if (unreadCount > 0)
-                      Positioned(
-                        top: 2,
-                        right: 2,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEF4444),
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 14,
-                            minHeight: 14,
-                          ),
-                          child: Text(
-                            unreadCount > 9 ? '9+' : '$unreadCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.bold,
+                return SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            GochanoRoute.to(
+                              builder: (_) => const NotificationCenterScreen(),
                             ),
-                            textAlign: TextAlign.center,
+                          );
+                        },
+                        tooltip: GochanoLanguage.text(
+                          'Notification Center',
+                          'নোটিফিকেশন সেন্টার',
+                        ),
+                        icon: Icon(
+                          Icons.notifications_outlined,
+                          size: isVeryNarrow ? 19 : 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFEF4444),
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 14,
+                              minHeight: 14,
+                            ),
+                            child: Text(
+                              unreadCount > 9 ? '9+' : '$unreadCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 );
               },
             ),

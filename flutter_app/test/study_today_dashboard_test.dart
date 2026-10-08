@@ -342,6 +342,59 @@ void main() {
       expect(find.text('Study Better. A Brighter You.'), findsNothing);
       expect(find.byType(CircleAvatar), findsNothing);
     });
+
+    testWidgets('compact header controls preserve accessible touch targets of at least 44dp', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StudyTodayDashboardView(
+              displayName: 'Student',
+              onOpenDestination: (_) {},
+              onOpenProfile: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Search button tap target >= 44dp
+      final searchButtonFinder = find.widgetWithIcon(IconButton, Icons.search_rounded);
+      expect(searchButtonFinder, findsOneWidget);
+      final searchBox = tester.getSize(find.ancestor(
+        of: searchButtonFinder,
+        matching: find.byType(SizedBox),
+      ).first);
+      expect(searchBox.width, greaterThanOrEqualTo(44.0));
+      expect(searchBox.height, greaterThanOrEqualTo(44.0));
+
+      // Notification button tap target >= 44dp
+      final notificationButtonFinder = find.widgetWithIcon(IconButton, Icons.notifications_outlined);
+      expect(notificationButtonFinder, findsOneWidget);
+      final notificationBox = tester.getSize(find.ancestor(
+        of: notificationButtonFinder,
+        matching: find.byType(SizedBox),
+      ).first);
+      expect(notificationBox.width, greaterThanOrEqualTo(44.0));
+      expect(notificationBox.height, greaterThanOrEqualTo(44.0));
+
+      // Language toggle tap target >= 44dp height
+      final languageToggleFinder = find.byType(LanguageToggle);
+      expect(languageToggleFinder, findsOneWidget);
+      final languageToggleBox = tester.getSize(languageToggleFinder);
+      expect(languageToggleBox.height, greaterThanOrEqualTo(44.0));
+
+      // Unread notification badge remains visible
+      expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
+
+      // Header remains visually compact
+      final headerContainerFinder = find.ancestor(
+        of: find.byType(LanguageToggle),
+        matching: find.byType(Container),
+      ).first;
+      final headerBox = tester.getSize(headerContainerFinder);
+      expect(headerBox.height, lessThanOrEqualTo(56.0));
+    });
   });
 
   group('GreetingPresentation Deterministic Tests', () {

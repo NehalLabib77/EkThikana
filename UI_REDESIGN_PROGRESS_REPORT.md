@@ -465,20 +465,29 @@ Checked commit `42f3414` contents against current HEAD (`1341fe6`) to ensure zer
 
 | Test Suite / Tool | Tests Passed | Result |
 |---|---|---|
-| `flutter analyze lib` | 0 issues found | **PASS** (ran in 6.3s) |
-| `test/study_today_dashboard_test.dart` | 16 / 16 | **PASS** |
+| `flutter analyze lib` | 0 issues found | **PASS** (ran in 10.2s) |
+| `test/study_today_dashboard_test.dart` | 17 / 17 | **PASS** (includes accessibility touch target validation >=44dp) |
 | `test/design_system_test.dart` | 41 / 41 | **PASS** |
 | `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
 | `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
 | `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** |
-| **Total Automated Tests** | **112 / 112** | **ALL PASS** |
+| **Total Automated Tests** | **113 / 113** | **ALL PASS** |
 
-#### 5. Physical Device & ADB Status
+#### 5. Accessibility Touch Target Hardening (~46dp Compact App Bar)
+- **Constraint**: Maintain the ultra-compact visual app bar (~46dp visual height, 26dp language pill, 32dp search/notification bounds, 30dp logo) without enlarging visual elements.
+- **Implementation**:
+  - **Search & Notification**: Visual bounds preserved at 32dp; hit target expanded to 44x44dp via `SizedBox(width: 44, height: 44)` containing the zero-padding `IconButton`.
+  - **Language Toggle**: Compact 26dp visual height preserved; vertical touch area expanded to 44dp via `ConstrainedBox(constraints: BoxConstraints(minHeight: 44))` with centered layout.
+  - **Notification Badge**: Top/right alignment positioned at 4dp to remain crisp, unclipped, and fully visible over the 44x44dp tap target.
+  - **No Neighbor Overlap / No Scroll Interception**: Verified clean hit testing without blocking body scrolling or triggering adjacent actions.
+
+#### 6. Physical Device & ADB Status
 - **Device**: Infinix X665E (Android 12, product `X665E-GL`, model `Infinix_X665E`, transport id 2) connected via ADB TLS bridge.
 - **Runtime Configuration**: Authenticated debug build (`API_BASE_URL=https://ekthikana-api-x473.onrender.com`, `DEV_AUTH_BYPASS=true`, test account `QA Studentv`).
 - **Physical Inspection Results**:
   - **Pinned Floating Inset Header (Ultra-Compact Refinement)**: Visually verified. Floating gradient bar with 14dp left/right inset, 4dp top/bottom vertical margin, 4dp internal vertical padding, and smooth 18dp rounded corners. App bar height streamlined to ~46dp.
-  - **Header Actions**: Logo mark scaled to 30dp on left; compact `[EN | বাংলা]` toggle (`isCompact: true`, 26dp height), Search icon (32x32 hit area), and Notification icon with red `9+` badge on right. Zero Gochano text, zero tagline, zero avatar in header.
+  - **Header Actions**: Logo mark scaled to 30dp on left; compact `[EN | বাংলা]` toggle (`isCompact: true`, 26dp visual height, 44dp hit target), Search icon (32x32 visual bounds, 44x44dp hit target), and Notification icon with red `9+` badge on right. Zero Gochano text, zero tagline, zero avatar in header.
+  - **Physical Tap Testing**: Verified on-device touch interaction. Tapping Search cleanly opens Universal Search without mis-tapping notifications or language toggle; back gesture/action restores dashboard smoothly.
   - **Scroll Stability**: Header remains permanently pinned at the top across top, mid, and bottom scroll positions. No RenderFlex overflows, no body overlap, no clipping.
   - **Body Elements**: Dynamic time-based greeting ("Good Afternoon, QA Studentv 👋"), Exam Rescue hero card ("optical"), grouped Priorities ("All priorities clear!"), Ziku Coach card, Focus Session card, Continue Learning grouped card, Academic Health grouped score ring ("78/100").
   - **Bottom Navigation**: 5 items (`Today`, `Workspace`, `Plan`, `Community`, `You` with profile avatar).
@@ -487,8 +496,9 @@ Checked commit `42f3414` contents against current HEAD (`1341fe6`) to ensure zer
   - `physical_today_final_mid.png` (228,819 bytes): Mid viewport showing pinned compact inset header, Ziku Coach, Focus Session (25:00), Continue Learning, and Academic Health.
   - `physical_today_final_bottom.png` (185,412 bytes): Bottom viewport showing pinned compact inset header, Focus Session, Continue Learning, Academic Health (78/100), and Bottom Navigation.
 
-#### 6. Audit Verdict
-- **Status**: **PHYSICAL REVIEW PASSED — WAITING USER FINAL APPROVAL**
+#### 7. Audit Verdict
+- **Status**: **TODAY REDESIGN — PHYSICAL QA PASSED, READY FOR USER FINAL APPROVAL**
+
 
 
 
