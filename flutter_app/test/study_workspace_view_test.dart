@@ -17,6 +17,7 @@ void main() {
     double textScale = 1.0,
     bool isDark = false,
     VoidCallback? onOpenPlan,
+    List<Map<String, dynamic>>? mockRecentMaterials = const [],
   }) {
     return MaterialApp(
       theme: isDark ? ThemeData.dark() : ThemeData.light(),
@@ -26,7 +27,10 @@ void main() {
           textScaler: TextScaler.linear(textScale),
         ),
         child: Scaffold(
-          body: WorkspaceView(onOpenPlan: onOpenPlan),
+          body: WorkspaceView(
+            onOpenPlan: onOpenPlan,
+            mockRecentMaterials: mockRecentMaterials,
+          ),
         ),
       ),
     );
@@ -54,15 +58,15 @@ void main() {
       await tester.pump();
 
       expect(find.byType(AppWorkspaceSearchField), findsOneWidget);
-      expect(find.text('My Notes'), findsOneWidget);
-      expect(find.text('Flashcards'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsOneWidget);
 
       // Enter search query 'Flash'
       await tester.enterText(find.byType(TextField), 'Flash');
       await tester.pump();
 
-      expect(find.text('Flashcards'), findsOneWidget);
-      expect(find.text('My Notes'), findsNothing);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsNothing);
 
       // Tap clear icon
       final clearButtonFinder = find.byTooltip('Clear');
@@ -71,8 +75,8 @@ void main() {
       await tester.pump();
 
       // Restored
-      expect(find.text('My Notes'), findsOneWidget);
-      expect(find.text('Flashcards'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsOneWidget);
     });
 
     testWidgets('4, 5, 6. filter chips render, default to All, and filter tools grid', (tester) async {
@@ -81,34 +85,39 @@ void main() {
 
       expect(find.byType(AppWorkspaceFilterChips), findsOneWidget);
 
+      Finder chipFinder(String label) => find.descendant(
+            of: find.byType(AppWorkspaceFilterChips),
+            matching: find.text(label),
+          );
+
       // All is default and shows all tool cards
-      expect(find.text('All'), findsOneWidget);
-      expect(find.text('My Notes'), findsOneWidget);
-      expect(find.text('Flashcards'), findsOneWidget);
-      expect(find.text('Past Papers'), findsOneWidget);
-      expect(find.text('Mock Tests'), findsOneWidget);
+      expect(chipFinder('All'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Past Papers'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Mock Tests'), findsOneWidget);
 
       // Select 'Notes' chip
-      await tester.tap(find.text('Notes').first);
+      await tester.tap(chipFinder('Notes'));
       await tester.pump();
 
-      expect(find.text('My Notes'), findsOneWidget);
-      expect(find.text('Flashcards'), findsNothing);
-      expect(find.text('Past Papers'), findsNothing);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsNothing);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Past Papers'), findsNothing);
 
       // Select 'Flashcards' chip
-      await tester.tap(find.text('Flashcards').first);
+      await tester.tap(chipFinder('Flashcards'));
       await tester.pump();
 
-      expect(find.text('Flashcards'), findsOneWidget);
-      expect(find.text('My Notes'), findsNothing);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsNothing);
 
       // Select 'All' chip
-      await tester.tap(find.text('All').first);
+      await tester.tap(chipFinder('All'));
       await tester.pump();
 
-      expect(find.text('My Notes'), findsOneWidget);
-      expect(find.text('Flashcards'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsOneWidget);
     });
 
     testWidgets('7 & 8. renders all real tool cards and omits unsupported fake tools', (tester) async {
@@ -116,14 +125,14 @@ void main() {
       await tester.pump();
 
       // Real canonical tools
-      expect(find.text('My Notes'), findsOneWidget);
-      expect(find.text('Flashcards'), findsOneWidget);
-      expect(find.text('Past Papers'), findsOneWidget);
-      expect(find.text('Mock Tests'), findsOneWidget);
-      expect(find.text('Study Materials'), findsOneWidget);
-      expect(find.text('Question Bank'), findsOneWidget);
-      expect(find.text('Saved Items'), findsOneWidget);
-      expect(find.text('Shared Box'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'My Notes'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Flashcards'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Past Papers'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Mock Tests'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Study Materials'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Question Bank'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Saved Items'), findsOneWidget);
+      expect(find.widgetWithText(AppWorkspaceToolCard, 'Shared Box'), findsOneWidget);
 
       // Unsupported fake tools
       expect(find.text('Virtual Reality Lab'), findsNothing);
@@ -136,7 +145,7 @@ void main() {
       await tester.pump();
 
       // Tapping tool card
-      final notesCard = find.text('My Notes');
+      final notesCard = find.widgetWithText(AppWorkspaceToolCard, 'My Notes');
       expect(notesCard, findsOneWidget);
       await tester.tap(notesCard);
       await tester.pump();
@@ -144,6 +153,10 @@ void main() {
     });
 
     testWidgets('10, 11, 12, 13, 14. Recently Opened section renders safely with empty state', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       await tester.pumpWidget(buildWorkspace());
       await tester.pump();
 
@@ -210,8 +223,18 @@ void main() {
 
     testWidgets('21 & 22. Workspace tab in shell and You destination preserved', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: GochanoShell(role: 'student', displayName: 'Student'),
+        MaterialApp(
+          home: GochanoShell(
+            role: 'student',
+            displayName: 'Student',
+            pagesBuilder: (context, mode) => [
+              const Text('Page: Today'),
+              const WorkspaceView(mockRecentMaterials: []),
+              const Text('Page: Plan'),
+              const Text('Page: Community'),
+              const Text('Page: You'),
+            ],
+          ),
         ),
       );
       await tester.pump();
