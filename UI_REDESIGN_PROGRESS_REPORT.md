@@ -474,11 +474,22 @@ Checked commit `42f3414` contents against current HEAD (`1341fe6`) to ensure zer
 | **Total Automated Tests** | **112 / 112** | **ALL PASS** |
 
 #### 5. Physical Device & ADB Status
-- **ADB Discovery**: Ran `adb devices -l` (0 attached Android devices detected). The physical Infinix HOT 20i device is currently paired via Windows Bluetooth audio only, not connected via USB debugging / ADB bridge.
-- **Physical Screenshots**: Pending physical device attachment via USB (`adb devices`).
+- **Device**: Infinix X665E (Android 12, product `X665E-GL`, model `Infinix_X665E`, transport id 2) connected via ADB TLS bridge.
+- **Runtime Configuration**: Authenticated debug build (`API_BASE_URL=https://ekthikana-api-x473.onrender.com`, `DEV_AUTH_BYPASS=true`, test account `QA Studentv`).
+- **Physical Inspection Results**:
+  - **Pinned Floating Inset Header**: Visually verified. Floating gradient bar with 14dp left/right inset, 5dp top/bottom vertical margin, and smooth 18dp rounded corners.
+  - **Header Actions**: Logo mark on left; `[EN | বাংলা]` toggle, Search icon, and Notification icon with red `9+` badge on right. Zero Gochano text, zero tagline, zero avatar in header.
+  - **Scroll Stability**: Header remains permanently pinned at the top across top, mid, and bottom scroll positions. No RenderFlex overflows, no body overlap, no clipping.
+  - **Body Elements**: Dynamic time-based greeting ("Good Afternoon, QA Studentv 👋"), Exam Rescue hero card ("optical"), grouped Priorities ("All priorities clear!"), Ziku Coach card, Focus Session card, Continue Learning grouped card, Academic Health grouped score ring ("78/100").
+  - **Bottom Navigation**: 5 items (`Today`, `Workspace`, `Plan`, `Community`, `You` with profile avatar).
+- **Physical Screenshots Captured**:
+  - `physical_today_final_top.png` (256,666 bytes): Top viewport showing floating inset header, greeting, Exam Rescue hero card, Priorities, and Ziku Coach.
+  - `physical_today_final_mid.png` (230,064 bytes): Mid viewport showing pinned inset header, Ziku Coach, Focus Session (25:00), Continue Learning, and Academic Health.
+  - `physical_today_final_bottom.png` (186,078 bytes): Bottom viewport showing pinned inset header, Focus Session, Continue Learning, Academic Health (78/100), and Bottom Navigation.
 
 #### 6. Audit Verdict
-- **Status**: **AUTOMATED QA PASSED — PHYSICAL QA PENDING**
+- **Status**: **PHYSICAL REVIEW PASSED — WAITING USER FINAL APPROVAL**
+
 
 
 
