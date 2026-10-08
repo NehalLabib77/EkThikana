@@ -72,10 +72,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // 1. TOP APP BAR CLEANUP
-      // Left: Brand icon + name
-      expect(find.text('Gochano'), findsOneWidget);
-      // Right: Language toggle, Search, Notification
+      // 1. FIXED TOP APP BAR: Logo only, real gradient, no "Gochano" text, no tagline, no avatar
+      expect(find.text('Gochano'), findsNothing);
+      expect(find.text('Study Better. A Brighter You.'), findsNothing);
+      expect(find.byType(Image), findsWidgets); // Logo mark remains
       expect(find.byType(LanguageToggle), findsOneWidget);
       expect(find.byIcon(Icons.search_rounded), findsOneWidget);
       expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
@@ -184,7 +184,8 @@ void main() {
 
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('Gochano'), findsOneWidget);
+      expect(find.text('Gochano'), findsNothing);
+      expect(find.byType(LanguageToggle), findsOneWidget);
       expect(find.byType(AppGreetingCard), findsOneWidget);
       expect(find.byType(CircleAvatar), findsNothing);
     });
@@ -216,7 +217,8 @@ void main() {
 
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('Gochano'), findsOneWidget);
+      expect(find.text('Gochano'), findsNothing);
+      expect(find.byType(LanguageToggle), findsOneWidget);
     });
 
     testWidgets('fixed header stays pinned when scrolling while greeting and body cards scroll', (tester) async {
@@ -238,11 +240,13 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify header and greeting are initially visible
-      expect(find.text('Gochano'), findsOneWidget);
+      // Verify header controls and greeting are initially visible
+      expect(find.text('Gochano'), findsNothing);
+      expect(find.text('Study Better. A Brighter You.'), findsNothing);
+      expect(find.byType(LanguageToggle), findsOneWidget);
       expect(find.byType(AppGreetingCard), findsOneWidget);
 
-      final initialHeaderTop = tester.getTopLeft(find.text('Gochano')).dy;
+      final initialHeaderTop = tester.getTopLeft(find.byType(LanguageToggle)).dy;
       final initialGreetingTop = tester.getTopLeft(find.byType(AppGreetingCard)).dy;
 
       // Scroll CustomScrollView up by 80px
@@ -250,16 +254,93 @@ void main() {
       await tester.pumpAndSettle();
 
       // FIXED HEADER: Top coordinate does not move even when scrolled
-      final scrolledHeaderTop = tester.getTopLeft(find.text('Gochano')).dy;
+      final scrolledHeaderTop = tester.getTopLeft(find.byType(LanguageToggle)).dy;
       expect(scrolledHeaderTop, equals(initialHeaderTop));
-      expect(find.text('Gochano'), findsOneWidget);
+      expect(find.text('Gochano'), findsNothing);
+      expect(find.text('Study Better. A Brighter You.'), findsNothing);
       expect(find.byType(LanguageToggle), findsOneWidget);
       expect(find.byIcon(Icons.search_rounded), findsOneWidget);
       expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
 
+      // Verify compact inset floating header properties
+      final headerContainerFinder = find.ancestor(
+        of: find.byType(LanguageToggle),
+        matching: find.byType(Container),
+      ).first;
+      final headerContainer = tester.widget<Container>(headerContainerFinder);
+      final decoration = headerContainer.decoration as BoxDecoration;
+
+      // 1. Gradient remains
+      expect(decoration.gradient, equals(AppGradients.todayAppBar));
+
+      // 2. 18dp rounded radius exists
+      expect(decoration.borderRadius, equals(GochanoRadius.appBarSurfaceAll));
+
+      // 3. Subtle border exists
+      expect(decoration.border, isNotNull);
+
+      // 4. Visible gradient surface is narrower than viewport (400 - 2*14 = 372dp)
+      final headerRenderBox = tester.renderObject(headerContainerFinder) as RenderBox;
+      expect(headerRenderBox.size.width, equals(400.0 - (14.0 * 2)));
+      expect(headerRenderBox.size.width, lessThan(400.0));
+
+      // 5. Left/right inset exists (14dp on 400dp width)
+      final headerTopLeft = tester.getTopLeft(headerContainerFinder);
+      expect(headerTopLeft.dx, equals(14.0));
+
       // SCROLLABLE GREETING: Position moved upwards
       final scrolledGreetingTop = tester.getTopLeft(find.byType(AppGreetingCard)).dy;
       expect(scrolledGreetingTop, lessThan(initialGreetingTop));
+    });
+
+    testWidgets('compact inset floating header applies 10dp inset on 320dp narrow screen without overflow', (tester) async {
+      tester.view.physicalSize = const Size(320, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StudyTodayDashboardView(
+              displayName: 'Student',
+              onOpenDestination: (_) {},
+              onOpenProfile: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      final headerContainerFinder = find.ancestor(
+        of: find.byType(LanguageToggle),
+        matching: find.byType(Container),
+      ).first;
+      final headerContainer = tester.widget<Container>(headerContainerFinder);
+      final decoration = headerContainer.decoration as BoxDecoration;
+
+      expect(decoration.gradient, equals(AppGradients.todayAppBar));
+      expect(decoration.borderRadius, equals(GochanoRadius.appBarSurfaceAll));
+
+      // Width is 320 - 2*10 = 300dp
+      final headerRenderBox = tester.renderObject(headerContainerFinder) as RenderBox;
+      expect(headerRenderBox.size.width, equals(320.0 - (10.0 * 2)));
+      expect(headerRenderBox.size.width, lessThan(320.0));
+
+      final headerTopLeft = tester.getTopLeft(headerContainerFinder);
+      expect(headerTopLeft.dx, equals(10.0));
+
+      // Logo, Language, Search, Notification all present
+      expect(find.byType(Image), findsWidgets);
+      expect(find.byType(LanguageToggle), findsOneWidget);
+      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
+
+      // Absent: Gochano text, tagline, avatar
+      expect(find.text('Gochano'), findsNothing);
+      expect(find.text('Study Better. A Brighter You.'), findsNothing);
+      expect(find.byType(CircleAvatar), findsNothing);
     });
   });
 

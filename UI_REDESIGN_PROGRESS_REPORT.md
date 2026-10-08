@@ -337,29 +337,100 @@ Refined the visual grouping and header/greeting structure on `ui/today-redesign`
 ### Fixed Pinned Header & Scrolling Body Architecture
 
 #### 1. Scope & Objectives
-Addressed architectural scroll hierarchy requirement for Study Mode Today:
-- **Top Header**: Pinned / Fixed (`Logo`, `Gochano`, `EN | বাংলা`, `🔍`, `🔔`). Stays anchored at the top of the viewport when scrolling ("scroll করলেও থাকবে").
-- **Dynamic Greeting & Cards**: Scrollable underneath the fixed header (`Dynamic Greeting`, `Exam Rescue`, `Today's Priorities`, `Ziku Coach`, `Focus`, `Continue Learning`, `Academic Health`).
+Finalized the architectural scroll hierarchy and visual design for Study Mode Today:
+- **Logo-Only Fixed Header**: Pinned at the top of the viewport (`Logo` mark on the left; `EN | বাংলা`, `🔍`, `🔔` on the right). Strictly excludes "Gochano" text, tagline, and user avatar. Stays permanently anchored when scrolling ("scroll করলেও থাকবে").
+- **Real App Bar Gradient**:
+  - Centralized design system token `AppGradients.todayAppBar` (Light Mode: `#EEF4FF` soft brand blue -> `#F2EEFF` very light indigo -> `#E8F9FF` soft cyan).
+  - Dark Mode variant `AppGradients.todayAppBarDark` (`#0B1120` deep slate -> `#0F172A` deep indigo navy -> `#111827` deep midnight).
+  - Selected dynamically via `AppGradients.todayAppBarFor(isDark: isDark)`.
+- **Status Bar Icon Brightness**:
+  - Wrapped in `AnnotatedRegion<SystemUiOverlayStyle>`:
+    - Light Mode: `statusBarIconBrightness: Brightness.dark` for crisp contrast against light gradient.
+    - Dark Mode: `statusBarIconBrightness: Brightness.light`.
+- **Compactness & Density**:
+  - Target content height ~56–64dp. Vertically aligned controls, zero awkward gaps, logo icon sized cleanly at 34dp (30dp on <340dp viewports).
+- **Scrollable Body**:
+  - `[ Dynamic Greeting ]` and all dashboard cards (`Exam Rescue`, `Today's Priorities`, `Ziku Coach`, `Focus`, `Continue Learning`, `Academic Health`) scroll smoothly underneath the pinned gradient header.
 
 #### 2. Architectural Implementation
 - Replaced the scrollable `SliverToBoxAdapter` header with an outer `Column` layout within `Scaffold`'s `SafeArea(bottom: false)`.
-- **Fixed Header Container**: Anchored at the top with `color: colors.background`, subtle bottom hairline border (`colors.border.withValues(alpha: 0.5)`), and standard gutter padding (`GochanoSpacing.md` horizontal, `GochanoSpacing.xs` vertical).
+- **Fixed Header Container**: Anchored at the top with `gradient: AppGradients.todayAppBarFor(isDark: isDark)`, subtle bottom hairline border (`colors.border.withValues(alpha: 0.3)` in dark, `#E2E8F0` with alpha 0.7 in light), and standard gutter padding (`GochanoSpacing.md` horizontal, `GochanoSpacing.xs` vertical).
 - **Scrollable Content**: Wrapped in `Expanded` containing `RefreshIndicator` and `CustomScrollView`. Dynamic Greeting is placed as the first scrollable sliver item, ensuring pull-to-refresh and upward scroll behavior match standard mobile UX patterns.
 
 #### 3. Automated Quality Gates
 
 | Test Suite / Tool | Tests Passed | Status |
 |---|---|---|
-| `test/study_today_dashboard_test.dart` | 15 / 15 | **PASS** (Includes explicit test verifying fixed header top position remains unchanged while `AppGreetingCard` and body cards scroll) |
+| `test/study_today_dashboard_test.dart` | 15 / 15 | **PASS** (Asserts logo only, no "Gochano" text, no tagline, gradient decoration, and fixed top coordinate during scroll) |
 | `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** (Study & Utility dynamic navigation) |
+| `test/design_system_test.dart` | 34 / 34 | **PASS** (Design system tokens, todayAppBar gradient light/dark tokens) |
 | `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** (Task lifecycle & today filtering) |
 | `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** (Today vs overdue task behavior) |
-| `test/design_system_test.dart` | 31 / 31 | **PASS** (Design system tokens & components) |
 | `flutter analyze lib` | 0 issues | **PASS** (0 warnings, 0 errors) |
-| **Total Automated Tests** | **107 / 107** | **ALL PASS** |
+| **Total Automated Tests** | **110 / 110** | **ALL PASS** |
 
-#### 4. Section Status
+#### 4. Physical Device Verification Note
+- Automated widget tests explicitly verify the fixed position (`scrolledHeaderTop == initialHeaderTop`), gradient token assignment, absence of text/tagline, and responsive behavior down to 320dp width.
+- Authenticated physical QA configuration ready: `API_BASE_URL=https://ekthikana-api-x473.onrender.com`, `DEV_AUTH_BYPASS=true`, and local dev test account (`QA Studentv`).
+
+#### 5. Section Status
 - **Today Redesign Status**: **READY FOR USER REVIEW**.
+
+---
+
+### Inset / Compact App Bar Refinement
+
+#### 1. Scope & Design Specifications
+Implemented the compact inset floating header surface for Study Mode Today:
+- **Pinned Position**: Pinned at the top of the viewport outside `CustomScrollView`. Remains fixed during body scroll.
+- **Narrower Gradient Surface**:
+  - Horizontal inset: `14dp` on normal viewports (`>= 340dp`).
+  - Horizontal inset: `10dp` on narrow screens (`< 340dp`).
+  - Outer vertical gap: `5dp` top and bottom margins within `SafeArea`.
+- **Corner Radius**:
+  - Centralized token: `GochanoRadius.appBarSurface = 18` and `GochanoRadius.appBarSurfaceAll = BorderRadius.all(Radius.circular(18))`.
+- **Border & Shadow**:
+  - Subtle border: `Border.all(width: 1)` with `0xFFE2E8F0` (alpha 0.8) in light mode, `colors.border` (alpha 0.3) in dark mode.
+  - Soft light-mode elevation: `BoxShadow(color: Color(0x0D000000), blurRadius: 10, offset: Offset(0, 2))`.
+  - Dark mode: `boxShadow: null` (no artificial/unnecessary glow).
+- **Branding & Actions**:
+  - Left: Logo mark only (circle avatar with `AppAssets.logo`, sized 34dp / 30dp on narrow screens).
+  - Center/Right: `LanguageToggle` (`EN | বাংলা`), Search icon button, Notification icon button with unread count badge.
+  - Excluded: "Gochano" brand text, tagline, and top-bar profile avatar.
+
+#### 2. Files Modified
+- `flutter_app/lib/core/design_system/gochano_spacing.dart`:
+  - Added `GochanoRadius.appBarSurface = 18` and `GochanoRadius.appBarSurfaceAll`.
+- `flutter_app/lib/features/study/presentation/today/study_today_dashboard_view.dart`:
+  - Refined fixed header container with responsive horizontal padding (14dp / 10dp), 5dp vertical margin, `appBarSurfaceAll` border radius, subtle border, light-mode soft shadow, and dark mode restraint.
+- `flutter_app/test/design_system_test.dart`:
+  - Added unit test verifying `GochanoRadius.appBarSurface` is 18dp and `appBarSurfaceAll` is circular 18dp.
+- `flutter_app/test/study_today_dashboard_test.dart`:
+  - Added assertions for 14dp inset, surface narrower than viewport width, 18dp radius token, border, gradient, pinned scroll behavior, and narrow 320dp responsive test with 10dp inset without overflow.
+- `UI_REDESIGN_PROGRESS_REPORT.md`:
+  - Documented implementation, test suites, architecture, and verification status.
+
+#### 3. Automated Verification Results
+
+| Test Suite / Tool | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found | **PASS** (ran in 29.9s) |
+| `test/study_today_dashboard_test.dart` | 16 / 16 | **PASS** (covers inset width, 18dp radius, border, gradient, pinned scroll, 320dp responsive layout) |
+| `test/design_system_test.dart` | 35 / 35 | **PASS** (covers `appBarSurface` tokens and `todayAppBarFor` gradient tokens) |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** (navigation adapter) |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** (task lifecycle & today filtering) |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** (today vs overdue task behavior) |
+| **Total Automated Tests** | **112 / 112** | **ALL PASS** |
+
+#### 4. Physical Device Status
+- ADB daemon checked: No physical device currently attached via USB (`adb devices` returned 0 attached devices; Infinix HOT 20i detected as Bluetooth peripheral only).
+- Verified through headless Flutter WidgetTester that all 112 automated tests pass with 0 layout overflows, strict 14dp/10dp surface margins, and 18dp radius.
+
+#### 5. Commit & Status
+- **Commit**: `[PENDING USER APPROVAL & GIT COMMIT]`
+- **Status**: **READY FOR USER FINAL APPROVAL**
+
+
 
 
 

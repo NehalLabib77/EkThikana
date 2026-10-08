@@ -91,6 +91,36 @@ class AppGradients {
     ],
   );
 
+  /// Fixed Today App Bar gradient (light mode):
+  /// Soft brand blue (#EEF4FF) -> very light indigo (#F2EEFF) -> soft cyan (#E8F9FF)
+  static const LinearGradient todayAppBar = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFEEF4FF), // Soft brand blue
+      Color(0xFFF2EEFF), // Very light indigo
+      Color(0xFFE8F9FF), // Soft cyan
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
+
+  /// Fixed Today App Bar gradient (dark mode):
+  /// Deep slate (#0B1120) -> deep indigo navy (#0F172A) -> deep midnight (#111827)
+  static const LinearGradient todayAppBarDark = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF0B1120), // Deep slate
+      Color(0xFF0F172A), // Slate 900
+      Color(0xFF111827), // Gray 900
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
+
+  /// Helper returning the appropriate today app bar gradient based on theme mode.
+  static LinearGradient todayAppBarFor({required bool isDark}) =>
+      isDark ? todayAppBarDark : todayAppBar;
+
   /// Time-of-day greeting gradients:
   /// Early Morning (5:00 - 8:59): warm sunrise (peach -> pale yellow -> soft blue)
   static const LinearGradient greetingEarlyMorning = LinearGradient(

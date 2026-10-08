@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
@@ -64,39 +65,76 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isDark = context.isDark;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // -----------------------------------------------------------------
-            // FIXED HEADER (Logo, Language Toggle, Search, Notification)
-            // Stays pinned at top when scrolling ("scroll করলেও থাকবে")
-            // -----------------------------------------------------------------
-            Container(
-              decoration: BoxDecoration(
-                color: colors.background,
-                border: Border(
-                  bottom: BorderSide(
-                    color: colors.border.withValues(alpha: 0.5),
-                    width: 1,
-                  ),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: GochanoSpacing.md,
-                vertical: GochanoSpacing.xs,
-              ),
-              child: _buildHeader(context),
-            ),
+    final overlayStyle = isDark
+        ? SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          )
+        : SystemUiOverlayStyle.dark.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          );
 
-            // -----------------------------------------------------------------
-            // SCROLLABLE BODY ("scroll করবে")
-            // -----------------------------------------------------------------
-            Expanded(
-              child: RefreshIndicator(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // -----------------------------------------------------------------
+              // FIXED HEADER (Compact Inset Floating Gradient Surface)
+              // Logo mark, Language Toggle, Search, Notification
+              // Stays pinned at top when scrolling ("scroll করলেও থাকবে")
+              // -----------------------------------------------------------------
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final horizontalInset = constraints.maxWidth < 340 ? 10.0 : 14.0;
+                  return Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalInset,
+                      vertical: 5.0,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppGradients.todayAppBarFor(isDark: isDark),
+                        borderRadius: GochanoRadius.appBarSurfaceAll,
+                        border: Border.all(
+                          color: isDark
+                              ? colors.border.withValues(alpha: 0.3)
+                              : const Color(0xFFE2E8F0).withValues(alpha: 0.8),
+                          width: 1,
+                        ),
+                        boxShadow: isDark
+                            ? null
+                            : const [
+                                BoxShadow(
+                                  color: Color(0x0D000000), // Soft light-mode shadow (5% black)
+                                  blurRadius: 10,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: GochanoSpacing.md,
+                        vertical: GochanoSpacing.xs,
+                      ),
+                      child: _buildHeader(context),
+                    ),
+                  );
+                },
+              ),
+
+              // -----------------------------------------------------------------
+              // SCROLLABLE BODY ("scroll করবে")
+              // -----------------------------------------------------------------
+              Expanded(
+                child: RefreshIndicator(
                 onRefresh: widget.onRefresh ?? () async {},
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -186,6 +224,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
       ],
     ),
   ),
+),
 );
   }
 
@@ -193,19 +232,17 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
   // 1. Header
   // ---------------------------------------------------------------------------
   Widget _buildHeader(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final isVeryNarrow = constraints.maxWidth < 340;
+        final logoSize = isVeryNarrow ? 30.0 : 34.0;
 
         return Row(
           children: [
-            // Brand icon + name
+            // LEFT: Compact logo mark only (no "Gochano" text, no tagline)
             Container(
-              width: isVeryNarrow ? 28 : 34,
-              height: isVeryNarrow ? 28 : 34,
+              width: logoSize,
+              height: logoSize,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
               ),
@@ -220,44 +257,12 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
                 ),
               ),
             ),
-            const SizedBox(width: GochanoSpacing.xs),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Gochano',
-                    style: type.cardHeading.copyWith(
-                      fontWeight: FontWeight.w800,
-                      fontSize: isVeryNarrow ? 15 : 17,
-                      letterSpacing: -0.3,
-                      color: colors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (!isVeryNarrow)
-                    Text(
-                      GochanoLanguage.text(
-                        'Study Better. A Brighter You.',
-                        'পড়াশোনা সুন্দর, ভবিষ্যৎ আলোকিত।',
-                      ),
-                      style: type.bodySecondary.copyWith(
-                        fontSize: 10.5,
-                        height: 1.1,
-                        color: colors.textTertiary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
 
-            // Controls
+            const Spacer(),
+
+            // RIGHT: Controls
             const LanguageToggle(),
-            const SizedBox(width: 2),
+            const SizedBox(width: 4),
 
             // Search icon
             IconButton(
