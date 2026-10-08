@@ -422,13 +422,63 @@ Implemented the compact inset floating header surface for Study Mode Today:
 | `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** (today vs overdue task behavior) |
 | **Total Automated Tests** | **112 / 112** | **ALL PASS** |
 
-#### 4. Physical Device Status
-- ADB daemon checked: No physical device currently attached via USB (`adb devices` returned 0 attached devices; Infinix HOT 20i detected as Bluetooth peripheral only).
-- Verified through headless Flutter WidgetTester that all 112 automated tests pass with 0 layout overflows, strict 14dp/10dp surface margins, and 18dp radius.
-
 #### 5. Commit & Status
-- **Commit**: `[PENDING USER APPROVAL & GIT COMMIT]`
-- **Status**: **READY FOR USER FINAL APPROVAL**
+- **Commit**: `1341fe6` (`refactor(ui): compact inset pinned Today header`)
+- **Status**: **IMPLEMENTED & COMMITTED**
+
+---
+
+### Final Integrity & Physical QA Audit
+
+#### 1. Current Branch & HEAD Verification
+- **Current Branch**: `ui/today-redesign`
+- **Current HEAD**: `1341fe6` (`refactor(ui): compact inset pinned Today header`)
+- **Working Tree**: Clean (`nothing to commit, working tree clean`)
+
+#### 2. Git History Ancestry Verification
+Verified via `git merge-base --is-ancestor`:
+- `8c9536e` (feat(ui): redesign Study Today experience): **ANCESTOR (Exit code 0 - Confirmed)**
+- `7afe5b1` (fix(ui): harden Today illustration scaling): **ANCESTOR (Exit code 0 - Confirmed)**
+- `79df3a1` (feat(ui): polish Today cards with gradients): **ANCESTOR (Exit code 0 - Confirmed)**
+- `86c517a` (feat(ui): pin top header): **ANCESTOR (Exit code 0 - Confirmed)**
+- `42f3414` (fix(ui): finalize logo-only gradient pinned Today header): **NOT an ancestor (Exit code 1)**
+
+#### 3. Dropped Commit Audit (42f3414 Functionality in HEAD)
+Checked commit `42f3414` contents against current HEAD (`1341fe6`) to ensure zero approved functionality was dropped:
+- **Logo-only pinned header**: Present in HEAD (`study_today_dashboard_view.dart:238-259`).
+- **No "Gochano" brand text & No tagline**: Verified absent in HEAD (asserted in `study_today_dashboard_test.dart:76-77`).
+- **No top profile avatar**: Verified absent from header in HEAD (asserted in `study_today_dashboard_test.dart:83`).
+- **Language toggle (`EN | বাংলা`), Search, Notification with badge**: Present in HEAD (`study_today_dashboard_view.dart:264-324`).
+- **`AppGradients.todayAppBar` light/dark support**: Present in HEAD (`app_gradients.dart:95-122`).
+- **Status bar icon brightness via `AnnotatedRegion<SystemUiOverlayStyle>`**: Present in HEAD (`study_today_dashboard_view.dart:72-84`).
+- **Pinned/fixed outside `CustomScrollView`**: Present in HEAD (`study_today_dashboard_view.dart:88-140`).
+- **Compact inset surface**: Present in HEAD (14dp normal inset, 10dp below 340dp width, 5dp vertical margin).
+- **18dp corner radius token**: Present in HEAD (`GochanoRadius.appBarSurface = 18` in `gochano_spacing.dart:63`).
+- **Dynamic time-based greeting**: Present in HEAD (`AppGreetingCard` with `GreetingPresentation`).
+- **Unified group containers**: Present in HEAD (`AppSectionContainer` for Priorities, Continue Learning, Academic Health).
+- **Ziku Coach & Focus Session cards**: Present in HEAD (`AppCoachCard`, `AppFocusCard`).
+- **Bottom Navigation "You" profile presentation**: Present in HEAD (`GochanoShell` tab 5 with `_StudyProfileNavAvatar`).
+- **Canonical `TaskLifecycle` behavior**: Present in HEAD (`TaskLifecycle.belongsToToday`).
+**Verdict**: 100% of approved functionality from `42f3414` was manually preserved and extended in `1341fe6`. Nothing was dropped.
+
+#### 4. Automated Quality Gates
+
+| Test Suite / Tool | Tests Passed | Result |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found | **PASS** (ran in 6.3s) |
+| `test/study_today_dashboard_test.dart` | 16 / 16 | **PASS** |
+| `test/design_system_test.dart` | 41 / 41 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** |
+| **Total Automated Tests** | **112 / 112** | **ALL PASS** |
+
+#### 5. Physical Device & ADB Status
+- **ADB Discovery**: Ran `adb devices -l` (0 attached Android devices detected). The physical Infinix HOT 20i device is currently paired via Windows Bluetooth audio only, not connected via USB debugging / ADB bridge.
+- **Physical Screenshots**: Pending physical device attachment via USB (`adb devices`).
+
+#### 6. Audit Verdict
+- **Status**: **AUTOMATED QA PASSED — PHYSICAL QA PENDING**
 
 
 
