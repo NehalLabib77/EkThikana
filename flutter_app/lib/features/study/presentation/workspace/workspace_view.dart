@@ -1,60 +1,479 @@
-// Study workspace — launcher for recent materials (spec §29).
+// Study workspace — launcher for study tools and recent materials (spec §29).
 //
-// Quick Access grid sits at the top of the body, followed by recent materials.
+// Modern, premium, utility-first study hub featuring:
+// 1. Pinned Study Header (logo only, language toggle, search, notification)
+// 2. Page introduction & subtitle
+// 3. Workspace search bar with instant tool & material filtering
+// 4. Horizontal category filter chips
+// 5. Cohesive Study Tools 2-column responsive grid with semantic gradients
+// 6. Active Exam Rescue discovery tile
+// 7. Quick Shortcuts expandable drawer
+// 8. Recently Opened section with live Firestore streaming, skeleton loading, and empty state
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/firestore_service.dart';
-import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
+import '../../../community/presentation/shared_box_screen.dart';
+import '../../../search/presentation/universal_search_screen.dart';
 import '../ai/ai_assistant_screen.dart';
 import '../ai/assignment_assistant_screen.dart';
 import '../ai/learning_insights_screen.dart';
 import '../ai/quiz_generator_screen.dart';
 import '../ai/smart_planner_screen.dart';
+import '../content/flashcard_screen.dart';
+import '../exam_ecosystem/exam_hub_screen.dart';
+import '../exam_ecosystem/past_paper_screen.dart';
 import '../materials/material_reader_screen.dart';
 import '../materials/materials_screen.dart';
 import '../materials/saved_materials_screen.dart';
+import '../notes/notes_screen.dart';
 import '../rescue/exam_rescue_models.dart';
 import '../rescue/exam_rescue_session_service.dart';
 import 'semester_list_screen.dart';
-import '../../../../features/community/presentation/shared_box_screen.dart';
-import '../exam_ecosystem/exam_hub_screen.dart';
 
-class WorkspaceView extends StatelessWidget {
+class WorkspaceView extends StatefulWidget {
   const WorkspaceView({
     super.key,
     this.onOpenPlan,
     this.examRescueSessionService,
+    this.mockRecentMaterials,
   });
 
   /// Jumps to the Plan tab (index 2) where the Exam Rescue banner lives.
   final VoidCallback? onOpenPlan;
   final ExamRescueSessionService? examRescueSessionService;
+  final List<Map<String, dynamic>>? mockRecentMaterials;
+
+  @override
+  State<WorkspaceView> createState() => _WorkspaceViewState();
+}
+
+class _WorkspaceViewState extends State<WorkspaceView> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _selectedCategory = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    GochanoLanguage.current.addListener(_onLanguageChange);
+  }
+
+  @override
+  void dispose() {
+    GochanoLanguage.current.removeListener(_onLanguageChange);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onLanguageChange() {
+    if (mounted) setState(() {});
+  }
+
+  List<String> get _filterCategories => [
+        GochanoLanguage.text('All', 'সব'),
+        GochanoLanguage.text('Notes', 'নোট'),
+        GochanoLanguage.text('Flashcards', 'ফ্ল্যাশকার্ড'),
+        GochanoLanguage.text('Past Papers', 'বিগত প্রশ্ন'),
+        GochanoLanguage.text('Materials', 'উপকরণ'),
+        GochanoLanguage.text('Practice', 'অনুশীলন'),
+        GochanoLanguage.text('Saved', 'সংরক্ষিত'),
+      ];
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: GochanoSpacing.scrollBody,
-      children: [
-        ExamRescueTile(
-          onOpenPlan: onOpenPlan,
-          examRescueSessionService: examRescueSessionService,
+    final colors = context.colors;
+    final isDark = context.isDark;
+
+    final overlayStyle = isDark
+        ? SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          )
+        : SystemUiOverlayStyle.dark.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // -------------------------------------------------------------
+              // PINNED STUDY HEADER (Identical to approved Today header)
+              // -------------------------------------------------------------
+              const AppStudyHeader(),
+
+              // -------------------------------------------------------------
+              // SCROLLABLE WORKSPACE CONTENT
+              // -------------------------------------------------------------
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    setState(() {});
+                  },
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: GochanoSpacing.xs),
+                      ),
+
+                      // Intro + Search + Filters
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildIntro(context),
+                              const SizedBox(height: GochanoSpacing.sm),
+                              AppWorkspaceSearchField(
+                                controller: _searchController,
+                                onChanged: (q) => setState(() => _searchQuery = q.trim()),
+                                onSubmitted: (q) {
+                                  if (q.trim().isNotEmpty) {
+                                    Navigator.of(context).push(
+                                      GochanoRoute.to(
+                                        builder: (_) => UniversalSearchScreen(
+                                          initialQuery: q.trim(),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: GochanoSpacing.sm),
+                              AppWorkspaceFilterChips(
+                                categories: _filterCategories,
+                                selectedCategory: _selectedCategory == 'All'
+                                    ? _filterCategories[0]
+                                    : _selectedCategory,
+                                onSelect: (cat) {
+                                  setState(() {
+                                    if (cat == _filterCategories[0]) {
+                                      _selectedCategory = 'All';
+                                    } else {
+                                      _selectedCategory = cat;
+                                    }
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: GochanoSpacing.md),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Exam Rescue Tile (when active or prompt)
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: GochanoSpacing.md),
+                            child: ExamRescueTile(
+                              onOpenPlan: widget.onOpenPlan,
+                              examRescueSessionService:
+                                  widget.examRescueSessionService,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Study Tools Grid Section
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _buildStudyToolsSection(context),
+                        ),
+                      ),
+
+                      // Quick Shortcuts (Expandable 4-column panel)
+                      const SliverPadding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                          vertical: GochanoSpacing.sm,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _QuickAccess(),
+                        ),
+                      ),
+
+                      // Recently Opened Materials Section
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: widget.mockRecentMaterials != null
+                              ? _RecentMaterials(
+                                  searchQuery: _searchQuery,
+                                  mockRecentMaterials: widget.mockRecentMaterials,
+                                )
+                              : (_searchQuery.isEmpty
+                                  ? const _RecentMaterials()
+                                  : _RecentMaterials(searchQuery: _searchQuery)),
+                        ),
+                      ),
+
+                      // Bottom spacing for navigation bar
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 80),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: GochanoSpacing.sm),
-        const _QuickAccess(),
-        const SizedBox(height: GochanoSpacing.sm),
-        _RecentMaterials(),
+      ),
+    );
+  }
+
+  Widget _buildIntro(BuildContext context) {
+    final colors = context.colors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          GochanoLanguage.text('Workspace', 'ওয়ার্কস্পেস'),
+          style: context.type.pageTitle.copyWith(
+            fontWeight: FontWeight.w800,
+            fontSize: 24,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          GochanoLanguage.text(
+            'Tools to help you study better.',
+            'আপনার পড়াশোনা আরও সহজ করার টুলস।',
+          ),
+          style: context.type.bodySecondary.copyWith(
+            color: colors.textSecondary,
+            fontSize: 13.5,
+          ),
+        ),
       ],
     );
+  }
+
+  Widget _buildStudyToolsSection(BuildContext context) {
+    final colors = context.colors;
+    final allTools = _getToolsList(context);
+
+    // Apply category filter and search query filter
+    final filteredTools = allTools.where((tool) {
+      if (_selectedCategory != 'All') {
+        if (!tool.matchesCategory(_selectedCategory, _filterCategories)) {
+          return false;
+        }
+      }
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final matches = tool.title.toLowerCase().contains(q) ||
+            tool.subtitle.toLowerCase().contains(q);
+        if (!matches) return false;
+      }
+      return true;
+    }).toList();
+
+    return AppSectionContainer(
+      title: GochanoLanguage.text('Study Tools', 'স্টাডি টুলস'),
+      icon: Icons.grid_view_rounded,
+      iconColor: colors.brand,
+      child: filteredTools.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: Center(
+                child: Text(
+                  GochanoLanguage.text(
+                    'No tools match your filter.',
+                    'কোনো টুলস খুঁজে পাওয়া যায়নি।',
+                  ),
+                  style: context.type.bodySecondary,
+                ),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 340;
+                final crossAxisCount = 2;
+                final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+                final double baseExtent = isNarrow ? 128.0 : 124.0;
+                final double dynamicExtent =
+                    textScale > 1.0 ? baseExtent + (textScale - 1.0) * 44.0 : baseExtent;
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: filteredTools.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisExtent: dynamicExtent,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemBuilder: (context, index) {
+                    final tool = filteredTools[index];
+                    return AppWorkspaceToolCard(
+                      icon: tool.icon,
+                      title: tool.title,
+                      subtitle: tool.subtitle,
+                      accent: tool.accent,
+                      gradient: tool.gradient,
+                      onTap: tool.onTap,
+                    );
+                  },
+                );
+              },
+            ),
+    );
+  }
+
+  List<_ToolItem> _getToolsList(BuildContext context) {
+    return [
+      _ToolItem(
+        icon: Icons.description_rounded,
+        title: GochanoLanguage.text('My Notes', 'আমার নোট'),
+        subtitle: GochanoLanguage.text('Create & organize lecture notes', 'লেকচার নোট তৈরি ও সাজান'),
+        accent: const Color(0xFF2563EB),
+        gradient: AppGradients.toolNotes,
+        categoryTag: 'Notes',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const NotesScreen()),
+        ),
+      ),
+      _ToolItem(
+        icon: Icons.style_rounded,
+        title: GochanoLanguage.text('Flashcards', 'ফ্ল্যাশকার্ড'),
+        subtitle: GochanoLanguage.text('Active recall & quick revision', 'দ্রুত রিভিশন ও মনে রাখার জন্য'),
+        accent: const Color(0xFF8B5CF6),
+        gradient: AppGradients.toolFlashcards,
+        categoryTag: 'Flashcards',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const FlashcardScreen()),
+        ),
+      ),
+      _ToolItem(
+        icon: Icons.assignment_rounded,
+        title: GochanoLanguage.text('Past Papers', 'বিগত প্রশ্ন'),
+        subtitle: GochanoLanguage.text('Exam trends & past questions', 'বোর্ড ও পরীক্ষার প্রশ্ন বিশ্লেষণ'),
+        accent: const Color(0xFFD97706),
+        gradient: AppGradients.toolPastPapers,
+        categoryTag: 'Past Papers',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const PastPaperScreen()),
+        ),
+      ),
+      _ToolItem(
+        icon: Icons.quiz_rounded,
+        title: GochanoLanguage.text('Mock Tests', 'মক টেস্ট'),
+        subtitle: GochanoLanguage.text('Simulator & score tracking', 'পরীক্ষা প্রস্তুতি ও স্কোর যাচাই'),
+        accent: const Color(0xFFE11D48),
+        gradient: AppGradients.toolMockTests,
+        categoryTag: 'Practice',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const ExamHubScreen()),
+        ),
+      ),
+      _ToolItem(
+        icon: Icons.library_books_rounded,
+        title: GochanoLanguage.text('Study Materials', 'পড়ার উপকরণ'),
+        subtitle: GochanoLanguage.text('PDFs, slides & document library', 'পিডিএফ, লেকচার স্লাইড ও বই'),
+        accent: const Color(0xFF059669),
+        gradient: AppGradients.toolMaterials,
+        categoryTag: 'Materials',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const MaterialsScreen()),
+        ),
+      ),
+      _ToolItem(
+        icon: Icons.psychology_rounded,
+        title: GochanoLanguage.text('Question Bank', 'প্রশ্ন ব্যাংক'),
+        subtitle: GochanoLanguage.text('AI quiz generator from topics', 'বিষয়ভিত্তিক কুইজ ও প্রশ্ন তৈরি'),
+        accent: const Color(0xFF4F46E5),
+        gradient: AppGradients.toolQuestionBank,
+        categoryTag: 'Practice',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const QuizGeneratorScreen()),
+        ),
+      ),
+      _ToolItem(
+        icon: Icons.bookmark_rounded,
+        title: GochanoLanguage.text('Saved Items', 'সংরক্ষিত আইটেম'),
+        subtitle: GochanoLanguage.text('Quick access to starred files', 'পছন্দের সংরক্ষিত উপকরণ'),
+        accent: const Color(0xFFCA8A04),
+        gradient: AppGradients.toolBookmarks,
+        categoryTag: 'Saved',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const SavedMaterialsScreen()),
+        ),
+      ),
+      _ToolItem(
+        icon: Icons.folder_shared_rounded,
+        title: GochanoLanguage.text('Shared Box', 'শেয়ার্ড বক্স'),
+        subtitle: GochanoLanguage.text('Peer batch notes & shared files', 'সহপাঠীদের সাথে শেয়ার করা ফাইল'),
+        accent: const Color(0xFF0D9488),
+        gradient: AppGradients.toolDownloads,
+        categoryTag: 'Materials',
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const SharedBoxScreen()),
+        ),
+      ),
+    ];
+  }
+}
+
+class _ToolItem {
+  const _ToolItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.gradient,
+    required this.categoryTag,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final Gradient gradient;
+  final String categoryTag;
+  final VoidCallback onTap;
+
+  bool matchesCategory(String selected, List<String> allCats) {
+    if (selected == allCats[0]) return true; // All
+    if (categoryTag == 'Notes' && selected == allCats[1]) return true;
+    if (categoryTag == 'Flashcards' && selected == allCats[2]) return true;
+    if (categoryTag == 'Past Papers' && selected == allCats[3]) return true;
+    if (categoryTag == 'Materials' && selected == allCats[4]) return true;
+    if (categoryTag == 'Practice' && selected == allCats[5]) return true;
+    if (categoryTag == 'Saved' && selected == allCats[6]) return true;
+    return false;
   }
 }
 
@@ -175,7 +594,7 @@ class ExamRescueTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Quick Access
+// Quick Access (Expandable Quick Shortcuts Panel)
 // ---------------------------------------------------------------------------
 
 class _QuickAccess extends StatefulWidget {
@@ -218,20 +637,20 @@ class _QuickAccessState extends State<_QuickAccess> {
         ).push(GochanoRoute.to(builder: (_) => const AiAssistantScreen())),
       ),
       _QuickAccessItem(
+        icon: Icons.edit_note_rounded,
+        label: GochanoLanguage.text('Notes', 'নোট'),
+        accent: colors.brand,
+        onTap: () => Navigator.of(
+          context,
+        ).push(GochanoRoute.to(builder: (_) => const NotesScreen())),
+      ),
+      _QuickAccessItem(
         icon: Icons.assignment_rounded,
         label: GochanoLanguage.text('Assignment AI', 'এসাইনমেন্ট এআই'),
         accent: colors.ai,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(builder: (_) => const AssignmentAssistantScreen()),
         ),
-      ),
-      _QuickAccessItem(
-        icon: Icons.quiz_rounded,
-        label: GochanoLanguage.text('Quiz', 'কুইজ'),
-        accent: colors.study,
-        onTap: () => Navigator.of(
-          context,
-        ).push(GochanoRoute.to(builder: (_) => const QuizGeneratorScreen())),
       ),
       _QuickAccessItem(
         icon: Icons.insights_rounded,
@@ -245,8 +664,18 @@ class _QuickAccessState extends State<_QuickAccess> {
 
     final secondaryItems = <_QuickAccessItem>[
       _QuickAccessItem(
+        icon: Icons.picture_as_pdf_rounded,
+        label: GochanoLanguage.text('PDFs', 'পিডিএফ'),
+        accent: colors.brand,
+        onTap: () => Navigator.of(context).push(
+          GochanoRoute.to(
+            builder: (_) => const MaterialsScreen(mimeFilter: 'application/pdf'),
+          ),
+        ),
+      ),
+      _QuickAccessItem(
         icon: Icons.description_rounded,
-        label: GochanoLanguage.text('Documents', 'ডকুমেন্ট'),
+        label: GochanoLanguage.text('Docs', 'ডকুমেন্ট'),
         accent: colors.brand,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(
@@ -256,7 +685,7 @@ class _QuickAccessState extends State<_QuickAccess> {
       ),
       _QuickAccessItem(
         icon: Icons.photo_library_rounded,
-        label: GochanoLanguage.text('Images', 'ছবি'),
+        label: GochanoLanguage.text('Saved Images', 'সংরক্ষিত ছবি'),
         accent: colors.commute,
         onTap: () => Navigator.of(context).push(
           GochanoRoute.to(
@@ -298,25 +727,21 @@ class _QuickAccessState extends State<_QuickAccess> {
       ),
     ];
 
-    return AppCard(
+    return AppSectionContainer(
+      title: GochanoLanguage.text('Quick Shortcuts', 'শর্টকাট টুলস'),
+      icon: Icons.touch_app_rounded,
+      iconColor: colors.ai,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            title: GochanoLanguage.text('Quick Access', 'দ্রুত অ্যাক্সেস'),
-            padding: const EdgeInsets.only(
-              top: GochanoSpacing.xs,
-              bottom: GochanoSpacing.xs,
-            ),
-          ),
           LayoutBuilder(
             builder: (context, constraints) => GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: EdgeInsets.zero,
               itemCount: primaryItems.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: constraints.maxWidth < 360 ? 3 : 4, // crossAxisCount: 4
                 mainAxisExtent: 84,
                 crossAxisSpacing: GochanoSpacing.xs,
                 mainAxisSpacing: GochanoSpacing.xs,
@@ -330,29 +755,30 @@ class _QuickAccessState extends State<_QuickAccess> {
             ),
           ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 450),
+            duration: const Duration(milliseconds: 350),
             curve: Curves.easeInOutCubic,
             child: _expanded
                 ? Column(
                     children: [
                       const SizedBox(height: GochanoSpacing.xs),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: EdgeInsets.zero,
-                        itemCount: secondaryItems.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              mainAxisExtent: 84,
-                              crossAxisSpacing: GochanoSpacing.xs,
-                              mainAxisSpacing: GochanoSpacing.xs,
-                            ),
-                        itemBuilder: (context, i) => _QuickAccessCell(
-                          icon: secondaryItems[i].icon,
-                          label: secondaryItems[i].label,
-                          accent: secondaryItems[i].accent,
-                          onTap: secondaryItems[i].onTap,
+                      LayoutBuilder(
+                        builder: (context, constraints) => GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: EdgeInsets.zero,
+                          itemCount: secondaryItems.length,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: constraints.maxWidth < 360 ? 3 : 4, // crossAxisCount: 4
+                            mainAxisExtent: 84,
+                            crossAxisSpacing: GochanoSpacing.xs,
+                            mainAxisSpacing: GochanoSpacing.xs,
+                          ),
+                          itemBuilder: (context, i) => _QuickAccessCell(
+                            icon: secondaryItems[i].icon,
+                            label: secondaryItems[i].label,
+                            accent: secondaryItems[i].accent,
+                            onTap: secondaryItems[i].onTap,
+                          ),
                         ),
                       ),
                     ],
@@ -365,10 +791,8 @@ class _QuickAccessState extends State<_QuickAccess> {
             onVerticalDragEnd: (details) {
               final vy = details.primaryVelocity ?? 0;
               if (vy > 100 && !_expanded) {
-                // Drag down to expand
                 setState(() => _expanded = true);
               } else if (vy < -100 && _expanded) {
-                // Drag up to collapse
                 setState(() => _expanded = false);
               }
             },
@@ -494,140 +918,197 @@ class _QuickAccessCell extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Recent materials
+// Recent materials section
 // ---------------------------------------------------------------------------
 
 class _RecentMaterials extends StatelessWidget {
-  const _RecentMaterials();
+  const _RecentMaterials({
+    this.searchQuery = '',
+    this.mockRecentMaterials,
+  });
+
+  final String searchQuery;
+  final List<Map<String, dynamic>>? mockRecentMaterials;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
+    if (mockRecentMaterials != null) {
+      return _buildMaterialsList(context, mockRecentMaterials!, colors);
+    }
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirestoreService.ownerStream('materials', limit: 30),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return AppCard(
-            child: Column(
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return AppSectionContainer(
+            title: GochanoLanguage.text('Recently Opened', 'সাম্প্রতিক খোলা হয়েছে'),
+            icon: Icons.history_rounded,
+            iconColor: colors.study,
+            child: const Column(
               children: [
-                GochanoIllustration(
-                  GochanoArt.emptyMaterials,
-                  size: GochanoSizes.illustrationEmpty,
-                  accent: colors.textTertiary,
-                ),
-                const SizedBox(height: GochanoSpacing.sm),
-                Text(
-                  GochanoLanguage.text(
-                    'Unable to load materials',
-                    'উপকরণ লোড হয়নি',
-                  ),
-                  style: context.type.sectionHeading,
-                ),
-              ],
-            ),
-          );
-        }
-        final docs = [...?snapshot.data?.docs]
-          ..sort((a, b) {
-            final at = a.data()['createdAt'];
-            final bt = b.data()['createdAt'];
-            if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
-            return 0;
-          });
-        if (docs.isEmpty) {
-          return AppCard(
-            child: Column(
-              children: [
-                GochanoIllustration(
-                  GochanoArt.emptyMaterials,
-                  size: GochanoSizes.illustrationEmpty,
-                  accent: colors.study,
-                ),
-                const SizedBox(height: GochanoSpacing.sm),
-                Text(
-                  GochanoLanguage.text(
-                    'No recent materials yet',
-                    'এখনো কোনো উপকরণ নেই',
-                  ),
-                  style: context.type.sectionHeading,
-                ),
-                const SizedBox(height: GochanoSpacing.xs),
-                Text(
-                  GochanoLanguage.text(
-                    'Use Quick Access to add study materials.',
-                    'পড়ার উপকরণ যোগ করতে Quick Access ব্যবহার করুন।',
-                  ),
-                  style: context.type.bodySecondary,
-                  textAlign: TextAlign.center,
-                ),
+                AppSkeleton(height: 48, borderRadius: 12),
+                SizedBox(height: 8),
+                AppSkeleton(height: 48, borderRadius: 12),
               ],
             ),
           );
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionHeader(
-              title: GochanoLanguage.text(
-                'Recent materials',
-                'সাম্প্রতিক উপকরণ',
-              ),
-              padding: const EdgeInsets.only(
-                top: GochanoSpacing.sm,
-                bottom: GochanoSpacing.xs,
-              ),
-              action: Row(
-                mainAxisSize: MainAxisSize.min,
+        if (snapshot.hasError) {
+          return AppSectionContainer(
+            title: GochanoLanguage.text('Recently Opened', 'সাম্প্রতিক খোলা হয়েছে'),
+            icon: Icons.history_rounded,
+            iconColor: colors.study,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Row(
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      GochanoRoute.to(
-                        builder: (_) => const SavedMaterialsScreen(),
+                  Icon(Icons.info_outline_rounded, color: colors.error, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      GochanoLanguage.text(
+                        "Couldn't load recent items.",
+                        'সাম্প্রতিক উপকরণ লোড করা যায়নি।',
                       ),
+                      style: context.type.bodySecondary,
                     ),
-                    child: Text(GochanoLanguage.text('Saved', 'সংরক্ষিত')),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      GochanoRoute.to(builder: (_) => const MaterialsScreen()),
-                    ),
-                    child: Text(GochanoLanguage.text('All', 'সব')),
                   ),
                 ],
               ),
             ),
-            CardGroup(
-              children: [
-                for (final doc in docs.take(3))
-                  GochanoListRow(
-                    illustration: GochanoArt.fileIdFor(
-                      fileName: doc.data()['fileName']?.toString(),
-                      mimeType: doc.data()['mimeType']?.toString(),
-                    ),
-                    accent: colors.study,
-                    title: _materialTitle(doc.data()),
-                    subtitle: doc.data()['subject']?.toString(),
-                    metadata: [_fileSize(doc.data()['sizeBytes'])],
-                    onTap: () => Navigator.of(context).push(
-                      GochanoRoute.to(
-                        builder: (_) => MaterialReaderScreen(
-                          materialId: doc.id,
-                          title: _materialTitle(doc.data()),
-                          mimeType: doc.data()['mimeType']?.toString() ?? '',
-                          fileName: doc.data()['fileName']?.toString() ?? '',
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        );
+          );
+        }
+
+        var docsData = <Map<String, dynamic>>[];
+        for (final doc in snapshot.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[]) {
+          final data = Map<String, dynamic>.from(doc.data());
+          data['__docId'] = doc.id;
+          docsData.add(data);
+        }
+
+        docsData.sort((a, b) {
+          final at = a['createdAt'];
+          final bt = b['createdAt'];
+          if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
+          return 0;
+        });
+
+        return _buildMaterialsList(context, docsData, colors);
       },
     );
   }
+
+  Widget _buildMaterialsList(
+    BuildContext context,
+    List<Map<String, dynamic>> rawDocs,
+    dynamic colors,
+  ) {
+    var docs = List<Map<String, dynamic>>.from(rawDocs);
+
+    if (searchQuery.isNotEmpty) {
+      final q = searchQuery.toLowerCase();
+      docs = docs.where((d) {
+        final title = _materialTitle(d).toLowerCase();
+        final subject = (d['subject'] ?? '').toString().toLowerCase();
+        return title.contains(q) || subject.contains(q);
+      }).toList();
+    }
+
+    if (docs.isEmpty) {
+      return AppSectionContainer(
+        title: GochanoLanguage.text('Recently Opened', 'সাম্প্রতিক খোলা হয়েছে'),
+        icon: Icons.history_rounded,
+        iconColor: colors.study,
+        actionLabel: GochanoLanguage.text('All', 'সব'),
+        onAction: () => Navigator.of(context).push(
+          GochanoRoute.to(builder: (_) => const MaterialsScreen()),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          child: Column(
+            children: [
+              Icon(
+                Icons.folder_open_rounded,
+                size: 36,
+                color: colors.textTertiary,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                GochanoLanguage.text(
+                  'No recent study items yet.',
+                  'এখনো কোনো সাম্প্রতিক উপকরণ নেই।',
+                ),
+                style: context.type.body.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                GochanoLanguage.text(
+                  'Open notes or materials and they’ll appear here.',
+                  'নোট বা উপকরণ ওপেন করলে তা এখানে প্রদর্শিত হবে।',
+                ),
+                style: context.type.caption.copyWith(color: colors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return AppSectionContainer(
+      title: GochanoLanguage.text('Recently Opened', 'সাম্প্রতিক খোলা হয়েছে'),
+      icon: Icons.history_rounded,
+      iconColor: colors.study,
+      actionLabel: GochanoLanguage.text('See All →', 'সব দেখুন →'),
+      onAction: () => Navigator.of(context).push(
+        GochanoRoute.to(builder: (_) => const MaterialsScreen()),
+      ),
+      child: Column(
+        children: [
+          for (final doc in docs.take(4))
+            AppRecentWorkspaceItem(
+              title: _materialTitle(doc),
+              subtitle: doc['subject']?.toString(),
+              metadata: _fileSize(doc['sizeBytes']),
+              icon: _fileIcon(
+                doc['fileName']?.toString(),
+                doc['mimeType']?.toString(),
+              ),
+              accent: colors.study,
+              onTap: () => Navigator.of(context).push(
+                GochanoRoute.to(
+                  builder: (_) => MaterialReaderScreen(
+                    materialId: (doc['__docId'] ?? doc['id'] ?? '').toString(),
+                    title: _materialTitle(doc),
+                    mimeType: doc['mimeType']?.toString() ?? '',
+                    fileName: doc['fileName']?.toString() ?? '',
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _fileIcon(String? fileName, String? mimeType) {
+  final name = (fileName ?? '').toLowerCase();
+  final mime = (mimeType ?? '').toLowerCase();
+  if (mime.contains('pdf') || name.endsWith('.pdf')) {
+    return Icons.picture_as_pdf_rounded;
+  }
+  if (mime.contains('image') || name.endsWith('.png') || name.endsWith('.jpg')) {
+    return Icons.image_rounded;
+  }
+  if (name.endsWith('.doc') || name.endsWith('.docx')) {
+    return Icons.article_rounded;
+  }
+  return Icons.description_rounded;
 }
 
 String _materialTitle(Map<String, dynamic> data) {

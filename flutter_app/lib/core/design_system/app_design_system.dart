@@ -21,3 +21,5 @@ export 'components/app_academic_health_card.dart';
 export 'components/app_greeting_card.dart';
 export 'components/app_section_container.dart';
 export 'components/app_skeleton.dart';
+export 'components/app_study_header.dart';
+export 'components/app_workspace_components.dart';

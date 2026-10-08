@@ -546,6 +546,144 @@ The final merged implementation on `ui-redesign-v1` supersedes earlier iterative
 #### 5. Section Final Status
 - **Today Status**: **APPROVED + MERGED INTO ui-redesign-v1**
 
+---
+
+## Study Mode → Workspace
+
+### 1. Architectural Purpose & Shift
+- **Primary Product Role**: Redesigned from a passive list into a utility-first study hub that decisively answers the student's question: *"Where are all my study tools and materials?"*
+- **Visual & Structural Clarity**: Establishes an organized, high-density dashboard categorizing all academic tools (Notes, Flashcards, Past Papers, Mock Tests, Study Materials, Question Bank, Saved Items, Shared Box) with dedicated search, filter chips, quick shortcuts, and live material access.
+- **Header Continuity**: Directly imports the approved pinned compact Study header language established and approved during the Today redesign.
+
+### 2. Canonical Visual Hierarchy & Fixed Header Continuity
+- **Fixed Header Structure**: Leverages `AppStudyHeader` (or matching Today bar implementation) pinned at the top outside the scroll view:
+  - **Visual Height**: Compact ~46dp container height.
+  - **Outer Margins & Insets**: 14dp normal horizontal insets (10dp on screens <340dp wide), 4dp vertical outer margin, 4dp internal padding.
+  - **Radius & Borders**: 18dp corner radius (`GochanoRadius.appBarSurfaceAll`) with subtle contextual border.
+  - **Branding**: Logo mark only on the left (30dp / 28dp narrow), zero "Gochano" brand text, zero tagline, zero avatar.
+  - **Actions**: Dynamic language pill (`EN | বাংলা`), search action icon, and notification bell with crisp unread badge indicator.
+  - **Accessibility**: All header interactive controls enforce $\ge 44\text{dp}$ effective hit targets via transparent bounds.
+  - **Pinned Scroll Behavior**: Remains locked in place while the body scrolls underneath.
+
+### 3. Information Architecture & Section Breakdown
+1. **Pinned Study Header**: Consistent brand identity and global utilities.
+2. **Page Intro**: Bold title (`Workspace` / `ওয়ার্কস্পেস`) and clean supportive subtitle (`Tools to help you study better.` / `আপনার পড়াশোনা আরও সহজ করার টুলস।`).
+3. **Workspace Search Bar**: Rounded input field (`AppWorkspaceSearchField`) with search icon, live filtering across tool names and descriptions, clear action button (`×`), and Enter-to-Universal-Search submission.
+4. **Category Filter Chips**: Horizontally scrollable chips (`AppWorkspaceFilterChips`): `All`, `Notes`, `Flashcards`, `Past Papers`, `Materials`, `Practice`, `Saved`.
+5. **Exam Rescue Tile**: Seamlessly integrated `ExamRescueTile` with live countdown when an active rescue session exists or quick creation prompt.
+6. **Study Tools Grid**: 2-column responsive grid (`AppWorkspaceToolCard`) with semantic card gradients, category tags, 32dp icons in tinted circular containers, bold titles, descriptive subtitles, and forward chevron cues.
+7. **Quick Shortcuts (Expandable 4-Column Panel)**: Preserved `_QuickAccess` drawer with 4-column layout, smooth vertical drag and tap gesture expand/collapse (`See more` / `See less`), linking to core legacy routes.
+8. **Recently Opened Materials**: Section powered by Firestore `materials` stream (`AppRecentWorkspaceItem`), skeleton loading indicators (`AppSkeleton`), error boundary, empty state prompt, and `See All →` link to `MaterialsScreen`.
+
+### 4. Design Tokens & Color Palette
+- **Semantic Card Gradients** (`AppGradients`):
+  - `toolNotes`: Deep Sapphire to Indigo (`#2563EB` -> `#3B82F6` -> `#60A5FA`)
+  - `toolFlashcards`: Rich Violet to Lavender (`#7C3AED` -> `#8B5CF6` -> `#A78BFA`)
+  - `toolPastPapers`: Emerald to Mint (`#059669` -> `#10B981` -> `#34D399`)
+  - `toolMockTests`: Warm Coral to Rose (`#EA580C` -> `#F97316` -> `#FB923C`)
+  - `toolMaterials`: Sky Blue to Cyan (`#0284C7` -> `#0EA5E9` -> `#38BDF8`)
+  - `toolQuestionBank`: Royal Indigo to Purple (`#4F46E5` -> `#6366F1` -> `#818CF8`)
+  - `toolBookmarks`: Golden Amber to Yellow (`#D97706` -> `#F59E0B` -> `#FBBF24`)
+  - `toolDownloads`: Teal to Aquamarine (`#0D9488` -> `#14B8A6` -> `#2DD4BF`)
+- **Corner Radii**: Standardized 18dp corner radii on tool cards (`BorderRadius.circular(18)`).
+- **Surfaces & Shadows**: Soft light-mode elevation (`0x0A000000` blur: 8, offset: (0, 2)), subdued semi-transparent dark borders (`colors.border.withValues(alpha: 0.3)`).
+
+### 5. Screen Insets, Dimensions, & Responsive Scaling
+- **Horizontal Insets**: 16dp (`GochanoSpacing.md`) standard gutters, 14dp header insets (10dp on narrow displays <340dp).
+- **Dynamic Grid Layout**: 2 columns on mobile devices (3 columns on wide tablets $\ge 600\text{dp}$).
+- **Overflow-Safe Card Height**: `mainAxisExtent` dynamically accounts for `MediaQuery.textScalerOf(context)`:
+  - Base height: 124dp (128dp on narrow devices <340dp).
+  - Scaled height: `baseExtent + (textScale - 1.0) * 44.0` dp when font scaling exceeds 1.0x.
+  - Subtitle wrapped in `Flexible` with `maxLines: 2` and `TextOverflow.ellipsis`.
+- **Viewport Verification**: Verified zero `RenderFlex` overflow across 320dp, 360dp, 390dp, 412dp viewports, and at 1.5x large font scaling.
+
+### 6. State Management & Search/Filter Model
+- **Reactive Local State**: Clean `_WorkspaceViewState` holding `_searchController`, `_searchQuery`, and `_selectedCategory`.
+- **Instant Client-Side Filtering**: Filters 8 canonical tools in real-time by search query (matching title or subtitle) and category chip.
+- **Empty Filter State**: Clean fallback card rendered when a query matches no tools with a one-tap "Clear search" CTA.
+
+### 7. Navigation Integrity & Route Mapping
+All 8 study tools and secondary shortcuts map directly to canonical, verified application destinations:
+1. **My Notes**: Pushes `NotesScreen`
+2. **Flashcards**: Pushes `FlashcardScreen`
+3. **Past Papers**: Pushes `PastPaperScreen`
+4. **Mock Tests**: Pushes `ExamHubScreen`
+5. **Study Materials**: Pushes `MaterialsScreen`
+6. **Question Bank**: Pushes `ExamHubScreen`
+7. **Saved Items**: Pushes `SavedMaterialsScreen`
+8. **Shared Box**: Pushes `SharedBoxScreen`
+9. **Universal Search**: Pushes `UniversalSearchScreen(initialQuery: ...)`
+10. **Exam Rescue**: Invokes `onOpenPlan` callback (navigates to Plan tab, index 2)
+
+### 8. Backward Compatibility & Test Guard Preservation
+All static test guards in `test/profile_structure_test.dart` remain 100% satisfied:
+- Preserved `_QuickAccess` and `_QuickAccessCell` classes.
+- Preserved `crossAxisCount: 4`, `mainAxisExtent: 84`, `_RecentMaterials()`.
+- Preserved `width: 44`, `height: 44`, `size: 24`, `TextAlign.center`.
+- Preserved drag gesture handles with `vy > 100`, `vy < -100`, `details.primaryDelta! > 8`, `details.primaryDelta! < -8`.
+- Preserved toggle labels `'See more'` and `'See less'`.
+- Strict absence of `childAspectRatio` maintained (`isNot(contains('childAspectRatio'))`).
+
+### 9. Accessibility & Tap Target Audit
+- **Header Actions**:
+  - Language toggle: $\ge 44\text{dp}$ touch target.
+  - Search icon: $44 \times 44\text{dp}$ touch target.
+  - Notification icon: $44 \times 44\text{dp}$ touch target.
+- **Tool Cards**: Full surface tappable with InkWell ripple and semantic labels.
+- **Filter Chips**: 40dp minimum touch target with accessible padding.
+- **Search Clear**: 40x40dp icon button with tooltip.
+- **Contrast**: WCAG AA contrast compliant text colors in both light and dark themes.
+
+### 10. Dynamic Localization Audit
+Full dynamic bilingual support (`English` / `বাংলা`) via `GochanoLanguage.text`:
+- Title: `Workspace` / `ওয়ার্কস্পেস`
+- Subtitle: `Tools to help you study better.` / `আপনার পড়াশোনা আরও সহজ করার টুলস।`
+- Search Hint: `Search study tools, notes, papers…` / `টুলস, নোট, প্রশ্ন খুঁজুন…`
+- Clear Action: `Clear` / `মুছুন`
+- Category Chips: `All` (`সব`), `Notes` (`নোট`), `Flashcards` (`ফ্ল্যাশকার্ড`), `Past Papers` (`বিগত প্রশ্ন`), `Materials` (`উপকরণ`), `Practice` (`অনুশীলন`), `Saved` (`সংরক্ষিত`)
+- Tools: All titles and descriptions localized.
+- Empty State: `No recent study items yet.` / `এখনো কোনো সাম্প্রতিক উপকরণ নেই।`
+
+### 11. Dark Mode / Light Mode Conformance
+- **Light Theme**: Soft ambient shadows, crisp pastel tool accents, clean neutral background.
+- **Dark Theme**: Non-glowing dark surfaces, subtle border outlines (`0.3` alpha), dark container backgrounds, high-contrast readable typography.
+
+### 12. Automated Quality Assurance Results
+
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found | **PASS** |
+| `test/study_workspace_view_test.dart` (New Redesign Suite) | 15 / 15 groups (24 specifications) | **PASS** |
+| `test/study_today_dashboard_test.dart` | 17 / 17 | **PASS** |
+| `test/design_system_test.dart` | 41 / 41 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** |
+| `test/profile_structure_test.dart --plain-name "Study Workspace"` | 8 / 8 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart --plain-name "WorkspaceView"` | 2 / 2 | **PASS** |
+| **Total Automated Quality Tests** | **144 / 144** | **ALL PASS (100%)** |
+
+### 13. Physical Device Verification Results
+- **Target Device**: Infinix X665E (Android 12, API 31, ARM64, MT6762G, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Build Execution**: Compiled fresh debug APK (`flutter build apk --debug`) in 208.5s without compiler warnings or errors.
+- **Installation Execution**: Streamed install via ADB (`install -r app-debug.apk`) returned `Success`.
+- **Launch Execution**: Launched `com.ekthikana.ekthikana/.MainActivity` cleanly via Android Activity Manager.
+- **Runtime Stability**: Zero fatal crashes, zero unhandled platform exceptions, clean startup.
+- **Physical Smoke Check**: Confirmed responsive UI, valid component tree mounting, zero RenderFlex layout errors.
+
+### 14. Git Safety & Branch Audit
+- **Working Branch**: `ui/workspace-redesign`
+- **Base Integration Commit**: `dabfd85` on `ui-redesign-v1` (`git merge-base --is-ancestor dabfd85 HEAD` exit code 0)
+- **Protected Branches**:
+  - `final-cleanup-release-v2`: Untouched
+  - `ui/today-redesign`: Untouched
+  - `ui-redesign-v1`: Untouched (no unapproved merges)
+- **Render / Backend**: Render deployment untouched.
+
+### 15. Section Final Status
+- **Workspace Status**: **PHYSICAL REVIEW PASSED — WAITING USER APPROVAL**
+
+
 
 
 
