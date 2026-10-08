@@ -653,26 +653,32 @@ Full dynamic bilingual support (`English` / `বাংলা`) via `GochanoLangu
 | Test Suite | Tests Passed | Status |
 |---|---|---|
 | `flutter analyze lib` | 0 issues found | **PASS** |
-| `test/study_workspace_view_test.dart` (New Redesign Suite) | 15 / 15 groups (24 specifications) | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Redesign Suite) | 15 / 15 groups (24 specifications) | **PASS** |
 | `test/study_today_dashboard_test.dart` | 17 / 17 | **PASS** |
 | `test/design_system_test.dart` | 41 / 41 | **PASS** |
 | `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
 | `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
 | `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** |
-| `test/profile_structure_test.dart --plain-name "Study Workspace"` | 8 / 8 | **PASS** |
+| `test/profile_structure_test.dart` | 34 / 34 | **PASS** |
 | `test/exam_rescue_active_experience_test.dart --plain-name "WorkspaceView"` | 2 / 2 | **PASS** |
-| **Total Automated Quality Tests** | **144 / 144** | **ALL PASS (100%)** |
+| **Total Automated Quality Tests** | **170 / 170** | **ALL PASS (100%)** |
 
 ### 13. Physical Device Verification Results
 - **Target Device**: Infinix X665E (Android 12, API 31, ARM64, MT6762G, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
-- **Build Execution**: Compiled fresh debug APK (`flutter build apk --debug`) in 208.5s without compiler warnings or errors.
+- **Build Execution**: Compiled fresh debug APK with user-specified `--dart-define` parameters:
+  - `API_BASE_URL=https://ekthikana-api-x473.onrender.com`
+  - `DEV_AUTH_BYPASS=true`
+  - `DEV_TEST_EMAIL=labib.pstu77@gmail.com`
+  - `DEV_TEST_PASSWORD=11111111`
+- **Output Artifact**: `build\app\outputs\flutter-apk\app-debug.apk`
 - **Installation Execution**: Streamed install via ADB (`install -r app-debug.apk`) returned `Success`.
-- **Launch Execution**: Launched `com.ekthikana.ekthikana/.MainActivity` cleanly via Android Activity Manager.
+- **Launch Execution**: Launched `com.ekthikana.ekthikana/.MainActivity` cleanly via Android Activity Manager (`mFocusedApp=ActivityRecord{... com.ekthikana.ekthikana/.MainActivity}`).
 - **Runtime Stability**: Zero fatal crashes, zero unhandled platform exceptions, clean startup.
 - **Physical Smoke Check**: Confirmed responsive UI, valid component tree mounting, zero RenderFlex layout errors.
 
 ### 14. Git Safety & Branch Audit
 - **Working Branch**: `ui/workspace-redesign`
+- **Current HEAD**: `94ce675 test(workspace): harden workspace tests and align profile settings row format`
 - **Base Integration Commit**: `dabfd85` on `ui-redesign-v1` (`git merge-base --is-ancestor dabfd85 HEAD` exit code 0)
 - **Protected Branches**:
   - `final-cleanup-release-v2`: Untouched
@@ -681,7 +687,7 @@ Full dynamic bilingual support (`English` / `বাংলা`) via `GochanoLangu
 - **Render / Backend**: Render deployment untouched.
 
 ### 15. Section Final Status
-- **Workspace Status**: **PHYSICAL REVIEW PASSED — WAITING USER APPROVAL**
+- **Workspace Status**: **PHYSICAL REVIEW PASSED — READY FOR USER TESTING & APPROVAL**
 
 
 
