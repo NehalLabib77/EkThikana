@@ -200,7 +200,7 @@ class _GochanoShellState extends State<GochanoShell> {
             GochanoRoute.to(builder: (_) => ProfileScreen(role: widget.role)),
           ),
         ),
-        WorkspaceView(onOpenPlan: () => _select(2)),
+        const WorkspaceView(),
         const PlanView(),
         const CommunityView(),
         ProfileScreen(role: widget.role),

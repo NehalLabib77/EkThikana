@@ -569,63 +569,39 @@ void main() {
     });
   });
 
-  group('4. WorkspaceView Quick Access Tile', () {
+  group('4. WorkspaceView does NOT render ExamRescueTile', () {
     testWidgets(
-      'displays remaining days and invokes onOpenPlan when active session exists',
+      'Workspace has NO Exam Rescue tile (IA decision: belongs to Today/Plan)',
       (tester) async {
-        final session = makeSession(
-          examTitle: 'Chemistry Final',
-          examDate: baseNow.add(const Duration(days: 3)),
-        );
-        final mockService = MockExamRescueSessionService(
-          sessionStream: Stream.value(session),
-          now: baseNow,
-        );
-
-        bool planOpened = false;
-
         await tester.pumpWidget(
           _wrapWithTheme(
-            WorkspaceView(
-              onOpenPlan: () => planOpened = true,
-              examRescueSessionService: mockService,
-            ),
+            const WorkspaceView(mockRecentMaterials: []),
           ),
         );
         await tester.pump();
 
-        expect(find.text('Exam Rescue'), findsOneWidget);
-        expect(find.text('Exam in 3 days · View plan'), findsOneWidget);
-
-        await tester.tap(find.text('Exam Rescue'));
-        expect(planOpened, isTrue);
+        // ExamRescueTile is removed from Workspace per final IA
+        expect(find.text('Exam Rescue'), findsNothing);
+        expect(find.text('Exam close? Build a quick rescue plan.'), findsNothing);
       },
     );
 
-    testWidgets('displays fallback subtitle when no active session exists', (
-      tester,
-    ) async {
-      final mockService = MockExamRescueSessionService(
-        sessionStream: Stream.value(null),
-        now: baseNow,
-      );
-
-      await tester.pumpWidget(
-        _wrapWithTheme(
-          WorkspaceView(
-            onOpenPlan: () {},
-            examRescueSessionService: mockService,
+    testWidgets(
+      'Workspace renders 6 primary study tools without ExamRescueTile',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrapWithTheme(
+            const WorkspaceView(mockRecentMaterials: []),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      expect(find.text('Exam Rescue'), findsOneWidget);
-      expect(
-        find.text('Exam close? Build a quick rescue plan.'),
-        findsOneWidget,
-      );
-    });
+        expect(find.text('Study Tools'), findsOneWidget);
+        expect(find.text('My Notes'), findsOneWidget);
+        expect(find.text('Question Bank'), findsOneWidget);
+        expect(find.text('Exam Rescue'), findsNothing);
+      },
+    );
   });
 
   group('5. PlanView Adaptive Exam Rescue Banner', () {

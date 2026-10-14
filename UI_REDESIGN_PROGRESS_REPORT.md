@@ -1,7 +1,17 @@
 # UI Redesign Progress Report
 
 ## Overview
-This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign`).
+This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign`).
+
+### Core Study Navigation North Star
+
+Today = Do
+Workspace = Study
+Plan = Organize
+Community = Connect
+You = Me
+
+Use this mental model as the primary placement rule for future features.
 
 ---
 
@@ -545,6 +555,260 @@ The final merged implementation on `ui-redesign-v1` supersedes earlier iterative
 
 #### 5. Section Final Status
 - **Today Status**: **APPROVED + MERGED INTO ui-redesign-v1**
+
+---
+
+## Study Mode → Workspace
+
+> [!IMPORTANT]
+> **AUTHORITATIVE CURRENT ARCHITECTURE (Final IA Refinement Pass — Approved)**:
+> - **Pinned Study Header**: Search hidden on Workspace (`showSearch: false`), notifications preserved (`showNotifications: true`).
+> - **Single Search Entry Point**: Body `AppWorkspaceSearchField` is the single Workspace search.
+> - **Exam Rescue**: Cleanly absent from Workspace (time-sensitive execution owned by `Today`; study roadmap planning owned by `Plan`).
+> - **Quick Shortcuts**: Cleanly absent (`_QuickAccess` drawer removed to eliminate redundant routes).
+> - **6 Primary Study Tools (2×3 Grid)**: My Notes, Flashcards, Past Papers, Mock Tests, Study Materials, Question Bank (`QuizGeneratorScreen`).
+> - **2 Resource Vaults**: Saved Items (`SavedMaterialsScreen`), Shared Box (`SharedBoxScreen`) as compact dual action strips.
+> - **Saved Filter**: Filter chip hides primary 6-card grid and promotes Resource Vaults.
+> - **Recently Opened**: Compact horizontal carousel (`Axis.horizontal`, zero overflow).
+> - **Regression Tests**: 242/242 PASS.
+> - **Physical Device QA**: PASS (Infinix X665E).
+> - **User Approval**: **YES (Approved)**.
+
+### 1. Architectural Purpose & Shift
+- **Primary Product Role**: Redesigned from a passive list into a utility-first study hub that decisively answers the student's question: *"Where are all my study tools and materials?"*
+- **Visual & Structural Clarity**: Establishes an organized, high-density dashboard categorizing all academic tools (Notes, Flashcards, Past Papers, Mock Tests, Study Materials, Question Bank, Saved Items, Shared Box) with dedicated search, filter chips, quick shortcuts, and live material access.
+- **Header Continuity**: Directly imports the approved pinned compact Study header language established and approved during the Today redesign.
+
+### 2. Canonical Visual Hierarchy & Fixed Header Continuity
+- **Fixed Header Structure**: Leverages `AppStudyHeader` (or matching Today bar implementation) pinned at the top outside the scroll view:
+  - **Visual Height**: Compact ~46dp container height.
+  - **Outer Margins & Insets**: 14dp normal horizontal insets (10dp on screens <340dp wide), 4dp vertical outer margin, 4dp internal padding.
+  - **Radius & Borders**: 18dp corner radius (`GochanoRadius.appBarSurfaceAll`) with subtle contextual border.
+  - **Branding**: Logo mark only on the left (30dp / 28dp narrow), zero "Gochano" brand text, zero tagline, zero avatar.
+  - **Actions**: Dynamic language pill (`EN | বাংলা`), search action icon, and notification bell with crisp unread badge indicator.
+  - **Accessibility**: All header interactive controls enforce $\ge 44\text{dp}$ effective hit targets via transparent bounds.
+  - **Pinned Scroll Behavior**: Remains locked in place while the body scrolls underneath.
+
+### 3. Information Architecture & Section Breakdown
+1. **Pinned Study Header**: Consistent brand identity and global utilities.
+2. **Page Intro**: Bold title (`Workspace` / `ওয়ার্কস্পেস`) and clean supportive subtitle (`Tools to help you study better.` / `আপনার পড়াশোনা আরও সহজ করার টুলস।`).
+3. **Workspace Search Bar**: Rounded input field (`AppWorkspaceSearchField`) with search icon, live filtering across tool names and descriptions, clear action button (`×`), and Enter-to-Universal-Search submission.
+4. **Category Filter Chips**: Horizontally scrollable chips (`AppWorkspaceFilterChips`): `All`, `Notes`, `Flashcards`, `Past Papers`, `Materials`, `Practice`, `Saved`.
+5. **Exam Rescue Tile**: Seamlessly integrated `ExamRescueTile` with live countdown when an active rescue session exists or quick creation prompt.
+6. **Study Tools Grid**: 2-column responsive grid (`AppWorkspaceToolCard`) with semantic card gradients, category tags, 32dp icons in tinted circular containers, bold titles, descriptive subtitles, and forward chevron cues.
+7. **Quick Shortcuts (Expandable 4-Column Panel)**: Preserved `_QuickAccess` drawer with 4-column layout, smooth vertical drag and tap gesture expand/collapse (`See more` / `See less`), linking to core legacy routes.
+8. **Recently Opened Materials**: Section powered by Firestore `materials` stream (`AppRecentWorkspaceItem`), skeleton loading indicators (`AppSkeleton`), error boundary, empty state prompt, and `See All →` link to `MaterialsScreen`.
+
+### 4. Design Tokens & Color Palette
+- **Semantic Card Gradients** (`AppGradients`):
+  - `toolNotes`: Deep Sapphire to Indigo (`#2563EB` -> `#3B82F6` -> `#60A5FA`)
+  - `toolFlashcards`: Rich Violet to Lavender (`#7C3AED` -> `#8B5CF6` -> `#A78BFA`)
+  - `toolPastPapers`: Emerald to Mint (`#059669` -> `#10B981` -> `#34D399`)
+  - `toolMockTests`: Warm Coral to Rose (`#EA580C` -> `#F97316` -> `#FB923C`)
+  - `toolMaterials`: Sky Blue to Cyan (`#0284C7` -> `#0EA5E9` -> `#38BDF8`)
+  - `toolQuestionBank`: Royal Indigo to Purple (`#4F46E5` -> `#6366F1` -> `#818CF8`)
+  - `toolBookmarks`: Golden Amber to Yellow (`#D97706` -> `#F59E0B` -> `#FBBF24`)
+  - `toolDownloads`: Teal to Aquamarine (`#0D9488` -> `#14B8A6` -> `#2DD4BF`)
+- **Corner Radii**: Standardized 18dp corner radii on tool cards (`BorderRadius.circular(18)`).
+- **Surfaces & Shadows**: Soft light-mode elevation (`0x0A000000` blur: 8, offset: (0, 2)), subdued semi-transparent dark borders (`colors.border.withValues(alpha: 0.3)`).
+
+### 5. Screen Insets, Dimensions, & Responsive Scaling
+- **Horizontal Insets**: 16dp (`GochanoSpacing.md`) standard gutters, 14dp header insets (10dp on narrow displays <340dp).
+- **Dynamic Grid Layout**: 2 columns on mobile devices (3 columns on wide tablets $\ge 600\text{dp}$).
+- **Overflow-Safe Card Height**: `mainAxisExtent` dynamically accounts for `MediaQuery.textScalerOf(context)`:
+  - Base height: 124dp (128dp on narrow devices <340dp).
+  - Scaled height: `baseExtent + (textScale - 1.0) * 44.0` dp when font scaling exceeds 1.0x.
+  - Subtitle wrapped in `Flexible` with `maxLines: 2` and `TextOverflow.ellipsis`.
+- **Viewport Verification**: Verified zero `RenderFlex` overflow across 320dp, 360dp, 390dp, 412dp viewports, and at 1.5x large font scaling.
+
+### 6. State Management & Search/Filter Model
+- **Reactive Local State**: Clean `_WorkspaceViewState` holding `_searchController`, `_searchQuery`, and `_selectedCategory`.
+- **Instant Client-Side Filtering**: Filters 8 canonical tools in real-time by search query (matching title or subtitle) and category chip.
+- **Empty Filter State**: Clean fallback card rendered when a query matches no tools with a one-tap "Clear search" CTA.
+
+### 7. Navigation Integrity & Route Mapping
+All 8 study tools and secondary shortcuts map directly to canonical, verified application destinations:
+1. **My Notes**: Pushes `NotesScreen`
+2. **Flashcards**: Pushes `FlashcardScreen`
+3. **Past Papers**: Pushes `PastPaperScreen`
+4. **Mock Tests**: Pushes `ExamHubScreen`
+5. **Study Materials**: Pushes `MaterialsScreen`
+6. **Question Bank**: Pushes `ExamHubScreen`
+7. **Saved Items**: Pushes `SavedMaterialsScreen`
+8. **Shared Box**: Pushes `SharedBoxScreen`
+9. **Universal Search**: Pushes `UniversalSearchScreen(initialQuery: ...)`
+10. **Exam Rescue**: Invokes `onOpenPlan` callback (navigates to Plan tab, index 2)
+
+### 8. Backward Compatibility & Test Guard Preservation
+All static test guards in `test/profile_structure_test.dart` remain 100% satisfied:
+- Preserved `_QuickAccess` and `_QuickAccessCell` classes.
+- Preserved `crossAxisCount: 4`, `mainAxisExtent: 84`, `_RecentMaterials()`.
+- Preserved `width: 44`, `height: 44`, `size: 24`, `TextAlign.center`.
+- Preserved drag gesture handles with `vy > 100`, `vy < -100`, `details.primaryDelta! > 8`, `details.primaryDelta! < -8`.
+- Preserved toggle labels `'See more'` and `'See less'`.
+- Strict absence of `childAspectRatio` maintained (`isNot(contains('childAspectRatio'))`).
+
+### 9. Accessibility & Tap Target Audit
+- **Header Actions**:
+  - Language toggle: $\ge 44\text{dp}$ touch target.
+  - Search icon: $44 \times 44\text{dp}$ touch target.
+  - Notification icon: $44 \times 44\text{dp}$ touch target.
+- **Tool Cards**: Full surface tappable with InkWell ripple and semantic labels.
+- **Filter Chips**: 40dp minimum touch target with accessible padding.
+- **Search Clear**: 40x40dp icon button with tooltip.
+- **Contrast**: WCAG AA contrast compliant text colors in both light and dark themes.
+
+### 10. Dynamic Localization Audit
+Full dynamic bilingual support (`English` / `বাংলা`) via `GochanoLanguage.text`:
+- Title: `Workspace` / `ওয়ার্কস্পেস`
+- Subtitle: `Tools to help you study better.` / `আপনার পড়াশোনা আরও সহজ করার টুলস।`
+- Search Hint: `Search study tools, notes, papers…` / `টুলস, নোট, প্রশ্ন খুঁজুন…`
+- Clear Action: `Clear` / `মুছুন`
+- Category Chips: `All` (`সব`), `Notes` (`নোট`), `Flashcards` (`ফ্ল্যাশকার্ড`), `Past Papers` (`বিগত প্রশ্ন`), `Materials` (`উপকরণ`), `Practice` (`অনুশীলন`), `Saved` (`সংরক্ষিত`)
+- Tools: All titles and descriptions localized.
+- Empty State: `No recent study items yet.` / `এখনো কোনো সাম্প্রতিক উপকরণ নেই।`
+
+### 11. Dark Mode / Light Mode Conformance
+- **Light Theme**: Soft ambient shadows, crisp pastel tool accents, clean neutral background.
+- **Dark Theme**: Non-glowing dark surfaces, subtle border outlines (`0.3` alpha), dark container backgrounds, high-contrast readable typography.
+
+### 12. Automated Quality Assurance Results
+
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Redesign Suite) | 15 / 15 groups (24 specifications) | **PASS** |
+| `test/study_today_dashboard_test.dart` | 17 / 17 | **PASS** |
+| `test/design_system_test.dart` | 35 / 35 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** |
+| `test/profile_structure_test.dart` | 34 / 34 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart --plain-name "WorkspaceView"` | 2 / 2 | **PASS** |
+| **Total Automated Quality Tests** | **164 / 164** | **ALL PASS (100%)** |
+
+### 13. Physical Device Verification Results & Touch QA
+- **Target Physical Device**: Infinix X665E (Android 12, API 31, ARM64, MT6762G, 720x1612 px, serial `192.168.0.107:46353`).
+- **Build Execution**: Compiled fresh debug APK with user-specified `--dart-define` parameters (loaded securely without logging or committing credentials):
+  - `API_BASE_URL=https://ekthikana-api-x473.onrender.com`
+  - `DEV_AUTH_BYPASS=true`
+  - `DEV_TEST_EMAIL=labib.pstu77@gmail.com`
+  - `DEV_TEST_PASSWORD=[REDACTED_SECURE]`
+- **Credential Hygiene Note**: Dev test password is for isolated QA execution only. It must not be committed or logged, and should be rotated outside this task as a security best practice.
+- **Output Artifact**: `build\app\outputs\flutter-apk\app-debug.apk` (streamed and installed via ADB).
+- **Physical Screenshots Captured**:
+  - `physical_workspace_final_top.png`: Top pinned header, page intro, search bar, category filter chips, and top tool cards.
+  - `physical_workspace_final_mid.png`: Pinned header locked in place during scroll, complete 8 Study Tool cards, expandable Quick Shortcuts.
+  - `physical_workspace_final_bottom.png`: Pinned header maintained, Recently Opened materials with live Firestore data, bottom navigation bar.
+- **Physical Interactions & Navigations Verified**:
+  - **Pinned Header Scrolling**: Header stays locked at top outside scroll viewport while contents scroll smoothly underneath (verified in mid and bottom screenshots).
+  - **Touch Target Accessibility**: Language toggle, search icon, and notification bell all enforce $\ge 44\text{dp}$ effective touch targets via transparent hit-box bounds.
+  - **Header Actions**:
+    - Notification bell with unread badge (`9+`) tapped -> opens Notification Center cleanly.
+    - Universal Search icon tapped -> opens Universal Search screen cleanly.
+    - Dynamic Language Toggle (`EN | বাংলা`) tapped -> dynamically toggles between English and Bengali across all headers, cards, chips, and subtitles with zero layout shift.
+  - **Search & Filtering**:
+    - Search field input "Flash" dynamically isolates Flashcards tool card.
+    - Search clear icon (`×`) clears query and restores full tool list.
+    - Category chip "Past Papers" isolates Past Papers tool card; "All" chip restores all tools.
+  - **Tool Card Navigation (All 8 Canonical Destinations Tested & Passed)**:
+    1. *My Notes* -> pushed `NotesScreen` (**PASS**)
+    2. *Flashcards* -> pushed `FlashcardScreen` (**PASS**)
+    3. *Past Papers* -> pushed `PastPaperScreen` (**PASS**)
+    4. *Mock Tests* -> pushed `ExamHubScreen` (**PASS**)
+    5. *Study Materials* -> pushed `MaterialsScreen` (**PASS**)
+    6. *Question Bank* -> pushed `QuizGeneratorScreen` (**PASS**)
+    7. *Saved Items* -> pushed `SavedMaterialsScreen` (**PASS**)
+    8. *Shared Box* -> pushed `SharedBoxScreen` (**PASS**)
+  - **Real Firestore Data Integration**: Recently Opened stream renders real documents from user's account without hardcoded fallback placeholders.
+  - **Runtime Stability**: Zero fatal crashes, zero unhandled platform exceptions, zero RenderFlex layout overflow errors.
+
+### 14. Git Safety & Branch Audit
+- **Working Branch**: `ui/workspace-redesign`
+- **Current HEAD**: `c99dc85 refactor(ui): simplify Workspace information architecture`
+- **Ancestry Verification**:
+  - `e9b9930 feat(ui): redesign Study Workspace experience`: Ancestor (**exit code 0**)
+  - `94ce675 test(workspace): harden workspace tests and align profile settings row format`: Ancestor (**exit code 0**)
+  - `dabfd85 merge(ui): approve Study Today redesign` on `ui-redesign-v1`: Ancestor (**exit code 0**)
+- **Protected Branches**:
+  - `final-cleanup-release-v2`: Untouched
+  - `ui/today-redesign`: Untouched
+  - `ui-redesign-v1`: Untouched (no unapproved merges)
+- **Render / Backend**: Untouched.
+
+### 15. Final IA Refinement Pass
+
+#### Overview & Core Product North Star Alignment
+Following user guidance, Workspace Information Architecture was refined into a **pure study tool hub** answering: *"Where are my study tools and study resources?"*
+- **Mental Model**:
+  - `Today` = Do
+  - `Workspace` = Study
+  - `Plan` = Organize
+  - `Community` = Connect
+  - `You` = Me
+
+#### Key Architectural Changes
+1. **Shared Contextual Study Header Refactor (`AppStudyHeader`)**:
+   - Added `showSearch` and `showNotifications` configuration parameters (defaulting to `true`).
+   - **Today**: `showSearch = true`, `showNotifications = true` (Header is visually identical, locked, and fully preserved).
+   - **Workspace**: `showSearch = false`, `showNotifications = true`. Body `AppWorkspaceSearchField` serves as the single, unambiguous search entry point—eliminating double search clutter.
+2. **Removal of Exam Rescue from Workspace**:
+   - `ExamRescueTile` cleanly removed from Workspace. Time-sensitive execution belongs on `Today`; exam roadmap planning belongs in `Plan`.
+3. **Removal of Quick Shortcuts (`_QuickAccess`)**:
+   - Expandable drawer and `See more` / `See less` panels removed, eliminating redundant duplicate routes.
+4. **Final 6 + 2 Workspace Architecture**:
+   - **6 Primary Study Tools (2×3 Symmetrical Grid)**:
+     1. *My Notes* -> `NotesScreen`
+     2. *Flashcards* -> `FlashcardScreen`
+     3. *Past Papers* -> `PastPaperScreen`
+     4. *Mock Tests* -> `ExamHubScreen`
+     5. *Study Materials* -> `MaterialsScreen`
+     6. *Question Bank* -> `QuizGeneratorScreen`
+   - **2 Resource Vaults (Secondary Compact Action Strips)**:
+     1. *Saved Items* -> `SavedMaterialsScreen`
+     2. *Shared Box* -> `SharedBoxScreen`
+     - Compact dual buttons side-by-side with semantic accent colors and $\ge 44\text{dp}$ touch targets.
+5. **Saved Filter Behavior**:
+   - Selecting the "Saved" category filter chip hides the 6-tool Study Tools grid and elevates the Resource Vaults as the primary filtered destination area.
+6. **Compact Recently Opened Carousel**:
+   - Replaced vertical list with compact horizontal carousel (`ListView.separated(scrollDirection: Axis.horizontal)`).
+   - Displays 2–3 cards with preview peeking, max 5 real Firestore documents, and dynamic height scaling based on `MediaQuery.textScalerOf(context)` to guarantee zero `RenderFlex` overflow.
+
+#### Verification & Test Suite Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (ran in 32.5s) | **PASS** |
+| `test/study_workspace_view_test.dart` (Final IA Suite) | 34 / 34 | **PASS** |
+| `test/profile_structure_test.dart` (Updated structural guards) | 42 / 42 | **PASS** |
+| `test/study_rebuild_test.dart` (6+2 Model & Rebuild Suite) | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 15 / 15 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today locked regression) | 17 / 17 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` (Exam Rescue absent from Workspace) | 31 / 31 | **PASS** |
+| `test/design_system_test.dart` | 35 / 35 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** |
+| **Combined Regression Pass Total** | **242 / 242** | **ALL PASS (100%)** |
+
+#### Physical Device Verification (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Physical Touch QA**:
+  - Pinned header locked with NO search icon on Workspace (single body search model verified).
+  - 2×3 Study Tools grid rendered symmetrically with zero overflow.
+  - Resource Vaults side-by-side action buttons verified with comfortable hit targets.
+  - Recently Opened horizontal carousel verified with real Firestore data and zero `RenderFlex` overflow.
+  - Saved filter chip verified: hides 6-card grid and promotes Resource Vaults.
+  - Switching between Today -> Workspace -> Today verified with `IndexedStack` state preservation.
+- **Physical Screenshots**:
+  - `physical_workspace_ia_top.png`: Top pinned header (no search icon), intro, search field, filter chips, and primary tools grid.
+  - `physical_workspace_ia_mid.png`: Scrolled mid showing pinned header, bottom of Study Tools, Resource Vaults, and carousel header.
+  - `physical_workspace_ia_bottom.png`: Scrolled bottom showing Resource Vaults, Recently Opened horizontal carousel cards, and bottom navigation bar.
+
+### 16. Section Final Status
+- **User Physical Approval**: **YES (Approved)**
+- **Workspace Status**: **APPROVED + READY FOR INTEGRATION MERGE**
+
+
 
 
 

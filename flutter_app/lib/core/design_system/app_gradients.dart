@@ -121,6 +121,88 @@ class AppGradients {
   static LinearGradient todayAppBarFor({required bool isDark}) =>
       isDark ? todayAppBarDark : todayAppBar;
 
+  /// Workspace Tool Card Semantic Gradients (spec §5, §17):
+  /// Notes: soft blue / cyan
+  static const LinearGradient toolNotes = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFEFF6FF), // Blue 50
+      Color(0xFFDBEAFE), // Blue 100
+    ],
+  );
+
+  /// Flashcards: violet / purple
+  static const LinearGradient toolFlashcards = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFAF5FF), // Purple 50
+      Color(0xFFEDE9FE), // Violet 100
+    ],
+  );
+
+  /// Past Papers: amber / orange
+  static const LinearGradient toolPastPapers = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFFBEB), // Amber 50
+      Color(0xFFFEF3C7), // Amber 100
+    ],
+  );
+
+  /// Mock Tests: coral / rose
+  static const LinearGradient toolMockTests = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFF1F2), // Rose 50
+      Color(0xFFFFE4E6), // Rose 100
+    ],
+  );
+
+  /// Study Materials: mint / emerald green
+  static const LinearGradient toolMaterials = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF0FDF4), // Emerald 50
+      Color(0xFFDCFCE7), // Emerald 100
+    ],
+  );
+
+  /// Question Bank: indigo / lavender
+  static const LinearGradient toolQuestionBank = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFEEF2FF), // Indigo 50
+      Color(0xFFE0E7FF), // Indigo 100
+    ],
+  );
+
+  /// Bookmarks / Saved: warm yellow
+  static const LinearGradient toolBookmarks = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFEFCE8), // Yellow 50
+      Color(0xFFFEF9C3), // Yellow 100
+    ],
+  );
+
+  /// Downloads / Shared Box: teal / cyan
+  static const LinearGradient toolDownloads = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF0FDFA), // Teal 50
+      Color(0xFFCCFBF1), // Teal 100
+    ],
+  );
+
+
   /// Time-of-day greeting gradients:
   /// Early Morning (5:00 - 8:59): warm sunrise (peach -> pale yellow -> soft blue)
   static const LinearGradient greetingEarlyMorning = LinearGradient(
