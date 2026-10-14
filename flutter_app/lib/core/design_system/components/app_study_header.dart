@@ -30,12 +30,14 @@ class AppStudyHeader extends StatelessWidget {
     this.showNotifications = true,
     this.onSearchTap,
     this.onNotificationTap,
+    this.trailingAction,
   });
 
   final bool showSearch;
   final bool showNotifications;
   final VoidCallback? onSearchTap;
   final VoidCallback? onNotificationTap;
+  final Widget? trailingAction;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +113,9 @@ class AppStudyHeader extends StatelessWidget {
         // RIGHT: Controls
         const LanguageToggle(isCompact: true),
         const SizedBox(width: 2),
+
+        // Contextual trailing action (e.g. calendar/history)
+        ?trailingAction,
 
         // Search icon (32dp visual container, 44x44dp effective touch target)
         if (showSearch)
