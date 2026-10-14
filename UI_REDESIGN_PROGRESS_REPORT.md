@@ -560,6 +560,20 @@ The final merged implementation on `ui-redesign-v1` supersedes earlier iterative
 
 ## Study Mode → Workspace
 
+> [!IMPORTANT]
+> **AUTHORITATIVE CURRENT ARCHITECTURE (Final IA Refinement Pass — Approved)**:
+> - **Pinned Study Header**: Search hidden on Workspace (`showSearch: false`), notifications preserved (`showNotifications: true`).
+> - **Single Search Entry Point**: Body `AppWorkspaceSearchField` is the single Workspace search.
+> - **Exam Rescue**: Cleanly absent from Workspace (time-sensitive execution owned by `Today`; study roadmap planning owned by `Plan`).
+> - **Quick Shortcuts**: Cleanly absent (`_QuickAccess` drawer removed to eliminate redundant routes).
+> - **6 Primary Study Tools (2×3 Grid)**: My Notes, Flashcards, Past Papers, Mock Tests, Study Materials, Question Bank (`QuizGeneratorScreen`).
+> - **2 Resource Vaults**: Saved Items (`SavedMaterialsScreen`), Shared Box (`SharedBoxScreen`) as compact dual action strips.
+> - **Saved Filter**: Filter chip hides primary 6-card grid and promotes Resource Vaults.
+> - **Recently Opened**: Compact horizontal carousel (`Axis.horizontal`, zero overflow).
+> - **Regression Tests**: 242/242 PASS.
+> - **Physical Device QA**: PASS (Infinix X665E).
+> - **User Approval**: **YES (Approved)**.
+
 ### 1. Architectural Purpose & Shift
 - **Primary Product Role**: Redesigned from a passive list into a utility-first study hub that decisively answers the student's question: *"Where are all my study tools and materials?"*
 - **Visual & Structural Clarity**: Establishes an organized, high-density dashboard categorizing all academic tools (Notes, Flashcards, Past Papers, Mock Tests, Study Materials, Question Bank, Saved Items, Shared Box) with dedicated search, filter chips, quick shortcuts, and live material access.
@@ -711,7 +725,7 @@ Full dynamic bilingual support (`English` / `বাংলা`) via `GochanoLangu
 
 ### 14. Git Safety & Branch Audit
 - **Working Branch**: `ui/workspace-redesign`
-- **Current HEAD**: `ff1131d docs(workspace): update progress report with full test suite pass and physical debug build verification`
+- **Current HEAD**: `c99dc85 refactor(ui): simplify Workspace information architecture`
 - **Ancestry Verification**:
   - `e9b9930 feat(ui): redesign Study Workspace experience`: Ancestor (**exit code 0**)
   - `94ce675 test(workspace): harden workspace tests and align profile settings row format`: Ancestor (**exit code 0**)
@@ -791,7 +805,8 @@ Following user guidance, Workspace Information Architecture was refined into a *
   - `physical_workspace_ia_bottom.png`: Scrolled bottom showing Resource Vaults, Recently Opened horizontal carousel cards, and bottom navigation bar.
 
 ### 16. Section Final Status
-- **Workspace Status**: **WORKSPACE REDESIGN — FINAL IA PHYSICAL QA PASSED — WAITING USER APPROVAL**
+- **User Physical Approval**: **YES (Approved)**
+- **Workspace Status**: **APPROVED + READY FOR INTEGRATION MERGE**
 
 
 
