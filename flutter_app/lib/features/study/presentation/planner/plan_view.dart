@@ -177,13 +177,13 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
                                 const SizedBox(height: GochanoSpacing.xs),
                               ],
                               _buildIntro(context),
-                              const SizedBox(height: GochanoSpacing.md),
+                              const SizedBox(height: GochanoSpacing.sm),
                             ],
                           ),
                         ),
                       ),
 
-                      // Current Goal / Target Exam Section
+                      // 1. Current Goal / Target Exam Section
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
@@ -195,7 +195,7 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
                         ),
                       ),
 
-                      // Date / Week Switcher
+                      // 2. Date / Week Switcher
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
@@ -203,7 +203,7 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
                         sliver: SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.only(
-                              top: GochanoSpacing.md,
+                              top: GochanoSpacing.sm,
                               bottom: GochanoSpacing.xs,
                             ),
                             child: _DateStrip(
@@ -215,34 +215,25 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
                         ),
                       ),
 
-                      // Exam Rescue Planning Banner (adaptive)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            top: GochanoSpacing.xs,
-                            bottom: GochanoSpacing.sm,
-                          ),
-                          child: _ExamRescueBanner(
-                            examRescueSessionService:
-                                widget.examRescueSessionService,
-                          ),
-                        ),
-                      ),
-
-                      // This Week / Upcoming Focus Tasks for Selected Day
+                      // 3. Due This Day — Tasks Section for Selected Day (immediately after Date Strip)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
                         ),
                         sliver: SliverToBoxAdapter(
-                          child: _PlannerTasksSection(
-                            selectedDay: _selectedDay,
-                            mockTasks: widget.mockTasks,
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              top: GochanoSpacing.xs,
+                            ),
+                            child: _PlannerTasksSection(
+                              selectedDay: _selectedDay,
+                              mockTasks: widget.mockTasks,
+                            ),
                           ),
                         ),
                       ),
 
-                      // Exam & Deadline Timeline
+                      // 4. Exam & Deadline Timeline
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
@@ -259,7 +250,25 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
                         ),
                       ),
 
-                      // Goals & Milestones Section
+                      // 5. Exam Rescue Planning (compact planning card or secondary CTA strip)
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              top: GochanoSpacing.md,
+                            ),
+                            child: _ExamRescueBanner(
+                              examRescueSessionService:
+                                  widget.examRescueSessionService,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // 6. Goals & Milestones Section
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
@@ -716,10 +725,12 @@ class _DateStripState extends State<_DateStrip> {
         '${banglaMonths[widget.selectedDay.month - 1]} ${widget.selectedDay.year}';
 
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final double stripHeight =
-        textScale > 1.0 ? (68.0 + (textScale - 1.0) * 32.0) : 68.0;
-    final double itemWidth =
-        textScale > 1.0 ? (46.0 + (textScale - 1.0) * 20.0) : 46.0;
+    final double stripHeight = textScale > 1.0
+        ? (68.0 + (textScale - 1.0) * 32.0)
+        : 68.0;
+    final double itemWidth = textScale > 1.0
+        ? (46.0 + (textScale - 1.0) * 20.0)
+        : 46.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -873,135 +884,328 @@ class _ExamRescueBanner extends StatelessWidget {
 
   final ExamRescueSessionService? examRescueSessionService;
 
-  String _activeSubtitle(ExamRescueSession session, DateTime now) {
-    final days = session.localDaysRemaining(now);
-    if (days <= 0) {
-      return GochanoLanguage.text(
-        'Exam today · Active Plan',
-        'আজ পরীক্ষা · সক্রিয় প্ল্যান',
-      );
-    }
-    if (days == 1) {
-      return GochanoLanguage.text(
-        '1 day remaining · Active Plan',
-        '১ দিন বাকি · সক্রিয় প্ল্যান',
-      );
-    }
-    return GochanoLanguage.text(
-      '$days days remaining · Active Plan',
-      '${GochanoLanguage.formatNumber(days)} দিন বাকি · সক্রিয় প্ল্যান',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final type = context.type;
+    final isDark = context.isDark;
     final service =
         examRescueSessionService ?? ExamRescueSessionService.instance;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
-      child: StreamBuilder<ExamRescueSession?>(
-        stream: service.streamNearestActiveSession(),
-        builder: (context, snapshot) {
-          final session = snapshot.data;
-          final isActive = session != null;
-          final title = isActive
-              ? '${GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার')}: ${session.examTitle}'
-              : GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার');
-          final subtitle = isActive
-              ? _activeSubtitle(session, service.now)
-              : GochanoLanguage.text(
-                  'Exam close? Build a focused rescue plan.',
-                  'পরীক্ষা কাছাকাছি? একটি গোছানো উদ্ধার প্ল্যান তৈরি করুন।',
-                );
-          final buttonLabel = isActive
-              ? GochanoLanguage.text('+ New Plan', '+ নতুন প্ল্যান')
-              : GochanoLanguage.text('Build Plan', 'প্ল্যান বানান');
+    return StreamBuilder<ExamRescueSession?>(
+      stream: service.streamNearestActiveSession(),
+      builder: (context, snapshot) {
+        final session = snapshot.data;
+        if (session != null) {
+          return _buildActiveRescueCard(
+            context,
+            session,
+            service,
+            colors,
+            isDark,
+          );
+        }
+        return _buildInactiveCtaStrip(context, colors, isDark);
+      },
+    );
+  }
 
-          return Container(
+  Widget _buildInactiveCtaStrip(
+    BuildContext context,
+    dynamic colors,
+    bool isDark,
+  ) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 64, maxHeight: 80),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(
+          color: isDark
+              ? colors.border.withValues(alpha: 0.3)
+              : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: colors.brandSoft,
-              borderRadius: GochanoRadius.lgAll,
-              border: Border.all(color: colors.brand.withValues(alpha: 0.18)),
+              color: colors.brand.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
             ),
-            padding: const EdgeInsets.all(GochanoSpacing.md),
-            child: Row(
+            child: Icon(Icons.bolt_rounded, color: colors.brand, size: 18),
+          ),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(GochanoSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: colors.brand.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
+                Text(
+                  GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার'),
+                  style: context.type.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                    color: colors.textPrimary,
                   ),
-                  child: Icon(
-                    Icons.bolt_rounded,
-                    color: colors.brand,
-                    size: 22,
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: GochanoSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: type.body.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: colors.brand,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: type.caption.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                const SizedBox(height: 2),
+                Text(
+                  GochanoLanguage.text(
+                    'Exam close? Build a quick rescue plan.',
+                    'পরীক্ষা কাছাকাছি? একটি দ্রুত উদ্ধার প্ল্যান তৈরি করুন।',
                   ),
-                ),
-                const SizedBox(width: GochanoSpacing.xs),
-                FilledButton.tonal(
-                  onPressed: () async {
-                    final result = await showExamRescueSetupSheet(context);
-                    if (result != null && result.success && context.mounted) {
-                      showGochanoMessage(
-                        context,
-                        FeedbackMessages.examRescuePlanApplied(
-                          result.tasksCount,
-                          reminderFailed: result.reminderFailed,
-                        ),
-                      );
-                    }
-                  },
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
+                  style: context.type.caption.copyWith(
+                    color: colors.textSecondary,
+                    fontSize: 11.5,
                   ),
-                  child: Text(
-                    buttonLabel,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-          );
-        },
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          FilledButton.tonal(
+            onPressed: () async {
+              final result = await showExamRescueSetupSheet(context);
+              if (result != null && result.success && context.mounted) {
+                showGochanoMessage(
+                  context,
+                  FeedbackMessages.examRescuePlanApplied(
+                    result.tasksCount,
+                    reminderFailed: result.reminderFailed,
+                  ),
+                );
+              }
+            },
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              GochanoLanguage.text('Build Plan', 'প্ল্যান বানান'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildActiveRescueCard(
+    BuildContext context,
+    ExamRescueSession session,
+    ExamRescueSessionService service,
+    dynamic colors,
+    bool isDark,
+  ) {
+    final now = service.now;
+    final daysRemaining = session.localDaysRemaining(now);
+    final daysText = daysRemaining <= 0
+        ? GochanoLanguage.text('Exam today', 'আজ পরীক্ষা')
+        : daysRemaining == 1
+        ? GochanoLanguage.text('1 day left', '১ দিন বাকি')
+        : GochanoLanguage.text(
+            '$daysRemaining days left',
+            '${GochanoLanguage.formatNumber(daysRemaining)} দিন বাকি',
+          );
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('tasks', limit: 100),
+      builder: (context, taskSnap) {
+        final docs = taskSnap.data?.docs ?? const [];
+        final taskMaps = docs.map((d) {
+          final m = Map<String, dynamic>.from(d.data());
+          m['id'] = d.id;
+          return m;
+        }).toList();
+
+        final progress = ExamRescueSessionService.calculateTodayProgress(
+          session: session,
+          tasks: taskMaps,
+          now: now,
+        );
+
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.brandSoft,
+            borderRadius: GochanoRadius.mdAll,
+            border: Border.all(
+              color: colors.brand.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.all(GochanoSpacing.sm + 2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: colors.brand.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.bolt_rounded,
+                      color: colors.brand,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার'),
+                          style: context.type.caption.copyWith(
+                            color: colors.brand,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          session.examTitle,
+                          style: context.type.body.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: colors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.brand.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      daysText,
+                      style: TextStyle(
+                        color: colors.brand,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress.overallProgressFraction,
+                        minHeight: 5,
+                        backgroundColor: colors.brand.withValues(alpha: 0.12),
+                        valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Text(
+                    '${progress.percentage}%',
+                    style: context.type.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.brand,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).push(
+                        GochanoRoute.to(builder: (_) => const ExamPlanScreen()),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        side: BorderSide(
+                          color: colors.brand.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Text(
+                        GochanoLanguage.text('View Roadmap', 'রোডম্যাপ দেখুন'),
+                        style: TextStyle(
+                          color: colors.brand,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: FilledButton.tonal(
+                      onPressed: () async {
+                        final result = await showExamRescueSetupSheet(context);
+                        if (result != null &&
+                            result.success &&
+                            context.mounted) {
+                          showGochanoMessage(
+                            context,
+                            FeedbackMessages.examRescuePlanApplied(
+                              result.tasksCount,
+                              reminderFailed: result.reminderFailed,
+                            ),
+                          );
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        GochanoLanguage.text('Adjust Plan', 'প্ল্যান পরিবর্তন'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

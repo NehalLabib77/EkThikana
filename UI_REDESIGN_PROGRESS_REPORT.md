@@ -946,9 +946,73 @@ Plan answers: *"How do I organize my upcoming study, exams, tasks, and goals?"*
 
 ---
 
-### 5. Section Final Status
+### 5. Final Layout Polish Pass
+
+#### Motivation & Architectural Objectives
+Refined layout hierarchy to reduce vertical cognitive load and strengthen parent-child continuity between the Date Strip and Due This Day:
+1. **Immediate Date → Task Relationship**:
+   - `_DateStrip` is now immediately followed by `_PlannerTasksSection` (Due This Day).
+   - When a user selects another date, the relevant day's task list is visible immediately beneath it without an intervening promotional banner breaking visual continuity.
+2. **Reordered Section Hierarchy**:
+   1. *Contextual Study Header* (`AppStudyHeader`: search hidden, calendar history button, notification badge)
+   2. *Page Intro* ("Plan" / "Organize your upcoming study and goals.")
+   3. *Current Goal / Target Exam* (`_CurrentGoalCard`)
+   4. *31-Day Date Strip* (`_DateStrip` with "Today" shortcut)
+   5. *Due This Day* (`_PlannerTasksSection`: tasks for selected date, canonical TaskLifecycle)
+   6. *Exam & Deadline Timeline* (`_DeadlineTimelineSection`: chronological upcoming milestones)
+   7. *Exam Rescue* (`_ExamRescueBanner`: compact planning card or secondary CTA strip)
+   8. *Study Goals & Milestones* (`_StudyGoalContainer`: weekly target hours tracker)
+3. **Refined Exam Rescue Active State**:
+   - Renders a compact planning card (does not duplicate Today's execution urgency hero).
+   - Surfaces core planning attributes: exam title, days remaining badge (`X days left`), linear progress bar, progress percentage, and dual compact CTAs: `View Roadmap` and `Adjust Plan`.
+4. **Refined Exam Rescue Inactive State**:
+   - Replaced large promotional banner with a compact secondary CTA strip.
+   - Constrained to visual height ~64–80dp: small bolt icon, title `Exam Rescue`, subtitle `"Exam close? Build a quick rescue plan."`, and compact `[Build Plan]` action button.
+   - Given lower visual priority than Due This Day and Exam Timeline.
+5. **Top Viewport Priority**:
+   - On standard mobile viewports, the top screen immediately frames: Current Goal, Date Strip, and the Due This Day header/first tasks or empty state with minimal or no scrolling required.
+6. **Target Exam Data Ownership**:
+   - Maintained canonical `academic_profile` data source. Plan acts as planning/progress presentation; future You tab serves as the Academic Profile entry point.
+7. **TaskLifecycle Continuity**:
+   - Zero changes to TaskLifecycle semantics. Canonical completion toggling, server timestamps, reminder cancellation, and overdue isolation fully preserved.
+
+#### Verification & Test Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (clean) | **PASS** |
+| `test/study_plan_view_test.dart` (Plan Polished Suite) | 28 / 28 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` | 23 / 23 | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
+| `test/exam_rescue_flow_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_quiz_integration_test.dart` | 18 / 18 | **PASS** |
+| `test/profile_structure_test.dart` | 23 / 23 | **PASS** |
+| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 13 / 13 | **PASS** |
+| `test/design_system_test.dart` | 48 / 48 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 12 / 12 | **PASS** |
+| `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
+| `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
+| **Combined Authoritative Pass Total** | **311 / 311** | **ALL PASS (100%)** |
+
+#### Physical Device Verification (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Physical Touch QA**:
+  - Selecting any date in the 31-day date strip immediately exposes that day's tasks in Due This Day with zero intervening banner obstruction.
+  - Inactive Exam Rescue card renders as a sleek, compact secondary strip (~68dp height) below the Timeline.
+  - Top viewport immediately surfaces Current Goal, Date Strip, and Due This Day.
+  - Zero layout clipping, zero jank, zero RenderFlex overflow across light and dark modes.
+- **Physical Screenshots Captured**:
+  - `physical_plan_polished_top.png`: Top viewport showing pinned header, intro, Current Goal card, Date Strip, and Due This Day immediately adjacent.
+  - `physical_plan_polished_mid.png`: Scrolled view showing Due This Day, Exam & Deadline Timeline, and compact Exam Rescue secondary CTA strip.
+  - `physical_plan_polished_bottom.png`: Bottom view showing Timeline, compact Exam Rescue, Goals & Milestones with Set Goal CTA, and bottom navigation bar.
+
+---
+
+### 6. Section Final Status
 - **Current Branch**: `ui/plan-redesign`
-- **Plan Status**: **PLAN REDESIGN — PHYSICAL QA PASSED — WAITING USER APPROVAL**
+- **Plan Status**: **PLAN REDESIGN — FINAL POLISH PHYSICAL QA PASSED — WAITING USER APPROVAL**
+
 
 
 
