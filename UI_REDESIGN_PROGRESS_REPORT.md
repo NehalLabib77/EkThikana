@@ -1,7 +1,17 @@
 # UI Redesign Progress Report
 
 ## Overview
-This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign`).
+This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign`).
+
+### Core Study Navigation North Star
+
+Today = Do
+Workspace = Study
+Plan = Organize
+Community = Connect
+You = Me
+
+Use this mental model as the primary placement rule for future features.
 
 ---
 
@@ -712,8 +722,77 @@ Full dynamic bilingual support (`English` / `বাংলা`) via `GochanoLangu
   - `ui-redesign-v1`: Untouched (no unapproved merges)
 - **Render / Backend**: Untouched.
 
-### 15. Section Final Status
-- **Workspace Status**: **WORKSPACE REDESIGN — PHYSICAL QA PASSED — WAITING USER FINAL APPROVAL**
+### 15. Final IA Refinement Pass
+
+#### Overview & Core Product North Star Alignment
+Following user guidance, Workspace Information Architecture was refined into a **pure study tool hub** answering: *"Where are my study tools and study resources?"*
+- **Mental Model**:
+  - `Today` = Do
+  - `Workspace` = Study
+  - `Plan` = Organize
+  - `Community` = Connect
+  - `You` = Me
+
+#### Key Architectural Changes
+1. **Shared Contextual Study Header Refactor (`AppStudyHeader`)**:
+   - Added `showSearch` and `showNotifications` configuration parameters (defaulting to `true`).
+   - **Today**: `showSearch = true`, `showNotifications = true` (Header is visually identical, locked, and fully preserved).
+   - **Workspace**: `showSearch = false`, `showNotifications = true`. Body `AppWorkspaceSearchField` serves as the single, unambiguous search entry point—eliminating double search clutter.
+2. **Removal of Exam Rescue from Workspace**:
+   - `ExamRescueTile` cleanly removed from Workspace. Time-sensitive execution belongs on `Today`; exam roadmap planning belongs in `Plan`.
+3. **Removal of Quick Shortcuts (`_QuickAccess`)**:
+   - Expandable drawer and `See more` / `See less` panels removed, eliminating redundant duplicate routes.
+4. **Final 6 + 2 Workspace Architecture**:
+   - **6 Primary Study Tools (2×3 Symmetrical Grid)**:
+     1. *My Notes* -> `NotesScreen`
+     2. *Flashcards* -> `FlashcardScreen`
+     3. *Past Papers* -> `PastPaperScreen`
+     4. *Mock Tests* -> `ExamHubScreen`
+     5. *Study Materials* -> `MaterialsScreen`
+     6. *Question Bank* -> `QuizGeneratorScreen`
+   - **2 Resource Vaults (Secondary Compact Action Strips)**:
+     1. *Saved Items* -> `SavedMaterialsScreen`
+     2. *Shared Box* -> `SharedBoxScreen`
+     - Compact dual buttons side-by-side with semantic accent colors and $\ge 44\text{dp}$ touch targets.
+5. **Saved Filter Behavior**:
+   - Selecting the "Saved" category filter chip hides the 6-tool Study Tools grid and elevates the Resource Vaults as the primary filtered destination area.
+6. **Compact Recently Opened Carousel**:
+   - Replaced vertical list with compact horizontal carousel (`ListView.separated(scrollDirection: Axis.horizontal)`).
+   - Displays 2–3 cards with preview peeking, max 5 real Firestore documents, and dynamic height scaling based on `MediaQuery.textScalerOf(context)` to guarantee zero `RenderFlex` overflow.
+
+#### Verification & Test Suite Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (ran in 32.5s) | **PASS** |
+| `test/study_workspace_view_test.dart` (Final IA Suite) | 34 / 34 | **PASS** |
+| `test/profile_structure_test.dart` (Updated structural guards) | 42 / 42 | **PASS** |
+| `test/study_rebuild_test.dart` (6+2 Model & Rebuild Suite) | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 15 / 15 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today locked regression) | 17 / 17 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` (Exam Rescue absent from Workspace) | 31 / 31 | **PASS** |
+| `test/design_system_test.dart` | 35 / 35 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
+| `test/home_today_overdue_test.dart` | 36 / 36 | **PASS** |
+| **Combined Regression Pass Total** | **242 / 242** | **ALL PASS (100%)** |
+
+#### Physical Device Verification (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Physical Touch QA**:
+  - Pinned header locked with NO search icon on Workspace (single body search model verified).
+  - 2×3 Study Tools grid rendered symmetrically with zero overflow.
+  - Resource Vaults side-by-side action buttons verified with comfortable hit targets.
+  - Recently Opened horizontal carousel verified with real Firestore data and zero `RenderFlex` overflow.
+  - Saved filter chip verified: hides 6-card grid and promotes Resource Vaults.
+  - Switching between Today -> Workspace -> Today verified with `IndexedStack` state preservation.
+- **Physical Screenshots**:
+  - `physical_workspace_ia_top.png`: Top pinned header (no search icon), intro, search field, filter chips, and primary tools grid.
+  - `physical_workspace_ia_mid.png`: Scrolled mid showing pinned header, bottom of Study Tools, Resource Vaults, and carousel header.
+  - `physical_workspace_ia_bottom.png`: Scrolled bottom showing Resource Vaults, Recently Opened horizontal carousel cards, and bottom navigation bar.
+
+### 16. Section Final Status
+- **Workspace Status**: **WORKSPACE REDESIGN — FINAL IA PHYSICAL QA PASSED — WAITING USER APPROVAL**
+
 
 
 
