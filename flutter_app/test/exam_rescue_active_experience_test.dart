@@ -574,15 +574,16 @@ void main() {
       'Workspace has NO Exam Rescue tile (IA decision: belongs to Today/Plan)',
       (tester) async {
         await tester.pumpWidget(
-          _wrapWithTheme(
-            const WorkspaceView(mockRecentMaterials: []),
-          ),
+          _wrapWithTheme(const WorkspaceView(mockRecentMaterials: [])),
         );
         await tester.pump();
 
         // ExamRescueTile is removed from Workspace per final IA
         expect(find.text('Exam Rescue'), findsNothing);
-        expect(find.text('Exam close? Build a quick rescue plan.'), findsNothing);
+        expect(
+          find.text('Exam close? Build a quick rescue plan.'),
+          findsNothing,
+        );
       },
     );
 
@@ -590,9 +591,7 @@ void main() {
       'Workspace renders 6 primary study tools without ExamRescueTile',
       (tester) async {
         await tester.pumpWidget(
-          _wrapWithTheme(
-            const WorkspaceView(mockRecentMaterials: []),
-          ),
+          _wrapWithTheme(const WorkspaceView(mockRecentMaterials: [])),
         );
         await tester.pump();
 
@@ -622,9 +621,11 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.text('Exam Rescue: Optical Fiber Midterm'), findsOneWidget);
-        expect(find.text('2 days remaining · Active Plan'), findsOneWidget);
-        expect(find.text('+ New Plan'), findsOneWidget);
+        expect(find.text('Exam Rescue'), findsOneWidget);
+        expect(find.text('Optical Fiber Midterm'), findsOneWidget);
+        expect(find.text('2 days left'), findsOneWidget);
+        expect(find.text('View Roadmap'), findsWidgets);
+        expect(find.text('Adjust Plan'), findsOneWidget);
       },
     );
 
@@ -643,7 +644,7 @@ void main() {
 
       expect(find.text('Exam Rescue'), findsOneWidget);
       expect(
-        find.text('Exam close? Build a focused rescue plan.'),
+        find.text('Exam close? Build a quick rescue plan.'),
         findsOneWidget,
       );
       expect(find.text('Build Plan'), findsOneWidget);

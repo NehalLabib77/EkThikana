@@ -429,6 +429,10 @@ void main() {
     });
 
     testWidgets('renders Exam Rescue banner on PlanView', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       await tester.pumpWidget(
         _buildWrapper(
           const PlanView(),
@@ -438,7 +442,7 @@ void main() {
 
       expect(find.text('Exam Rescue'), findsOneWidget);
       expect(
-        find.text('Exam close? Build a focused rescue plan.'),
+        find.text('Exam close? Build a quick rescue plan.'),
         findsOneWidget,
       );
       expect(find.text('Build Plan'), findsOneWidget);

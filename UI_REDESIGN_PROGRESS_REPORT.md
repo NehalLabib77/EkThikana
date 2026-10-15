@@ -1,7 +1,7 @@
 # UI Redesign Progress Report
 
 ## Overview
-This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign`).
+This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign` -> `ui/plan-redesign`).
 
 ### Core Study Navigation North Star
 
@@ -833,13 +833,295 @@ Following user guidance, Workspace Information Architecture was refined into a *
 - **Working Tree State**: Clean.
 - **Final Workspace Status**: **APPROVED + MERGED INTO ui-redesign-v1**
 
+---
 
+## Study Mode → Plan
 
+### 1. Hierarchy & Information Architecture
+Aligned strictly with the Core Product North Star:
+- `Today` = Do
+- `Workspace` = Study
+- **`Plan` = Organize**
+- `Community` = Connect
+- `You` = Me
 
+Plan answers: *"How do I organize my upcoming study, exams, tasks, and goals?"*
 
+#### Pinned Contextual Header (`AppStudyHeader`)
+- Pinned outside scroll view (`SafeArea` column layout).
+- Dimensions: ~46dp height, 14dp horizontal inset (10dp on compact viewports), 18dp border radius.
+- Search Action: **Hidden** (`showSearch: false`). Plan is an organizational planning dashboard, not a content search surface.
+- History Action: **Present** (`trailingAction`). Tapping the calendar/history icon opens `_PlanHistoryScreen` to inspect completed tasks with `GochanoOverflowMenu` ("Mark not done").
+- Notification bell with unread badge (`9+`): **Present** (`showNotifications: true`).
+- Dynamic Language Toggle (`EN | বাংলা`): **Present** with $\ge 44\text{dp}$ effective touch bounds.
 
+#### Complete Visual Hierarchy & Sections
+1. **Pinned Contextual Study Header**: Brand logo, EN | বাংলা toggle, Plan History action, notification bell.
+2. **Page Intro**:
+   - Title: "Plan" / "পরিকল্পনা"
+   - Subtitle: "Organize your upcoming study and goals." / "আপনার পড়াশোনা ও লক্ষ্য সাজিয়ে নিন।"
+3. **Current Goal / Target Exam**:
+   - Dynamic card displaying user's target exam, countdown in days, exam date, and "Change" action sheet.
+   - Fallback empty state: "No Target Exam Set" with direct "Set Target Exam" button.
+4. **31-Day Date Strip**:
+   - Horizontally scrollable strip displaying 31 days (-7 days to +23 days relative to today).
+   - "Today" shortcut button quickly restores selection to the current day.
+   - Day pill states: selected (elevated brand gradient), today indicator dot, weekday/day number.
+   - Dynamic text-scaling height calculation (`stripHeight = textScale > 1.0 ? (68.0 + (textScale - 1.0) * 32.0) : 68.0`) and `FittedBox` wrapping to ensure 100% immunity against `RenderFlex` overflow across all font sizes up to 2.0x.
+   - Effective touch targets $\ge 44\text{dp}$.
+5. **Adaptive Exam Rescue Banner**:
+   - Dynamic banner contextually adapting to user's Exam Rescue status:
+     - **Active Plan**: Displays remaining days badge, rescue progress stats, and "+ New Plan" CTA.
+     - **Inactive**: Displays motivational planning banner ("Exam close? Build a quick rescue plan.") with "Build Plan" CTA routing to `ExamRescuePlanScreen`.
+6. **Due This Day**:
+   - Shows tasks scheduled for the selected day filtered via `TaskLifecycle.belongsToPlanDay`.
+   - Task completion toggles strictly invoke canonical lifecycle updates:
+     - `completed: true`
+     - `done: true`
+     - `completedAt: FieldValue.serverTimestamp()`
+     - Notification cancellation via `NotificationService`.
+   - Secondary actions: Quick "+ Task" and "+ Assignment" buttons, plus empty state prompts.
+7. **Exam & Deadline Timeline**:
+   - Chronological list of upcoming exam deadlines and milestone dates.
+   - Clean card layout with countdown tags and subject metadata.
+8. **Study Goals & Milestones**:
+   - Weekly study hours target progress tracker with progress indicator and percentage.
+   - "Set Goal" sheet for customizing weekly target hours.
+9. **Bottom Navigation & Floating Actions**:
+   - Pinned 5-item shell navigation bar with `Plan` (index 2) highlighted.
+   - Ample bottom scroll padding (80dp) to ensure all cards remain comfortably accessible above floating buttons and navigation.
 
+---
 
+### 2. Implementation & Seam Verification
+- **Header Refactor (`app_study_header.dart`)**:
+  - Added optional `Widget? trailingAction` slot between the language toggle and notification icon.
+  - Preserved existing behavior 100% for `Today` (which does not use `trailingAction`) and `Workspace` (which hides search and keeps notifications).
+- **Plan View Implementation (`plan_view.dart`)**:
+  - Implemented modular, accessible, sliver-based architecture (`CustomScrollView`).
+  - Added dependency injection hooks (`mockTasks`, `mockTargetExam`, `mockStudyGoals`) for robust offline and widget testing.
+  - Integrated `_PlanHistoryScreen` with full backward-compatible methods (`openPlanHistory(BuildContext context)`), verifying `data()['done'] == true` assertions.
+- **Task Lifecycle Guarding**:
+  - Direct integration with `TaskLifecycle.belongsToPlanDay`.
+  - Full adherence to completed task flags (`completed: true`, `done: true`).
 
+---
 
+### 3. Verification & Test Suite Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (clean) | **PASS** |
+| `test/study_plan_view_test.dart` (Plan Redesign Suite) | 23 / 23 | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` | 14 / 14 | **PASS** |
+| `test/exam_rescue_flow_test.dart` | 65 / 65 | **PASS** |
+| `test/exam_rescue_quiz_integration_test.dart` | 18 / 18 | **PASS** |
+| `test/profile_structure_test.dart` | 23 / 23 | **PASS** |
+| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 13 / 13 | **PASS** |
+| `test/design_system_test.dart` | 48 / 48 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 12 / 12 | **PASS** |
+| `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
+| `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
+| **Combined Authoritative Pass Total** | **306 / 306** | **ALL PASS (100%)** |
+
+---
+
+### 4. Physical Device Verification (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Physical Touch QA**:
+  - **Pinned Header**: Verified locked outside scroll container. Pinned header persists with brand logo, language toggle, Plan History button, and notification bell (`9+` badge). Search icon is hidden as designed.
+  - **Plan History Sheet**: Tapping calendar/history icon in header opens completed task history sheet cleanly.
+  - **Date Strip**: Smooth horizontal scrolling across 31 days. Tapping "Today" restores current date selection immediately. Zero overflow.
+  - **Adaptive Rescue Banner**: Rendered cleanly with "Build Plan" CTA button.
+  - **Due This Day**: Empty state renders clean illustration, prompt, and responsive `+ Task` / `+ Assignment` action buttons.
+  - **Exam & Deadline Timeline**: Rendered cleanly in chronological order with zero clipping.
+  - **Goals & Milestones**: Weekly target progress bar rendered with "Set Goal" sheet CTA.
+  - **Shell Bottom Navigation**: Plan tab (index 2) active and highlighted. Switching between Today -> Workspace -> Plan preserves state via `IndexedStack`.
+- **Physical Screenshots Captured**:
+  - `physical_plan_top.png`: Top pinned header (history icon, no search), intro, empty target exam card, date strip with Today shortcut, adaptive rescue banner, Due This Day header.
+  - `physical_plan_mid.png`: Scrolled middle view showing pinned header maintained, Due This Day section, Exam & Deadline Timeline, Goals & Milestones header.
+  - `physical_plan_bottom.png`: Scrolled bottom view showing Due This Day, Timeline, Goals & Milestones, floating actions clear, bottom navigation bar.
+
+---
+
+### 5. Final Layout Polish Pass
+
+#### Motivation & Architectural Objectives
+Refined layout hierarchy to reduce vertical cognitive load and strengthen parent-child continuity between the Date Strip and Due This Day:
+1. **Immediate Date → Task Relationship**:
+   - `_DateStrip` is now immediately followed by `_PlannerTasksSection` (Due This Day).
+   - When a user selects another date, the relevant day's task list is visible immediately beneath it without an intervening promotional banner breaking visual continuity.
+2. **Reordered Section Hierarchy**:
+   1. *Contextual Study Header* (`AppStudyHeader`: search hidden, calendar history button, notification badge)
+   2. *Page Intro* ("Plan" / "Organize your upcoming study and goals.")
+   3. *Current Goal / Target Exam* (`_CurrentGoalCard`)
+   4. *31-Day Date Strip* (`_DateStrip` with "Today" shortcut)
+   5. *Due This Day* (`_PlannerTasksSection`: tasks for selected date, canonical TaskLifecycle)
+   6. *Exam & Deadline Timeline* (`_DeadlineTimelineSection`: chronological upcoming milestones)
+   7. *Exam Rescue* (`_ExamRescueBanner`: compact planning card or secondary CTA strip)
+   8. *Study Goals & Milestones* (`_StudyGoalContainer`: weekly target hours tracker)
+3. **Refined Exam Rescue Active State**:
+   - Renders a compact planning card (does not duplicate Today's execution urgency hero).
+   - Surfaces core planning attributes: exam title, days remaining badge (`X days left`), linear progress bar, progress percentage, and dual compact CTAs: `View Roadmap` and `Adjust Plan`.
+4. **Refined Exam Rescue Inactive State**:
+   - Replaced large promotional banner with a compact secondary CTA strip.
+   - Constrained to visual height ~64–80dp: small bolt icon, title `Exam Rescue`, subtitle `"Exam close? Build a quick rescue plan."`, and compact `[Build Plan]` action button.
+   - Given lower visual priority than Due This Day and Exam Timeline.
+5. **Top Viewport Priority**:
+   - On standard mobile viewports, the top screen immediately frames: Current Goal, Date Strip, and the Due This Day header/first tasks or empty state with minimal or no scrolling required.
+6. **Target Exam Data Ownership**:
+   - Maintained canonical `academic_profile` data source. Plan acts as planning/progress presentation; future You tab serves as the Academic Profile entry point.
+7. **TaskLifecycle Continuity**:
+   - Zero changes to TaskLifecycle semantics. Canonical completion toggling, server timestamps, reminder cancellation, and overdue isolation fully preserved.
+
+#### Verification & Test Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (clean) | **PASS** |
+| `test/study_plan_view_test.dart` (Plan Polished Suite) | 28 / 28 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` | 23 / 23 | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
+| `test/exam_rescue_flow_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_quiz_integration_test.dart` | 18 / 18 | **PASS** |
+| `test/profile_structure_test.dart` | 23 / 23 | **PASS** |
+| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 13 / 13 | **PASS** |
+| `test/design_system_test.dart` | 48 / 48 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 12 / 12 | **PASS** |
+| `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
+| `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
+| **Combined Authoritative Pass Total** | **311 / 311** | **ALL PASS (100%)** |
+
+#### Physical Device Verification (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Physical Touch QA**:
+  - Selecting any date in the 31-day date strip immediately exposes that day's tasks in Due This Day with zero intervening banner obstruction.
+  - Inactive Exam Rescue card renders as a sleek, compact secondary strip (~68dp height) below the Timeline.
+  - Top viewport immediately surfaces Current Goal, Date Strip, and Due This Day.
+  - Zero layout clipping, zero jank, zero RenderFlex overflow across light and dark modes.
+- **Physical Screenshots Captured**:
+  - `physical_plan_polished_top.png`: Top viewport showing pinned header, intro, Current Goal card, Date Strip, and Due This Day immediately adjacent.
+  - `physical_plan_polished_mid.png`: Scrolled view showing Due This Day, Exam & Deadline Timeline, and compact Exam Rescue secondary CTA strip.
+  - `physical_plan_polished_bottom.png`: Bottom view showing Timeline, compact Exam Rescue, Goals & Milestones with Set Goal CTA, and bottom navigation bar.
+
+---
+
+### 7. Visual Composition Pass — Unified Planning Cockpit
+
+#### Motivation & Architectural Objectives
+Transformed the Study Plan tab from a "stack of separate cards" into a **unified planning cockpit** that feels visually grouped, calm, compact, and intentional:
+1. **Unified Planning Focus Surface (`AppPlanningFocusContainer`)**:
+   - Single shared outer surface encompassing:
+     - **Current Goal / Target Exam**
+     - **31-Day Date Strip**
+     - **Due This Day**
+   - Direct visual relationship: **Goal → Date → Tasks** reads as one continuous planning workflow.
+   - Styling: Soft neutral/tinted background (`AppColors.surfaceTintedSoft`), 20dp outer border radius, subtle border (`cardBorderSoft`), and zero heavy card-in-card visual clutter.
+   - Replaced redundant inner card elevations/borders with subtle single-pixel dividers (`AppColors.neutral100` / `AppColors.neutral800`).
+2. **Date Strip Internal Edge Bleed**:
+   - Date pills glide close to internal container edges with 14dp horizontal padding (`ListView.separated(padding: EdgeInsets.symmetric(horizontal: 14))`).
+   - Eliminated nested 16dp + 16dp double padding to ensure smooth, un-cramped horizontal date scrubbing.
+3. **Due This Day Cockpit Preview & Corrected See All Semantic Routing**:
+   - **3-Task Preview Limit**: When >3 tasks exist for the selected day, cockpit preview caps at 3 tasks, followed by a compact "See All (X)" action.
+   - **Corrected Semantic Routing**: Tapping "See All (X)" expands the Due This Day section inline to reveal all tasks for the currently selected day. It does **NOT** open Plan History (`_PlanHistoryScreen`).
+   - **Plan History Separation**: Completed task history remains cleanly isolated and accessible exclusively via the calendar action in the pinned header.
+   - **Inline Expand/Collapse**: When expanded, renders a compact "Show Less" toggle button to return to the 3-task collapsed preview. Changing the selected date resets the view to collapsed.
+   - **Preserved Semantics**: Preserves selected date, `TaskLifecycle.belongsToPlanDay`, canonical task completion (`done: true`, `completed: true`, server timestamp), and notification cancellation.
+   - **Accessible Checkbox Target**: Interactive task completion checkbox wrapped in a guaranteed $44\times 44\text{dp}$ touch target hit area.
+   - **Compact Empty State**: When no tasks are scheduled for the day, renders a compact check/calendar icon, `"No tasks planned for this day"`, and compact `[+ Task]` / `[+ Assignment]` buttons with $\ge 44\text{dp}$ hit bounds.
+4. **Short Mobile-Friendly Micro-Headings**:
+   - `"Exam & Deadline Timeline"` → `"Upcoming"` / `"আসন্ন"`
+   - `"Study Goals & Milestones"` → `"Weekly Goal"` / `"সাপ্তাহিক লক্ষ্য"`
+   - Full bilingual localization preserved across English and Bangla.
+5. **Exam Rescue as Companion Strip**:
+   - Reduced Upcoming → Exam Rescue gap to **10dp** companion spacing (while main section gaps remain 16dp).
+   - Exam Rescue visually presents as an actionable companion to Upcoming rather than a disconnected dashboard block.
+6. **Weekly Goal with Unfabricated Progress**:
+   - Shows real hours target and actual logged progress without fabricated filler percentages (starts at `0.0` when no study sessions are logged).
+   - Study goal title rows wrapped with `Expanded` and ellipsis handling to guarantee zero `RenderFlex` overflow on narrow viewports.
+7. **Strict Scope Integrity**:
+   - Visual and layout composition refinement only.
+   - Zero changes to business logic, TaskLifecycle, Firestore data model, task completion semantics, reminder behavior, or routing.
+   - No changes to `final-cleanup-release-v2`, `ui/today-redesign`, or `ui-redesign-v1`.
+
+#### Visual Hierarchy & Card Weight Tiers
+- **Tier 1 (Primary)**: Planning Focus Surface (`AppPlanningFocusContainer`: Goal + Date + Due)
+- **Tier 2 (Secondary)**: Upcoming & Weekly Goal
+- **Tier 3 (Companion)**: Exam Rescue compact strip
+
+#### Verification & Test Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (clean) | **PASS** |
+| `test/study_plan_view_test.dart` (Plan Redesign Suite) | 34 / 34 | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_flow_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_quiz_integration_test.dart` | 18 / 18 | **PASS** |
+| `test/profile_structure_test.dart` | 23 / 23 | **PASS** |
+| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 13 / 13 | **PASS** |
+| `test/design_system_test.dart` | 48 / 48 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 12 / 12 | **PASS** |
+| `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
+| `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
+| `test/exam_rescue_models_test.dart` | 68 / 68 | **PASS** |
+| **Combined Authoritative Pass Total** | **326 / 326** | **ALL PASS (100%)** |
+
+#### Physical Device Verification (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Physical Touch QA**:
+  - **Planning Focus Cockpit**: Goal, Date Strip, and Due This Day visually unified inside the single soft-tinted container with clean 1px internal dividers.
+  - **Date Strip Glide**: Horizontal scrolling glides comfortably close to the container's 14dp internal padding edge without clipping.
+  - **Corrected See All Semantic Verification**:
+    - Chose a day with >3 tasks.
+    - Confirmed only the first 3 tasks are rendered in the cockpit initially with a compact "See All (X)" action.
+    - Tapped "See All (X)".
+    - Confirmed all tasks rendered are strictly for that selected day.
+    - Confirmed Plan History screen is **NOT** opened (no routing to history, header stays in place).
+    - Tapped "Show Less" and confirmed list collapses back cleanly to 3 preview items.
+    - Selected another date and confirmed list resets to collapsed state.
+  - **Plan History Header Action**: Tapped calendar icon in pinned header and confirmed it separately and cleanly opens completed task History.
+  - **Compact Empty State**: Clean compact empty state when no tasks are scheduled for the day.
+  - **Upcoming & Companion Rescue**: Upcoming deadlines render cleanly followed immediately by Exam Rescue with 10dp companion spacing.
+  - **Weekly Goal**: Compact hours tracker renders smoothly with zero overflow on narrow screens.
+  - **Responsive Layout**: Verified 320dp, 360dp, 390dp, and 412dp with 0 overflows.
+- **Physical Screenshots Captured**:
+  - `physical_plan_composition_top.png`: Top viewport showing pinned header, intro, and the unified Planning Focus Container (Current Goal, 31-Day Date Strip, and Due This Day header/tasks).
+  - `physical_plan_composition_mid.png`: Scrolled middle view showing Due This Day, Upcoming section, and companion Exam Rescue strip.
+  - `physical_plan_composition_bottom.png`: Scrolled bottom view showing Upcoming, Exam Rescue, Weekly Goal with edit action, and bottom navigation bar.
+
+---
+
+### 8. Authoritative Plan Architecture & Normalization
+
+The newest architecture implemented on `ui/plan-redesign` is the authoritative source of truth for Study Mode → Plan:
+- **Core Concept**: Plan = Organize
+- **Header**: Contextual pinned `AppStudyHeader` (outside scroll, ~46dp visual height, logo, `[EN | বাংলা]` toggle, $\ge 44\text{dp}$ touch targets)
+- **Header Search**: Hidden (no search icon displayed on Plan)
+- **Plan History**: Cleanly separated action in header (calendar/history icon) opening dedicated completed task history
+- **Unified Planning Focus Cockpit (`AppPlanningFocusContainer`)**:
+  - Current Goal (`_CurrentGoalCard`): Academic profile target exam presentation
+  - 31-Day Date Strip (`_DateStrip`): Internal edge bleed, smooth horizontal scrolling, "Today" shortcut
+  - Due This Day (`_PlannerTasksSection`): Immediately adjacent to date strip, canonical `TaskLifecycle`
+- **Cockpit Preview & Semantic Expand**:
+  - 3-task initial preview when >3 tasks scheduled for selected day
+  - Compact "See All (X)" action expands selected day's tasks **INLINE**
+  - "Show Less" collapses back to 3-task preview; switching date resets to collapsed
+  - **See All NEVER opens Plan History** (Plan History remains strictly accessed via header calendar action)
+- **Upcoming (`_DeadlineTimelineSection`)**: Chronological milestones and exam deadlines
+- **Companion Exam Rescue (`_ExamRescueBanner`)**: Compact companion card (active roadmap or ~68dp inactive build prompt with 10dp companion spacing)
+- **Weekly Goal (`_StudyGoalContainer`)**: Real hours target and actual logged study progress with zero overflow
+- **Task Lifecycle**: Canonical `TaskLifecycle` completely unchanged (`done: true`, `completed: true`, server timestamp, reminder cancellation, overdue isolation)
+- **Navigation & State**: Shell `IndexedStack` preservation across tab switching
+- **Physical QA**: Passed on Infinix X665E (Android 12, physical device)
+- **User Approval**: **YES** (Physically approved by user)
+
+### 9. Section Status
+- **Current Branch**: `ui/plan-redesign`
+- **Plan Status**: **APPROVED + READY FOR INTEGRATION MERGE**
 
