@@ -1,7 +1,7 @@
 # UI Redesign Progress Report
 
 ## Overview
-This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign` -> `ui/plan-redesign`).
+This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign` -> `ui/plan-redesign` -> `ui/community-redesign` -> `ui/you-redesign`).
 
 ### Core Study Navigation North Star
 
@@ -1308,6 +1308,121 @@ The newest architecture implemented on `ui/plan-redesign` is the authoritative s
 - **Current Branch**: `ui-redesign-v1`
 - **Community Status**: **COMMUNITY STATUS — APPROVED + MERGED INTO ui-redesign-v1**
 
+---
 
+## Study Mode → You
 
+### 1. North Star & Identity
+- **North Star**: `You = ME`
+- **Ownership Model**:
+  - The "You" tab is the student's personal command center, identity hub, academic profile, and settings anchor.
+  - While Today focuses on **execution (Do)**, Workspace on **materials (Study)**, Plan on **timeline (Organize)**, and Community on **peers (Connect)**, You focuses exclusively on **identity, personal progress, offline storage, configuration, and account integrity (Me)**.
+  - State is preserved seamlessly across bottom navigation tab switches via `GochanoShell`'s `IndexedStack`.
 
+### 2. Information Architecture (IA)
+The Study You experience implements a comprehensive 10-tier architectural hierarchy:
+1. **Pinned Contextual Header (`AppStudyHeader`)**:
+   - Pinned outside the scrolling body (`CustomScrollView`), anchoring the top boundary.
+   - Branded title `"You"` / `"আপনি"` with logo mark.
+   - Search action is **hidden** (`showSearch: false`) to avoid redundant search clutter, adhering to the Single Search Rule.
+   - Integrated notification bell indicator and language switcher `[EN | বাংলা]`.
+2. **Compact Profile Identity Block (`_ProfileIdentityCard`)**:
+   - Rounded card container with soft elevation.
+   - 64dp avatar with camera badge action, photo upload handling, and fallback initials (`RU`, `TA`).
+   - User display name with responsive `Wrap` for role badge (`Student` / `Member`), email, phone number, and institution / department metadata.
+   - Full-width `OutlinedButton` ("Edit Profile" / "প্রোফাইল সম্পাদন") with minimum 44dp touch target height, avoiding horizontal crampedness on narrow viewports.
+3. **Personal Study Snapshot (`_PersonalStudySnapshot`)**:
+   - 3-card metric cockpit:
+     - **Study Streak**: Active day count with fire icon.
+     - **Academic Health**: Unified health score with badge indicator.
+     - **Tasks Completed**: Total verified completed tasks across study sessions.
+4. **Academic Profile & Target Exam (`_AcademicProfileSection`)**:
+   - Displays academic affiliation: Class / Level, Education Board, Study Stream.
+   - Target Exam Status:
+     - Configured state: Displays target exam title (e.g., "BUET Admission 2027"), formatted target date, and days countdown badge. "Change Target" CTA.
+     - Unconfigured state: Welcoming empty card with "Set Target Exam" CTA.
+   - **Target Exam Unification**: Directly shares the canonical `ExamPlanScreen` configuration flow with Plan mode, ensuring single source of truth.
+5. **Achievements & Progress (`_AchievementsSection`)**:
+   - Displays real earned badges, stamps, and study milestones (e.g., "7-Day Streak", "Quiz Ace").
+   - Polite fallback state with motivational message when no badges have been unlocked yet.
+6. **Download Center (`_DownloadCenterSection`)**:
+   - Real offline storage accounting powered directly by `OfflineService`.
+   - Aggregates true file count and calculates exact human-readable byte sizes (B, KB, MB, GB).
+   - Lists recent offline study materials with individual file sizes, type icons, and one-tap delete action.
+   - "Manage Downloads" / "ম্যানেজ করুন" action navigating to full offline management.
+7. **Preferences & Settings (`_GroupedSettingsSection`)**:
+   - Clean grouped settings list with chevron indicators:
+     - **Language**: Current selection (`English` / `বাংলা`) with instant modal selector.
+     - **Appearance**: Current theme mode (`Light` / `Dark` / `System`).
+     - **App Mode**: Switch between Study Mode and Utility Mode via `showAppModeSelectorSheet`.
+     - **Reminders & Alarms**: Quick toggle for study notifications and exact alarm permissions.
+     - **AI Usage**: Displays AI query quota usage and links to detailed usage dialog.
+     - **Sync Status**: Displays cloud synchronization state with manual sync trigger.
+8. **Help & Support (`_HelpSupportSection`)**:
+   - FAQs & Documentation navigation.
+   - About Gochano dialog with version, copyright, and platform build information.
+9. **Account Actions (`_AccountActionsSection`)**:
+   - **Sign Out**: High-contrast outline action with confirmation bottom sheet/dialog to prevent accidental logouts.
+   - **Delete Account**: Destructive danger action with prominent warning dialog requiring explicit user confirmation.
+10. **Bottom Navigation & State Preservation**:
+    - Embedded within `GochanoShell` at tab index 4 with You highlighted.
+    - Preserves scroll position and active state when switching between Today, Workspace, Plan, Community, and You.
+
+### 3. Verification & Test Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (clean) | **PASS** |
+| `test/study_you_view_test.dart` (You Redesign Suite) | 27 / 27 | **PASS** |
+| `test/study_community_view_test.dart` (Community Redesign Suite) | 28 / 28 | **PASS** |
+| `test/community_phase7_test.dart` (Community API & Functional Suite) | 21 / 21 | **PASS** |
+| `test/community_reaction_regression_test.dart` | 4 / 4 | **PASS** |
+| `test/community_rebuild_step7_test.dart` | 28 / 28 | **PASS** |
+| `test/study_plan_view_test.dart` (Plan Suite) | 34 / 34 | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_flow_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_quiz_integration_test.dart` | 18 / 18 | **PASS** |
+| `test/profile_structure_test.dart` | 23 / 23 | **PASS** |
+| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 13 / 13 | **PASS** |
+| `test/design_system_test.dart` | 48 / 48 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 12 / 12 | **PASS** |
+| `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
+| `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
+| `test/exam_rescue_models_test.dart` | 68 / 68 | **PASS** |
+| **Combined Authoritative Pass Total** | **434 / 434** | **ALL PASS (100%)** |
+
+### 4. Responsiveness & Accessibility
+- **Screen Width Adaptability**:
+  - `320dp` (narrow devices): 0 RenderFlex overflows, cards and wrap layouts scale gracefully.
+  - `360dp`, `390dp`, `412dp`: Balanced gutters (16dp) and clear typography hierarchy.
+- **Accessible Text Scaling**:
+  - `1.5x` Text Scaling: Clean card layout with zero overflow.
+  - `2.0x` Extreme Accessibility Scaling: All headers, badges, and action buttons wrap and ellipsize cleanly without exceptions.
+- **Interactive Touch Targets**:
+  - All interactive buttons, switches, list tiles, and dialog triggers meet or exceed the mandatory $\ge 44\times 44\text{dp}$ touch target requirement.
+- **Dark Mode Support**:
+  - Fully integrated with `ThemeData.dark()`, using high-contrast surfaces, readable text hierarchy (`colors.textSecondary`), and dark-adapted borders.
+- **Bilingual Bengali Support**:
+  - Complete Bengali localization (`GochanoLanguage`) across profile labels, stats, academic profile, achievements, download center, settings, and account actions.
+
+### 5. Physical Device QA (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, density 320 / override 303).
+- **Physical Touch QA**:
+  - **Pinned Header**: Anchored at the top while body content scrolls underneath.
+  - **Profile Identity Block**: Displays avatar, name, student badge, contact, and full-width Edit button without clipping or horizontal overflow.
+  - **Cockpit Stats**: Displays 3 distinct metric cards (Streak, Health, Tasks Completed).
+  - **Academic Profile**: Target Exam card renders target status, days remaining, and routes cleanly to `ExamPlanScreen`.
+  - **Download Center**: Accurately computes and formats total downloaded bytes and file count, allowing individual item deletion and storage reclamation.
+  - **Grouped Settings**: Modals for Language, Appearance, App Mode, and AI usage open and respond cleanly.
+  - **Sign Out & Delete**: Safety confirmation dialogs prevent unintended destructive operations.
+  - **IndexedStack State Preservation**: Tapping You -> Today -> You preserves scroll position and state seamlessly.
+- **Physical Screenshots Captured**:
+  - `physical_you_top.png`: Top viewport showing pinned header, profile identity card with avatar and details, and personal study snapshot cockpit.
+  - `physical_you_mid.png`: Scrolled middle view showing academic profile with target exam countdown, achievements, and Download Center with real file byte sizes.
+  - `physical_you_bottom.png`: Scrolled bottom view showing grouped settings, help & support, account actions, and bottom navigation with You tab highlighted.
+
+### 6. Section Final Status
+- **Current Branch**: `ui/you-redesign`
+- **You Status**: **YOU REDESIGN — PHYSICAL QA PASSED — WAITING USER APPROVAL**
