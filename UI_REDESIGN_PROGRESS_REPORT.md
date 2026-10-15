@@ -1272,9 +1272,42 @@ The newest architecture implemented on `ui/plan-redesign` is the authoritative s
   - `physical_community_groups.png`: Study Groups mode view showing active groups, member counts, chat indicators, and the Shared Box bridge card.
   - `physical_community_bottom.png`: Scrolled bottom view showing footer, end of feed, and bottom navigation bar.
 
-### 9. Section Final Status
-- **Current Branch**: `ui/community-redesign`
-- **Community Status**: **COMMUNITY STATUS — APPROVED + READY FOR INTEGRATION MERGE**
+### 9. Approval & Integration Merge
+- **User Approval**: **YES** (Physically approved by user)
+- **Community Source Branch**: `ui/community-redesign`
+- **Approved Source HEAD**: `77a0675 docs(community): normalize Community documentation ahead of integration merge`
+- **Integration Target Branch**: `ui-redesign-v1`
+- **Merge Strategy**: Non-destructive merge (`git merge --no-ff ui/community-redesign -m "merge(ui): approve Study Community redesign"`)
+- **Merge Commit Hash**: `c11e83c`
+- **Pre-Merge QA**:
+  - `flutter analyze lib`: 0 issues found (clean)
+  - 18 Authoritative Regression Suites: **407 / 407 passed (100%)**
+- **Post-Merge QA**:
+  - `flutter analyze lib`: 0 issues found (clean)
+  - 18 Authoritative Regression Suites: **407 / 407 passed (100%)**
+- **Explicit Invariant Verification**:
+  - Today dashboard: Unchanged (14/14 tests pass)
+  - Workspace: Unchanged (32/32 tests pass)
+  - Plan final cockpit: Unchanged (34/34 tests pass)
+  - Community architecture: Intact (28/28 redesign tests pass, 53/53 existing tests pass)
+  - For You semantic wording: Truthful discovery feed presentation (no false ML claims)
+  - Study Groups & Shared Box bridge: Intact and tested
+  - TaskLifecycle: Unchanged (21/21 tests pass)
+  - Shell bottom navigation: Unchanged (12/12 tests pass)
+  - Shell IndexedStack: Preserved
+- **Physical Device QA**: Verified on physical Infinix X665E (Android 12, physical resolution 720×1612 px).
+- **Physical Screenshots**:
+  - `physical_community_top.png`
+  - `physical_community_mid.png`
+  - `physical_community_groups.png`
+  - `physical_community_bottom.png`
+- **Risks & Gaps Truthfully Handled**: Limit-based fetching documented, client-side deduplication active, joined groups queried cleanly.
+- **Working Tree State**: Clean (`nothing to commit, working tree clean`)
+
+### 10. Section Final Status
+- **Current Branch**: `ui-redesign-v1`
+- **Community Status**: **COMMUNITY STATUS — APPROVED + MERGED INTO ui-redesign-v1**
+
 
 
 
