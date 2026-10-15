@@ -59,7 +59,7 @@ class CommunityScreen extends StatelessWidget {
       ),
       // Universal Quick Add FAB is provided by GochanoShell.
       // No local floatingActionButton here to avoid overlap.
-      body: const CommunityView(),
+      body: const CommunityView(showHeader: false),
     );
   }
 }
