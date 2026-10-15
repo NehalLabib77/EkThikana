@@ -1189,8 +1189,9 @@ The newest architecture implemented on `ui/plan-redesign` is the authoritative s
 | **Composer (Ask / Share)** | Yes | `/api/community/posts` (POST) | REST API (`ApiService`) | `showQuestionComposerSheet` | Floating FAB / Sheet | Compact top card entry point (`Ask a question or share something…`) |
 
 ### 4. Missing Backend Capabilities & Architecture Gaps Truthfully Noted
+- **No Algorithmic or ML-Based Personalization Engine**: "For You" is the primary Community discovery feed presentation. It displays standard recent community discussions and is not backed by machine learning recommendations or personalized ranking algorithms.
 - **No Direct Post Upvote / Downvote REST Endpoint**: The existing backend does not expose an arbitrary downvote endpoint; it supports marking answers as `useful` (`/api/community/posts/:id/useful`). No fake downvote buttons or fabricated reaction counts were added to the feed cards.
-- **No Full Cursor-Based Server Pagination**: The backend endpoint accepts a `limit` parameter (capped at 50) without a tokenized cursor. The pagination architecture was designed with expanding limits and robust client-side post ID deduplication to prevent duplicate posts while scrolling.
+- **No True Cursor Pagination**: The server endpoint (`/api/community/posts`) does not support tokenized cursor pagination and enforces a `limit` ceiling (max 50). The client uses expanding limit-based fetching with client-side post ID deduplication to prevent duplicate items during scrolling.
 - **No Global Public Group Discovery Directory**: Firestore currently queries joined groups (`myGroups` or member list). Rather than faking a global public directory, the UI truthfully presents the student's joined groups, a "New group" creation action, and an "Invite code" join flow.
 
 ### 5. Community Architecture Decisions
@@ -1206,7 +1207,7 @@ The newest architecture implemented on `ui/plan-redesign` is the authoritative s
    - Subtitle: `"Learn together. Share ideas. Stay connected."` / `"একসাথে শিখুন। ভাবনা শেয়ার করুন। যুক্ত থাকুন।"`
 4. **Segmented Content Switcher**:
    - 3 clean content modes:
-     - **For You (`for_you`)**: Curated discovery feed of peer questions and discussions.
+     - **For You (`for_you`)**: The primary Community discovery feed presentation of peer questions and discussions.
      - **Discussions (`discussions`)**: Subject-categorized question bank with filter chips (HSC, SSC, Admission, General) and sorting (Recent / Popular).
      - **Study Groups (`groups`)**: Active study groups, member counts, chat status, and Shared Box companion card.
 5. **Compact Composer Entry Point**:
@@ -1273,6 +1274,7 @@ The newest architecture implemented on `ui/plan-redesign` is the authoritative s
 
 ### 9. Section Final Status
 - **Current Branch**: `ui/community-redesign`
-- **Community Status**: **COMMUNITY REDESIGN — PHYSICAL QA PASSED — WAITING USER APPROVAL**
+- **Community Status**: **COMMUNITY STATUS — APPROVED + READY FOR INTEGRATION MERGE**
+
 
 
