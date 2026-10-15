@@ -1,7 +1,7 @@
 # UI Redesign Progress Report
 
 ## Overview
-This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign`).
+This document tracks the incremental, page-by-page UI redesign of the Gochano Flutter mobile application across protected git branches (`final-cleanup-release-v2` -> `ui-redesign-v1` -> `ui/today-redesign` -> `ui/workspace-redesign` -> `ui/plan-redesign`).
 
 ### Core Study Navigation North Star
 
@@ -1097,20 +1097,31 @@ Transformed the Study Plan tab from a "stack of separate cards" into a **unified
 
 ---
 
-### 8. Section Final Status
+### 8. Authoritative Plan Architecture & Normalization
+
+The newest architecture implemented on `ui/plan-redesign` is the authoritative source of truth for Study Mode → Plan:
+- **Core Concept**: Plan = Organize
+- **Header**: Contextual pinned `AppStudyHeader` (outside scroll, ~46dp visual height, logo, `[EN | বাংলা]` toggle, $\ge 44\text{dp}$ touch targets)
+- **Header Search**: Hidden (no search icon displayed on Plan)
+- **Plan History**: Cleanly separated action in header (calendar/history icon) opening dedicated completed task history
+- **Unified Planning Focus Cockpit (`AppPlanningFocusContainer`)**:
+  - Current Goal (`_CurrentGoalCard`): Academic profile target exam presentation
+  - 31-Day Date Strip (`_DateStrip`): Internal edge bleed, smooth horizontal scrolling, "Today" shortcut
+  - Due This Day (`_PlannerTasksSection`): Immediately adjacent to date strip, canonical `TaskLifecycle`
+- **Cockpit Preview & Semantic Expand**:
+  - 3-task initial preview when >3 tasks scheduled for selected day
+  - Compact "See All (X)" action expands selected day's tasks **INLINE**
+  - "Show Less" collapses back to 3-task preview; switching date resets to collapsed
+  - **See All NEVER opens Plan History** (Plan History remains strictly accessed via header calendar action)
+- **Upcoming (`_DeadlineTimelineSection`)**: Chronological milestones and exam deadlines
+- **Companion Exam Rescue (`_ExamRescueBanner`)**: Compact companion card (active roadmap or ~68dp inactive build prompt with 10dp companion spacing)
+- **Weekly Goal (`_StudyGoalContainer`)**: Real hours target and actual logged study progress with zero overflow
+- **Task Lifecycle**: Canonical `TaskLifecycle` completely unchanged (`done: true`, `completed: true`, server timestamp, reminder cancellation, overdue isolation)
+- **Navigation & State**: Shell `IndexedStack` preservation across tab switching
+- **Physical QA**: Passed on Infinix X665E (Android 12, physical device)
+- **User Approval**: **YES** (Physically approved by user)
+
+### 9. Section Status
 - **Current Branch**: `ui/plan-redesign`
-- **Plan Status**: **PLAN REDESIGN — VISUAL COMPOSITION PHYSICAL QA PASSED — WAITING USER APPROVAL**
-
-
-
-
-
-
-
-
-
-
-
-
-
+- **Plan Status**: **APPROVED + READY FOR INTEGRATION MERGE**
 
