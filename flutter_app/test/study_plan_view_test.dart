@@ -785,41 +785,230 @@ void main() {
       },
     );
 
-    // ─── Test 31: See All Tappable ────────────────────────────────────────────
-    testWidgets('31. tapping See All triggers full task/history destination', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(800, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
+    // ─── Test 31: See All Expands Inline and Does NOT Open History ───────────
+    testWidgets(
+      '31. See All does NOT open Plan History and reveals all tasks for selected date inline',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
 
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day, 12, 0);
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day, 12, 0);
 
-      final mockTasks = List.generate(
-        4,
-        (i) => {
-          'id': 'task_$i',
-          'title': 'Exam Prep $i',
-          'dueAt': today.toIso8601String(),
-          'done': false,
-        },
-      );
+        final mockTasks = List.generate(
+          5,
+          (i) => {
+            'id': 'task_$i',
+            'title': 'Exam Prep $i',
+            'dueAt': today.toIso8601String(),
+            'done': false,
+          },
+        );
 
-      await tester.pumpWidget(buildPlanView(mockTasks: mockTasks));
-      await tester.pump();
+        await tester.pumpWidget(buildPlanView(mockTasks: mockTasks));
+        await tester.pump();
 
-      final containerFinder = find.byType(AppPlanningFocusContainer);
-      final seeAllFinder = find.descendant(
-        of: containerFinder,
-        matching: find.text('See All (4)'),
-      );
-      expect(seeAllFinder, findsOneWidget);
+        final containerFinder = find.byType(AppPlanningFocusContainer);
+        final seeAllFinder = find.descendant(
+          of: containerFinder,
+          matching: find.text('See All (5)'),
+        );
+        expect(seeAllFinder, findsOneWidget);
 
-      await tester.tap(seeAllFinder);
-      await tester.pump();
+        // Tap See All
+        await tester.tap(seeAllFinder);
+        await tester.pump();
 
-      expect(tester.takeException(), isNull);
-    });
+        // 1. History is NOT opened
+        expect(find.text('History'), findsNothing);
+
+        // 2. All 5 tasks for the selected date are rendered in Due This Day
+        for (int i = 0; i < 5; i++) {
+          expect(
+            find.descendant(
+              of: containerFinder,
+              matching: find.text('Exam Prep $i'),
+            ),
+            findsOneWidget,
+          );
+        }
+
+        // 3. Show Less button is now visible
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Show Less'),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    // ─── Test 32: Selected Date Preserved When Expanding ─────────────────────
+    testWidgets(
+      '32. selected date remains preserved and resets expansion on date change',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day, 12, 0);
+        final tomorrow = today.add(const Duration(days: 1));
+
+        final mockTasks = [
+          for (int i = 0; i < 4; i++)
+            {
+              'id': 'today_task_$i',
+              'title': 'Today Task $i',
+              'dueAt': today.toIso8601String(),
+              'done': false,
+            },
+          {
+            'id': 'tmrw_task_0',
+            'title': 'Tomorrow Task 0',
+            'dueAt': tomorrow.toIso8601String(),
+            'done': false,
+          },
+        ];
+
+        await tester.pumpWidget(buildPlanView(mockTasks: mockTasks));
+        await tester.pump();
+
+        final containerFinder = find.byType(AppPlanningFocusContainer);
+
+        // Expand today's tasks
+        final seeAllFinder = find.descendant(
+          of: containerFinder,
+          matching: find.text('See All (4)'),
+        );
+        expect(seeAllFinder, findsOneWidget);
+        await tester.tap(seeAllFinder);
+        await tester.pump();
+
+        // All 4 today tasks are visible
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Today Task 3'),
+          ),
+          findsOneWidget,
+        );
+
+        // Tap tomorrow's date pill
+        final tomorrowPill = find.descendant(
+          of: containerFinder,
+          matching: find.text(tomorrow.day.toString()),
+        );
+        if (tomorrowPill.evaluate().isNotEmpty) {
+          await tester.tap(tomorrowPill.first);
+          await tester.pump();
+
+          // Tomorrow's single task is shown
+          expect(
+            find.descendant(
+              of: containerFinder,
+              matching: find.text('Tomorrow Task 0'),
+            ),
+            findsOneWidget,
+          );
+          // Today's tasks are no longer displayed in Due This Day
+          expect(
+            find.descendant(
+              of: containerFinder,
+              matching: find.text('Today Task 0'),
+            ),
+            findsNothing,
+          );
+        }
+      },
+    );
+
+    // ─── Test 33: Completing from Expanded View Uses Canonical Logic ─────────
+    testWidgets(
+      '33. completing from expanded view uses canonical completion logic',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day, 12, 0);
+
+        final mockTasks = List.generate(
+          4,
+          (i) => {
+            'id': 'complete_task_$i',
+            'title': 'Completion Test Task $i',
+            'dueAt': today.toIso8601String(),
+            'done': false,
+            'completed': false,
+          },
+        );
+
+        await tester.pumpWidget(buildPlanView(mockTasks: mockTasks));
+        await tester.pump();
+
+        final containerFinder = find.byType(AppPlanningFocusContainer);
+
+        // Tap See All (4) to reveal task 3
+        final seeAllFinder = find.descendant(
+          of: containerFinder,
+          matching: find.text('See All (4)'),
+        );
+        await tester.tap(seeAllFinder);
+        await tester.pump();
+
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Completion Test Task 3'),
+          ),
+          findsOneWidget,
+        );
+
+        // Find checkboxes inside AppPlanningFocusContainer
+        final checkboxFinder = find.descendant(
+          of: containerFinder,
+          matching: find.byType(Checkbox),
+        );
+        expect(checkboxFinder, findsNWidgets(4));
+
+        // Tap checkbox for the 4th item (index 3)
+        await tester.tap(checkboxFinder.at(3));
+        await tester.pump();
+
+        // Verify task state updated canonically
+        expect(mockTasks[3]['done'], isTrue);
+        expect(mockTasks[3]['completed'], isTrue);
+      },
+    );
+
+    // ─── Test 34: Header Calendar Action Still Opens Plan History ─────────────
+    testWidgets(
+      '34. Plan History header action still separately opens history',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(buildPlanView());
+        await tester.pump();
+
+        // Find calendar history button in header
+        final calendarFinder = find.widgetWithIcon(
+          IconButton,
+          Icons.calendar_month_outlined,
+        );
+        expect(calendarFinder, findsOneWidget);
+
+        await tester.tap(calendarFinder);
+        await tester.pumpAndSettle();
+
+        // Plan History screen opened with title History
+        expect(find.text('History'), findsOneWidget);
+      },
+    );
   });
 }

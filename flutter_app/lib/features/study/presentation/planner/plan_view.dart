@@ -1246,18 +1246,38 @@ class _ExamRescueBanner extends StatelessWidget {
 // Tasks Section for Selected Day
 // ---------------------------------------------------------------------------
 
-class _PlannerTasksSection extends StatelessWidget {
-  const _PlannerTasksSection({required this.selectedDay, this.mockTasks});
+class _PlannerTasksSection extends StatefulWidget {
+  const _PlannerTasksSection({
+    required this.selectedDay,
+    this.mockTasks,
+  });
 
   final DateTime selectedDay;
   final List<Map<String, dynamic>>? mockTasks;
 
   @override
+  State<_PlannerTasksSection> createState() => _PlannerTasksSectionState();
+}
+
+class _PlannerTasksSectionState extends State<_PlannerTasksSection> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _PlannerTasksSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedDay.year != widget.selectedDay.year ||
+        oldWidget.selectedDay.month != widget.selectedDay.month ||
+        oldWidget.selectedDay.day != widget.selectedDay.day) {
+      _expanded = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    if (mockTasks != null) {
-      return _buildTaskList(context, mockTasks!, colors);
+    if (widget.mockTasks != null) {
+      return _buildTaskList(context, widget.mockTasks!, colors);
     }
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -1298,6 +1318,7 @@ class _PlannerTasksSection extends StatelessWidget {
     List<Map<String, dynamic>> rawDocs,
     dynamic colors,
   ) {
+    final selectedDay = widget.selectedDay;
     final dayDocs = <Map<String, dynamic>>[];
     for (final data in rawDocs) {
       if (TaskLifecycle.belongsToPlanDay(data, selectedDay)) {
@@ -1314,7 +1335,7 @@ class _PlannerTasksSection extends StatelessWidget {
       return ad.compareTo(bd);
     });
 
-    final previewDocs = dayDocs.take(3).toList();
+    final renderedDocs = _expanded ? dayDocs : dayDocs.take(3).toList();
     final hasMore = dayDocs.length > 3;
 
     return Padding(
@@ -1434,9 +1455,9 @@ class _PlannerTasksSection extends StatelessWidget {
           else ...[
             Column(
               children: [
-                for (final doc in previewDocs) ...[
+                for (final doc in renderedDocs) ...[
                   _PlanTaskCard(data: doc),
-                  if (doc != previewDocs.last)
+                  if (doc != renderedDocs.last)
                     Divider(
                       height: 1,
                       color: colors.border.withValues(alpha: 0.3),
@@ -1444,38 +1465,83 @@ class _PlannerTasksSection extends StatelessWidget {
                 ],
               ],
             ),
-            if (hasMore) ...[
+            if (hasMore && !_expanded) ...[
               const SizedBox(height: 4),
               Center(
-                child: InkWell(
-                  onTap: () => openPlanHistory(context),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => setState(() => _expanded = true),
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              GochanoLanguage.text(
+                                'See All (${dayDocs.length})',
+                                'সব দেখুন (${GochanoLanguage.formatNumber(dayDocs.length)})',
+                              ),
+                              style: context.type.caption.copyWith(
+                                color: colors.brand,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: colors.brand,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          GochanoLanguage.text(
-                            'See All (${dayDocs.length})',
-                            'সব দেখুন (${GochanoLanguage.formatNumber(dayDocs.length)})',
-                          ),
-                          style: context.type.caption.copyWith(
-                            color: colors.brand,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
+                  ),
+                ),
+              ),
+            ] else if (_expanded && dayDocs.length > 3) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => setState(() => _expanded = false),
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 11,
-                          color: colors.brand,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              GochanoLanguage.text('Show Less', 'সংক্ষিপ্ত করুন'),
+                              style: context.type.caption.copyWith(
+                                color: colors.brand,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.keyboard_arrow_up_rounded,
+                              size: 16,
+                              color: colors.brand,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -1492,22 +1558,27 @@ class _PlannerTasksSection extends StatelessWidget {
 // Plan Task Card & Row
 // ---------------------------------------------------------------------------
 
-class _PlanTaskCard extends StatelessWidget {
+class _PlanTaskCard extends StatefulWidget {
   const _PlanTaskCard({required this.data});
 
   final Map<String, dynamic> data;
 
   @override
+  State<_PlanTaskCard> createState() => _PlanTaskCardState();
+}
+
+class _PlanTaskCardState extends State<_PlanTaskCard> {
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final done = TaskLifecycle.isTaskCompleted(data);
-    final title = data['title']?.toString() ?? 'Task';
-    final due = TaskLifecycle.parseDateTime(data['dueAt']);
-    final isAssignment = data['type']?.toString() == 'assignment';
+    final done = TaskLifecycle.isTaskCompleted(widget.data);
+    final title = widget.data['title']?.toString() ?? 'Task';
+    final due = TaskLifecycle.parseDateTime(widget.data['dueAt']);
+    final isAssignment = widget.data['type']?.toString() == 'assignment';
 
-    final isRescue = data['source'] == 'exam_rescue';
-    final rescueItemType = data['rescueItemType']?.toString();
-    final rescueSessionId = data['rescueSessionId']?.toString();
+    final isRescue = widget.data['source'] == 'exam_rescue';
+    final rescueItemType = widget.data['rescueItemType']?.toString();
+    final rescueSessionId = widget.data['rescueSessionId']?.toString();
     final isRescueQuiz =
         isRescue &&
         rescueItemType == 'quiz' &&
@@ -1527,8 +1598,20 @@ class _PlanTaskCard extends StatelessWidget {
                 height: 24,
                 child: Checkbox(
                   value: done,
-                  onChanged: (value) =>
-                      _toggleDone(context, data, value ?? false),
+                  onChanged: (value) async {
+                    final newVal = value ?? false;
+                    setState(() {
+                      widget.data['done'] = newVal;
+                      widget.data['completed'] = newVal;
+                      if (newVal) {
+                        widget.data['completedAt'] =
+                            DateTime.now().toIso8601String();
+                      } else {
+                        widget.data.remove('completedAt');
+                      }
+                    });
+                    await _toggleDone(context, widget.data, newVal);
+                  },
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1559,7 +1642,7 @@ class _PlanTaskCard extends StatelessWidget {
           Expanded(
             child: InkWell(
               onTap: () {
-                final ref = data['__ref'] as DocumentReference?;
+                final ref = widget.data['__ref'] as DocumentReference?;
                 if (ref != null) {
                   // Reopen edit sheet if real doc
                 }
@@ -1604,7 +1687,7 @@ class _PlanTaskCard extends StatelessWidget {
               )
             else
               OutlinedButton(
-                onPressed: () => _handleTakeQuizFromData(context, data),
+                onPressed: () => _handleTakeQuizFromData(context, widget.data),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(
@@ -1633,6 +1716,14 @@ class _PlanTaskCard extends StatelessWidget {
     final ref = data['__ref'] as DocumentReference<Map<String, dynamic>>?;
     final id = data['__docId']?.toString() ?? '';
 
+    data['done'] = done;
+    data['completed'] = done;
+    if (done) {
+      data['completedAt'] = DateTime.now().toIso8601String();
+    } else {
+      data.remove('completedAt');
+    }
+
     if (ref != null) {
       try {
         await ref.update({
@@ -1657,6 +1748,10 @@ class _PlanTaskCard extends StatelessWidget {
           showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
         }
       }
+    } else if (id.isNotEmpty && done) {
+      try {
+        await NotificationService.cancelTask(id);
+      } catch (_) {}
     }
   }
 

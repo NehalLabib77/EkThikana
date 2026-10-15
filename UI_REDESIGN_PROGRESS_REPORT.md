@@ -1024,8 +1024,12 @@ Transformed the Study Plan tab from a "stack of separate cards" into a **unified
 2. **Date Strip Internal Edge Bleed**:
    - Date pills glide close to internal container edges with 14dp horizontal padding (`ListView.separated(padding: EdgeInsets.symmetric(horizontal: 14))`).
    - Eliminated nested 16dp + 16dp double padding to ensure smooth, un-cramped horizontal date scrubbing.
-3. **Due This Day Cockpit Preview & Compact Empty State**:
-   - **3-Task Preview Limit**: When many tasks exist for the selected day, cockpit preview caps at 3 tasks, followed by a compact "See All (X)" action leading to `openPlanHistory`.
+3. **Due This Day Cockpit Preview & Corrected See All Semantic Routing**:
+   - **3-Task Preview Limit**: When >3 tasks exist for the selected day, cockpit preview caps at 3 tasks, followed by a compact "See All (X)" action.
+   - **Corrected Semantic Routing**: Tapping "See All (X)" expands the Due This Day section inline to reveal all tasks for the currently selected day. It does **NOT** open Plan History (`_PlanHistoryScreen`).
+   - **Plan History Separation**: Completed task history remains cleanly isolated and accessible exclusively via the calendar action in the pinned header.
+   - **Inline Expand/Collapse**: When expanded, renders a compact "Show Less" toggle button to return to the 3-task collapsed preview. Changing the selected date resets the view to collapsed.
+   - **Preserved Semantics**: Preserves selected date, `TaskLifecycle.belongsToPlanDay`, canonical task completion (`done: true`, `completed: true`, server timestamp), and notification cancellation.
    - **Accessible Checkbox Target**: Interactive task completion checkbox wrapped in a guaranteed $44\times 44\text{dp}$ touch target hit area.
    - **Compact Empty State**: When no tasks are scheduled for the day, renders a compact check/calendar icon, `"No tasks planned for this day"`, and compact `[+ Task]` / `[+ Assignment]` buttons with $\ge 44\text{dp}$ hit bounds.
 4. **Short Mobile-Friendly Micro-Headings**:
@@ -1052,7 +1056,7 @@ Transformed the Study Plan tab from a "stack of separate cards" into a **unified
 | Test Suite | Tests Passed | Status |
 |---|---|---|
 | `flutter analyze lib` | 0 issues found (clean) | **PASS** |
-| `test/study_plan_view_test.dart` (Plan Redesign Suite) | 31 / 31 | **PASS** |
+| `test/study_plan_view_test.dart` (Plan Redesign Suite) | 34 / 34 | **PASS** |
 | `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
 | `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
 | `test/exam_rescue_active_experience_test.dart` | 23 / 23 | **PASS** |
@@ -1066,14 +1070,22 @@ Transformed the Study Plan tab from a "stack of separate cards" into a **unified
 | `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
 | `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
 | `test/exam_rescue_models_test.dart` | 68 / 68 | **PASS** |
-| **Combined Authoritative Pass Total** | **323 / 323** | **ALL PASS (100%)** |
+| **Combined Authoritative Pass Total** | **326 / 326** | **ALL PASS (100%)** |
 
 #### Physical Device Verification (Infinix X665E)
 - **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
 - **Physical Touch QA**:
   - **Planning Focus Cockpit**: Goal, Date Strip, and Due This Day visually unified inside the single soft-tinted container with clean 1px internal dividers.
   - **Date Strip Glide**: Horizontal scrolling glides comfortably close to the container's 14dp internal padding edge without clipping.
-  - **Task Preview Limit**: When >3 tasks exist, the first 3 tasks are rendered in the cockpit with a clean "See All (X)" button routing to history.
+  - **Corrected See All Semantic Verification**:
+    - Chose a day with >3 tasks.
+    - Confirmed only the first 3 tasks are rendered in the cockpit initially with a compact "See All (X)" action.
+    - Tapped "See All (X)".
+    - Confirmed all tasks rendered are strictly for that selected day.
+    - Confirmed Plan History screen is **NOT** opened (no routing to history, header stays in place).
+    - Tapped "Show Less" and confirmed list collapses back cleanly to 3 preview items.
+    - Selected another date and confirmed list resets to collapsed state.
+  - **Plan History Header Action**: Tapped calendar icon in pinned header and confirmed it separately and cleanly opens completed task History.
   - **Compact Empty State**: Clean compact empty state when no tasks are scheduled for the day.
   - **Upcoming & Companion Rescue**: Upcoming deadlines render cleanly followed immediately by Exam Rescue with 10dp companion spacing.
   - **Weekly Goal**: Compact hours tracker renders smoothly with zero overflow on narrow screens.
