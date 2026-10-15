@@ -1121,7 +1121,36 @@ The newest architecture implemented on `ui/plan-redesign` is the authoritative s
 - **Physical QA**: Passed on Infinix X665E (Android 12, physical device)
 - **User Approval**: **YES** (Physically approved by user)
 
-### 9. Section Status
-- **Current Branch**: `ui/plan-redesign`
-- **Plan Status**: **APPROVED + READY FOR INTEGRATION MERGE**
+### 9. Approval & Integration Merge
+- **User Approval**: **YES** (Physically approved by user)
+- **Plan Source Branch**: `ui/plan-redesign`
+- **Approved Source HEAD**: `bd14bf2 docs(plan): normalize Plan documentation ahead of integration merge` (incorporating `fbaeee5 fix(plan): correct See All semantic routing to expand day tasks inline`)
+- **Integration Target Branch**: `ui-redesign-v1`
+- **Merge Strategy**: Non-destructive merge (`git merge --no-ff ui/plan-redesign -m "merge(ui): approve Study Plan redesign"`)
+- **Merge Commit Hash**: `e266e35`
+- **Pre-Merge QA**:
+  - `flutter analyze lib`: 0 issues found (clean)
+  - 14 Authoritative Regression Suites: **326 / 326 passed (100%)**
+- **Post-Merge QA**:
+  - `flutter analyze lib`: 0 issues found (clean)
+  - 14 Authoritative Regression Suites: **326 / 326 passed (100%)**
+- **Explicit Invariant Verification**:
+  - Today dashboard: Unchanged (14/14 tests pass)
+  - Workspace: Unchanged (32/32 tests pass)
+  - Plan final cockpit: Intact (34/34 tests pass)
+  - Plan See All semantic fix: Intact (inline expansion, no routing to Plan History)
+  - Plan History: Still separate via header calendar action
+  - TaskLifecycle: Unchanged (21/21 tests pass)
+  - Shell bottom navigation: Unchanged (12/12 tests pass)
+  - Shell IndexedStack: Unchanged
+- **Physical Device QA**: Verified on physical Infinix X665E (Android 12, physical resolution 720×1612 px).
+- **Physical Screenshots**:
+  - `physical_plan_composition_top.png`
+  - `physical_plan_composition_mid.png`
+  - `physical_plan_composition_bottom.png`
+- **Working Tree State**: Clean (`nothing to commit, working tree clean`)
+
+### 10. Section Final Status
+- **Current Branch**: `ui-redesign-v1`
+- **Plan Status**: **APPROVED + MERGED INTO ui-redesign-v1**
 
