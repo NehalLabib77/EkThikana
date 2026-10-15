@@ -336,6 +336,66 @@ void main() {
       expect(find.text('No offline study materials downloaded yet.'), findsOneWidget);
     });
 
+    testWidgets('Requirement 18b: Manage Downloads sheet shows empty state with Browse Materials button when no files exist', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildYouView(
+          mockOfflineEntries: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final manageBtn = find.text('Manage');
+      await tester.ensureVisible(manageBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(manageBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Manage Offline Files'), findsOneWidget);
+      expect(find.text('No offline downloads yet'), findsOneWidget);
+      expect(find.text('Browse Materials'), findsOneWidget);
+    });
+
+    testWidgets('Requirement 18c: Manage Downloads sheet renders file list with formatted sizes and Clear All action', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildYouView(
+          mockOfflineEntries: [
+            OfflineEntry(
+              materialId: 'mat_test_1',
+              title: 'Calculus Notes',
+              fileName: 'calculus.pdf',
+              localPath: '/tmp/calculus.pdf',
+              size: 512000,
+              mimeType: 'application/pdf',
+              savedAt: DateTime(2026, 10, 1),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final manageBtn = find.text('Manage');
+      await tester.ensureVisible(manageBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(manageBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Manage Offline Files'), findsOneWidget);
+      expect(find.text('Calculus Notes'), findsOneWidget);
+      expect(find.text('500.0 KB • Saved offline'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('Clear All'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+    });
+
     testWidgets('Requirement 21 & 22: Grouped settings shows Language and Appearance current values', (
       tester,
     ) async {

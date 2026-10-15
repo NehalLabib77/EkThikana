@@ -45,6 +45,8 @@ import '../../../shared/widgets/gochano_controls.dart';
 import '../../../widgets/sync_status_sheet.dart';
 import '../../auth/presentation/auth_gate.dart';
 import '../../study/presentation/exam_ecosystem/exam_plan_screen.dart';
+import '../../study/presentation/materials/material_reader_screen.dart';
+import '../../study/presentation/materials/materials_screen.dart';
 import 'academic_health_screen.dart';
 import 'ai_usage_screen.dart';
 import 'app_mode_selector_sheet.dart';
@@ -114,6 +116,16 @@ class _StudyYouViewState extends State<StudyYouView> {
     super.dispose();
   }
 
+  Future<void> _loadOffline() async {
+    if (widget.mockOfflineEntries != null) return;
+    try {
+      final entries = await OfflineService.list();
+      if (mounted) {
+        setState(() => _offlineEntries = entries);
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadAll() async {
     if (widget.mockHealthData != null ||
         widget.mockAchievementsData != null ||
@@ -129,25 +141,24 @@ class _StudyYouViewState extends State<StudyYouView> {
       return;
     }
 
+    unawaited(_loadOffline());
+
     try {
       final healthFuture = ApiService.getAcademicHealth().catchError((_) => <String, dynamic>{});
       final achievementsFuture = ApiService.zikuAchievements().catchError((_) => <String, dynamic>{});
-      final offlineFuture = OfflineService.list().catchError((_) => <OfflineEntry>[]);
       final aiFuture = ApiService.getAiUsage().catchError((_) => <String, dynamic>{});
 
       final results = await Future.wait([
         healthFuture,
         achievementsFuture,
-        offlineFuture,
         aiFuture,
       ]);
 
       if (!mounted) return;
       setState(() {
-        _healthData = results[0] as Map<String, dynamic>;
-        _achievementsData = results[1] as Map<String, dynamic>;
-        _offlineEntries = results[2] as List<OfflineEntry>;
-        _aiUsageData = results[3] as Map<String, dynamic>;
+        _healthData = results[0];
+        _achievementsData = results[1];
+        _aiUsageData = results[2];
       });
     } catch (_) {
       // Graceful fallback to default values
@@ -1000,7 +1011,7 @@ class _DownloadCenterSection extends StatelessWidget {
   final VoidCallback onRefresh;
   final VoidCallback? onManage;
 
-  String _formatSize(int bytes) {
+  static String _formatSize(int bytes) {
     if (bytes <= 0) return '0 KB';
     if (bytes < 1024 * 1024) {
       return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -1045,18 +1056,23 @@ class _DownloadCenterSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () async {
+              TextButton(
+                onPressed: () async {
                   if (onManage != null) {
                     onManage!();
                   } else {
                     await _showManageDownloadsSheet(context, entries, onRefresh);
                   }
                 },
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                ),
                 child: Text(
                   GochanoLanguage.text('Manage', 'ম্যানেজ'),
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: colors.brand,
                   ),
@@ -1172,53 +1188,207 @@ class _DownloadCenterSection extends StatelessWidget {
 
   static Future<void> _showManageDownloadsSheet(
     BuildContext context,
-    List<OfflineEntry> entries,
+    List<OfflineEntry> initialEntries,
     VoidCallback onRefresh,
   ) async {
     final colors = context.colors;
+    final currentEntries = List<OfflineEntry>.from(initialEntries);
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                GochanoLanguage.text('Manage Offline Files', 'অফলাইন ফাইল ম্যানেজ করুন'),
-                style: sheetContext.type.sectionHeading,
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: entries.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final e = entries[i];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.description_outlined),
-                      title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('${(e.size / 1024).toStringAsFixed(1)} KB'),
-                      trailing: IconButton(
-                        icon: Icon(Icons.delete_outline_rounded, color: colors.error),
-                        onPressed: () async {
-                          final nav = Navigator.of(sheetContext);
-                          await OfflineService.remove(e.materialId);
-                          nav.pop();
-                          onRefresh();
+        child: StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Manage Offline Files',
+                            'অফলাইন ফাইল ম্যানেজ করুন',
+                          ),
+                          style: sheetContext.type.sectionHeading,
+                        ),
+                      ),
+                      if (currentEntries.isNotEmpty)
+                        TextButton(
+                          onPressed: () async {
+                            final confirm = await showConfirmationSheet(
+                              sheetContext,
+                              title: GochanoLanguage.text(
+                                'Clear all downloads?',
+                                'সব ডাউনলোড মুছে ফেলবেন?',
+                              ),
+                              message: GochanoLanguage.text(
+                                'This will delete all offline files from your device.',
+                                'এটি আপনার ডিভাইস থেকে সব অফলাইন ফাইল মুছে ফেলবে।',
+                              ),
+                              confirmLabel: GochanoLanguage.text('Clear All', 'সব মুছুন'),
+                              destructive: true,
+                            );
+                            if (confirm) {
+                              for (final e in currentEntries) {
+                                await OfflineService.remove(e.materialId);
+                              }
+                              setSheetState(() {
+                                currentEntries.clear();
+                              });
+                              onRefresh();
+                            }
+                          },
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(44, 36),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          child: Text(
+                            GochanoLanguage.text('Clear All', 'সব মুছুন'),
+                            style: TextStyle(
+                              color: colors.error,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (currentEntries.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 24.0,
+                        horizontal: 16.0,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.offline_pin_outlined,
+                              size: 48,
+                              color: colors.textTertiary,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              GochanoLanguage.text(
+                                'No offline downloads yet',
+                                'এখনো কোনো অফলাইন ফাইল নেই',
+                              ),
+                              style: sheetContext.type.cardHeading,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              GochanoLanguage.text(
+                                'Download study materials from your library to read them offline anytime without internet.',
+                                'ইন্টারনেট ছাড়াই যেকোনো সময় পড়তে আপনার লাইব্রেরি থেকে পড়ার উপকরণ ডাউনলোড করুন।',
+                              ),
+                              style: sheetContext.type.bodySecondary,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            SecondaryButton(
+                              label: GochanoLanguage.text(
+                                'Browse Materials',
+                                'উপকরণ খুঁজুন',
+                              ),
+                              icon: Icons.library_books_outlined,
+                              onPressed: () {
+                                Navigator.of(sheetContext).pop();
+                                Navigator.of(context).push(
+                                  GochanoRoute.to(
+                                    builder: (_) => const MaterialsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: currentEntries.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final e = currentEntries[i];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colors.study.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.description_outlined,
+                                color: colors.study,
+                                size: 22,
+                              ),
+                            ),
+                            title: Text(
+                              e.title.isEmpty ? e.fileName : e.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: sheetContext.type.body.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${_formatSize(e.size)} • ${GochanoLanguage.text('Saved offline', 'অফলাইনে সংরক্ষিত')}',
+                              style: sheetContext.type.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                            onTap: () {
+                              Navigator.of(sheetContext).push(
+                                GochanoRoute.to(
+                                  builder: (_) => MaterialReaderScreen(
+                                    materialId: e.materialId,
+                                    title: e.title,
+                                    mimeType: e.mimeType,
+                                    fileName: e.fileName,
+                                  ),
+                                ),
+                              );
+                            },
+                            trailing: IconButton(
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: colors.error,
+                              ),
+                              tooltip: GochanoLanguage.text(
+                                'Delete file',
+                                'ফাইল মুছুন',
+                              ),
+                              onPressed: () async {
+                                await OfflineService.remove(e.materialId);
+                                setSheetState(() {
+                                  currentEntries.removeWhere(
+                                    (item) => item.materialId == e.materialId,
+                                  );
+                                });
+                                onRefresh();
+                              },
+                            ),
+                          );
                         },
                       ),
-                    );
-                  },
-                ),
+                    ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
