@@ -1009,9 +1009,86 @@ Refined layout hierarchy to reduce vertical cognitive load and strengthen parent
 
 ---
 
-### 6. Section Final Status
+### 7. Visual Composition Pass — Unified Planning Cockpit
+
+#### Motivation & Architectural Objectives
+Transformed the Study Plan tab from a "stack of separate cards" into a **unified planning cockpit** that feels visually grouped, calm, compact, and intentional:
+1. **Unified Planning Focus Surface (`AppPlanningFocusContainer`)**:
+   - Single shared outer surface encompassing:
+     - **Current Goal / Target Exam**
+     - **31-Day Date Strip**
+     - **Due This Day**
+   - Direct visual relationship: **Goal → Date → Tasks** reads as one continuous planning workflow.
+   - Styling: Soft neutral/tinted background (`AppColors.surfaceTintedSoft`), 20dp outer border radius, subtle border (`cardBorderSoft`), and zero heavy card-in-card visual clutter.
+   - Replaced redundant inner card elevations/borders with subtle single-pixel dividers (`AppColors.neutral100` / `AppColors.neutral800`).
+2. **Date Strip Internal Edge Bleed**:
+   - Date pills glide close to internal container edges with 14dp horizontal padding (`ListView.separated(padding: EdgeInsets.symmetric(horizontal: 14))`).
+   - Eliminated nested 16dp + 16dp double padding to ensure smooth, un-cramped horizontal date scrubbing.
+3. **Due This Day Cockpit Preview & Compact Empty State**:
+   - **3-Task Preview Limit**: When many tasks exist for the selected day, cockpit preview caps at 3 tasks, followed by a compact "See All (X)" action leading to `openPlanHistory`.
+   - **Accessible Checkbox Target**: Interactive task completion checkbox wrapped in a guaranteed $44\times 44\text{dp}$ touch target hit area.
+   - **Compact Empty State**: When no tasks are scheduled for the day, renders a compact check/calendar icon, `"No tasks planned for this day"`, and compact `[+ Task]` / `[+ Assignment]` buttons with $\ge 44\text{dp}$ hit bounds.
+4. **Short Mobile-Friendly Micro-Headings**:
+   - `"Exam & Deadline Timeline"` → `"Upcoming"` / `"আসন্ন"`
+   - `"Study Goals & Milestones"` → `"Weekly Goal"` / `"সাপ্তাহিক লক্ষ্য"`
+   - Full bilingual localization preserved across English and Bangla.
+5. **Exam Rescue as Companion Strip**:
+   - Reduced Upcoming → Exam Rescue gap to **10dp** companion spacing (while main section gaps remain 16dp).
+   - Exam Rescue visually presents as an actionable companion to Upcoming rather than a disconnected dashboard block.
+6. **Weekly Goal with Unfabricated Progress**:
+   - Shows real hours target and actual logged progress without fabricated filler percentages (starts at `0.0` when no study sessions are logged).
+   - Study goal title rows wrapped with `Expanded` and ellipsis handling to guarantee zero `RenderFlex` overflow on narrow viewports.
+7. **Strict Scope Integrity**:
+   - Visual and layout composition refinement only.
+   - Zero changes to business logic, TaskLifecycle, Firestore data model, task completion semantics, reminder behavior, or routing.
+   - No changes to `final-cleanup-release-v2`, `ui/today-redesign`, or `ui-redesign-v1`.
+
+#### Visual Hierarchy & Card Weight Tiers
+- **Tier 1 (Primary)**: Planning Focus Surface (`AppPlanningFocusContainer`: Goal + Date + Due)
+- **Tier 2 (Secondary)**: Upcoming & Weekly Goal
+- **Tier 3 (Companion)**: Exam Rescue compact strip
+
+#### Verification & Test Results
+| Test Suite | Tests Passed | Status |
+|---|---|---|
+| `flutter analyze lib` | 0 issues found (clean) | **PASS** |
+| `test/study_plan_view_test.dart` (Plan Redesign Suite) | 31 / 31 | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
+| `test/exam_rescue_active_experience_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_flow_test.dart` | 23 / 23 | **PASS** |
+| `test/exam_rescue_quiz_integration_test.dart` | 18 / 18 | **PASS** |
+| `test/profile_structure_test.dart` | 23 / 23 | **PASS** |
+| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 13 / 13 | **PASS** |
+| `test/design_system_test.dart` | 48 / 48 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 12 / 12 | **PASS** |
+| `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
+| `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
+| `test/exam_rescue_models_test.dart` | 68 / 68 | **PASS** |
+| **Combined Authoritative Pass Total** | **323 / 323** | **ALL PASS (100%)** |
+
+#### Physical Device Verification (Infinix X665E)
+- **Target Device**: Infinix X665E (Android 12, physical resolution 720×1612 px, serial `adb-0935625332014966-wqiFjj._adb-tls-connect._tcp`).
+- **Physical Touch QA**:
+  - **Planning Focus Cockpit**: Goal, Date Strip, and Due This Day visually unified inside the single soft-tinted container with clean 1px internal dividers.
+  - **Date Strip Glide**: Horizontal scrolling glides comfortably close to the container's 14dp internal padding edge without clipping.
+  - **Task Preview Limit**: When >3 tasks exist, the first 3 tasks are rendered in the cockpit with a clean "See All (X)" button routing to history.
+  - **Compact Empty State**: Clean compact empty state when no tasks are scheduled for the day.
+  - **Upcoming & Companion Rescue**: Upcoming deadlines render cleanly followed immediately by Exam Rescue with 10dp companion spacing.
+  - **Weekly Goal**: Compact hours tracker renders smoothly with zero overflow on narrow screens.
+  - **Responsive Layout**: Verified 320dp, 360dp, 390dp, and 412dp with 0 overflows.
+- **Physical Screenshots Captured**:
+  - `physical_plan_composition_top.png`: Top viewport showing pinned header, intro, and the unified Planning Focus Container (Current Goal, 31-Day Date Strip, and Due This Day header/tasks).
+  - `physical_plan_composition_mid.png`: Scrolled middle view showing Due This Day, Upcoming section, and companion Exam Rescue strip.
+  - `physical_plan_composition_bottom.png`: Scrolled bottom view showing Upcoming, Exam Rescue, Weekly Goal with edit action, and bottom navigation bar.
+
+---
+
+### 8. Section Final Status
 - **Current Branch**: `ui/plan-redesign`
-- **Plan Status**: **PLAN REDESIGN — FINAL POLISH PHYSICAL QA PASSED — WAITING USER APPROVAL**
+- **Plan Status**: **PLAN REDESIGN — VISUAL COMPOSITION PHYSICAL QA PASSED — WAITING USER APPROVAL**
+
 
 
 

@@ -177,110 +177,104 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
                                 const SizedBox(height: GochanoSpacing.xs),
                               ],
                               _buildIntro(context),
-                              const SizedBox(height: GochanoSpacing.sm),
                             ],
                           ),
                         ),
                       ),
 
-                      // 1. Current Goal / Target Exam Section
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: GochanoSpacing.md,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: _CurrentGoalCard(
-                            mockTargetExam: widget.mockTargetExam,
-                          ),
-                        ),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 12),
                       ),
 
-                      // 2. Date / Week Switcher
+                      // UNIFIED PLANNING FOCUS SURFACE (Goal -> Date -> Due)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
                         ),
                         sliver: SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.sm,
-                              bottom: GochanoSpacing.xs,
-                            ),
-                            child: _DateStrip(
-                              selectedDay: _selectedDay,
-                              onDaySelected: (day) =>
-                                  setState(() => _selectedDay = day),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // 3. Due This Day — Tasks Section for Selected Day (immediately after Date Strip)
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: GochanoSpacing.md,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.xs,
-                            ),
-                            child: _PlannerTasksSection(
-                              selectedDay: _selectedDay,
-                              mockTasks: widget.mockTasks,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // 4. Exam & Deadline Timeline
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: GochanoSpacing.md,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.md,
-                            ),
-                            child: _DeadlineTimelineSection(
-                              mockTasks: widget.mockTasks,
+                          child: AppPlanningFocusContainer(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _CurrentGoalCard(
+                                  mockTargetExam: widget.mockTargetExam,
+                                ),
+                                Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: isDark
+                                      ? colors.border.withValues(alpha: 0.25)
+                                      : const Color(0xFFF1F5F9),
+                                ),
+                                _DateStrip(
+                                  selectedDay: _selectedDay,
+                                  onDaySelected: (day) =>
+                                      setState(() => _selectedDay = day),
+                                ),
+                                Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: isDark
+                                      ? colors.border.withValues(alpha: 0.25)
+                                      : const Color(0xFFF1F5F9),
+                                ),
+                                _PlannerTasksSection(
+                                  selectedDay: _selectedDay,
+                                  mockTasks: widget.mockTasks,
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
 
-                      // 5. Exam Rescue Planning (compact planning card or secondary CTA strip)
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 16),
+                      ),
+
+                      // Upcoming Section
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
                         ),
                         sliver: SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.md,
-                            ),
-                            child: _ExamRescueBanner(
-                              examRescueSessionService:
-                                  widget.examRescueSessionService,
-                            ),
+                          child: _DeadlineTimelineSection(
+                            mockTasks: widget.mockTasks,
                           ),
                         ),
                       ),
 
-                      // 6. Goals & Milestones Section
+                      // Companion Spacing (8-10dp) between Upcoming and Exam Rescue
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 10),
+                      ),
+
+                      // Exam Rescue Planning (compact companion strip)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: GochanoSpacing.md,
                         ),
                         sliver: SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.md,
-                            ),
-                            child: _StudyGoalContainer(
-                              mockStudyGoals: widget.mockStudyGoals,
-                            ),
+                          child: _ExamRescueBanner(
+                            examRescueSessionService:
+                                widget.examRescueSessionService,
+                          ),
+                        ),
+                      ),
+
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 16),
+                      ),
+
+                      // Weekly Goal Section
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _StudyGoalContainer(
+                            mockStudyGoals: widget.mockStudyGoals,
                           ),
                         ),
                       ),
@@ -357,7 +351,7 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
           GochanoLanguage.text('Plan', 'পরিকল্পনা'),
           style: context.type.pageTitle.copyWith(
             fontWeight: FontWeight.w800,
-            fontSize: 24,
+            fontSize: 22,
             letterSpacing: -0.5,
           ),
         ),
@@ -369,10 +363,53 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
           ),
           style: context.type.bodySecondary.copyWith(
             color: colors.textSecondary,
-            fontSize: 13.5,
+            fontSize: 13,
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Unified Planning Focus Container
+// ---------------------------------------------------------------------------
+
+class AppPlanningFocusContainer extends StatelessWidget {
+  const AppPlanningFocusContainer({
+    super.key,
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isDark = context.isDark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : const Color(0xFFFAFBFC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? colors.border.withValues(alpha: 0.3)
+              : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     );
   }
 }
@@ -423,39 +460,20 @@ class _CurrentGoalCard extends StatelessWidget {
   }
 
   Widget _buildEmptyGoal(BuildContext context, dynamic colors, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? colors.border.withValues(alpha: 0.3)
-              : const Color(0xFFE2E8F0),
-          width: 1,
-        ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      padding: const EdgeInsets.all(GochanoSpacing.md),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: colors.brand.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: colors.brand.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.flag_rounded, color: colors.brand, size: 24),
+            child: Icon(Icons.flag_rounded, color: colors.brand, size: 20),
           ),
-          const SizedBox(width: GochanoSpacing.md),
+          const SizedBox(width: GochanoSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,7 +486,7 @@ class _CurrentGoalCard extends StatelessWidget {
                   ),
                   style: context.type.body.copyWith(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
+                    fontSize: 13.5,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -479,8 +497,10 @@ class _CurrentGoalCard extends StatelessWidget {
                   ),
                   style: context.type.caption.copyWith(
                     color: colors.textSecondary,
-                    fontSize: 11.5,
+                    fontSize: 11,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -491,8 +511,9 @@ class _CurrentGoalCard extends StatelessWidget {
               context,
             ).push(GochanoRoute.to(builder: (_) => const ExamPlanScreen())),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: const Size(44, 44),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             child: Text(
               GochanoLanguage.text('Set Goal', 'লক্ষ্য দিন'),
@@ -516,29 +537,22 @@ class _CurrentGoalCard extends StatelessWidget {
     final readiness = (data['readiness'] as num?)?.toDouble();
 
     return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? colors.brand.withValues(alpha: 0.12)
-            : const Color(0xFFEEF2FF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colors.brand.withValues(alpha: 0.25),
-          width: 1,
-        ),
-      ),
-      padding: const EdgeInsets.all(GochanoSpacing.md),
+      color: isDark
+          ? colors.brand.withValues(alpha: 0.08)
+          : const Color(0xFFF5F7FF),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: colors.brand.withValues(alpha: 0.15),
+                  color: colors.brand.withValues(alpha: 0.14),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.stars_rounded, color: colors.brand, size: 20),
+                child: Icon(Icons.stars_rounded, color: colors.brand, size: 18),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -549,7 +563,7 @@ class _CurrentGoalCard extends StatelessWidget {
                       GochanoLanguage.text('Current Goal', 'বর্তমান লক্ষ্য'),
                       style: context.type.caption.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 11,
+                        fontSize: 10.5,
                         color: colors.brand,
                       ),
                     ),
@@ -557,15 +571,17 @@ class _CurrentGoalCard extends StatelessWidget {
                       examName,
                       style: context.type.body.copyWith(
                         fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                        fontSize: 15,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     if (targetDate != null && targetDate.isNotEmpty)
                       Text(
                         targetDate,
                         style: context.type.caption.copyWith(
                           color: colors.textTertiary,
-                          fontSize: 11,
+                          fontSize: 10.5,
                         ),
                       ),
                   ],
@@ -576,7 +592,8 @@ class _CurrentGoalCard extends StatelessWidget {
                   context,
                 ).push(GochanoRoute.to(builder: (_) => const ExamPlanScreen())),
                 style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(44, 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 4,
@@ -595,12 +612,12 @@ class _CurrentGoalCard extends StatelessWidget {
             ],
           ),
           if (milestone != null && milestone.isNotEmpty) ...[
-            const SizedBox(height: GochanoSpacing.xs),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Icon(
                   Icons.subdirectory_arrow_right_rounded,
-                  size: 16,
+                  size: 15,
                   color: colors.textTertiary,
                 ),
                 const SizedBox(width: 4),
@@ -609,7 +626,7 @@ class _CurrentGoalCard extends StatelessWidget {
                     '${GochanoLanguage.text("Next Milestone", "পরবর্তী মাইলফলক")}: $milestone',
                     style: context.type.caption.copyWith(
                       color: colors.textSecondary,
-                      fontSize: 12,
+                      fontSize: 11.5,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -619,12 +636,12 @@ class _CurrentGoalCard extends StatelessWidget {
             ),
           ],
           if (readiness != null && readiness > 0) ...[
-            const SizedBox(height: GochanoSpacing.xs),
+            const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: (readiness / 100).clamp(0.0, 1.0),
-                minHeight: 5,
+                minHeight: 4,
                 backgroundColor: colors.brand.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
               ),
@@ -732,34 +749,48 @@ class _DateStripState extends State<_DateStrip> {
         ? (46.0 + (textScale - 1.0) * 20.0)
         : 46.0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                GochanoLanguage.text(currentMonth, currentMonthBn),
-                style: context.type.sectionHeading,
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 8, 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    GochanoLanguage.text(currentMonth, currentMonthBn),
+                    style: context.type.body.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    widget.onDaySelected(today);
+                    _scrollToToday();
+                  },
+                  child: Text(GochanoLanguage.text('Today', 'আজ')),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () {
-                widget.onDaySelected(today);
-                _scrollToToday();
-              },
-              child: Text(GochanoLanguage.text('Today', 'আজ')),
-            ),
-          ],
-        ),
-        const SizedBox(height: GochanoSpacing.xs),
-        SizedBox(
-          height: stripHeight,
-          child: ListView.builder(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: days.length,
+          ),
+          const SizedBox(height: 2),
+          SizedBox(
+            height: stripHeight,
+            child: ListView.builder(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              itemCount: days.length,
             itemBuilder: (context, index) {
               final day = days[index];
               final isSelected =
@@ -852,8 +883,9 @@ class _DateStripState extends State<_DateStrip> {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   String _weekdayShort(int weekday) {
     switch (weekday) {
@@ -1282,38 +1314,90 @@ class _PlannerTasksSection extends StatelessWidget {
       return ad.compareTo(bd);
     });
 
-    return AppSectionContainer(
-      title: GochanoLanguage.text('Due This Day', 'এই দিনের কাজ'),
-      icon: Icons.assignment_turned_in_rounded,
-      iconColor: colors.brand,
-      actionLabel: '+ Task',
-      onAction: () =>
-          showAddTaskSheet(context, type: 'task', initialDate: selectedDay),
-      child: dayDocs.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
+    final previewDocs = dayDocs.take(3).toList();
+    final hasMore = dayDocs.length > 3;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.assignment_turned_in_rounded,
+                size: 18,
+                color: colors.brand,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  GochanoLanguage.text('Due This Day', 'এই দিনের কাজ'),
+                  style: context.type.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () => showAddTaskSheet(
+                  context,
+                  type: 'task',
+                  initialDate: selectedDay,
+                ),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text(
+                  GochanoLanguage.text('Task', 'কাজ'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (dayDocs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Center(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.event_available_rounded,
-                      size: 40,
+                      size: 28,
                       color: colors.textTertiary,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
+                      // No tasks or assignments for this day.
                       GochanoLanguage.text(
-                        'No tasks or assignments for this day.',
-                        'এই দিনে কোনো কাজ বা অ্যাসাইনমেন্ট নেই।',
+                        'No tasks planned for this day',
+                        'এই দিনে কোনো নির্ধারিত কাজ নেই',
                       ),
-                      style: context.type.bodySecondary,
+                      style: context.type.bodySecondary.copyWith(
+                        fontSize: 12.5,
+                      ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                          ),
                           onPressed: () => showAddTaskSheet(
                             context,
                             type: 'task',
@@ -1324,6 +1408,13 @@ class _PlannerTasksSection extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                          ),
                           onPressed: () => showAddTaskSheet(
                             context,
                             type: 'assignment',
@@ -1340,18 +1431,59 @@ class _PlannerTasksSection extends StatelessWidget {
                 ),
               ),
             )
-          : Column(
+          else ...[
+            Column(
               children: [
-                for (final doc in dayDocs) ...[
+                for (final doc in previewDocs) ...[
                   _PlanTaskCard(data: doc),
-                  if (doc != dayDocs.last)
+                  if (doc != previewDocs.last)
                     Divider(
                       height: 1,
-                      color: colors.border.withValues(alpha: 0.4),
+                      color: colors.border.withValues(alpha: 0.3),
                     ),
                 ],
               ],
             ),
+            if (hasMore) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: InkWell(
+                  onTap: () => openPlanHistory(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          GochanoLanguage.text(
+                            'See All (${dayDocs.length})',
+                            'সব দেখুন (${GochanoLanguage.formatNumber(dayDocs.length)})',
+                          ),
+                          style: context.type.caption.copyWith(
+                            color: colors.brand,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 11,
+                          color: colors.brand,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -1383,17 +1515,24 @@ class _PlanTaskCard extends StatelessWidget {
         rescueSessionId.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(
-            width: 24,
-            height: 24,
-            child: Checkbox(
-              value: done,
-              onChanged: (value) => _toggleDone(context, data, value ?? false),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+            width: 44,
+            height: 44,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: done,
+                  onChanged: (value) =>
+                      _toggleDone(context, data, value ?? false),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1632,10 +1771,10 @@ class _DeadlineTimelineSection extends StatelessWidget {
 
     return AppSectionContainer(
       title: GochanoLanguage.text(
-        'Exam & Deadline Timeline',
-        'পরীক্ষা ও ডেডলাইন সময়সূচি',
+        'Upcoming',
+        'আসন্ন',
       ),
-      icon: Icons.timeline_rounded,
+      icon: Icons.event_note_rounded,
       iconColor: colors.warning,
       child: preview.isEmpty
           ? Padding(
@@ -1803,7 +1942,7 @@ class _StudyGoalContainer extends StatelessWidget {
     final hasGoals = dailyGoalMinutes != null || weeklyGoalMinutes != null;
 
     return AppSectionContainer(
-      title: GochanoLanguage.text('Goals & Milestones', 'লক্ষ্য ও মাইলফলক'),
+      title: GochanoLanguage.text('Weekly Goal', 'সাপ্তাহিক লক্ষ্য'),
       icon: Icons.track_changes_rounded,
       iconColor: colors.study,
       actionLabel: hasGoals
@@ -1833,22 +1972,28 @@ class _StudyGoalContainer extends StatelessWidget {
               children: [
                 if (weeklyGoalMinutes != null && weeklyGoalMinutes > 0) ...[
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        GochanoLanguage.text(
-                          'Weekly Study Goal',
-                          'সাপ্তাহিক পড়াশোনার লক্ষ্য',
-                        ),
-                        style: context.type.body.copyWith(
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Weekly Study Goal',
+                            'সাপ্তাহিক পড়াশোনার লক্ষ্য',
+                          ),
+                          style: context.type.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${weeklyGoalMinutes ~/ 60}h ${weeklyGoalMinutes % 60}m',
                         style: TextStyle(
                           color: colors.study,
                           fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -1857,7 +2002,7 @@ class _StudyGoalContainer extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: 0.45, // Indicative progress from study records
+                      value: 0.0, // Real progress only; un-fabricated
                       minHeight: 6,
                       backgroundColor: colors.study.withValues(alpha: 0.15),
                       valueColor: AlwaysStoppedAnimation<Color>(colors.study),
@@ -1867,17 +2012,21 @@ class _StudyGoalContainer extends StatelessWidget {
                 if (dailyGoalMinutes != null && dailyGoalMinutes > 0) ...[
                   const SizedBox(height: 10),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        GochanoLanguage.text(
-                          'Daily Focus Goal',
-                          'দৈনিক ফোকাস লক্ষ্য',
-                        ),
-                        style: context.type.caption.copyWith(
-                          color: colors.textSecondary,
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Daily Focus Goal',
+                            'দৈনিক ফোকাস লক্ষ্য',
+                          ),
+                          style: context.type.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${dailyGoalMinutes ~/ 60}h ${dailyGoalMinutes % 60}m',
                         style: context.type.caption.copyWith(

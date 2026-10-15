@@ -209,7 +209,7 @@ void main() {
         await tester.pump();
 
         expect(
-          find.text('No tasks or assignments for this day.'),
+          find.text('No tasks planned for this day'),
           findsOneWidget,
         );
         expect(find.widgetWithText(OutlinedButton, 'Task'), findsOneWidget);
@@ -220,7 +220,7 @@ void main() {
       },
     );
 
-    // ─── Test 9: Deadline Timeline Section ────────────────────────────────────
+    // ─── Test 9: Upcoming Section (Micro-heading) ─────────────────────────────
     testWidgets('9. timeline renders upcoming future deadlines in order', (
       tester,
     ) async {
@@ -252,12 +252,12 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Exam & Deadline Timeline'), findsOneWidget);
+      expect(find.text('Upcoming'), findsOneWidget);
       expect(find.text('Math Assignment 2'), findsOneWidget);
       expect(find.text('Physics Lab Submission'), findsOneWidget);
     });
 
-    // ─── Test 10: Study Goals & Milestones ─────────────────────────────────────
+    // ─── Test 10: Weekly Goal Section (Micro-heading) ─────────────────────────
     testWidgets(
       '10. study goals container renders weekly target and edit CTA',
       (tester) async {
@@ -272,7 +272,7 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.text('Goals & Milestones'), findsOneWidget);
+        expect(find.text('Weekly Goal'), findsOneWidget);
         expect(find.text('15h 0m'), findsOneWidget);
         expect(find.text('Edit'), findsOneWidget);
       },
@@ -388,6 +388,8 @@ void main() {
         find.text('আপনার পড়াশোনার লক্ষ্য ও সময়সূচি সাজান।'),
         findsOneWidget,
       );
+      expect(find.text('আসন্ন'), findsOneWidget);
+      expect(find.text('সাপ্তাহিক লক্ষ্য'), findsOneWidget);
     });
 
     // ─── Test 20: Header Pinned While Scrolling ───────────────────────────────
@@ -495,9 +497,9 @@ void main() {
       expect(box.height, greaterThanOrEqualTo(44.0));
     });
 
-    // ─── Test 24: Hierarchy — Date Strip immediately followed by Due This Day ──
+    // ─── Test 24: Hierarchy — Unified Planning Focus & Companion Spacing ───────
     testWidgets(
-      '24. date strip is immediately followed by Due This Day (Exam Rescue placed after Timeline)',
+      '24. date strip is immediately followed by Due This Day (Exam Rescue companion to Upcoming)',
       (tester) async {
         tester.view.physicalSize = const Size(800, 2400);
         tester.view.devicePixelRatio = 1.0;
@@ -506,32 +508,46 @@ void main() {
         await tester.pumpWidget(buildPlanView());
         await tester.pump();
 
+        final goalFinder = find.text('Set your target exam');
+        final todayFinder = find.text('Today');
         final dueThisDayFinder = find.text('Due This Day');
-        final timelineFinder = find.text('Exam & Deadline Timeline');
+        final upcomingFinder = find.text('Upcoming');
         final examRescueFinder = find.text('Exam Rescue');
-        final goalsFinder = find.text('Goals & Milestones');
+        final weeklyGoalFinder = find.text('Weekly Goal');
 
+        final goalY = tester.getTopLeft(goalFinder).dy;
+        final todayY = tester.getTopLeft(todayFinder).dy;
         final dueY = tester.getTopLeft(dueThisDayFinder).dy;
-        final timelineY = tester.getTopLeft(timelineFinder).dy;
+        final upcomingY = tester.getTopLeft(upcomingFinder).dy;
         final examRescueY = tester.getTopLeft(examRescueFinder).dy;
-        final goalsY = tester.getTopLeft(goalsFinder).dy;
+        final weeklyGoalY = tester.getTopLeft(weeklyGoalFinder).dy;
 
         // Assert strict vertical visual order:
-        // Due This Day < Exam & Deadline Timeline < Exam Rescue < Goals & Milestones
+        // Current Goal < Date Strip < Due This Day < Upcoming < Exam Rescue < Weekly Goal
         expect(
-          dueY,
-          lessThan(timelineY),
-          reason: 'Due This Day must appear before Timeline',
+          goalY,
+          lessThan(todayY),
+          reason: 'Current Goal must appear before Date Strip',
         );
         expect(
-          timelineY,
+          todayY,
+          lessThan(dueY),
+          reason: 'Date Strip must appear before Due This Day',
+        );
+        expect(
+          dueY,
+          lessThan(upcomingY),
+          reason: 'Due This Day must appear before Upcoming',
+        );
+        expect(
+          upcomingY,
           lessThan(examRescueY),
-          reason: 'Timeline must appear before Exam Rescue',
+          reason: 'Upcoming must appear before Exam Rescue',
         );
         expect(
           examRescueY,
-          lessThan(goalsY),
-          reason: 'Exam Rescue must appear before Goals & Milestones',
+          lessThan(weeklyGoalY),
+          reason: 'Exam Rescue must appear before Weekly Goal',
         );
       },
     );
@@ -654,6 +670,153 @@ void main() {
       final buildBtn = find.widgetWithText(FilledButton, 'Build Plan');
       expect(buildBtn, findsOneWidget);
       await tester.tap(buildBtn);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    // ─── Test 29: Unified Planning Focus Container Structure ──────────────────
+    testWidgets(
+      '29. AppPlanningFocusContainer exists and contains Goal, Date, and Due sections',
+      (tester) async {
+        await tester.pumpWidget(buildPlanView());
+        await tester.pump();
+
+        expect(find.byType(AppPlanningFocusContainer), findsOneWidget);
+
+        // Verify that Goal, Date Strip, and Due are descendants of AppPlanningFocusContainer
+        final containerFinder = find.byType(AppPlanningFocusContainer);
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Set your target exam'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Today'),
+          ),
+          findsWidgets,
+        );
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Due This Day'),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    // ─── Test 30: Task Preview Limit of 3 and See All Action ───────────────────
+    testWidgets(
+      '30. limits preview to 3 tasks and renders See All when more tasks exist',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day, 14, 0);
+
+        final mockTasks = List.generate(
+          5,
+          (i) => {
+            'id': 'task_$i',
+            'title': 'Study Task $i',
+            'dueAt': today.add(Duration(minutes: i * 30)).toIso8601String(),
+            'done': false,
+          },
+        );
+
+        await tester.pumpWidget(buildPlanView(mockTasks: mockTasks));
+        await tester.pump();
+
+        // 3 preview items rendered in Due This Day inside AppPlanningFocusContainer
+        final containerFinder = find.byType(AppPlanningFocusContainer);
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Study Task 0'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Study Task 1'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Study Task 2'),
+          ),
+          findsOneWidget,
+        );
+
+        // 4th and 5th items hidden from cockpit preview
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Study Task 3'),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('Study Task 4'),
+          ),
+          findsNothing,
+        );
+
+        // See All (5) button present
+        expect(
+          find.descendant(
+            of: containerFinder,
+            matching: find.text('See All (5)'),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    // ─── Test 31: See All Tappable ────────────────────────────────────────────
+    testWidgets('31. tapping See All triggers full task/history destination', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day, 12, 0);
+
+      final mockTasks = List.generate(
+        4,
+        (i) => {
+          'id': 'task_$i',
+          'title': 'Exam Prep $i',
+          'dueAt': today.toIso8601String(),
+          'done': false,
+        },
+      );
+
+      await tester.pumpWidget(buildPlanView(mockTasks: mockTasks));
+      await tester.pump();
+
+      final containerFinder = find.byType(AppPlanningFocusContainer);
+      final seeAllFinder = find.descendant(
+        of: containerFinder,
+        matching: find.text('See All (4)'),
+      );
+      expect(seeAllFinder, findsOneWidget);
+
+      await tester.tap(seeAllFinder);
       await tester.pump();
 
       expect(tester.takeException(), isNull);
