@@ -83,10 +83,14 @@ class OfflineService {
       if (raw.trim().isEmpty) return <OfflineEntry>[];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return <OfflineEntry>[];
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map(OfflineEntry.fromJson)
-          .toList();
+      return decoded.map((e) {
+        if (e is Map<String, dynamic>) {
+          return OfflineEntry.fromJson(e);
+        } else if (e is Map) {
+          return OfflineEntry.fromJson(Map<String, dynamic>.from(e));
+        }
+        return null;
+      }).whereType<OfflineEntry>().toList();
     } catch (_) {
       return <OfflineEntry>[];
     }
