@@ -26,6 +26,7 @@ import '../../life/presentation/life_screen.dart';
 import '../../life/presentation/commute/commute_screen.dart';
 import '../../life/presentation/expense/expense_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../profile/presentation/study_you_view.dart';
 import '../../profile/presentation/app_mode_selector_sheet.dart';
 import '../../study/presentation/workspace/workspace_view.dart';
 import '../../study/presentation/planner/plan_view.dart';
@@ -196,14 +197,12 @@ class _GochanoShellState extends State<GochanoShell> {
         StudyTodayDashboardView(
           displayName: widget.displayName,
           onOpenDestination: _handleDestinationFromHome,
-          onOpenProfile: () => Navigator.of(context).push(
-            GochanoRoute.to(builder: (_) => ProfileScreen(role: widget.role)),
-          ),
+          onOpenProfile: () => _select(4),
         ),
         const WorkspaceView(),
         const PlanView(),
         const CommunityView(),
-        ProfileScreen(role: widget.role),
+        StudyYouView(role: widget.role),
       ];
     }
 
