@@ -250,6 +250,7 @@ class _StudyTodayDashboardViewState extends State<StudyTodayDashboardView> {
               child: Image.asset(
                 AppAssets.logo,
                 fit: BoxFit.cover,
+                semanticLabel: 'Gochano Logo',
                 errorBuilder: (context, error, stackTrace) => Icon(
                   Icons.school_rounded,
                   color: const Color(0xFF2F6BFF),

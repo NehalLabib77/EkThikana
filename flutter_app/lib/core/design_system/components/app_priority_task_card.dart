@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../app_gradients.dart';
-import '../app_motion.dart';
 import '../gochano_colors.dart';
 import '../gochano_spacing.dart';
 import '../gochano_typography.dart';
@@ -132,8 +131,7 @@ class _AppPriorityTaskCardState extends State<AppPriorityTaskCard> {
                           borderRadius: const BorderRadius.all(Radius.circular(999)),
                           child: Padding(
                             padding: const EdgeInsets.all(4.0),
-                            child: AnimatedContainer(
-                              duration: AppMotion.fast,
+                            child: Container(
                               width: 25,
                               height: 25,
                               decoration: BoxDecoration(

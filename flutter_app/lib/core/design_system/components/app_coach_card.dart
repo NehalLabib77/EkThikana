@@ -107,6 +107,7 @@ class AppCoachCard extends StatelessWidget {
                       child: Image.asset(
                         AppAssets.zikuMascot,
                         fit: BoxFit.contain,
+                        semanticLabel: 'Ziku Coach Mascot',
                         errorBuilder: (context, error, stackTrace) => Container(
                           decoration: const BoxDecoration(
                             color: Color(0xFFF0F9FF),

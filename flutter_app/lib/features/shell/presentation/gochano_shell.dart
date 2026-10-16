@@ -445,6 +445,7 @@ class _StudyProfileNavAvatar extends StatelessWidget {
       child: Image.network(
         url,
         fit: BoxFit.cover,
+        semanticLabel: 'Profile photo',
         errorBuilder: (context, error, stackTrace) => Icon(
           isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
           size: 20,

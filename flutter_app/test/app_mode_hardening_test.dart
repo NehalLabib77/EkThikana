@@ -49,7 +49,7 @@ Widget _buildTestShell({
                 Text('Page: Workspace'),
                 Text('Page: Plan'),
                 Text('Page: Community'),
-                Text('Page: Profile'),
+                Text('Page: You'),
               ];
             }
             return const [
@@ -154,18 +154,18 @@ void main() {
 
   group('Mode Switch Transition & Index Bounds Safety', () {
     testWidgets(
-      'switching from Study Profile (index 4) to Utility Mode safely resets to 0',
+      'switching from Study You (index 4) to Utility Mode safely resets to 0',
       (tester) async {
         await tester.pumpWidget(_buildTestShell());
         await tester.pumpAndSettle();
 
-        // Tap Profile (index 4 in Study Mode)
-        await tester.tap(find.text('Profile'));
+        // Tap You (index 4 in Study Mode)
+        await tester.tap(find.text('You'));
         await tester.pumpAndSettle();
 
         var navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
         expect(navBar.selectedIndex, equals(4));
-        expect(find.text('Page: Profile'), findsOneWidget);
+        expect(find.text('Page: You'), findsOneWidget);
 
         // Change mode to utility (which only has 4 items: 0..3)
         await GochanoAppModePreferences.select(GochanoAppMode.utility);
