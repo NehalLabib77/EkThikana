@@ -287,7 +287,11 @@ class TelecomAuthService {
       );
     }
 
-    debugPrint('[TelecomAuth] checkSubscription: phone="$normalized"');
+    if (kDebugMode) {
+      debugPrint(
+        '[TelecomAuth] checkSubscription: phone="${_maskPhone(normalized)}"',
+      );
+    }
 
     final response = await _safeFormPost(
       Uri.parse('$baseUrl/check_subscription.php'),
@@ -296,10 +300,12 @@ class TelecomAuthService {
     );
 
     final result = _parseSubscriptionResponse(response.body);
-    debugPrint(
-      '[TelecomAuth] checkSubscription result: status=${result.status}, '
-      'shouldEnterApp=${result.shouldEnterApp}, rawStatus="${result.rawStatus}"',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[TelecomAuth] checkSubscription result: status=${result.status}, '
+        'shouldEnterApp=${result.shouldEnterApp}, rawStatus="${result.rawStatus}"',
+      );
+    }
     return result;
   }
 
@@ -373,37 +379,49 @@ class TelecomAuthService {
     // straight into the app without OTP.
 
     if (raw == null || raw.isEmpty) {
-      debugPrint(
-        '[TelecomAuth] checkSubscription: empty/null subscriptionStatus → NOT_SUBSCRIBED (OTP required)',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[TelecomAuth] checkSubscription: empty/null subscriptionStatus → NOT_SUBSCRIBED (OTP required)',
+        );
+      }
       return TelecomSubscriptionResult.notSubscribed;
     }
     final normalized = _normalizeSubscriptionStatus(raw);
 
-    debugPrint(
-      '[TelecomAuth] checkSubscription: subscriptionStatus="$normalized"',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[TelecomAuth] checkSubscription: subscriptionStatus="$normalized"',
+      );
+    }
 
     if (normalized == 'REGISTERED') {
-      debugPrint('[TelecomAuth] branch: REGISTERED → skip OTP, enter app');
+      if (kDebugMode) {
+        debugPrint('[TelecomAuth] branch: REGISTERED → skip OTP, enter app');
+      }
       return TelecomSubscriptionResult.registered;
     }
     if (normalized.contains('INITIAL CHARGING PENDING')) {
-      debugPrint(
-        '[TelecomAuth] branch: INITIAL_CHARGING_PENDING → skip OTP, enter app',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[TelecomAuth] branch: INITIAL_CHARGING_PENDING → skip OTP, enter app',
+        );
+      }
       return TelecomSubscriptionResult.initialChargingPending;
     }
     if (normalized == 'TEMPORARY BLOCKED' ||
         normalized.contains('TEMPORARY BLOCKED')) {
-      debugPrint(
-        '[TelecomAuth] branch: TEMPORARY_BLOCKED → block login, no OTP, no app entry',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[TelecomAuth] branch: TEMPORARY_BLOCKED → block login, no OTP, no app entry',
+        );
+      }
       return TelecomSubscriptionResult.temporaryBlocked;
     }
 
     // NOT SUBSCRIBED / UNREGISTERED / any other state → OTP required.
-    debugPrint('[TelecomAuth] branch: "$normalized" → OTP required');
+    if (kDebugMode) {
+      debugPrint('[TelecomAuth] branch: "$normalized" → OTP required');
+    }
     return TelecomSubscriptionResult.notSubscribed;
   }
 
@@ -972,17 +990,21 @@ class TelecomAuthService {
     }
 
     final uri = Uri.parse('$backendBaseUrl/v1/auth/telecom/exchange');
-    debugPrint(
-      '[TelecomAuth] exchangeSubscription: url=$uri, phone=$cleanPhone',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[TelecomAuth] exchangeSubscription: url=$uri, phone="${_maskPhone(cleanPhone)}"',
+      );
+    }
     final response = await _safeJsonPost(uri, {
       'phone': cleanPhone,
       'already_subscribed': true,
       'subscription_status': subscriptionStatus,
     }, exchangeTimeout);
-    debugPrint(
-      '[TelecomAuth] exchangeSubscription: status=${response.statusCode}',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[TelecomAuth] exchangeSubscription: status=${response.statusCode}',
+      );
+    }
 
     return _parseExchangeResponse(response.body, phone: cleanPhone);
   }
@@ -991,9 +1013,11 @@ class TelecomAuthService {
     String body, {
     required String phone,
   }) {
-    debugPrint(
-      '[TelecomAuth] _parseExchangeResponse: body length=${body.length}',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[TelecomAuth] _parseExchangeResponse: body length=${body.length}',
+      );
+    }
     Map<String, dynamic> decoded;
     try {
       final value = json.decode(body);
@@ -1141,7 +1165,9 @@ class TelecomAuthService {
           )
           .timeout(timeout);
     } catch (e) {
-      debugPrint('[TelecomAuth] _safeJsonPost: network error on $uri: $e');
+      if (kDebugMode) {
+        debugPrint('[TelecomAuth] _safeJsonPost: network error on $uri: $e');
+      }
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Network error. Please check your connection and try again.',
@@ -1150,10 +1176,11 @@ class TelecomAuthService {
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      debugPrint(
-        '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri '
-        'body=${response.body.length > 200 ? "${response.body.substring(0, 200)}..." : response.body}',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri',
+        );
+      }
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Server is not responding. Please try again in a moment.',
@@ -1202,6 +1229,11 @@ class TelecomAuthService {
       }
     }
     return cursor;
+  }
+
+  static String _maskPhone(String phone) {
+    if (phone.length <= 4) return '***';
+    return '${phone.substring(0, 3)}***${phone.substring(phone.length - 3)}';
   }
 }
 

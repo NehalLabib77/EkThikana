@@ -1931,7 +1931,7 @@ Deliberately split so **no branch ever combines multiple feature families** and 
 
 # PRE-STABLE AUDIT STATUS
 
-### Pre-Stable Audit Status — **B-1 (P0) & B-2 (P1) RESOLVED ON `ui/pre-stable-audit`**
+### Pre-Stable Audit Status — **B-1 (P0), B-2 (P1) & B-3 (P1) RESOLVED ON `ui/pre-stable-audit`**
 
 #### 1. B-1 Route Fix Resolution (P0 — RESOLVED)
 - **Root Cause**: `MaterialApp` in `lib/app.dart` had no `onGenerateRoute` or `routes` mapping for named routes pushed in `exam_hub_screen.dart` (`/exams`, `/mistakes`, `/quiz-generate`) and `priority_topics_screen.dart` (`/quiz-generate`).
@@ -1960,8 +1960,34 @@ All 8 test failures introduced relative to `final-cleanup-release-v2` were inves
 | **R-7** | Stale test expectation | `exam_ecosystem_test.dart` (strictly 5 primary bottom destinations) | Test expected `['Today', 'Workspace', 'Plan', 'Community', 'Profile']`. Updated expectation to approved `['Today', 'Workspace', 'Plan', 'Community', 'You']`. | **RESOLVED** |
 | **R-8** | Stale test expectation | `exam_ecosystem_test.dart` (WorkspaceView source exposes Quick Access item) | Test expected `'Exam Prep'`, but Workspace 6+2 IA renamed tool card to `'Mock Tests'`. Updated test assertion to `'Mock Tests'`. | **RESOLVED** |
 
-#### 3. Test & Analysis Metrics (ui/pre-stable-audit)
-- **Static Analysis**: `flutter analyze lib` → **No issues found!** (ran in 87.3s, 0 warnings, 0 errors).
+#### 3. B-3 Release Log Hygiene Resolution (P1 — RESOLVED)
+- **Objective**: Eliminate unguarded production `debugPrint` / logging calls that risk exposing phone numbers, user identifiers, auth details, or internal runtime traces in release logcat.
+- **Audit Findings & Remediation**:
+  - Found **22 unguarded console logging calls** across 6 files in `lib/`:
+    1. `lib/core/services/telecom_auth_service.dart` (13 sites): Contained raw normalized phone number logging on check-subscription and custom token exchange paths (`phone="$normalized"`, `phone=$cleanPhone`). Added phone masking via `_maskPhone` (only first 3 and last 3 digits retained during debug) and wrapped all 13 sites with `if (kDebugMode)` to ensure 100% dead-code elimination in release AOT binaries.
+    2. `lib/app.dart` (2 sites): Boot logs (`[Boot] app:build`, `[Boot] authGate:mount`) guarded with `if (kDebugMode)`.
+    3. `lib/features/profile/presentation/ai_usage_screen.dart` (3 sites): Quota query logs (`[AiUsage] GET ...`, `[AiUsage] OK ...`, `[AiUsage] FAIL ...`) guarded with `if (kDebugMode)`.
+    4. `lib/features/auth/presentation/login_screen.dart` (3 sites): Subscription branch diagnostics (`REGISTERED_SHORTCUT`, `TEMPORARY_BLOCKED`, `SEND_OTP`) guarded with `if (kDebugMode)`.
+    5. `lib/services/financial_service.dart` (1 site): Firestore rejection diagnostic (`Bazar ledger write rejected: ...`) guarded with `if (kDebugMode)`.
+    6. `lib/features/life/presentation/commute/commute_route_map.dart` (1 site): Polyline geometry log (`dev.log('CommuteRouteMap: empty polyline ...')`) guarded with `if (kDebugMode)`.
+  - **Before / After Count**: 22 unguarded logging calls → **0 unguarded logging calls** (100% guarded across all 19 logging files in `lib/`).
+- **Release Binary Scan Verification**:
+  - Compiled clean release APK: `flutter build apk --release --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com` (106.3 MB).
+  - Inspected all three architecture binaries (`lib/arm64-v8a/libapp.so`, `lib/armeabi-v7a/libapp.so`, `lib/x86_64/libapp.so`):
+    * `DEV_AUTH_BYPASS`: **0 occurrences** (dead-code eliminated)
+    * `DEV_TEST_EMAIL` / `DEV_TEST_PASSWORD`: **0 occurrences** (dead-code eliminated)
+    * `Developer Login`: **0 occurrences** (dead-code eliminated)
+    * `checkSubscription: phone=`: **0 occurrences** (dead-code eliminated)
+    * `exchangeSubscription: url=`: **0 occurrences** (dead-code eliminated)
+    * `REGISTERED_SHORTCUT`: **0 occurrences** (dead-code eliminated)
+    * `TEMPORARY_BLOCKED → block login`: **0 occurrences** (dead-code eliminated)
+    * `[Boot] app:build`: **0 occurrences** (dead-code eliminated)
+    * `[Boot] authGate:mount`: **0 occurrences** (dead-code eliminated)
+    * `Bazar ledger write rejected`: **0 occurrences** (dead-code eliminated)
+    * `[AiUsage] GET`: **0 occurrences** (dead-code eliminated)
+
+#### 4. Test & Analysis Metrics (ui/pre-stable-audit)
+- **Static Analysis**: `flutter analyze lib` → **No issues found!** (ran in 19.1s, 0 warnings, 0 errors).
 - **Targeted Test Suites**:
   - `test/routes_b1_test.dart`: 3 passed, 0 failed.
   - `test/exam_ecosystem_test.dart`: 11 passed, 0 failed.
@@ -1970,15 +1996,14 @@ All 8 test failures introduced relative to `final-cleanup-release-v2` were inves
 - **Full Test Suite (`flutter test`)**:
   - **Passed**: 1595
   - **Failed**: 83 (EXACTLY matches the 83 inherited baseline failures of `final-cleanup-release-v2`).
-  - **New Failures Relative to Baseline**: **0** (down from 8).
+  - **New Failures Relative to Baseline**: **0**.
 
-#### 4. Remaining Scope (Blocked on Separate Waves / Releases)
-- **B-3 (P1, privacy)**: Guard 18 release `debugPrint` calls in `telecom_auth_service.dart` (scheduled for Wave 1 / entry-auth).
-- **Inherited Legacy Debt (83 failures)**: Untouched as per instructions; to be addressed in Wave 8.
+#### 5. Remaining Scope
+- **Inherited Legacy Debt (83 failures)**: Untouched as per instructions; scheduled for Wave 8.
 - **Physical Device**: Infinix X665E verified connected via ADB.
 
 ### Study Mode Integration Status
-- **STUDY MODE UI REDESIGN — B-1 & REGRESSION RECONCILIATION COMPLETE**
+- **STUDY MODE UI REDESIGN — B-1, B-2 & B-3 RECONCILIATION COMPLETE**
 - **PROTECTED BRANCHES UNTOUCHED**: `final-cleanup-release-v2`, `ui-redesign-v1`, `ui/today-redesign` have not been modified or merged.
 - **AUTHORITATIVE 5-WORD MENTAL MODEL PRESERVED**:
   - Today = Do

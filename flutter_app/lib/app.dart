@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -36,7 +37,9 @@ class GochanoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('[Boot] app:build');
+    if (kDebugMode) {
+      debugPrint('[Boot] app:build');
+    }
     return GochanoAppearanceScope(
       builder: (context, themeMode) => GochanoLanguageScope(
         builder: (context, locale) => MaterialApp(
@@ -156,7 +159,9 @@ class _BootRouterState extends State<_BootRouter> {
   @override
   Widget build(BuildContext context) {
     if (_ready) {
-      debugPrint('[Boot] authGate:mount');
+      if (kDebugMode) {
+        debugPrint('[Boot] authGate:mount');
+      }
       return const AuthGate();
     }
     return GochanoSplashScreen(onReady: _handleReady);

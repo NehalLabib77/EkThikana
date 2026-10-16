@@ -315,7 +315,9 @@ class FinancialService {
     } on FirebaseException catch (fe) {
       // Keep the diagnosis in the log without the identity: the rule that
       // rejected the write is the useful part.
-      debugPrint('Bazar ledger write rejected: ${fe.code}');
+      if (kDebugMode) {
+        debugPrint('Bazar ledger write rejected: ${fe.code}');
+      }
       rethrow;
     }
     return sourceRef.id;

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_config.dart';
@@ -37,11 +38,15 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
 
     try {
       final endpoint = '${AppConfig.apiBaseUrl}/api/ai/usage';
-      debugPrint('[AiUsage] GET $endpoint');
+      if (kDebugMode) {
+        debugPrint('[AiUsage] GET $endpoint');
+      }
 
       final data = await ApiService.getAiUsage();
 
-      debugPrint('[AiUsage] OK: received data');
+      if (kDebugMode) {
+        debugPrint('[AiUsage] OK: received data');
+      }
       if (!mounted) return;
       setState(() {
         _usage = data;
@@ -55,9 +60,11 @@ class _AiUsageScreenState extends State<AiUsageScreen> {
       final errorType = e.runtimeType.toString();
       final statusCode = (e is ApiException) ? e.statusCode : null;
       final safeMessage = _sanitizeErrorMessage(e);
-      debugPrint(
-        '[AiUsage] FAIL status=$statusCode [$errorType] $safeMessage',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[AiUsage] FAIL status=$statusCode [$errorType] $safeMessage',
+        );
+      }
 
       setState(() {
         _loading = false;
