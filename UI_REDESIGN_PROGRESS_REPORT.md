@@ -1653,8 +1653,8 @@ Pipeline executed in order: `flutter clean` → `flutter pub get` → `flutter a
 | Maps key distribution | Injected via `manifestPlaceholders["GOOGLE_MAPS_ANDROID_API_KEY"]` → lands in the APK manifest `<meta-data>` (client key, by design) | **ACCEPTED — action item:** restrict the key by package + SHA-1/SHA-256 in Google Cloud |
 | Hardcoded secrets | Repo-wide scan for `AIza…`, `Bearer <jwt>`, `api_key = "…"`, `password = "…"`, `secret = "…"`: only `firebase_options.dart:25` (Firebase Web API key) | **PASS** — no token/password/secret literals in Dart |
 | `print(` | **0** bare `print(` calls in `lib/` | PASS |
-| `debugPrint(` | **122** call sites; **94 occurrences of `kDebugMode` guards** across 16 files; only **3 files are unguarded**: `app.dart` (2), `core/services/telecom_auth_service.dart` (13), `features/profile/presentation/ai_usage_screen.dart` (3). `api_service.dart` / `auth_service.dart` use an explicit `if (kReleaseMode) return;` helper that never logs bodies/headers/tokens | **WARN** — see blocker B-3 |
-| Release logcat observation | Launching the installed release APK emitted `I flutter : [Boot] app:build` and `[Boot] authGate:mount` — confirming **unguarded `debugPrint` still writes in release** | **WARN** |
+| `debugPrint(` | **122** call sites; **94 occurrences of `kDebugMode` guards** across 16 files; only **3 files are unguarded**: `app.dart` (2), `core/services/telecom_auth_service.dart` (13), `features/profile/presentation/ai_usage_screen.dart` (3). `api_service.dart` / `auth_service.dart` use an explicit `if (kReleaseMode) return;` helper that never logs bodies/headers/tokens | **WARN (historical — this audit ran before the fix)** — corrected count is **23 unguarded sites across 6 files** (this table also missed `login_screen.dart` 3, `financial_service.dart` 1, `commute_route_map.dart` 1); see B-3 resolution |
+| Release logcat observation | Launching the installed release APK emitted `I flutter : [Boot] app:build` and `[Boot] authGate:mount` — confirming **unguarded `debugPrint` still writes in release** | **WARN (historical)** — no longer reproduces after `c4455e7`; re-verified 2026-10-16 23:38 |
 | `TODO` / `FIXME` / `HACK` in `lib/` | **0** | PASS |
 | Mock / test-only hooks | 8 injection seams (`mockTasks`, `mockRecentMaterials`, `mockStudyGoals`, `mockTargetExam`, `mockOfflineEntries`, `mockAchievementsData`, `mockHealthData`, `mockProfileData`, `mockAiUsage`, `mockGroups`) are **constructor parameters only**, consumed with `widget.mockX ?? realStream` — there is **no** "fall back to mock when the service fails" path in production | **PASS** |
 | QA-only / debug-only UI | Dev Login button (double gated), `profile_setup_screen.dart:70,113` and `group_detail_screen.dart:635` `if (kDebugMode)` debug affordances, plus 60+ `if (kDebugMode)` log blocks | **PASS** — none reachable in release |
@@ -1683,14 +1683,14 @@ Pipeline executed in order: `flutter clean` → `flutter pub get` → `flutter a
 | Non-student routing | Only reachable when `profile['role'] != 'student'` (read in `login_screen.dart:269-271`, the email/legacy login path). The telecom OTP path always yields `student`, and `AuthGate` hard-codes `student` | **Reachability gap — non-student physical coverage PENDING** (no such account available) |
 | `docs/START_HERE.md` | Referenced verbatim by the release error UI (`main.dart:121`) but **does not exist** in `docs/` | Minor doc gap |
 
-## Pre-Stable Audit 5. Functional Blockers Found (recorded, NOT fixed in this pass)
+## Pre-Stable Audit 5. Functional Blockers Found (recorded at audit time; B-1/B-2/B-3 since resolved — see Pre-Stable Audit Status)
 
 | ID | Severity | Finding | Evidence |
 |---|---|---|---|
 | **B-1** | **P0 — functional** | `Navigator.pushNamed(context, '/exams')`, `'/mistakes'`, `'/quiz-generate'` are used as the SnackBar "Start" actions of `_startPractice` and `_startDrill`, but `MaterialApp` in `app.dart` registers **no** `routes` / `onGenerateRoute` / `onUnknownRoute`. The taps throw `Could not find a route named …` at runtime. | `exam_hub_screen.dart:511,513,515`, `priority_topics_screen.dart:209`, `app.dart:38-59` |
 | **B-2** | P1 — test contract | 8 newly failing tests (5 accessibility/motion, 3 stale expectations after the intentional `Profile → You` rename and Workspace 6+2 IA) block any green stable gate | Pre-Stable Audit §2 |
-| **B-3** | P1 — privacy/log hygiene | 18 unguarded `debugPrint` sites ship to release; `telecom_auth_service.dart` logs the normalised **phone number** (`checkSubscription: phone="…"`) on the login path | `app.dart:35,119`, `telecom_auth_service.dart:290,299,376…`, `ai_usage_screen.dart` |
-| **B-4** | P2 — accessibility | Missing `semanticLabel` on `Image.asset` (3 sites) and `Image.network` (1 site); missing `IconButton.tooltip` (`document_intelligence_screen.dart:252`); decorative motion in `app_skeleton.dart` / `app_priority_task_card.dart` violates spec §11 | `a11y/accessibility_audit_test.dart` |
+| **B-3** | P1 — privacy/log hygiene | 23 unguarded `debugPrint`/`dev.log` sites shipped to release; `telecom_auth_service.dart` logged the normalised **phone number** (`checkSubscription: phone="…"`) on the login path and `_safeJsonPost` logged a 200-char response-body preview (which on the exchange endpoint contains the Firebase custom token) | `app.dart:39,159`, `telecom_auth_service.dart:290,299,376…`, `login_screen.dart`, `ai_usage_screen.dart`, `financial_service.dart:318`, `commute_route_map.dart:62` — **RESOLVED in `c4455e7`, independently verified** |
+| **B-4** | P2 — accessibility | Missing `semanticLabel` on `Image.asset` (3 sites) and `Image.network` (1 site); missing `IconButton.tooltip` (`document_intelligence_screen.dart:252`); decorative motion in `app_skeleton.dart` / `app_priority_task_card.dart` violates spec §11 | `a11y/accessibility_audit_test.dart` — **PARTIALLY OPEN**: semanticLabels + motion fixed (a11y suite now 8 passed / 1 failed); **tooltip at `document_intelligence_screen.dart:252` still missing** (verified 2026-10-16) |
 | **B-5** | P2 — dead code | 19 unreachable screens still compiled and still referenced by stale tests (`StudyScreen`, `CommunityScreen`, `QuestionBankView`, `PlannerView`, `FocusView`, `SemesterListScreen`, `SubjectScreen`, `NoteReaderScreen`, `AiTeacherScreen`, `RevisionSheetScreen`, `StudyPackScreen`, `SmartPlannerScreen`, `AssignmentAssistantScreen`, `LearningInsightsScreen`, `AdaptiveDashboardScreen`, `AiTextbookScreen`, `RevisionQueueScreen`, `AiCommunityFeedScreen`, `CommunityContributionProfileScreen`) | whole-project reference scan incl. `test/` |
 | **B-6** | P3 — docs | `docs/START_HERE.md` missing though the release configuration screen points users at it | `main.dart:121` |
 
@@ -1706,8 +1706,8 @@ Release-like configuration, **`DEV_AUTH_BYPASS` not set (false)**. Prior debug-s
 | Startup path | Splash → AuthGate → **LoginScreen (telecom mobile-number entry)** — logged-out state confirmed |
 | Dev bypass on device | **Absent** — no Developer Login affordance, no auto-sign-in, no QA banner |
 | Language toggle | EN / বাংলা toggle rendered at top of login |
-| Release logging | `[Boot]` lines visible in logcat (see B-3); no tokens/credentials in logs |
-| Evidence | `prestable_release_login.png` (repo root) |
+| Release logging | `[Boot]` lines visible in logcat (see B-3); no tokens/credentials in logs. **Superseded** — that observation predates `c4455e7`; fresh re-check 2026-10-16 23:38 on the same device shows **zero** `[Boot]`/app log lines and zero phone/token/credential data (see B-3 runtime verification 3b) |
+| Evidence | `prestable_release_login.png` (repo root); for B-3 purposes superseded by `prestable_b3_login.png` (fresh cold launch of the fixed release build) |
 | **PENDING** | logged-in Study shell on release build, Utility shell, tab switching, notifications, search, downloads, settings, logout, non-student mode — **no QA credentials or non-student/Utility test accounts were available in this pass; marked PENDING, not faked** |
 
 ---
@@ -1801,7 +1801,7 @@ Release-like configuration, **`DEV_AUTH_BYPASS` not set (false)**. Prior debug-s
 | ProfileScreen | Profile | Utility tab 4 · You → account | profile | profile doc + settings | LEGACY | NOT STARTED | MED | settings sheets | W5 |
 | AcademicHealthScreen | Profile | You → academic health | profile | health data | LEGACY | NOT STARTED | LOW | You | W5 |
 | LearningBrainScreen | Profile | You → learning brain | profile | learning insights | LEGACY | NOT STARTED | LOW | You | W5 |
-| AiUsageScreen | Profile | You → AI usage | profile | AI usage doc | LEGACY (+ 3 unguarded `debugPrint`, **B-3**) | NOT STARTED | LOW | AI usage service | W5 |
+| AiUsageScreen | Profile | You → AI usage | profile | AI usage doc | LEGACY (`debugPrint` sites now kDebugMode-guarded by `c4455e7`; screen itself still legacy UI) | NOT STARTED | LOW | AI usage service | W5 |
 
 ### G. Global Utilities (2)
 
@@ -1890,7 +1890,7 @@ Release-like configuration, **`DEV_AUTH_BYPASS` not set (false)**. Prior debug-s
 | Design tokens | `core/design_system` is the single token source and `design_system_test` is 41/41 green, **but** 280 `Color(0x…)` literals exist in `lib/`; **65 raw hex + 35 `Colors.white` live outside `core/design_system` across 14 files** (worst: `greeting_presentation.dart` 19, `study_today_dashboard_view.dart` 17+6, `study_you_view.dart` 11+11, `plan_view.dart` 9+3, `workspace_view.dart` 9+2) | Breaks the token contract, blocks theming, and is the direct cause of a11y failure #1 |
 | Dark mode | Not supported: hardcoded light-mode hex/`Colors.white` outside the token layer means a dark scheme cannot be applied consistently | Must be fixed in the token wave before any dark-mode promise |
 | Localization | **2573** `GochanoLanguage.text(` call sites vs **~51** raw English `Text('…')` literals (worst: `exam_plan_screen.dart`, `exam_hub_screen.dart`, `past_paper_screen.dart`) | Bangla (default) coverage is good; residual English is concentrated in the exam family — W3 work |
-| Accessibility | 36 `Semantics(` and 55 `IconButton(` in `lib/`; a11y suite 3/9 → missing `semanticLabel` (4 sites), missing `tooltip` (1 site), decorative motion (2 files) | B-4 |
+| Accessibility | 36 `Semantics(` and 55 `IconButton(` in `lib/`; a11y suite 3/9 → missing `semanticLabel` (4 sites), missing `tooltip` (1 site), decorative motion (2 files) | B-4 — **now partially open**: after `21362fc` the a11y suite is **8 passed / 1 failed**; only the `document_intelligence_screen.dart:252` tooltip remains |
 | Responsive | 42 `SingleChildScrollView` usages; only **2** files combine it with `shrinkWrap:true` (`fare_report_sheet.dart`, `sync_status_sheet.dart`). No mass `Expanded`/`Sliver` breakage found | Responsive risk is low; per-screen review inside each wave |
 | Performance | Redesigned Today/Workspace/Plan stream loading/error states are clean; no new infinite rebuild loops or polling added by the redesign | Watch item only |
 | Offline / data safety | `OfflineService` + download manifest + sync queue intact; `offline_banner` 5/5 and `offline_sync_transparency` 18/18 green; no new local stores added by the redesign | PASS |
@@ -1923,7 +1923,7 @@ Deliberately split so **no branch ever combines multiple feature families** and 
 | Priority | Count | Items |
 |---|---|---|
 | **P0** | **2 work items / 2 blocked screens** | **(1)** Fix unregistered `pushNamed` routes `/exams`, `/mistakes`, `/quiz-generate` (**B-1**) — `exam_hub_screen.dart:511,513,515`, `priority_topics_screen.dart:209`, `app.dart`. **(2)** Reconcile the 8 newly failing tests (5 accessibility/motion debt + 3 stale `Profile→You` / Workspace-6+2 expectations) — **B-2** — before any stable gate |
-| **P1** | **25 screens + 1 hygiene item** | Wave 1 entry/auth/shell (6 screens: Login, OtpVerify, ProfileSetup, AuthGate, Splash, GochanoShell) · Wave 2 study tools (18 screens, incl. DocumentIntelligence tooltip) · **B-3**: guard 18 release-shipped `debugPrint` sites and stop logging normalised phone numbers |
+| **P1** | **25 screens** | Wave 1 entry/auth/shell (6 screens: Login, OtpVerify, ProfileSetup, AuthGate, Splash, GochanoShell) · Wave 2 study tools (18 screens, incl. DocumentIntelligence tooltip) · ~~**B-3**: guard 18 release-shipped `debugPrint` sites~~ **B-3 RESOLVED** (23 unguarded sites → 0; independently verified on device) · **B-4 still open at 1 site** (`document_intelligence_screen.dart:252` tooltip) |
 | **P2** | **72 screens + 4 debt items** | Waves 3–7 (Plan/Exams/Coach 18 · Community 12 · Profile 5 · Global 8 · Utility 9) · token debt (65 raw hex + 35 `Colors.white` outside the token layer) · dark-mode enablement · residual English strings in the exam family |
 | **P3** | **19 screens + 4 chores** | Dead-code removal (19 screens, **B-5**) · `docs/START_HERE.md` (**B-6**) · Maps key restriction by package + SHA · Kotlin Gradle Plugin / Java 8 build-tool migration |
 
@@ -1931,7 +1931,7 @@ Deliberately split so **no branch ever combines multiple feature families** and 
 
 # PRE-STABLE AUDIT STATUS
 
-### Pre-Stable Audit Status — **B-1 (P0), B-2 (P1) & B-3 (P1) RESOLVED ON `ui/pre-stable-audit`**
+### Pre-Stable Audit Status — **B-1 (P0), B-2 (P1) & B-3 (P1) RESOLVED ON `ui/pre-stable-audit` (B-3 independently re-verified end-to-end: source recount → fresh APK → binary scan → on-device runtime logcat). B-4 remains PARTIALLY OPEN.**
 
 #### 1. B-1 Route Fix Resolution (P0 — RESOLVED)
 - **Root Cause**: `MaterialApp` in `lib/app.dart` had no `onGenerateRoute` or `routes` mapping for named routes pushed in `exam_hub_screen.dart` (`/exams`, `/mistakes`, `/quiz-generate`) and `priority_topics_screen.dart` (`/quiz-generate`).
@@ -1946,7 +1946,7 @@ Deliberately split so **no branch ever combines multiple feature families** and 
   - Created `flutter_app/test/routes_b1_test.dart` with dedicated widget navigation harness verifying `/exams`, `/mistakes`, and `/quiz-generate`.
   - Result: 3/3 tests passed.
 
-#### 2. Newly Introduced Regression Reconciliation (B-2 / B-4 — RESOLVED: 8 of 8 Fixed)
+#### 2. Newly Introduced Regression Reconciliation (B-2 — RESOLVED: 8 of 8 Fixed)
 All 8 test failures introduced relative to `final-cleanup-release-v2` were investigated, classified, and resolved:
 
 | ID | Category | Failing Test / File | Root Cause & Resolution | Status |
@@ -1960,17 +1960,32 @@ All 8 test failures introduced relative to `final-cleanup-release-v2` were inves
 | **R-7** | Stale test expectation | `exam_ecosystem_test.dart` (strictly 5 primary bottom destinations) | Test expected `['Today', 'Workspace', 'Plan', 'Community', 'Profile']`. Updated expectation to approved `['Today', 'Workspace', 'Plan', 'Community', 'You']`. | **RESOLVED** |
 | **R-8** | Stale test expectation | `exam_ecosystem_test.dart` (WorkspaceView source exposes Quick Access item) | Test expected `'Exam Prep'`, but Workspace 6+2 IA renamed tool card to `'Mock Tests'`. Updated test assertion to `'Mock Tests'`. | **RESOLVED** |
 
-#### 3. B-3 Release Log Hygiene Resolution (P1 — RESOLVED)
+#### 3. B-3 Release Log Hygiene Resolution (P1 — RESOLVED, INDEPENDENTLY VERIFIED)
 - **Objective**: Eliminate unguarded production `debugPrint` / logging calls that risk exposing phone numbers, user identifiers, auth details, or internal runtime traces in release logcat.
-- **Audit Findings & Remediation**:
-  - Found **22 unguarded console logging calls** across 6 files in `lib/`:
+- **Audit Findings & Remediation** (commit `c4455e7`):
+  - Found **23 unguarded console logging calls** across 6 files in `lib/`. (The earlier prose figure of "22" was an arithmetic error — the per-file list below is authoritative and sums to 13+2+3+3+1+1 = **23**, independently recounted from parent commit `c4455e7^`.)
     1. `lib/core/services/telecom_auth_service.dart` (13 sites): Contained raw normalized phone number logging on check-subscription and custom token exchange paths (`phone="$normalized"`, `phone=$cleanPhone`). Added phone masking via `_maskPhone` (only first 3 and last 3 digits retained during debug) and wrapped all 13 sites with `if (kDebugMode)` to ensure 100% dead-code elimination in release AOT binaries.
     2. `lib/app.dart` (2 sites): Boot logs (`[Boot] app:build`, `[Boot] authGate:mount`) guarded with `if (kDebugMode)`.
     3. `lib/features/profile/presentation/ai_usage_screen.dart` (3 sites): Quota query logs (`[AiUsage] GET ...`, `[AiUsage] OK ...`, `[AiUsage] FAIL ...`) guarded with `if (kDebugMode)`.
     4. `lib/features/auth/presentation/login_screen.dart` (3 sites): Subscription branch diagnostics (`REGISTERED_SHORTCUT`, `TEMPORARY_BLOCKED`, `SEND_OTP`) guarded with `if (kDebugMode)`.
     5. `lib/services/financial_service.dart` (1 site): Firestore rejection diagnostic (`Bazar ledger write rejected: ...`) guarded with `if (kDebugMode)`.
     6. `lib/features/life/presentation/commute/commute_route_map.dart` (1 site): Polyline geometry log (`dev.log('CommuteRouteMap: empty polyline ...')`) guarded with `if (kDebugMode)`.
-  - **Before / After Count**: 22 unguarded logging calls → **0 unguarded logging calls** (100% guarded across all 19 logging files in `lib/`).
+  - **Before / After Count**: **23 unguarded logging calls → 0** unguarded logging calls (100% guarded across all 20 logging files in `lib/`).
+  - **Additional sensitive-data exposure found during independent review**: `_safeJsonPost` previously logged a **200-character preview of the raw HTTP response body** (`body=${response.body.substring(0, 200)}...`). On the `/v1/auth/telecom/exchange` endpoint that body carries the Firebase custom token. Reduced in `c4455e7` to URL + status code only.
+- **Independent source recount (verification pass, 2026-10-16)**:
+
+| Metric | Independent count |
+|---|---|
+| `print(` in `lib/` | **0** |
+| `debugPrint(` in `lib/` | **122** |
+| `dev.log(` in `lib/` | **1** (`commute_route_map.dart:64`, `dart:developer`) |
+| `developer.log(` / `debugPrintStack(` / logger-style output | **0** |
+| **Total logging sites** | **123** |
+| `kDebugMode` occurrences | 117 across 20 files |
+| Guard style | 119 sites inside `if (kDebugMode) { … }` blocks; 4 sites behind `if (kReleaseMode) return;` helpers (`auth_service.dart:322-324`, `api_service.dart:116-117`); `notification_service.dart:1801` uses `if (!kDebugMode …) return;` |
+| **Unguarded logging sites remaining** | **0** |
+| Raw phone number in any log string | **0** — both phone sites go through `_maskPhone` (`first3***last3`, `telecom_auth_service.dart:292` and `:995`, masker at `:1234-1237`) |
+| Token / credential / OTP / response-body content in any log string | **0** (exchange path logs only status code and `body length=`) |
 - **Release Binary Scan Verification**:
   - Compiled clean release APK: `flutter build apk --release --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com` (106.3 MB).
   - Inspected all three architecture binaries (`lib/arm64-v8a/libapp.so`, `lib/armeabi-v7a/libapp.so`, `lib/x86_64/libapp.so`):
@@ -1986,6 +2001,39 @@ All 8 test failures introduced relative to `final-cleanup-release-v2` were inves
     * `Bazar ledger write rejected`: **0 occurrences** (dead-code eliminated)
     * `[AiUsage] GET`: **0 occurrences** (dead-code eliminated)
 
+#### 3b. B-3 Runtime Verification on Physical Device (Infinix X665E, release build, `DEV_AUTH_BYPASS` unset)
+
+Independent verification pass — binary scanning alone is not accepted as proof; the APK was rebuilt, installed and exercised.
+
+Exact commands executed:
+```powershell
+flutter build apk --release --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com
+adb uninstall com.ekthikana.ekthikana
+adb install -r build\app\outputs\flutter-apk\app-release.apk
+adb logcat -c
+adb shell am start -n com.ekthikana.ekthikana/.MainActivity
+# (18 s dwell, then)
+adb shell pidof com.ekthikana.ekthikana
+adb logcat -d -v time
+adb exec-out screencap -p > prestable_b3_login.png
+adb shell uiautomator dump /sdcard/win.xml && adb shell cat /sdcard/win.xml
+```
+
+| Verification | Result | Verdict |
+|---|---|---|
+| Fresh release build from HEAD `c4455e7` | exit **0**, `build\app\outputs\flutter-apk\app-release.apk`, **111,505,977 bytes (106.3 MB)**, SHA-256 `1BE0D6A95EC0866FCAEE1219DB0B5F46D4614D9C68AF1C458CCE38710E599542` (Gradle `assembleRelease` 74.7 s incremental; hash identical to the earlier artifact, proving the on-disk APK already matched HEAD) | PASS |
+| Defines supplied | **only** `API_BASE_URL` — no `DEV_AUTH_BYPASS`, no dev test credentials, no other debug defines | PASS |
+| Install + cold launch | uninstall `Success` → streamed install `Success` → `am start` OK → `pidof` = **7676**, still alive after 30+ s | PASS (no crash) |
+| App-process logcat (PID 7676) | 32 lines, all platform/engine noise (SELinux avc denials, GC, Impeller `IMPORTANT:flutter/shell/...`, BufferQueue). **Zero app-level log lines** | PASS |
+| `[Boot] app:build` / `[Boot] authGate:mount` | **absent** from logcat (both previously emitted on this device) | PASS |
+| `[TelecomAuth]` / `[LoginScreen]` / `[AiUsage]` / `[Reminder]` / `[SyncCoordinator]` | **0 occurrences** in the whole dump | PASS |
+| Raw phone numbers / tokens / credentials / OTP / Bearer values | **0 from our app** — every `phone`/`token`/`password`/`REGISTERED` hit in the dump belongs to other packages (`PhoneInterfaceManager`, `TPMS_EVENT`, `phonemaster_log`, `input_debug`, `TeeEndorsementInstaller`), none to PID 7676 | PASS |
+| Developer Login absent | screenshot `prestable_b3_login.png` shows the normal telecom login; `uiautomator` dump has **no** "Developer Login" node and does contain "Mobile number" + "Continue" | PASS |
+| Startup screen | normal **logged-out LoginScreen** (EN/বাংলা toggle, Gochano branding, mobile-number field, tariff notice, Continue) | PASS |
+| Observation (not a defect) | `W/FirebaseApp: Default FirebaseApp failed to initialize because no default options were found` comes from the Android `FirebaseInitProvider`; the Dart side initializes Firebase with `DefaultFirebaseOptions.currentPlatform` and the app proceeds normally | NOTE only |
+
+**B-3 verdict: RESOLVED and independently verified.** A release build cannot log raw phone numbers, authentication credentials, tokens, response bodies or any other sensitive authentication data, and no unguarded boot/debug logs appear at runtime.
+
 #### 4. Test & Analysis Metrics (ui/pre-stable-audit)
 - **Static Analysis**: `flutter analyze lib` → **No issues found!** (ran in 19.1s, 0 warnings, 0 errors).
 - **Targeted Test Suites**:
@@ -1997,13 +2045,36 @@ All 8 test failures introduced relative to `final-cleanup-release-v2` were inves
   - **Passed**: 1595
   - **Failed**: 83 (EXACTLY matches the 83 inherited baseline failures of `final-cleanup-release-v2`).
   - **New Failures Relative to Baseline**: **0**.
+- **Independent reconfirmation (2026-10-16, 23:39, this verification pass)**:
+  - `flutter test` (full suite, fresh run) → **1595 passed / 83 failed** (exit 1, "Some tests failed"). Matches the figures above.
+  - The 83 failures were then re-derived **file by file** and equal the `final-cleanup-release-v2` baseline exactly:
+
+| Legacy file | Fails here | Baseline on stable |
+|---|---|---|
+| `cross_module_connections_test.dart` | 26 | 26 |
+| `today_command_center_test.dart` | 32 | 32 |
+| `planner_material_availability_test.dart` | 11 | 11 |
+| `navigation_regression_test.dart` | 5 | 5 |
+| `app_mode_hardening_test.dart` | 2 | 2 |
+| `shell_navigation_test.dart` | 2 | 2 |
+| `a11y/accessibility_audit_test.dart` | 1 | 1 |
+| `language_reactivity_test.dart` | 1 | 1 |
+| `prescription_review_test.dart` | 1 | 1 |
+| `universal_quick_add_test.dart` | 1 | 1 |
+| `universal_search_test.dart` | 1 | 1 |
+| **Total** | **83** | **83** |
+
+  - **Zero new failures relative to the reported baseline.** All 83 are inherited legacy debt, untouched per instructions and scheduled for Wave 8.
 
 #### 5. Remaining Scope
 - **Inherited Legacy Debt (83 failures)**: Untouched as per instructions; scheduled for Wave 8.
-- **Physical Device**: Infinix X665E verified connected via ADB.
+- **B-4 accessibility — PARTIALLY OPEN**: the genuine defects introduced by the redesign (AnimationController, `AnimatedContainer`, 4 missing `semanticLabel`s) are **fixed**; the `IconButton` tooltip at `document_intelligence_screen.dart:252` (close button inside the document-intelligence dialog) is **still missing** and remains inherited pre-existing debt. The a11y suite therefore still reports **8 passed / 1 failed**. Do not mark B-4 closed.
+- **Physical Device**: Infinix X665E verified connected via ADB; release build reinstalled and cold-launched (see 3b).
 
 ### Study Mode Integration Status
 - **STUDY MODE UI REDESIGN — B-1, B-2 & B-3 RECONCILIATION COMPLETE**
+- **B-3 INDEPENDENTLY VERIFIED (2026-10-16 23:33–23:45)**: source recount (123 logging sites, 0 unguarded) → fresh release build (SHA-256 `1BE0D6A9…`) → 3-ABI binary scan (all guarded strings 0 hits) → reinstall + cold launch on Infinix X665E → logcat shows zero app log lines and zero sensitive data; normal logged-out LoginScreen; no Developer Login (screenshot `prestable_b3_login.png` + `uiautomator` dump).
+- **B-4: PARTIALLY OPEN** — `document_intelligence_screen.dart:252` IconButton still has no tooltip; all other redesign-caused a11y defects are fixed.
 - **PROTECTED BRANCHES UNTOUCHED**: `final-cleanup-release-v2`, `ui-redesign-v1`, `ui/today-redesign` have not been modified or merged.
 - **AUTHORITATIVE 5-WORD MENTAL MODEL PRESERVED**:
   - Today = Do
