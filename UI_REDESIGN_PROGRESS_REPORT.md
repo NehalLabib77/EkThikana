@@ -1481,8 +1481,8 @@ Verified live on connected physical hardware (`Infinix X665E`, process `com.ekth
 
 ### 1. Architectural Alignment across all 5 Tabs
 - **Today = Do**: Execution, priority tasks (max 3), Pomodoro focus trigger, resume active reading material, AI coach tip, academic health summary.
-- **Workspace = Study**: 6 primary study tools (Study Materials, Flashcards, Mock Exam, Question Bank, Study Planner, Formula Sheets), 2 Resource Vaults (Saved Items, Shared Box), filter chips, and recently opened carousel.
-- **Plan = Organize**: Unified Planning Focus cockpit (Weekly Goal, Date Strip, Due This Day), inline expandable day tasks, separate Plan History header action, and companion Exam Rescue planning banner.
+- **Workspace = Study**: exactly 6 primary study tools - 1. My Notes (`NotesScreen`), 2. Flashcards (`FlashcardScreen`), 3. Past Papers (`PastPaperScreen`), 4. Mock Tests (`ExamHubScreen`), 5. Study Materials (`MaterialsScreen`), 6. Question Bank (`QuizGeneratorScreen`) - plus exactly 2 Resource Vaults (Saved Items → `SavedMaterialsScreen`, Shared Box → `SharedBoxScreen`), filter chips, and recently opened carousel. **Study Planner and Formula Sheets are NOT part of the final Workspace IA and must never be listed as Workspace tools.**
+- **Plan = Organize**: Planning Focus cockpit in strict order — **Current Goal / Target Exam → 31-Day Date Strip → Due This Day**. **Weekly Goal is NOT inside the Planning Focus cockpit.** It stays in the separate secondary section below the cockpit — **Upcoming → Exam Rescue → Weekly Goal** — alongside inline expandable day tasks and the separate Plan History header action.
 - **Community = Connect**: For You discovery feed, Discussions (with Question Bank filters), Study Groups, Ask/Share composer, and Shared Box bridge.
 - **You = Me**: Student identity, Academic Profile (Class, Board, Stream, Target Exam linked to canonical ExamPlanScreen), Personal Study Snapshot, Achievements, Download Center (offline storage management), Preferences & Settings, Help & Support, and Account Actions.
 
@@ -1499,33 +1499,43 @@ Verified live on connected physical hardware (`Infinix X665E`, process `com.ekth
 ### 3. Navigation & State Integrity
 - **Bottom Navigation**: 5 items (`Today`, `Workspace`, `Plan`, `Community`, `You`) mapped to indices 0 through 4.
 - **IndexedStack State Preservation**: Verified both in automated tests and physically across repeated tab transitions without state reset or crash.
-- **AppStudyHeader Consistency**: Pinned outside the scrollable body across all 5 tabs; search is contextual (active in Today, Workspace, and Community; cleanly hidden in Plan and You per the Single Search Rule).
+- **AppStudyHeader Consistency**: Pinned outside the scrollable body across all 5 tabs. Search is contextual and follows the Single Search Rule: **Today = active (custom header search icon), Community = `showSearch: true`, Workspace = `showSearch: false`, Plan = `showSearch: false`, You = `showSearch: false`**. Workspace has exactly ONE search surface: the body `AppWorkspaceSearchField` below the pinned header. **Workspace header search is not active.**
 - **Responsive Layout & Accessibility**: Verified across 320dp, 360dp, 390dp, and 412dp viewports, dark mode, high-contrast surfaces, 1.5x / 2.0x font scaling, and minimum 44dp interactive touch targets.
 
 ### 4. Authoritative Verification Summary
-| Test Suite | Tests Passed | Status |
+> **Fresh capture 2026-10-16 on `ui/pre-stable-audit` (HEAD `1c69329`).** Every number below was re-executed one suite at a time. The previous "436 / 436" row was not reproducible and has been retired — it is no longer quoted anywhere in this report.
+
+| Test Suite | Fresh Result | Status |
 |---|---|---|
 | `flutter analyze lib` | 0 issues found (clean) | **PASS** |
 | `test/study_you_view_test.dart` (You Suite) | 29 / 29 | **PASS** |
 | `test/study_community_view_test.dart` (Community Suite) | 28 / 28 | **PASS** |
-| `test/community_phase7_test.dart` | 21 / 21 | **PASS** |
-| `test/community_reaction_regression_test.dart` | 4 / 4 | **PASS** |
-| `test/community_rebuild_step7_test.dart` | 28 / 28 | **PASS** |
 | `test/study_plan_view_test.dart` (Plan Suite) | 34 / 34 | **PASS** |
-| `test/study_workspace_view_test.dart` (Workspace Suite) | 32 / 32 | **PASS** |
-| `test/study_today_dashboard_test.dart` (Today Suite) | 14 / 14 | **PASS** |
+| `test/study_workspace_view_test.dart` (Workspace Suite) | 34 / 34 | **PASS** |
+| `test/study_today_dashboard_test.dart` (Today Suite) | 17 / 17 | **PASS** |
+| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
+| `test/workspace_content_test.dart` | 23 / 23 | **PASS** |
+| `test/design_system_test.dart` | 41 / 41 | **PASS** |
+| `test/profile_structure_test.dart` | 42 / 42 | **PASS** |
+| `test/task_lifecycle_test.dart` | 15 / 15 | **PASS** |
 | `test/exam_rescue_active_experience_test.dart` | 23 / 23 | **PASS** |
 | `test/exam_rescue_flow_test.dart` | 23 / 23 | **PASS** |
 | `test/exam_rescue_quiz_integration_test.dart` | 18 / 18 | **PASS** |
-| `test/profile_structure_test.dart` | 23 / 23 | **PASS** |
-| `test/study_rebuild_test.dart` | 7 / 7 | **PASS** |
-| `test/workspace_content_test.dart` | 13 / 13 | **PASS** |
-| `test/design_system_test.dart` | 48 / 48 | **PASS** |
-| `test/shell_dynamic_navigation_test.dart` | 12 / 12 | **PASS** |
-| `test/task_lifecycle_test.dart` | 21 / 21 | **PASS** |
-| `test/home_today_overdue_test.dart` | 16 / 16 | **PASS** |
-| `test/exam_rescue_models_test.dart` | 68 / 68 | **PASS** |
-| **Combined Authoritative Pass Total** | **436 / 436** | **ALL PASS (100%)** |
+| `test/exam_rescue_models_test.dart` | 9 / 9 | **PASS** |
+| `test/community_phase7_test.dart` | 25 / 25 | **PASS** |
+| `test/community_rebuild_step7_test.dart` | 19 / 19 | **PASS** |
+| `test/community_reaction_regression_test.dart` | 9 / 9 | **PASS** |
+| `test/shell_dynamic_navigation_test.dart` | 10 / 10 | **PASS** |
+| `test/home_today_overdue_test.dart` | 30 / 30 | **PASS** |
+| `test/offline_banner_test.dart` | 5 / 5 | **PASS** |
+| `test/offline_sync_transparency_test.dart` | 18 / 18 | **PASS** |
+| `test/notification_center_test.dart` | 8 / 8 | **PASS** |
+| `test/universal_search_test.dart` | 27 / 28 | **FAIL (1)** |
+| `test/shell_navigation_test.dart` | 2 / 4 | **FAIL (2)** |
+| `test/a11y/accessibility_audit_test.dart` | 3 / 9 | **FAIL (6)** |
+| **Authoritative Study + regression subtotal** | **499 passed / 9 failed (508)** | **Study suites 100% PASS; 3 non-Study legacy suites failing** |
+| **Full repository suite (`flutter test`, fresh)** | **1584 passed / 91 failed (1675)** | **See Pre-Stable Audit — 83 failures reproduce on protected stable** |
+
 
 ### 5. Physical Integration Verification (Infinix X665E)
 - **Target Device**: Infinix X665E (Android 12, physical 720×1612 px).
@@ -1543,7 +1553,403 @@ Verified live on connected physical hardware (`Infinix X665E`, process `com.ekth
 - **Backend Deployment**: Zero backend deployments executed.
 
 ### 7. Section Final Status
-- **Current Branch**: `ui-redesign-v1`
+- **Current Branch**: `ui/pre-stable-audit` (cut from `ui-redesign-v1` @ `1c69329`)
 - **Final Integration Status**: **STUDY MODE UI REDESIGN — FULL INTEGRATION QA PASSED — READY FOR USER FINAL REVIEW**
+- **Merged into stable? NO. Backend deployed? NO.** See the pre-stable audit sections below.
+
+---
+
+# PRE-STABLE AUDIT — `ui/pre-stable-audit`
+
+Audit window: 2026-10-16. Base: `ui-redesign-v1` @ `1c69329`. Protected stable: `final-cleanup-release-v2` (untouched).
+
+## Pre-Stable Audit 0. Agent Rules Applied
+
+| Rule pack | Where it exists | Applied to |
+|---|---|---|
+| `flutter-expert` | `.agents/skills/flutter-expert` | Static analysis gates, state/dispose review, `flutter analyze` + full test run as completion proof |
+| `ui-ux-expert` | `.agents/skills/ui-ux-expert` | Screen inventory status/phase assignment, hierarchy/color/icon/spacing criteria, interaction-state and accessibility checks |
+| `software-architect` | `.agents/skills/software-architect` | Ownership / single-source-of-truth verification, dead-code and broken-route discovery, wave splitting to avoid one-branch mass rewrite |
+| `qa-engineer` | `.agents/skills/qa-engineer` | Fresh per-suite regression, baseline diff against protected stable, characterization of each new failure |
+| `security-engineer` | `.agents/skills/security-engineer` | DEV_AUTH_BYPASS / dev-credential audit, secret-surface scan, release binary string scan, log-leak review, mock/QA-hook review |
+| `production-release-manager` | `.agents/skills/production-release-manager` | Release build pipeline, environment separation (`API_BASE_URL`), signing config, debug-only code removal verification, rollout-readiness verdict |
+| `backend-database-engineer` | `.agents/skills/backend-database-engineer` | **Reviewed only** — no backend/DB change is permitted in this pass, so no rules were executed against backend code |
+| `mobile-design-system-architect`, `accessibility`, `responsive-design`, `performance`, `state-management`, `firebase-firestore` (as standalone packs) | **Do not exist in `.agents/skills/`** | Covered instead by `ui-ux-expert` (design tokens, a11y, responsive), `flutter-expert` (state/perf), `software-architect` + Firebase rules read inside `auth_gate.dart` / `firestore.rules` references |
+
+## Pre-Stable Audit 1. Branch Safety
+
+```
+git switch ui-redesign-v1          -> clean tree, HEAD 1c69329
+git switch -c ui/pre-stable-audit  -> created, HEAD 1c69329
+git status                         -> clean before audit work began
+```
+
+- Worked **only** on `ui/pre-stable-audit`.
+- `final-cleanup-release-v2` was read through a disposable `git worktree` for baseline comparison and removed afterwards; it was never modified (`git rev-list --left-right --count final-cleanup-release-v2...ui-redesign-v1` = `0 behind / 44 ahead`, i.e. stable has nothing missing from it).
+- No merge into stable, no backend deploy, no branch fan-out (wave branches are proposed only).
+
+## Pre-Stable Audit 2. Fresh Pre-Stable Regression
+
+| Gate | Fresh result | Verdict |
+|---|---|---|
+| `flutter analyze lib` | **0 issues** (27.6 s cold, 138.6 s post-`clean`) | PASS |
+| Full suite `flutter test` | **1584 passed / 91 failed (1675)** | See baseline diff below |
+| Authoritative Study + regression suites (25 files, run individually) | **499 passed / 9 failed (508)** | Study families 100% PASS |
+| Study families re-verified | Today 17/17, Workspace 34/34, Plan 34/34, Community 28/28, You 29/29 | PASS |
+| Task/Plan regression | `task_lifecycle` 15/15, `home_today_overdue` 30/30, `profile_structure` 42/42 | PASS |
+| Exam Rescue regression | active 23/23, flow 23/23, quiz integration 18/18, models 9/9 | PASS |
+| Shell navigation | `shell_dynamic_navigation` 10/10 PASS, `shell_navigation` **2/4 FAIL** | FAIL (pre-existing) |
+| Design system | `design_system` 41/41 PASS, `a11y/accessibility_audit` **3/9 FAIL** | FAIL (5 new, see below) |
+| Offline / download | `offline_banner` 5/5, `offline_sync_transparency` 18/18, You Download Center covered inside `study_you_view` 29/29 | PASS |
+| Community regressions | `community_phase7` 25/25, `community_rebuild_step7` 19/19, `community_reaction_regression` 9/9 | PASS |
+| Notifications / Search | `notification_center` 8/8 PASS, `universal_search` **27/28 FAIL** | FAIL (pre-existing) |
+
+**The 91 failures are NOT 91 regressions.** The same 12 files were re-run on protected `final-cleanup-release-v2` (clean worktree, `flutter pub get` + `flutter test`):
+
+| File | stable v2 failures | `ui/pre-stable-audit` failures | Delta |
+|---|---|---|---|
+| `a11y/accessibility_audit_test.dart` | 1 | 6 | **+5** |
+| `app_mode_hardening_test.dart` | 2 | 3 | **+1** |
+| `exam_ecosystem_test.dart` | 0 | 2 | **+2** |
+| `cross_module_connections_test.dart` | 26 | 26 | 0 (pre-existing) |
+| `today_command_center_test.dart` | 32 | 32 | 0 (pre-existing) |
+| `planner_material_availability_test.dart` | 11 | 11 | 0 (pre-existing) |
+| `navigation_regression_test.dart` | 5 | 5 | 0 (pre-existing) |
+| `shell_navigation_test.dart` | 2 | 2 | 0 (pre-existing) |
+| `app_mode_hardening` (other 2), `language_reactivity`, `prescription_review`, `universal_quick_add`, `universal_search` | 6 | 6 | 0 (pre-existing) |
+| **Total (12 files)** | **83** | **91** | **+8** |
+
+Baseline run on stable: **133 passed / 83 failed** for those 12 files. So **83 failures are inherited legacy debt** (stale source-string assertions written against the pre-rebuild Home/Study code) and **8 failures are new on this branch**.
+
+**The 8 new failures, individually characterized:**
+
+| # | Test | Cause | Type |
+|---|---|---|---|
+| 1 | a11y · screens do not hardcode a raw hex colour | New tokens (`app_gradients.dart`, `app_*_card.dart`, `study_you_view`, `plan_view`, `today`, `workspace`) emit raw hex; the allow-list was never extended to the new token files | Test-contract drift + token discipline debt |
+| 2 | a11y · no AnimationController or TickerProvider in lib/ | `core/design_system/components/app_skeleton.dart` uses `AnimationController`/`TickerProviderStateMixin` | Spec §11 (no decorative motion) violation |
+| 3 | a11y · no decorative animation widget in lib/ | `app_priority_task_card.dart:135 AnimatedContainer` | Spec §11 violation |
+| 4 | a11y · every `Image.asset` has `semanticLabel` | `app_coach_card.dart:107`, `app_study_header.dart:100`, `study_today_dashboard_view.dart:250` | Genuine accessibility gap |
+| 5 | a11y · every `Image.network` has `semanticLabel` | `gochano_shell.dart:445` (profile avatar) | Genuine accessibility gap |
+| 6 | app_mode_hardening · Study Profile (index 4) → Utility resets to 0 | Taps text `"Profile"`; tab is now labelled **"You"** | Stale expectation (intentional rename) |
+| 7 | exam_ecosystem · shell retains 5 destinations | Expects `['Today','Workspace','Plan','Community','Profile']`, actual ends `'You'` | Stale expectation (intentional rename) |
+| 8 | exam_ecosystem · Workspace exposes "Exam Prep" quick access | Workspace now implements the final **6 + 2 IA**; `ExamHubScreen` is reached through the **Mock Tests** tool card | Stale expectation (intentional IA) |
+
+**Verdict:** no runtime/behavioural regression was introduced by the Study redesign; the 8 deltas are accessibility/motion debt (5) plus stale test expectations (3) that must be reconciled before a stable gate.
+
+## Pre-Stable Audit 3. Release-Safety Build Audit
+
+Pipeline executed in order: `flutter clean` → `flutter pub get` → `flutter analyze lib` (0 issues) → release build.
+
+| Check | Finding | Verdict |
+|---|---|---|
+| Release build command | `flutter build apk --release --dart-define=API_BASE_URL=https://ekthikana-api-x473.onrender.com` (canonical command documented in `docs/TOP10_COMPETITION_PHASE_T7_REPORT.md:92`) | **PASS** — exit 0, `build/app/outputs/flutter-apk/app-release.apk`, **106.4 MB (111,538,745 bytes)**, Gradle `assembleRelease` 806.8 s |
+| `DEV_AUTH_BYPASS` in release | Source double gate: `devAuthEnabled = kDebugMode && _devAuthBypass` (`lib/core/services/dev_auth_config.dart:49`), `AuthGate._developerAuthBypass = kDebugMode && bool.fromEnvironment(...)` (`auth_gate.dart:53-55`), `login_screen.dart:61-67`. No bypass define was passed to the release build | **PASS** |
+| Binary proof | ASCII scan of **all three** `libapp.so` (arm64-v8a / armeabi-v7a / x86_64) inside the release APK: `DEV_AUTH_BYPASS` **0**, `DEV_TEST_EMAIL` **0**, `DEV_TEST_PASSWORD` **0**, `Developer Login` **0**, `kDebugMode` **0** | **PASS** — dead-code eliminated, no dev credentials embedded |
+| `DEV_TEST_EMAIL` / `DEV_TEST_PASSWORD` | Only read as `String.fromEnvironment` inside `dev_auth_config.dart` / `login_screen.dart`; never literal; not present in the binary | **PASS** |
+| Environment handling | `AppConfig.apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '')`; `AppConfig.validateRelease()` throws before `runApp` if release and (empty **or** loopback). `main.dart:31` runs it and shows a configuration screen instead of crashing | **PASS** |
+| Loopback strings in APK | `localhost`×1, `127.0.0.1`×2, `10.0.2.2`×1 — these are the **guard list** inside `AppConfig.isLoopback`, not a configured URL; configured base URL appears 4× as the Render HTTPS host | **PASS** |
+| Firebase config | `lib/firebase_options.dart` (platform options) + tracked `android/app/google-services.json`; startup calls `Firebase.initializeApp` with a fallback error screen | **PASS (accepted risk)** — Firebase Web API key is a public client identifier by design; server-side protection is Firestore rules + ID-token verification (`firestore.rules` requires `email_verified`) |
+| Signing secrets | `android/key.properties` (storePassword/keyPassword/keyAlias/storeFile) and `android/secrets.properties` (`GOOGLE_MAPS_ANDROID_API_KEY`) are **git-ignored** (`flutter_app/android/.gitignore:6,12,17`, root `.gitignore:34-37`); only `key.properties.example` is tracked | **PASS** |
+| Maps key distribution | Injected via `manifestPlaceholders["GOOGLE_MAPS_ANDROID_API_KEY"]` → lands in the APK manifest `<meta-data>` (client key, by design) | **ACCEPTED — action item:** restrict the key by package + SHA-1/SHA-256 in Google Cloud |
+| Hardcoded secrets | Repo-wide scan for `AIza…`, `Bearer <jwt>`, `api_key = "…"`, `password = "…"`, `secret = "…"`: only `firebase_options.dart:25` (Firebase Web API key) | **PASS** — no token/password/secret literals in Dart |
+| `print(` | **0** bare `print(` calls in `lib/` | PASS |
+| `debugPrint(` | **122** call sites; **94 occurrences of `kDebugMode` guards** across 16 files; only **3 files are unguarded**: `app.dart` (2), `core/services/telecom_auth_service.dart` (13), `features/profile/presentation/ai_usage_screen.dart` (3). `api_service.dart` / `auth_service.dart` use an explicit `if (kReleaseMode) return;` helper that never logs bodies/headers/tokens | **WARN** — see blocker B-3 |
+| Release logcat observation | Launching the installed release APK emitted `I flutter : [Boot] app:build` and `[Boot] authGate:mount` — confirming **unguarded `debugPrint` still writes in release** | **WARN** |
+| `TODO` / `FIXME` / `HACK` in `lib/` | **0** | PASS |
+| Mock / test-only hooks | 8 injection seams (`mockTasks`, `mockRecentMaterials`, `mockStudyGoals`, `mockTargetExam`, `mockOfflineEntries`, `mockAchievementsData`, `mockHealthData`, `mockProfileData`, `mockAiUsage`, `mockGroups`) are **constructor parameters only**, consumed with `widget.mockX ?? realStream` — there is **no** "fall back to mock when the service fails" path in production | **PASS** |
+| QA-only / debug-only UI | Dev Login button (double gated), `profile_setup_screen.dart:70,113` and `group_detail_screen.dart:635` `if (kDebugMode)` debug affordances, plus 60+ `if (kDebugMode)` log blocks | **PASS** — none reachable in release |
+| Notification configuration | Channels registered with `Importance.max`, `POST_NOTIFICATIONS` + boot-completed receivers, `ScheduledNotificationBootReceiver` declared | PASS |
+| Exact alarm handling | `SCHEDULE_EXACT_ALARM` declared; `notification_service.dart` queries exact-alarm capability, requests permission, and logs `exactAlarmAllowed=` with a documented fallback path (Android 12+) | PASS (audit only — no behaviour change) |
+| Native plugins | Release `assembleRelease` compiled all plugins; only warnings are Flutter's Kotlin-Gradle-Plugin deprecation notice and Java `source/target 8` deprecation | PASS (migrate KGP later) |
+| Manifest permissions | `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `SCHEDULE_EXACT_ALARM`, `VIBRATE`, coarse/fine location, internet, network state | PASS (location is commute/map feature scope) |
+| App identity | `applicationId com.ekthikana.ekthikana`, `versionName 1.0.0`, `versionCode 1`, release signing required (build aborts if `key.properties` missing) | PASS |
+| Not uploaded / deployed | APK built locally only; no store upload, no backend deploy, no Firebase deploy | PASS |
+
+## Pre-Stable Audit 4. Auth / Startup Audit (`DEV_AUTH_BYPASS` unset → false)
+
+| Step | Source | Result |
+|---|---|---|
+| Cold start | `main.dart` → `AppConfig.validateRelease()` → `Firebase.initializeApp` → language/appearance/app-mode restore → `runApp` | **PASS** (verified on device with release build) |
+| Boot router | `app.dart` `_BootRouter` renders `GochanoSplashScreen(onReady:)` then swaps the single `home:` child to `AuthGate` (deliberately no `pushReplacement`) | PASS |
+| AuthGate restore | local telecom flag + `FirebaseAuth.currentUser`; stale flag (flag set, user null) is cleared and user is refused entry; `getIdToken(true)` forces claim refresh; `hasProfile()` gates setup | PASS |
+| Logged-out state | Routes to `LoginScreen` | **PASS — verified on device** (screenshot `prestable_release_login.png`) |
+| Dev bypass | `_developerAuthBypass` false → normal clearing of session on sign-out | PASS |
+| Login | Telecom carrier check (`REGISTERED` → straight into shell), otherwise OTP | Source-audited; **live login PENDING** (no QA credentials available in this pass) |
+| Registration | No standalone registration screen; new users flow `LoginScreen → OtpVerifyScreen → ProfileSetupScreen` (`hasProfile == false`) | Source-audited |
+| Password reset | `AuthService.sendPasswordReset()` exists (`auth_service.dart:359`) but has **zero UI call sites** — there is no forgot-password screen | **Functional gap (recorded, not fixed)** |
+| Profile setup → shell | `ProfileSetupScreen` writes profile then `GochanoShell(role: 'student')` | PASS (source) |
+| Student routing | `AuthGate`/OTP/ProfileSetup all pass `role: 'student'` → Study or Utility mode per `GochanoAppModePreferences` | PASS |
+| Utility mode | `GochanoShell._buildPages`: Study → `Today / Workspace / Plan / Community / You`; Utility → `Home / Commute / Money / Profile` | PASS (source + previously QA'd) |
+| Non-student routing | Only reachable when `profile['role'] != 'student'` (read in `login_screen.dart:269-271`, the email/legacy login path). The telecom OTP path always yields `student`, and `AuthGate` hard-codes `student` | **Reachability gap — non-student physical coverage PENDING** (no such account available) |
+| `docs/START_HERE.md` | Referenced verbatim by the release error UI (`main.dart:121`) but **does not exist** in `docs/` | Minor doc gap |
+
+## Pre-Stable Audit 5. Functional Blockers Found (recorded, NOT fixed in this pass)
+
+| ID | Severity | Finding | Evidence |
+|---|---|---|---|
+| **B-1** | **P0 — functional** | `Navigator.pushNamed(context, '/exams')`, `'/mistakes'`, `'/quiz-generate'` are used as the SnackBar "Start" actions of `_startPractice` and `_startDrill`, but `MaterialApp` in `app.dart` registers **no** `routes` / `onGenerateRoute` / `onUnknownRoute`. The taps throw `Could not find a route named …` at runtime. | `exam_hub_screen.dart:511,513,515`, `priority_topics_screen.dart:209`, `app.dart:38-59` |
+| **B-2** | P1 — test contract | 8 newly failing tests (5 accessibility/motion, 3 stale expectations after the intentional `Profile → You` rename and Workspace 6+2 IA) block any green stable gate | Pre-Stable Audit §2 |
+| **B-3** | P1 — privacy/log hygiene | 18 unguarded `debugPrint` sites ship to release; `telecom_auth_service.dart` logs the normalised **phone number** (`checkSubscription: phone="…"`) on the login path | `app.dart:35,119`, `telecom_auth_service.dart:290,299,376…`, `ai_usage_screen.dart` |
+| **B-4** | P2 — accessibility | Missing `semanticLabel` on `Image.asset` (3 sites) and `Image.network` (1 site); missing `IconButton.tooltip` (`document_intelligence_screen.dart:252`); decorative motion in `app_skeleton.dart` / `app_priority_task_card.dart` violates spec §11 | `a11y/accessibility_audit_test.dart` |
+| **B-5** | P2 — dead code | 19 unreachable screens still compiled and still referenced by stale tests (`StudyScreen`, `CommunityScreen`, `QuestionBankView`, `PlannerView`, `FocusView`, `SemesterListScreen`, `SubjectScreen`, `NoteReaderScreen`, `AiTeacherScreen`, `RevisionSheetScreen`, `StudyPackScreen`, `SmartPlannerScreen`, `AssignmentAssistantScreen`, `LearningInsightsScreen`, `AdaptiveDashboardScreen`, `AiTextbookScreen`, `RevisionQueueScreen`, `AiCommunityFeedScreen`, `CommunityContributionProfileScreen`) | whole-project reference scan incl. `test/` |
+| **B-6** | P3 — docs | `docs/START_HERE.md` missing though the release configuration screen points users at it | `main.dart:121` |
+
+## Pre-Stable Audit 6. Physical Device Audit (Infinix X665E, Android 12)
+
+Release-like configuration, **`DEV_AUTH_BYPASS` not set (false)**. Prior debug-signed install was replaced with the signed release APK (user-approved).
+
+| Item | Result |
+|---|---|
+| Device | Infinix X665E · Android 12 · `adb` over TLS |
+| Install | prior signature mismatch resolved by uninstall → `adb install` **Success** (release keystore) |
+| Cold launch | `com.ekthikana.ekthikana/.MainActivity` resumed, **no crash / no setup-error screen** (so `API_BASE_URL`, Firebase options and notification init all accepted) |
+| Startup path | Splash → AuthGate → **LoginScreen (telecom mobile-number entry)** — logged-out state confirmed |
+| Dev bypass on device | **Absent** — no Developer Login affordance, no auto-sign-in, no QA banner |
+| Language toggle | EN / বাংলা toggle rendered at top of login |
+| Release logging | `[Boot]` lines visible in logcat (see B-3); no tokens/credentials in logs |
+| Evidence | `prestable_release_login.png` (repo root) |
+| **PENDING** | logged-in Study shell on release build, Utility shell, tab switching, notifications, search, downloads, settings, logout, non-student mode — **no QA credentials or non-student/Utility test accounts were available in this pass; marked PENDING, not faked** |
+
+---
+
+# FULL APP UI MODERNIZATION INVENTORY
+
+**Scope:** every reachable user-facing screen in `flutter_app/lib` — **105 entries across 12 families**. Survey method: whole-project route / `Navigator` / entry-point scan, `flutter analyze lib` (0 issues) as baseline, plus per-feature review of `shell`, `study`, `community`, `profile`, `life`, `exam`, `ai`. **Owner** = feature folder that owns the file. **Data source** = store the screen reads.
+
+**Redesign status:** `DONE` = rebuilt to the 2026 Study redesign spec · `PARTIAL` = redesigned container with residual debt · `NOT STARTED` = legacy UI · `DEAD-EXCLUDED` = unreachable, removal candidate (B-5).
+**Current UI status:** `DESIGN-SYSTEM READY` · `FUNCTIONAL BUT VISUALLY WEAK` · `LEGACY` · `NEEDS ACCESSIBILITY PASS` · `BLOCKED BY FUNCTIONAL ISSUE` · `DEAD CODE`.
+**Shell destinations (current):** Study → `Today / Workspace / Plan / Community / You` · Utility → `Home / Commute / Money / Profile` · Non-student (legacy email path only) → `Home / Life / Tasks / Profile`.
+
+### A. Entry / Auth (6)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| GochanoSplashScreen | Entry | `app.dart` `_BootRouter` → AuthGate | shell | local boot flags | LEGACY (static) | NOT STARTED | LOW | AuthGate | W1 |
+| AuthGate | Entry | `app.dart` after splash; logout `pushAndRemoveUntil` | auth | `hasProfile()`, telecom prefs, FirebaseAuth | LEGACY (bare spinner) | NOT STARTED | MED | TelecomAuthService, ProfileSetup | W1 |
+| LoginScreen | Entry | AuthGate logged-out; OtpVerify "change number" | auth | carrier check, FirebaseAuth, profile | FUNCTIONAL BUT VISUALLY WEAK | NOT STARTED | HIGH | telecom API, OTP, dev-login (debug only) | W1 |
+| OtpVerifyScreen | Entry | LoginScreen push | auth | OTP API, `signInWithCustomToken` | FUNCTIONAL BUT VISUALLY WEAK | NOT STARTED | HIGH | LoginScreen | W1 |
+| ProfileSetupScreen | Entry | Login/Otp when `hasProfile==false` | auth | Firestore `users` profile, `AuthService.register` | LEGACY (+ `kDebugMode` shortcuts) | NOT STARTED | MED | AuthGate | W1 |
+| GochanoShell | Entry/root | AuthGate after login | shell | profile stream, `GochanoAppMode` prefs | NEEDS ACCESSIBILITY PASS (`Image.network` no semanticLabel `gochano_shell.dart:445`; `Profile→You` rename broke 3 stale tests) | PARTIAL | MED | all tab views | W1 |
+
+### B. Study — 5 Primary Tabs (5) — **the only DONE family**
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| StudyTodayDashboardView | Study | Study tab 1 `Today` | study/today | tasks, study goals, offline entries, coach card | DESIGN-SYSTEM READY | DONE | LOW | task lifecycle, notifications | W0 (complete) |
+| WorkspaceView | Study | Study tab 2 `Workspace` | study/workspace | tools/vault registry, recents, offline entries | DESIGN-SYSTEM READY | DONE | LOW | tool screens (C) | W0 (complete) |
+| PlanView | Study | Study tab 3 `Plan` | study/planner | goals, target exam, rescue plans, day tasks | DESIGN-SYSTEM READY | DONE | LOW | exam rescue, plan history | W0 (complete) |
+| CommunityView | Study | Study tab 4 `Community` | study/community | groups + posts stream | DESIGN-SYSTEM READY | DONE | LOW | community screens (E) | W0 (complete) |
+| StudyYouView | Study | Study tab 5 `You` | study/you | profile, achievements, health, downloads, AI usage | DESIGN-SYSTEM READY | DONE | LOW | profile screens (F), downloads | W0 (complete) |
+
+### C. Study Tools & Detail (18)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| NotesScreen | Study/Notes | Workspace tool 1 | study/notes | Firestore notes | LEGACY | NOT STARTED | LOW | NoteEditor | W2 |
+| NoteEditorScreen | Study/Notes | NotesScreen → note | study/notes | notes (write) | LEGACY | NOT STARTED | LOW | NotesScreen | W2 |
+| NoteReaderScreen | Study/Notes | — no live caller | study/notes | notes | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| MaterialsScreen | Study/Materials | Workspace tool 5 | study/materials | materials stream, offline entries | LEGACY | NOT STARTED | MED | MaterialUpload/Reader | W2 |
+| MaterialUploadScreen | Study/Materials | MaterialsScreen FAB | study/materials | Firestore + storage write | LEGACY | NOT STARTED | MED | MaterialsScreen | W2 |
+| MaterialReaderScreen | Study/Materials | Materials / Shared Box tap | study/materials | material doc + downloads | LEGACY | NOT STARTED | MED | offline downloads | W2 |
+| SavedMaterialsScreen | Study/Materials | Workspace vault 1 | study/materials | saved items stream | LEGACY | NOT STARTED | LOW | MaterialReader | W2 |
+| DocumentIntelligenceScreen | Study/Materials | Saved / material detail | study/materials | local parse + AI | NEEDS ACCESSIBILITY PASS (`IconButton` tooltip missing `document_intelligence_screen.dart:252`) | NOT STARTED | LOW | AI service | W2 |
+| FlashcardScreen | Study/Flashcards | Workspace tool 2 | study/flashcards | decks + spaced review | LEGACY | NOT STARTED | MED | study goals | W2 |
+| FocusSessionScreen | Study/Flashcards | Flashcards review entry | study/flashcards | local timer + goals | LEGACY | NOT STARTED | LOW | Flashcards | W2 |
+| AiTeacherScreen | Study/Coach | — no live caller | study/coach | AI tutor session | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| RevisionSheetScreen | Study/Coach | — no live caller | study/coach | revision queue | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| StudyPackScreen | Study/Coach | — no live caller | study/coach | study packs | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| StudyScreen | Study/legacy | — superseded by shell tabs | study | legacy registry | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| PlannerView | Study/legacy | — superseded by PlanView | study/planner | legacy goals | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| FocusView | Study/legacy | — superseded by hub/focus | study | legacy focus list | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| SemesterListScreen | Study/legacy | — no live caller | study | semester tree | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| SubjectScreen | Study/legacy | — no live caller | study | subject detail | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+
+### D. Task / Plan / Exam Detail (8)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| ExamHubScreen | Study/Exams | Workspace tool 4 · Today quick action | study/exams | exams stream + rescue plans | BLOCKED BY FUNCTIONAL ISSUE (**B-1**: `/exams`, `/mistakes`, `/quiz-generate` unregistered) | NOT STARTED | HIGH | fix B-1 | W3 |
+| ExamPlanScreen | Study/Exams | ExamHub / rescue → plan | study/exams | exam plan doc | LEGACY | NOT STARTED | MED | ExamRescue | W3 |
+| PriorityTopicsScreen | Study/Exams | Exam plan priority drill | study/exams | priority topics | BLOCKED BY FUNCTIONAL ISSUE (**B-1**: `/quiz-generate`) | NOT STARTED | HIGH | fix B-1 | W3 |
+| PastPaperScreen | Study/Exams | Workspace tool 3 | study/exams | past papers stream | LEGACY | NOT STARTED | MED | materials downloads | W2 |
+| ExamReadinessScreen | Study/Exams | ExamHub readiness entry | study/exams | exam history + goals | LEGACY | NOT STARTED | MED | exam history | W3 |
+| ExamRescueSetupSheet | Study/Exams | PlanView Exam Rescue | study/exams | rescue plan (write) | LEGACY | NOT STARTED | MED | PlanView | W3 |
+| ExamRescuePreviewScreen | Study/Exams | Rescue sheet → preview | study/exams | rescue plan | LEGACY | NOT STARTED | MED | ExamRescue | W3 |
+| PlanHistoryScreen | Study/Plan | PlanView header action | study/planner | archived plans | LEGACY | NOT STARTED | LOW | PlanView | W3 |
+
+### E. Community Detail (12)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| GroupsScreen | Community | CommunityView groups | community | groups stream | LEGACY | NOT STARTED | MED | CommunityView | W4 |
+| GroupDetailScreen | Community | Groups tap | community | group + posts | LEGACY (debug-only affordance `:635`) | NOT STARTED | MED | group form sheet | W4 |
+| GroupFormSheet | Community | Group create/edit | community | group write | LEGACY | NOT STARTED | LOW | GroupsScreen | W4 |
+| PostDetailScreen | Community | Group / post tap | community | post + reactions | LEGACY | NOT STARTED | MED | reactions | W4 |
+| PostComposerSheet | Community | Post create/edit | community | post write | LEGACY | NOT STARTED | MED | GroupDetail | W4 |
+| CommunityProfileScreen | Community | Avatar tap | community | member profile | LEGACY | NOT STARTED | LOW | community | W4 |
+| CommunitySearchScreen | Community | CommunityView search results | community | federated search | LEGACY | NOT STARTED | MED | universal search | W4 |
+| CommunityReportSheet | Community | Post overflow | community | report write | LEGACY | NOT STARTED | LOW | moderation | W4 |
+| CommunityBlockSheet | Community | Post / user overflow | community | block list | LEGACY | NOT STARTED | LOW | moderation | W4 |
+| CommunityDeleteSheet | Community | Own post overflow | community | delete write | LEGACY | NOT STARTED | LOW | post composer | W4 |
+| CommunityContributionProfileScreen | Community | — no live caller | community | contributions | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| AiCommunityFeedScreen | Community | — no live caller | community | AI feed | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+
+### F. Profile / Settings (4)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| ProfileScreen | Profile | Utility tab 4 · You → account | profile | profile doc + settings | LEGACY | NOT STARTED | MED | settings sheets | W5 |
+| AcademicHealthScreen | Profile | You → academic health | profile | health data | LEGACY | NOT STARTED | LOW | You | W5 |
+| LearningBrainScreen | Profile | You → learning brain | profile | learning insights | LEGACY | NOT STARTED | LOW | You | W5 |
+| AiUsageScreen | Profile | You → AI usage | profile | AI usage doc | LEGACY (+ 3 unguarded `debugPrint`, **B-3**) | NOT STARTED | LOW | AI usage service | W5 |
+
+### G. Global Utilities (2)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| NotificationCenterScreen | Global | header bell (Today/Community) | core/notifications | notifications stream | LEGACY | NOT STARTED | LOW | notification service | W6 |
+| UniversalSearchScreen | Global | Today header search · deep links | core/search | federated index | LEGACY (`universal_search` 27/28 — pre-existing) | NOT STARTED | MED | all searchable families | W6 |
+
+### H. Utility / Life (5)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| CommuteDashboardScreen | Life | Utility tab 2 | life/commute | fare, history, bus data | LEGACY | NOT STARTED | MED | expense handoff | W7 |
+| ExpenseScreen | Life | Utility tab 3 `Money` | life/expense | expense stream + groups | LEGACY | NOT STARTED | MED | expense form sheets | W7 |
+| MedicineScreen | Life | Life / reminder entry | life/medicine | medicines stream | LEGACY (1 pre-existing `prescription_review` failure) | NOT STARTED | MED | medicine forms | W7 |
+| MedicineFormScreen | Life | Medicine add/edit | life/medicine | medicine write | LEGACY | NOT STARTED | LOW | MedicineScreen | W7 |
+| MedicineHistoryScreen | Life | Medicine history | life/medicine | history stream | LEGACY | NOT STARTED | LOW | MedicineScreen | W7 |
+
+### I. Non-Student Shell (4)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| HomeScreen | Non-student | Non-student tab 1 · Utility tab 1 | home | exam cards + today data | LEGACY (83 stale tests assert this legacy structure) | NOT STARTED | HIGH | exam simulator cards | W8 |
+| LifeScreen | Non-student | Non-student tab 2 | life | life features registry | LEGACY | NOT STARTED | MED | life tools | W8 |
+| TasksScreen (+TasksView) | Non-student | Non-student tab 3 | tasks | task stream | LEGACY | NOT STARTED | MED | task lifecycle | W8 |
+| AdminAnalyticsScreen | Non-student | admin role only (`role=='admin'`) | admin | analytics aggregate | LEGACY | NOT STARTED | MED | role gating | W8 |
+
+### J. Exams / Mock Simulator (5)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| ExamSetupScreen | Exams | Home exam card | exam | exam config | LEGACY | NOT STARTED | MED | upload pipeline | W3 |
+| ExamUploadScreen | Exams | Exam setup | exam | file parse + storage | LEGACY | NOT STARTED | MED | parser | W3 |
+| RealExamScreen (Exam Hall) | Exams | Exam upload → hall | exam | exam paper | LEGACY | NOT STARTED | HIGH | timer / persistence | W3 |
+| ExamHistoryScreen | Exams | Exam hub / home history | exam | history stream | LEGACY | NOT STARTED | LOW | RealExam | W3 |
+| ExamResultScreen | Exams | Exam completion | exam | result doc | LEGACY | NOT STARTED | LOW | ExamHistory | W3 |
+
+### K. Sheets / Dialogs (20)
+
+| Sheet / dialog | Family | Entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| AppModeSelectorSheet | Global | You → switch mode | core/app_mode | `GochanoAppMode` prefs | LEGACY | NOT STARTED | MED | shell | W6 |
+| SyncStatusSheet | Global | offline banner | core/offline | sync queue | LEGACY | NOT STARTED | LOW | offline service | W6 |
+| UniversalQuickAddSheet | Global | quick-add FAB | core/quick_add | task/event write | LEGACY (1 pre-existing failure) | NOT STARTED | MED | task lifecycle | W6 |
+| ConfirmationSheet (shared) | Global | destructive actions | core/ui | none | LEGACY | NOT STARTED | LOW | all | W6 |
+| TaskFormSheet | Task | Today / Plan / Task add | task | task write | LEGACY | NOT STARTED | MED | task lifecycle | W3 |
+| ExamScheduleSheet | Exams | Exam hub | exam | exam write | LEGACY | NOT STARTED | LOW | ExamHub | W3 |
+| ExamRescueAskSheet | Exams | Exam detail | exam | rescue ask | LEGACY | NOT STARTED | LOW | ExamRescue | W3 |
+| GoalEditSheet | Study | PlanView current goal | study/planner | goals write | LEGACY | NOT STARTED | LOW | PlanView | W3 |
+| PostComposer/Report/Block/Delete sheets | Community | listed in (E) | community | — | LEGACY | NOT STARTED | LOW | — | W4 |
+| ProfileEditSheet | Profile | Profile screen | profile | profile write | LEGACY | NOT STARTED | LOW | ProfileScreen | W5 |
+| AppearanceSheet / LanguageSheet | Profile | Profile settings | profile | prefs | LEGACY | NOT STARTED | LOW | ProfileScreen | W5 |
+| ExpenseFormSheet | Life | Expense add/edit | life/expense | expense write | LEGACY | NOT STARTED | MED | ExpenseScreen | W7 |
+| ExpenseGroupSheet | Life | Expense groups | life/expense | group write | LEGACY | NOT STARTED | MED | ExpenseScreen | W7 |
+| FareReportSheet | Life | Commute | life/commute | fare report | LEGACY (combined `SingleChildScrollView` + `shrinkWrap`) | NOT STARTED | LOW | CommuteDashboard | W7 |
+
+### L. AI / Ziku (16)
+
+| Screen | Family | Route / entry | Owner | Data source | Current UI status | Redesign status | Risk | Depends on | Phase |
+|---|---|---|---|---|---|---|---|---|---|
+| QuizGeneratorScreen | AI | Workspace tool 6 · `/quiz-generate` target | ai/quiz | AI generation | LEGACY (**B-1** target) | NOT STARTED | HIGH | fix B-1 | W2 |
+| QuizResultScreen | AI | Quiz completion | ai/quiz | result | LEGACY | NOT STARTED | LOW | QuizGenerator | W2 |
+| QuizHistoryScreen | AI | Quiz history | ai/quiz | history | LEGACY | NOT STARTED | LOW | QuizGenerator | W2 |
+| CoachDashboardScreen | AI | Today coach card | ai/coach | coach data | LEGACY | NOT STARTED | MED | You / Today | W3 |
+| LearningJourneyScreen | AI | Coach dashboard | ai/coach | journey | LEGACY | NOT STARTED | LOW | CoachDashboard | W3 |
+| PersonalityScreen | AI | Coach | ai/coach | personality | LEGACY | NOT STARTED | LOW | CoachDashboard | W3 |
+| AchievementsScreen | AI | You → achievements | ai/achievements | achievements | LEGACY | NOT STARTED | LOW | StudyYouView | W3 |
+| LearningMemoryScreen | AI | You / learning brain | ai/memory | memory doc | LEGACY | NOT STARTED | LOW | LearningBrain | W5 |
+| AiAssistantScreen | AI | global assistant entry | ai/assistant | chat session | LEGACY | NOT STARTED | MED | assistant service | W6 |
+| ZikuTutorScreen | AI | assistant | ai/ziku | chat session | LEGACY | NOT STARTED | MED | assistant service | W6 |
+| ZikuAssistantPanel | AI | global overlay | ai/ziku | chat session | LEGACY | NOT STARTED | MED | assistant service | W6 |
+| AiTextbookScreen | AI | — no live caller | ai | textbook | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| RevisionQueueScreen | AI | — no live caller | ai | revision queue | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| AssignmentAssistantScreen | AI | — no live caller | ai | assignments | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| LearningInsightsScreen | AI | — no live caller | ai | insights | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+| AdaptiveDashboardScreen | AI | — no live caller | ai | adaptive data | DEAD CODE | DEAD-EXCLUDED | LOW | — | removal |
+
+**Inventory totals:** 105 entries · **5 DONE** (Study primary tabs) · **1 PARTIAL** (GochanoShell) · **80 NOT STARTED** · **19 DEAD-EXCLUDED** (B-5) · **2 BLOCKED BY FUNCTIONAL ISSUE** (ExamHub, PriorityTopics — B-1).
+
+---
+
+# CROSS-CUTTING UI DEBT AUDIT
+
+| Area | Fresh measurement (2026-10-16) | Consequence |
+|---|---|---|
+| Design tokens | `core/design_system` is the single token source and `design_system_test` is 41/41 green, **but** 280 `Color(0x…)` literals exist in `lib/`; **65 raw hex + 35 `Colors.white` live outside `core/design_system` across 14 files** (worst: `greeting_presentation.dart` 19, `study_today_dashboard_view.dart` 17+6, `study_you_view.dart` 11+11, `plan_view.dart` 9+3, `workspace_view.dart` 9+2) | Breaks the token contract, blocks theming, and is the direct cause of a11y failure #1 |
+| Dark mode | Not supported: hardcoded light-mode hex/`Colors.white` outside the token layer means a dark scheme cannot be applied consistently | Must be fixed in the token wave before any dark-mode promise |
+| Localization | **2573** `GochanoLanguage.text(` call sites vs **~51** raw English `Text('…')` literals (worst: `exam_plan_screen.dart`, `exam_hub_screen.dart`, `past_paper_screen.dart`) | Bangla (default) coverage is good; residual English is concentrated in the exam family — W3 work |
+| Accessibility | 36 `Semantics(` and 55 `IconButton(` in `lib/`; a11y suite 3/9 → missing `semanticLabel` (4 sites), missing `tooltip` (1 site), decorative motion (2 files) | B-4 |
+| Responsive | 42 `SingleChildScrollView` usages; only **2** files combine it with `shrinkWrap:true` (`fare_report_sheet.dart`, `sync_status_sheet.dart`). No mass `Expanded`/`Sliver` breakage found | Responsive risk is low; per-screen review inside each wave |
+| Performance | Redesigned Today/Workspace/Plan stream loading/error states are clean; no new infinite rebuild loops or polling added by the redesign | Watch item only |
+| Offline / data safety | `OfflineService` + download manifest + sync queue intact; `offline_banner` 5/5 and `offline_sync_transparency` 18/18 green; no new local stores added by the redesign | PASS |
+| Dead code / test debt | 19 dead screens still compiled; 83 pre-existing failing tests across 12 files assert the pre-rebuild source | Waves 0/3/8 + removal pass |
+
+---
+
+# FULL APP UI MODERNIZATION ROADMAP
+
+Deliberately split so **no branch ever combines multiple feature families** and each wave has its own design-system tokens + test baseline. **Wave branches are proposals only — none were created in this pass.**
+
+| Wave | Scope (inventory families) | Branch (to create) | Design-system tokens / components to add | Test suites that must stay green | Physical QA required | Dependencies | Invariants |
+|---|---|---|---|---|---|---|---|
+| **W0 — Debt & gates** | Fix B-1 routes; reconcile 8 failing tests; token allow-list; dead-code removal pass | `ui/wave0-gates-debt` | extend token allow-list to `app_gradients.dart` + redesigned cards | full suite; `a11y/accessibility_audit`; `shell_navigation`; `exam_ecosystem`; `app_mode_hardening` | none (no visual change) | none | No behaviour change beyond route fix; Study tabs stay DONE |
+| **W1 — Entry / Auth / Shell** | Family A (6) | `ui/wave1-entry-auth` | splash motion token, auth form components, nav-bar semantic tokens | `shell_dynamic_navigation`, `shell_navigation`, `app_mode_hardening` | cold start, login, OTP, profile setup, tab switching, mode switch | W0 (B-1 unrelated but same baseline) | Telecom auth flow semantics unchanged; dev-login stays double-gated; no secrets in UI |
+| **W2 — Study tools** | Families C + PastPaper + AI quiz (18) | `ui/wave2-study-tools` | list/card/reader tokens for notes, materials, flashcards | `study_workspace_view`, `workspace_content`, `study_rebuild`, `design_system` | Workspace → each of 8 tools, offline download | W1 | Workspace IA stays exactly 6 + 2; `AppWorkspaceSearchField` remains the only Workspace search |
+| **W3 — Plan / Exams / Coach** | Families D + J + coach screens + TaskFormSheet (18) | `ui/wave3-plan-exams` | exam-card, rescue-plan, readiness tokens | `study_plan_view`, `exam_rescue_*`, `task_lifecycle`, `home_today_overdue` | Plan cockpit order, rescue flow, mock exam start→hall→result | W2 (tools links) | Planning Focus order = Goal → Date Strip → Due This Day; Weekly Goal stays below the cockpit |
+| **W4 — Community** | Family E (12) | `ui/wave4-community` | group/post/reaction sheet tokens | `study_community_view`, `community_phase7`, `community_rebuild_step7`, `community_reaction_regression` | group create, post, react, report, block, delete | W1 | Community keeps the only `showSearch: true` tab |
+| **W5 — Profile / Settings** | Family F + LearningMemory (5) | `ui/wave5-profile` | settings-row, appearance/language tokens | `profile_structure` | Profile, appearance, language, AI usage, academic health | W1 | `role=='admin'` gating unchanged; no PII logging |
+| **W6 — Global surfaces** | Family G + Ziku + global sheets (8) | `ui/wave6-global` | search-result, notification, quick-add tokens | `universal_search`, `notification_center`, `universal_quick_add`, `offline_*` | notification centre, universal search deep links, quick add, app-mode switch | W3–W5 (needs searchable content) | Single Search Rule preserved (only Today + Community search surfaces) |
+| **W7 — Utility mode** | Family H + expense/fare sheets (9) | `ui/wave7-utility` | commute/expense/medicine tokens | `prescription_review`, `language_reactivity` | Utility shell, commute, money, medicine CRUD | W6 | Utility destination order `Home / Commute / Money / Profile` unchanged |
+| **W8 — Non-student + legacy** | Family I + stale-test reconciliation (4) | `ui/wave8-non-student` | legacy-family tokens | the 83 inherited failing tests must be resolved here (update or delete) | non-student shell, Life, Tasks, admin | W7 | Non-student routing stays on the `role != 'student'` path |
+
+**Wave execution rules:** each wave opens with its own design tokens + test baseline · Study tabs (W0 complete) may not be regressed by later waves · every wave ends with `flutter analyze lib` clean + its listed suites green + the physical QA column executed (or explicitly marked PENDING with a reason) · no wave touches the backend.
+
+---
+
+# PRIORITIZATION
+
+| Priority | Count | Items |
+|---|---|---|
+| **P0** | **2 work items / 2 blocked screens** | **(1)** Fix unregistered `pushNamed` routes `/exams`, `/mistakes`, `/quiz-generate` (**B-1**) — `exam_hub_screen.dart:511,513,515`, `priority_topics_screen.dart:209`, `app.dart`. **(2)** Reconcile the 8 newly failing tests (5 accessibility/motion debt + 3 stale `Profile→You` / Workspace-6+2 expectations) — **B-2** — before any stable gate |
+| **P1** | **25 screens + 1 hygiene item** | Wave 1 entry/auth/shell (6 screens: Login, OtpVerify, ProfileSetup, AuthGate, Splash, GochanoShell) · Wave 2 study tools (18 screens, incl. DocumentIntelligence tooltip) · **B-3**: guard 18 release-shipped `debugPrint` sites and stop logging normalised phone numbers |
+| **P2** | **72 screens + 4 debt items** | Waves 3–7 (Plan/Exams/Coach 18 · Community 12 · Profile 5 · Global 8 · Utility 9) · token debt (65 raw hex + 35 `Colors.white` outside the token layer) · dark-mode enablement · residual English strings in the exam family |
+| **P3** | **19 screens + 4 chores** | Dead-code removal (19 screens, **B-5**) · `docs/START_HERE.md` (**B-6**) · Maps key restriction by package + SHA · Kotlin Gradle Plugin / Java 8 build-tool migration |
+
+---
+
+# PRE-STABLE AUDIT STATUS
+
+### Pre-Stable Audit Status — **BLOCKED** (cannot promote `ui-redesign-v1` to stable yet)
+
+Exact blockers, in fix order:
+
+1. **B-1 (P0, functional)** — unregistered named routes break Mock Tests practice start and Priority Topics drill at runtime (`exam_hub_screen.dart:511,513,515`, `priority_topics_screen.dart:209`; `MaterialApp` has no `routes`/`onGenerateRoute`).
+2. **B-2 (P1, gate)** — 8 newly failing tests (5 accessibility/motion, 3 stale expectations) on top of **83 pre-existing failing tests** inherited from `final-cleanup-release-v2`; full-suite state is **1584 passed / 91 failed**.
+3. **B-3 (P1, privacy)** — 18 unguarded `debugPrint` sites ship in the release APK, including normalised phone numbers in `telecom_auth_service.dart`; confirmed writing to release logcat.
+4. **B-4 (P2, accessibility)** — missing `semanticLabel` (4 sites), missing `IconButton.tooltip` (1 site), decorative motion in `app_skeleton.dart` / `app_priority_task_card.dart` violating spec §11.
+5. **Physical QA PENDING** — logged-in Study shell, Utility shell, non-student shell, and end-to-end settings/notifications/search/download/logout could not be exercised on the release build (no QA credentials, no non-student/Utility test account).
+
+What is **not** blocked: static analysis (0 issues), Study-family regression (100%), release build + release-safety audit (dev bypass absent from the binary, secrets git-ignored, environment separation verified), branch hygiene (`ui/pre-stable-audit` only; stable untouched).
+
+### Study Mode Integration (unchanged)
+
+- **STUDY MODE UI REDESIGN — FULL INTEGRATION QA PASSED**
+- **READY FOR USER FINAL REVIEW**
+- Stable merge: **NO** · Backend deploy: **NO** · Store upload: **NO** · Wave branches created: **NO**
+
+
+
 
 
