@@ -2039,15 +2039,16 @@ adb shell uiautomator dump /sdcard/win.xml && adb shell cat /sdcard/win.xml
 - **Targeted Test Suites**:
   - `test/routes_b1_test.dart`: 3 passed, 0 failed.
   - `test/exam_ecosystem_test.dart`: 11 passed, 0 failed.
-  - `test/a11y/accessibility_audit_test.dart`: 7 passed, 1 failed (only `document_intelligence_screen.dart:252` IconButton tooltip, inherited from baseline).
+  - `test/a11y/accessibility_audit_test.dart`: 9 passed, 0 failed (100% PASS — B-4 resolved with localized tooltip on Document Intelligence close button).
   - `test/app_mode_hardening_test.dart`: 15 passed, 2 failed (both inherited from baseline).
 - **Full Test Suite (`flutter test`)**:
-  - **Passed**: 1595
-  - **Failed**: 83 (EXACTLY matches the 83 inherited baseline failures of `final-cleanup-release-v2`).
+  - **Passed**: 1596 (+1 improvement from 1595)
+  - **Failed**: 82 (-1 reduction from 83; all 82 remaining are inherited legacy debt from `final-cleanup-release-v2`).
   - **New Failures Relative to Baseline**: **0**.
-- **Independent reconfirmation (2026-10-16, 23:39, this verification pass)**:
-  - `flutter test` (full suite, fresh run) → **1595 passed / 83 failed** (exit 1, "Some tests failed"). Matches the figures above.
-  - The 83 failures were then re-derived **file by file** and equal the `final-cleanup-release-v2` baseline exactly:
+- **Independent reconfirmation (2026-10-17, B-4 Accessibility Resolution pass)**:
+  - `flutter test` (full suite, fresh run) → **1596 passed / 82 failed** (exit 1, "Some tests failed").
+  - `test/a11y/accessibility_audit_test.dart` is now completely clean (0 failures).
+  - The remaining 82 failures file-by-file:
 
 | Legacy file | Fails here | Baseline on stable |
 |---|---|---|
@@ -2057,24 +2058,28 @@ adb shell uiautomator dump /sdcard/win.xml && adb shell cat /sdcard/win.xml
 | `navigation_regression_test.dart` | 5 | 5 |
 | `app_mode_hardening_test.dart` | 2 | 2 |
 | `shell_navigation_test.dart` | 2 | 2 |
-| `a11y/accessibility_audit_test.dart` | 1 | 1 |
+| `a11y/accessibility_audit_test.dart` | **0** | 1 (RESOLVED by B-4 fix) |
 | `language_reactivity_test.dart` | 1 | 1 |
 | `prescription_review_test.dart` | 1 | 1 |
 | `universal_quick_add_test.dart` | 1 | 1 |
 | `universal_search_test.dart` | 1 | 1 |
-| **Total** | **83** | **83** |
+| **Total** | **82** | **83** (1 legacy failure permanently resolved) |
 
-  - **Zero new failures relative to the reported baseline.** All 83 are inherited legacy debt, untouched per instructions and scheduled for Wave 8.
+  - **Zero new failures relative to the reported baseline.** All 82 remaining are inherited legacy debt, untouched per instructions and scheduled for Wave 8.
 
 #### 5. Remaining Scope
-- **Inherited Legacy Debt (83 failures)**: Untouched as per instructions; scheduled for Wave 8.
-- **B-4 accessibility — PARTIALLY OPEN**: the genuine defects introduced by the redesign (AnimationController, `AnimatedContainer`, 4 missing `semanticLabel`s) are **fixed**; the `IconButton` tooltip at `document_intelligence_screen.dart:252` (close button inside the document-intelligence dialog) is **still missing** and remains inherited pre-existing debt. The a11y suite therefore still reports **8 passed / 1 failed**. Do not mark B-4 closed.
-- **Physical Device**: Infinix X665E verified connected via ADB; release build reinstalled and cold-launched (see 3b).
+- **Inherited Legacy Debt (82 failures)**: Untouched as per instructions; scheduled for Wave 8.
+- **B-4 Accessibility — FULLY RESOLVED**:
+  - Raw `IconButton` at `document_intelligence_screen.dart:252` now carries `tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন')`.
+  - Static accessibility guard test `test/a11y/accessibility_audit_test.dart` passes completely with **9 passed / 0 failed** (all checks green: Image.asset semanticLabels, Image.network semanticLabels, IconButton tooltips, touch targets >= 48dp, no decorative animations, no raw hex colors, themes registered).
+- **Physical Device**: Infinix X665E verified connected via ADB (`transport_id:1`); app process PID 7676 running in background.
 
 ### Study Mode Integration Status
-- **STUDY MODE UI REDESIGN — B-1, B-2 & B-3 RECONCILIATION COMPLETE**
-- **B-3 INDEPENDENTLY VERIFIED (2026-10-16 23:33–23:45)**: source recount (123 logging sites, 0 unguarded) → fresh release build (SHA-256 `1BE0D6A9…`) → 3-ABI binary scan (all guarded strings 0 hits) → reinstall + cold launch on Infinix X665E → logcat shows zero app log lines and zero sensitive data; normal logged-out LoginScreen; no Developer Login (screenshot `prestable_b3_login.png` + `uiautomator` dump).
-- **B-4: PARTIALLY OPEN** — `document_intelligence_screen.dart:252` IconButton still has no tooltip; all other redesign-caused a11y defects are fixed.
+- **STUDY MODE UI REDESIGN — B-1, B-2, B-3 & B-4 RECONCILIATION COMPLETE**
+- **B-1 RESOLVED**: All unregistered routes (`/exams`, `/mistakes`, `/quiz-generate`) registered and verified.
+- **B-2 RESOLVED**: Pre-stable audit verified; zero architectural or navigation regressions.
+- **B-3 INDEPENDENTLY VERIFIED**: 123 logging sites verified guarded; 0 sensitive/phone number leaks in release binary; verified on device with logcat inspection.
+- **B-4 FULLY RESOLVED**: Missing `tooltip` on Document Intelligence close button added with English/Bangla localization (`GochanoLanguage.text('Close', 'বন্ধ করুন')`); `test/a11y/accessibility_audit_test.dart` now 100% passing (9/9).
 - **PROTECTED BRANCHES UNTOUCHED**: `final-cleanup-release-v2`, `ui-redesign-v1`, `ui/today-redesign` have not been modified or merged.
 - **AUTHORITATIVE 5-WORD MENTAL MODEL PRESERVED**:
   - Today = Do

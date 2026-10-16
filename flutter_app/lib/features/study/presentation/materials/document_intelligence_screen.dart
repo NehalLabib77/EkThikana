@@ -251,6 +251,7 @@ class _DocumentIntelligenceScreenState
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন'),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
