@@ -62,11 +62,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../app_config.dart';
 import '../localization/gochano_language.dart';
 
+enum TelecomAuthErrorType {
+  timeout,
+  network,
+  badRequest,
+  unauthorized,
+  forbidden,
+  notFound,
+  badGateway,
+  serverError,
+  httpError,
+  invalidResponse,
+}
+
 class TelecomAuthException implements Exception {
-  TelecomAuthException(this.message);
+  TelecomAuthException(
+    this.message, {
+    this.statusCode,
+    this.errorType,
+  });
+
   final String message;
+  final int? statusCode;
+  final TelecomAuthErrorType? errorType;
+
   @override
-  String toString() => 'TelecomAuthException: $message';
+  String toString() =>
+      'TelecomAuthException: $message'
+      '${statusCode != null ? ' (HTTP $statusCode)' : ''}'
+      '${errorType != null ? ' [${errorType!.name}]' : ''}';
 }
 
 enum TelecomSubscriptionStatus {
@@ -214,7 +238,7 @@ class TelecomAuthService {
   static const Duration checkSubscriptionTimeout = Duration(seconds: 10);
   static const Duration sendOtpTimeout = Duration(seconds: 15);
   static const Duration verifyOtpTimeout = Duration(seconds: 15);
-  static const Duration exchangeTimeout = Duration(seconds: 15);
+  static const Duration exchangeTimeout = Duration(seconds: 45);
 
   /// Sentinel returned by [sendOtp] when /send_otp.php reports "already
   /// registered" and the immediate re-poll of /check_subscription.php
@@ -887,43 +911,7 @@ class TelecomAuthService {
       'reference_no': cleanRef,
     }, exchangeTimeout);
 
-    Map<String, dynamic> decoded;
-    try {
-      final value = json.decode(response.body);
-      if (value is! Map) {
-        throw const FormatException('expected JSON object');
-      }
-      decoded = value.cast<String, dynamic>();
-    } catch (e) {
-      throw TelecomAuthException(
-        GochanoLanguage.text(
-          'Could not link your number to Gochano. Please try again later.',
-          'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
-        ),
-      );
-    }
-
-    final customToken = _firstNonEmptyString([
-      decoded['firebase_custom_token'],
-      decoded['custom_token'],
-      decoded['customToken'],
-    ]);
-    final uid = _firstNonEmptyString([decoded['uid'], decoded['userId']]);
-
-    if (customToken == null) {
-      throw TelecomAuthException(
-        GochanoLanguage.text(
-          'Gochano sign-in is not yet enabled for this number. Please try again later.',
-          'এই নম্বরের জন্য Gochano সাইন-ইন এখনো চালু হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
-        ),
-      );
-    }
-
-    return TelecomFirebaseExchange(
-      uid: uid ?? '',
-      customToken: customToken,
-      phone: cleanPhone,
-    );
+    return _parseExchangeResponse(response.body, phone: cleanPhone);
   }
 
   /// Signs the user into Firebase using the custom token returned by
@@ -1031,6 +1019,7 @@ class TelecomAuthService {
           'Could not link your number to Gochano. Please try again later.',
           'আপনার নম্বর Gochano-তে সংযুক্ত করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
         ),
+        errorType: TelecomAuthErrorType.invalidResponse,
       );
     }
 
@@ -1047,6 +1036,7 @@ class TelecomAuthService {
           'Gochano sign-in is not yet enabled for this number. Please try again later.',
           'এই নম্বরের জন্য Gochano সাইন-ইন এখনো চালু হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।',
         ),
+        errorType: TelecomAuthErrorType.invalidResponse,
       );
     }
 
@@ -1124,27 +1114,48 @@ class TelecomAuthService {
   static Future<http.Response> _safeFormPost(
     Uri uri,
     Map<String, String> body,
-    Duration timeout,
-  ) async {
+    Duration timeout, {
+    http.Client? client,
+  }) async {
     http.Response response;
     try {
       // The supplied PHP implementation uses standard form fields:
       // http.post(uri, body: {...}). Do not send JSON here.
-      response = await http.post(uri, body: body).timeout(timeout);
+      final future = client != null
+          ? client.post(uri, body: body)
+          : http.post(uri, body: body);
+      response = await future.timeout(timeout);
+    } on TimeoutException catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[TelecomAuth] _safeFormPost: timeout after ${timeout.inSeconds}s on $uri: $e',
+        );
+      }
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Request timed out. Please try again.',
+          'অনুরোধের সময়সীমা পার হয়েছে। আবার চেষ্টা করুন।',
+        ),
+        statusCode: 408,
+        errorType: TelecomAuthErrorType.timeout,
+      );
     } catch (_) {
       throw TelecomAuthException(
         GochanoLanguage.text(
           'Network error. Please check your connection and try again.',
           'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
         ),
+        errorType: TelecomAuthErrorType.network,
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw TelecomAuthException(
         GochanoLanguage.text(
-          'Server is not responding. Please try again in a moment.',
-          'সার্ভার সাড়া দিচ্ছে না। একটু পর আবার চেষ্টা করুন।',
+          'Carrier service is not responding. Please try again in a moment.',
+          'টেলিকম সার্ভার সাড়া দিচ্ছে না। একটু পর আবার চেষ্টা করুন।',
         ),
+        statusCode: response.statusCode,
+        errorType: TelecomAuthErrorType.badGateway,
       );
     }
     return response;
@@ -1153,17 +1164,31 @@ class TelecomAuthService {
   static Future<http.Response> _safeJsonPost(
     Uri uri,
     Map<String, dynamic> body,
-    Duration timeout,
-  ) async {
+    Duration timeout, {
+    http.Client? client,
+  }) async {
     http.Response response;
     try {
-      response = await http
-          .post(
-            uri,
-            headers: const {'Content-Type': 'application/json'},
-            body: json.encode(body),
-          )
-          .timeout(timeout);
+      final headers = const {'Content-Type': 'application/json'};
+      final encodedBody = json.encode(body);
+      final future = client != null
+          ? client.post(uri, headers: headers, body: encodedBody)
+          : http.post(uri, headers: headers, body: encodedBody);
+      response = await future.timeout(timeout);
+    } on TimeoutException catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[TelecomAuth] _safeJsonPost: timeout after ${timeout.inSeconds}s on $uri: $e',
+        );
+      }
+      throw TelecomAuthException(
+        GochanoLanguage.text(
+          'Request timed out. The server took too long to respond. Please try again.',
+          'অনুরোধের সময়সীমা পার হয়েছে। সার্ভার সাড়া দিতে দেরি করছে। আবার চেষ্টা করুন।',
+        ),
+        statusCode: 408,
+        errorType: TelecomAuthErrorType.timeout,
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[TelecomAuth] _safeJsonPost: network error on $uri: $e');
@@ -1173,6 +1198,7 @@ class TelecomAuthService {
           'Network error. Please check your connection and try again.',
           'নেটওয়ার্ক ত্রুটি। সংযোগ যাচাই করে আবার চেষ্টা করুন।',
         ),
+        errorType: TelecomAuthErrorType.network,
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -1181,15 +1207,170 @@ class TelecomAuthService {
           '[TelecomAuth] _safeJsonPost: HTTP ${response.statusCode} on $uri',
         );
       }
-      throw TelecomAuthException(
-        GochanoLanguage.text(
-          'Server is not responding. Please try again in a moment.',
-          'সার্ভার সাড়া দিচ্ছে না। একটু পর আবার চেষ্টা করুন।',
-        ),
-      );
+      throw _parseHttpError(response);
     }
     return response;
   }
+
+  static TelecomAuthException _parseHttpError(http.Response response) {
+    final status = response.statusCode;
+    String? safeDetail;
+
+    try {
+      final decoded = json.decode(response.body);
+      if (decoded is Map) {
+        final rawDetail = decoded['detail'];
+        if (rawDetail is String && rawDetail.trim().isNotEmpty) {
+          // Guard against raw HTML or internal traceback strings in detail
+          if (!rawDetail.contains('<html') &&
+              !rawDetail.contains('Traceback (most recent call last)')) {
+            safeDetail = rawDetail.trim();
+          }
+        } else if (rawDetail is List && rawDetail.isNotEmpty) {
+          // Pydantic validation error array
+          final first = rawDetail.first;
+          if (first is Map && first['msg'] is String) {
+            safeDetail = first['msg'].toString();
+          }
+        }
+      }
+    } catch (_) {
+      // Body not JSON or unparseable
+    }
+
+    final lowerDetail = safeDetail?.toLowerCase() ?? '';
+
+    switch (status) {
+      case 400:
+      case 422:
+        return TelecomAuthException(
+          GochanoLanguage.text(
+            'Invalid request. Please check your phone number and try again.',
+            'অনুরোধটি সঠিক নয়। আপনার ফোন নম্বর যাচাই করে আবার চেষ্টা করুন।',
+          ),
+          statusCode: status,
+          errorType: TelecomAuthErrorType.badRequest,
+        );
+
+      case 401:
+        return TelecomAuthException(
+          GochanoLanguage.text(
+            'Authentication expired. Please verify your phone number again.',
+            'অথেনটিকেশনের মেয়াদ শেষ। ফোন নম্বরটি আবার যাচাই করুন।',
+          ),
+          statusCode: status,
+          errorType: TelecomAuthErrorType.unauthorized,
+        );
+
+      case 403:
+        if (lowerDetail.contains('block') || lowerDetail.contains('suspended')) {
+          return TelecomAuthException(
+            GochanoLanguage.text(
+              'Your subscription is temporarily blocked by the carrier. Please recharge your mobile balance and try again.',
+              'আপনার সাবস্ক্রিপশনটি অপারেটর দ্বারা সাময়িকভাবে স্থগিত। ব্যালেন্স রিচার্জ করে আবার চেষ্টা করুন।',
+            ),
+            statusCode: status,
+            errorType: TelecomAuthErrorType.forbidden,
+          );
+        }
+        if (lowerDetail.contains('subscription') ||
+            lowerDetail.contains('not registered') ||
+            lowerDetail.contains('not subscribed')) {
+          return TelecomAuthException(
+            GochanoLanguage.text(
+              'Active carrier subscription not found. Please subscribe or complete verification.',
+              'সক্রিয় সাবস্ক্রিপশন পাওয়া যায়নি। সাবস্ক্রাইব করুন বা ওটিপি যাচাই করুন।',
+            ),
+            statusCode: status,
+            errorType: TelecomAuthErrorType.forbidden,
+          );
+        }
+        return TelecomAuthException(
+          GochanoLanguage.text(
+            'Access denied. Please check your subscription status.',
+            'প্রবেশাধিকার প্রত্যাখ্যাত। সাবস্ক্রিপশন স্ট্যাটাস যাচাই করুন।',
+          ),
+          statusCode: status,
+          errorType: TelecomAuthErrorType.forbidden,
+        );
+
+      case 404:
+        return TelecomAuthException(
+          GochanoLanguage.text(
+            'Authentication service endpoint was not found. Please try again later.',
+            'অথেনটিকেশন সার্ভিস এন্ডপয়েন্ট পাওয়া যায়নি। পরে আবার চেষ্টা করুন।',
+          ),
+          statusCode: status,
+          errorType: TelecomAuthErrorType.notFound,
+        );
+
+      case 502:
+      case 503:
+      case 504:
+        return TelecomAuthException(
+          GochanoLanguage.text(
+            'Carrier service or gateway is temporarily unreachable. Please try again in a few moments.',
+            'টেলিকম গেটওয়েতে সাময়িক সমস্যা হচ্ছে। একটু পর আবার চেষ্টা করুন।',
+          ),
+          statusCode: status,
+          errorType: TelecomAuthErrorType.badGateway,
+        );
+
+      case 500:
+      default:
+        if (status >= 500) {
+          return TelecomAuthException(
+            GochanoLanguage.text(
+              'Server encountered an unexpected error. Please try again shortly.',
+              'সার্ভারে অপ্রত্যাশিত ত্রুটি দেখা দিয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।',
+            ),
+            statusCode: status,
+            errorType: TelecomAuthErrorType.serverError,
+          );
+        }
+        return TelecomAuthException(
+          GochanoLanguage.text(
+            'Server response error. Please try again in a moment.',
+            'সার্ভার সাড়া দেয়নি। একটু পর আবার চেষ্টা করুন।',
+          ),
+          statusCode: status,
+          errorType: TelecomAuthErrorType.httpError,
+        );
+    }
+  }
+
+  /// Test-only trampoline for [_parseHttpError].
+  @visibleForTesting
+  static TelecomAuthException parseHttpErrorForTest(http.Response response) =>
+      _parseHttpError(response);
+
+  /// Test-only trampoline for [_safeJsonPost].
+  @visibleForTesting
+  static Future<http.Response> safeJsonPostForTest(
+    Uri uri,
+    Map<String, dynamic> body,
+    Duration timeout, {
+    http.Client? client,
+  }) =>
+      _safeJsonPost(uri, body, timeout, client: client);
+
+  /// Test-only trampoline for [_safeFormPost].
+  @visibleForTesting
+  static Future<http.Response> safeFormPostForTest(
+    Uri uri,
+    Map<String, String> body,
+    Duration timeout, {
+    http.Client? client,
+  }) =>
+      _safeFormPost(uri, body, timeout, client: client);
+
+  /// Test-only trampoline for [_parseExchangeResponse].
+  @visibleForTesting
+  static TelecomFirebaseExchange parseExchangeResponseForTest(
+    String body, {
+    required String phone,
+  }) =>
+      _parseExchangeResponse(body, phone: phone);
 
   // -------------------------------------------------------------------
   // JSON helpers

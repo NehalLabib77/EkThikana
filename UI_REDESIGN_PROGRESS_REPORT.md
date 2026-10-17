@@ -2093,3 +2093,333 @@ adb shell uiautomator dump /sdcard/win.xml && adb shell cat /sdcard/win.xml
 
 
 
+
+---
+
+## 2026-10-17 — B-4 Actual Repository Verification
+
+### 1. Verification Context
+- **Repository Path**: `D:\Gochano_Rebuild`
+- **Application Path**: `D:\Gochano_Rebuild\flutter_app`
+- **Verification Timestamp**: `2026-10-17T14:53:30+06:00`
+- **Scope**: Targeted B-4 verification (Git state, tracked source inspection, static analysis, targeted a11y test, physical-device availability check).
+
+---
+
+### 2. Actual Git State Verification
+
+Each command was executed from repository root `D:\Gochano_Rebuild`:
+
+#### A. Working Tree & Branch Status
+```powershell
+git status --short --branch
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+## ui/pre-stable-audit
+```
+- **Working Tree**: Clean (0 modified, 0 untracked, 0 staged files).
+
+#### B. Current Branch
+```powershell
+git branch --show-current
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+ui/pre-stable-audit
+```
+- **Verified Branch**: `ui/pre-stable-audit` (matches reported branch).
+
+#### C. HEAD Commit
+```powershell
+git log -1 --oneline
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+4b1fb58 docs(progress): record physical device pending status for B-4
+```
+- **Verified HEAD**: `4b1fb58 docs(progress): record physical device pending status for B-4` (matches reported HEAD).
+- **Reported B-4 Fix Commit**: `2879725 fix(a11y): add localized tooltip to document intelligence close button (B-4)` (present in history directly preceding HEAD).
+
+#### D. Tracked Document Intelligence Screen Path
+```powershell
+git ls-files '*document_intelligence_screen.dart'
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+flutter_app/lib/features/study/presentation/materials/document_intelligence_screen.dart
+```
+- **Confirmed Tracked Path**: `flutter_app/lib/features/study/presentation/materials/document_intelligence_screen.dart`.
+
+#### E. Localized Close-Button Tooltip Source Check
+```powershell
+git grep -n "GochanoLanguage.text('Close', 'বন্ধ করুন')" -- '*document_intelligence_screen.dart'
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+flutter_app/lib/features/study/presentation/materials/document_intelligence_screen.dart:254:                    tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন'),
+```
+- **Source Inspection Result**: The localized tooltip is confirmed present in the tracked source code.
+- **Discrepancy Note**: The tooltip resides at line 254 (previously reported as line 252 in earlier summaries).
+
+---
+
+### 3. Targeted Flutter Verification
+
+Executed from `D:\Gochano_Rebuild\flutter_app`:
+
+#### A. Static Analysis (`flutter analyze lib`)
+```powershell
+flutter analyze lib
+$analyzeExit = $LASTEXITCODE
+"flutter analyze lib exit code: $analyzeExit"
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+Analyzing lib...
+No issues found! (ran in 237.8s)
+flutter analyze lib exit code: 0
+```
+- **Result**: PASS (0 issues found, 0 errors, 0 warnings).
+
+#### B. Targeted Accessibility Audit Test (`test/a11y/accessibility_audit_test.dart`)
+```powershell
+flutter test test/a11y/accessibility_audit_test.dart
+$a11yExit = $LASTEXITCODE
+"accessibility audit exit code: $a11yExit"
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+00:00 +0: loading D:/Gochano_Rebuild/flutter_app/test/a11y/accessibility_audit_test.dart
+00:00 +0: Static accessibility guards every Image.asset has a semanticLabel
+00:00 +1: Static accessibility guards every Image.network has a semanticLabel
+00:00 +2: Static accessibility guards every IconButton has a tooltip
+00:00 +3: Static accessibility guards interactive minimums are defined and meet the Android floor
+00:00 +4: No decorative animation (spec §11) no decorative animation widget is used anywhere in lib/
+00:00 +5: No decorative animation (spec §11) no AnimationController or TickerProvider in lib/
+00:00 +6: No decorative animation (spec §11) the page route uses the platform transition, not a custom one
+00:00 +7: Design-system ownership screens do not hardcode a raw hex colour
+00:00 +8: Design-system ownership both themes register the colour extension
+00:01 +9: All tests passed!
+accessibility audit exit code: 0
+```
+- **Result**: PASS (9 of 9 checks passed, 0 failures).
+
+---
+
+### 4. Physical-Device Availability Check
+
+Executed from `D:\Gochano_Rebuild`:
+```powershell
+adb devices -l
+$adbExit = $LASTEXITCODE
+"adb devices -l exit code: $adbExit"
+```
+- **Exit Code**: `0`
+- **Console Output**:
+```text
+List of devices attached
+
+adb devices -l exit code: 0
+```
+- **Attached Devices**: None (0 devices detected).
+- **Physical QA Status**:
+  **PHYSICAL QA: PENDING — device unavailable to ADB.**
+- **Note**: The Infinix X665E was unavailable during this verification run. In accordance with strict verification rules, no claim is made that the Document Intelligence dialog, close button interaction, runtime tooltip popover, or accessibility semantics have passed physical device QA. Physical verification remains PENDING device reconnection.
+
+---
+
+### 5. Regression Evidence Preservation
+
+- **Full Test Suite Status**: Preserved as previously reported:
+  - Passed: **1,596**
+  - Failed: **82**
+  - Exit code: **1**
+- **Preservation Policy**: Per instructions, the full test suite was NOT rerun during this targeted verification pass. The baseline relationship of the 82 failures remains unverified until reproducible baseline evidence and a verified baseline commit are available; no claim is made that all 82 failures are inherited or that zero new failures were introduced.
+- **Test Integrity**: Zero tests were deleted, weakened, skipped, suppressed, or modified.
+
+---
+
+### 6. Discrepancies, Errors, and Blockers
+
+1. **Source Line Discrepancy**: Earlier progress report text cited line 252 for the `IconButton` tooltip in `document_intelligence_screen.dart`. Verified actual position is line 254.
+2. **Environment Note**: In PowerShell sessions where Android platform-tools is not in the system `$env:PATH`, `adb` must be resolved from `C:\Users\User\AppData\Local\Android\Sdk\platform-tools\adb.exe`.
+3. **Physical Verification Blocker**: ADB reports 0 attached devices. Physical runtime verification of the B-4 close button and tooltip cannot proceed until the physical test device (Infinix X665E) is reconnected.
+
+---
+
+### 7. Verification Decision
+
+| Check | Expected | Actual Verified | Status |
+|---|---|---|---|
+| Git Branch | `ui/pre-stable-audit` | `ui/pre-stable-audit` | **VERIFIED** |
+| Git HEAD | `4b1fb58` | `4b1fb58 docs(progress): record physical device pending status for B-4` | **VERIFIED** |
+| Working Tree | Clean | Clean (`## ui/pre-stable-audit`) | **VERIFIED** |
+| Tracked File | Document Intelligence screen | `flutter_app/lib/features/study/presentation/materials/document_intelligence_screen.dart` | **VERIFIED** |
+| Localized Tooltip | `GochanoLanguage.text('Close', 'বন্ধ করুন')` | Present at line 254 | **VERIFIED** |
+| Static Analysis | `flutter analyze lib` exit 0 | Ran in 237.8s, No issues found, exit `0` | **VERIFIED** |
+| Targeted A11y Suite | `test/a11y/accessibility_audit_test.dart` exit 0 | 9 passed / 0 failed, exit `0` | **VERIFIED** |
+| Physical Device QA | Infinix X665E runtime verification | 0 devices attached to ADB | **PHYSICAL QA: PENDING — device unavailable to ADB** |
+| Full Suite Baseline | 1596 passed / 82 failed (exit 1) | Preserved historical (not rerun) | **UNVERIFIED BASELINE RELATIONSHIP** |
+
+**Conclusion**:
+Automated and static verification for B-4 is complete and independently verified (clean working tree, valid source implementation, clean static analysis, 9/9 passing a11y tests). Physical device runtime verification remains PENDING device availability.
+
+---
+
+### 8. Addendum — Physical Device Reconnection Observed
+
+- **Recheck Timestamp**: `2026-10-17T14:56:00+06:00`
+- **Command Executed**:
+  ```powershell
+  adb devices -l
+  ```
+- **Console Output**:
+  ```text
+  List of devices attached
+  adb-0935625332014966-wqiFjj._adb-tls-connect._tcp device product:X665E-GL model:Infinix_X665E device:Infinix-X665E transport_id:1
+  ```
+- **Device Details**:
+  - Model: `Infinix X665E` (product `X665E-GL`)
+  - Android Version: `12`
+  - Transport ID: `1`
+  - Connection State: `device` (authorized and responsive)
+- **Device Application State Check**:
+  - `pm list packages | grep ekthikana` -> `package:com.ekthikana.ekthikana` (installed)
+  - `dumpsys package com.ekthikana.ekthikana` -> `lastUpdateTime=2026-10-16 23:38:07`
+  - **Finding**: The installed package on the device predates B-4 commit `2879725` (authored `2026-10-17 00:26:50 +0600`). The device does not yet carry the B-4 localized close button tooltip.
+- **Physical QA Next Step**:
+  - Physical testing of B-4 requires building a fresh APK from current HEAD (`ui/pre-stable-audit`) and installing it to the connected Infinix X665E.
+  - Per previous safety instructions, building/installing an APK onto the physical device is held pending explicit user confirmation.
+
+---
+
+### 9. Telecom Authentication Exchange & Pre-Stable Verification Audit
+
+- **Audit Timestamp**: `2026-10-17T21:13:00+06:00`
+- **Git Branch**: `ui/pre-stable-audit`
+- **Git HEAD**: `4b1fb58 docs(progress): record physical device pending status for B-4`
+- **Working-Tree Status**:
+  - `M UI_REDESIGN_PROGRESS_REPORT.md` (ongoing audit progress tracking)
+  - `M backend/app/routers/telecom.py` (telecom router hardening)
+  - `M flutter_app/lib/core/services/telecom_auth_service.dart` (timeout, error parsing & exception classification)
+  - `M flutter_app/test/telecom_login_test.dart` (token exchange, error parser & timeout test groups)
+  - `?? backend/tests/test_telecom_auth.py` (20 backend unit tests)
+
+#### A. Task Scope & Change Classification
+1. **Telecom Authentication Fixes**:
+   - `backend/app/routers/telecom.py`: Added `_extract_subscription_status()` supporting both `{"subscriptionStatus": "..."}` and `{"data": {"subscriptionStatus": "..."}}`. Increased `CHECK_SUBSCRIPTION_TIMEOUT` default to 20.0s with environment variable override.
+   - `backend/tests/test_telecom_auth.py`: 20 unit tests covering status extraction, carrier timeouts, HTTP 403 rejection for `TEMPORARY BLOCKED` accounts, and token exchange.
+   - `flutter_app/lib/core/services/telecom_auth_service.dart`: Increased `exchangeTimeout` from 15s to 45s (preventing premature client aborts on Render cold starts). Added `TelecomAuthErrorType` enum and exception fields. Replaced generic outage masking with `_parseHttpError()` preserving HTTP status codes and safe localized messages.
+   - `flutter_app/test/telecom_login_test.dart`: Added 3 test groups covering token exchange parsing, HTTP error mapping, and MockClient client timeouts.
+2. **Pre-Existing Uncommitted Documentation**:
+   - `UI_REDESIGN_PROGRESS_REPORT.md`: Retained B-4 evidence record, physical device connection addendum, and trailing whitespace cleanup at line 2185.
+
+#### B. Verification Evidence & Test Execution
+
+1. **Git Whitespace & Formatting Checks**:
+   ```powershell
+   git diff --check
+   git diff --cached --check
+   ```
+   - Exit codes: `0` / `0` (clean, 0 warnings, 0 errors).
+
+2. **Backend Unit & Regression Tests (Pytest)**:
+   ```powershell
+   $env:PYTHONPATH = "D:\Gochano_Rebuild\backend"; backend\.venv\Scripts\pytest.exe backend\tests\test_telecom_auth.py backend\tests\test_health.py backend\tests\test_auth_and_roles.py backend\tests\test_role_gate_coverage.py
+   ```
+   - Exit code: `0`
+   - Result: **27 passed, 2 warnings in 3.05s** (100% pass rate).
+
+3. **Flutter Telecom Test Suite**:
+   ```powershell
+   flutter test test/telecom_login_test.dart test/telecom_unsubscribe_test.dart
+   ```
+   - Exit code: `0`
+   - Result: **89 passed** (100% pass rate).
+
+4. **Flutter Targeted Accessibility Test**:
+   ```powershell
+   flutter test test/a11y/accessibility_audit_test.dart
+   ```
+   - Exit code: `0`
+   - Result: **9 passed** (100% pass rate).
+
+5. **Flutter Static Analysis**:
+   ```powershell
+   flutter analyze lib
+   ```
+   - Exit code: `0`
+   - Result: **No issues found!** (ran in 7.3s, 0 errors, 0 warnings).
+
+#### C. Account & Carrier Diagnosis Summary
+- **Account `01818***375`**: Carrier status is `TEMPORARY BLOCKED` on Robi SDP due to unpaid subscription charge. The application correctly prevents login and advises the user to recharge.
+- **Account `01873***882`**: Registered subscriber with valid carrier subscription. Previous login blockage was caused by client-side 15s timeout race condition against Render backend cold starts, compounded by client-side error masking. Resolved by extending exchange timeout to 45s and structured error handling.
+
+#### D. Deployment State
+- **Status**: **READY FOR DEPLOYMENT REVIEW**.
+- **Pending Authorizations**: Production deployment to Render and Flutter release APK compilation are held pending owner approval.
+
+---
+
+### 10. Final Release Gate Review & Warning Audit
+
+- **Review Timestamp**: `2026-10-17T21:18:00+06:00`
+- **Git Branch**: `ui/pre-stable-audit`
+- **Git HEAD**: `4b1fb58 docs(progress): record physical device pending status for B-4`
+- **Release Authorization**: **HELD — Awaiting Owner Approval**
+
+#### A. Backend Pytest Warning Investigation
+Rerun of the backend test suite (`pytest backend/tests/test_telecom_auth.py backend/tests/test_health.py backend/tests/test_auth_and_roles.py backend/tests/test_role_gate_coverage.py`) produced **27 passed, 2 warnings** in 2.82s (exit code `0`).
+
+1. **Warning 1 (`StarletteDeprecationWarning`)**:
+   - **Source Location**: `backend\.venv\Lib\site-packages\fastapi\testclient.py:1`
+   - **Warning Text**: `StarletteDeprecationWarning: Using 'httpx' with 'starlette.testclient' is deprecated; install 'httpx2' instead.`
+   - **Classification**: Harmless upstream test-harness deprecation notice inside `fastapi.testclient`. Does not affect production Uvicorn/FastAPI runtime.
+2. **Warning 2 (`DeprecationWarning`)**:
+   - **Source Location**: `backend\.venv\Lib\site-packages\starlette\testclient.py:53`
+   - **Warning Text**: `DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.`
+   - **Classification**: Harmless upstream library type-alias deprecation inside Starlette test client interacting with `anyio 4.15.1`. Test-only, non-blocking.
+3. **Assessment**:
+   - Neither warning indicates an application defect or runtime vulnerability.
+   - Neither causes test failure (0 tests failed).
+   - Warnings are preserved unsuppressed in accordance with test integrity guidelines.
+
+#### B. Final Working-Tree Hygiene & Audit Checks
+- `git status --short --branch`:
+  - `M UI_REDESIGN_PROGRESS_REPORT.md` (audit progress documentation)
+  - `M backend/app/routers/telecom.py` (parser hardening & 20s carrier timeout)
+  - `M flutter_app/lib/core/services/telecom_auth_service.dart` (45s exchange timeout & structured error parsing)
+  - `M flutter_app/test/telecom_login_test.dart` (unit tests for exchange, errors & timeouts)
+  - `?? backend/tests/test_telecom_auth.py` (20 backend unit tests)
+- `git diff --check`: Exit code `0` (clean, 0 whitespace errors).
+- `git diff --cached --check`: Exit code `0` (clean, 0 staged errors).
+
+#### C. Authentication Security & Invariant Audit
+1. **Access Invariant**: Missing, malformed, null, or unverified subscription statuses cannot grant access. Only `REGISTERED` and `INITIAL CHARGING PENDING` pass server-to-server carrier verification.
+2. **Carrier-Blocked Accounts**: `TEMPORARY BLOCKED` accounts are rejected with HTTP 403 by the backend; mobile client displays carrier balance recharge guidance without allowing app entry or dispatching OTPs.
+3. **Token Minting Gate**: Server-to-server carrier verification strictly precedes `firebase_auth.create_custom_token()`. Client-side subscription claims are ignored.
+4. **Information Disclosure Prevention**: Error parsing sanitizes stack traces, tracebacks, and HTML error pages. Users see only fixed localized guidance strings.
+5. **Anti-Replay / Retry Safety**: Client catches timeouts and server errors cleanly without entering automated retry loops or re-dispatching OTPs.
+
+#### D. Deployment Prerequisites & Production Environment
+1. **Dual Deployment Required**:
+   - **Backend (Render Web Service)**: Must be deployed so the live API parses nested `data.subscriptionStatus` and applies the 20-second carrier timeout.
+   - **Client (Flutter Mobile App)**: Must be rebuilt and installed so mobile devices carry the 45-second timeout and structured error mapping.
+2. **Render Production Branch**:
+   - Repository remote points to `https://github.com/NehalLabib77/EkThikana.git`.
+   - Render dashboard branch mapping cannot be verified locally without Render dashboard access. Confirmation from the project owner is required regarding which branch Render automatically deploys from (`main` or another release branch).
+3. **Remaining Blockers**:
+   - **Account `01818***375`**: SIM carrier subscription is `TEMPORARY BLOCKED` by Robi SDP due to unpaid daily charge; airtime balance recharge is required.
+   - **Release Actions**: All Git commits, pushes, merges, and deployments remain paused pending explicit owner authorization.
+
+#### E. Final Release Gate Decision
+- **Recommendation**: **READY FOR DEPLOYMENT APPROVAL**.
+- **Reasoning**: All code changes are verified, 100% of targeted and regression tests pass (27 backend, 89 flutter telecom, 9 a11y, 0 static analysis issues), upstream test warnings are thoroughly diagnosed as harmless, security invariants are intact, and API contracts remain fully backward compatible.

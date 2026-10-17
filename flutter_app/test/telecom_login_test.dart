@@ -24,6 +24,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:gochano/core/services/telecom_auth_service.dart';
 
@@ -573,6 +575,215 @@ void main() {
       expect(gateSource, contains("bool.fromEnvironment('DEV_AUTH_BYPASS'"));
       expect(gateSource, contains('_developerAuthBypass'));
       expect(gateSource, contains('isDeveloperSession || isTelecomSession'));
+    });
+  });
+
+  group('Token exchange response parser (PART 16.1 / Fix)', () {
+    test('parses successful token exchange with firebase_custom_token', () {
+      final res = TelecomAuthService.parseExchangeResponseForTest(
+        '{"status":"success","firebase_custom_token":"fake-token-123","uid":"telecom:01812345678"}',
+        phone: '01812345678',
+      );
+      expect(res.customToken, 'fake-token-123');
+      expect(res.uid, 'telecom:01812345678');
+      expect(res.phone, '01812345678');
+    });
+
+    test('parses alternative custom_token and userId keys', () {
+      final res = TelecomAuthService.parseExchangeResponseForTest(
+        '{"custom_token":"alt-token-456","userId":"uid-456"}',
+        phone: '01812345678',
+      );
+      expect(res.customToken, 'alt-token-456');
+      expect(res.uid, 'uid-456');
+    });
+
+    test('throws invalidResponse on empty body', () {
+      expect(
+        () => TelecomAuthService.parseExchangeResponseForTest(
+          '',
+          phone: '01812345678',
+        ),
+        throwsA(
+          isA<TelecomAuthException>().having(
+            (e) => e.errorType,
+            'errorType',
+            TelecomAuthErrorType.invalidResponse,
+          ),
+        ),
+      );
+    });
+
+    test('throws invalidResponse on malformed JSON body', () {
+      expect(
+        () => TelecomAuthService.parseExchangeResponseForTest(
+          '{not-json}',
+          phone: '01812345678',
+        ),
+        throwsA(
+          isA<TelecomAuthException>().having(
+            (e) => e.errorType,
+            'errorType',
+            TelecomAuthErrorType.invalidResponse,
+          ),
+        ),
+      );
+    });
+
+    test('throws invalidResponse when token is missing in response body', () {
+      expect(
+        () => TelecomAuthService.parseExchangeResponseForTest(
+          '{"status":"success","uid":"telecom:01812345678"}',
+          phone: '01812345678',
+        ),
+        throwsA(
+          isA<TelecomAuthException>().having(
+            (e) => e.errorType,
+            'errorType',
+            TelecomAuthErrorType.invalidResponse,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('HTTP error parser and localized messages', () {
+    test('maps HTTP 400/422 to badRequest without leaking details', () {
+      final resp = http.Response('{"detail":"Validation error"}', 400);
+      final exc = TelecomAuthService.parseHttpErrorForTest(resp);
+      expect(exc.statusCode, 400);
+      expect(exc.errorType, TelecomAuthErrorType.badRequest);
+      expect(exc.message, contains('Invalid request'));
+    });
+
+    test('maps HTTP 401 to unauthorized', () {
+      final resp = http.Response('{"detail":"Token expired"}', 401);
+      final exc = TelecomAuthService.parseHttpErrorForTest(resp);
+      expect(exc.statusCode, 401);
+      expect(exc.errorType, TelecomAuthErrorType.unauthorized);
+      expect(exc.message, contains('Authentication expired'));
+    });
+
+    test('maps HTTP 403 blocked subscriber to forbidden with recharge guidance', () {
+      final resp = http.Response(
+        '{"detail":"Subscription is TEMPORARY BLOCKED"}',
+        403,
+      );
+      final exc = TelecomAuthService.parseHttpErrorForTest(resp);
+      expect(exc.statusCode, 403);
+      expect(exc.errorType, TelecomAuthErrorType.forbidden);
+      expect(exc.message, contains('temporarily blocked'));
+    });
+
+    test('maps HTTP 403 not subscribed to forbidden with subscription guidance', () {
+      final resp = http.Response(
+        '{"detail":"Subscription not registered"}',
+        403,
+      );
+      final exc = TelecomAuthService.parseHttpErrorForTest(resp);
+      expect(exc.statusCode, 403);
+      expect(exc.errorType, TelecomAuthErrorType.forbidden);
+      expect(exc.message, contains('Active carrier subscription not found'));
+    });
+
+    test('maps HTTP 404 to notFound', () {
+      final resp = http.Response('{"detail":"Not found"}', 404);
+      final exc = TelecomAuthService.parseHttpErrorForTest(resp);
+      expect(exc.statusCode, 404);
+      expect(exc.errorType, TelecomAuthErrorType.notFound);
+      expect(exc.message, contains('not found'));
+    });
+
+    test('maps HTTP 502/504 to badGateway', () {
+      final resp = http.Response('{"detail":"Carrier timeout"}', 502);
+      final exc = TelecomAuthService.parseHttpErrorForTest(resp);
+      expect(exc.statusCode, 502);
+      expect(exc.errorType, TelecomAuthErrorType.badGateway);
+      expect(exc.message, contains('temporarily unreachable'));
+    });
+
+    test('maps HTTP 500 to serverError', () {
+      final resp = http.Response('Internal Server Error', 500);
+      final exc = TelecomAuthService.parseHttpErrorForTest(resp);
+      expect(exc.statusCode, 500);
+      expect(exc.errorType, TelecomAuthErrorType.serverError);
+      expect(exc.message, contains('unexpected error'));
+    });
+  });
+
+  group('HTTP client timeout and response handling', () {
+    test('safeJsonPost succeeds on 200 response', () async {
+      final client = MockClient((request) async {
+        return http.Response('{"success":true}', 200);
+      });
+      final resp = await TelecomAuthService.safeJsonPostForTest(
+        Uri.parse('https://example.com/test'),
+        {'k': 'v'},
+        const Duration(seconds: 1),
+        client: client,
+      );
+      expect(resp.statusCode, 200);
+    });
+
+    test('safeJsonPost succeeds on delayed response within timeout', () async {
+      final client = MockClient((request) async {
+        await Future.delayed(const Duration(milliseconds: 50));
+        return http.Response('{"status":"ok"}', 200);
+      });
+      final resp = await TelecomAuthService.safeJsonPostForTest(
+        Uri.parse('https://example.com/test'),
+        {'k': 'v'},
+        const Duration(milliseconds: 500),
+        client: client,
+      );
+      expect(resp.statusCode, 200);
+    });
+
+    test('safeJsonPost throws timeout TelecomAuthException when exceeded', () async {
+      final client = MockClient((request) async {
+        await Future.delayed(const Duration(milliseconds: 200));
+        return http.Response('{"status":"ok"}', 200);
+      });
+      expect(
+        () => TelecomAuthService.safeJsonPostForTest(
+          Uri.parse('https://example.com/test'),
+          {'k': 'v'},
+          const Duration(milliseconds: 30),
+          client: client,
+        ),
+        throwsA(
+          isA<TelecomAuthException>()
+              .having((e) => e.statusCode, 'statusCode', 408)
+              .having(
+                (e) => e.errorType,
+                'errorType',
+                TelecomAuthErrorType.timeout,
+              ),
+        ),
+      );
+    });
+
+    test('safeJsonPost preserves non-2xx status and maps error', () async {
+      final client = MockClient((request) async {
+        return http.Response('{"detail":"Forbidden access"}', 403);
+      });
+      expect(
+        () => TelecomAuthService.safeJsonPostForTest(
+          Uri.parse('https://example.com/test'),
+          {'k': 'v'},
+          const Duration(seconds: 1),
+          client: client,
+        ),
+        throwsA(
+          isA<TelecomAuthException>()
+              .having((e) => e.statusCode, 'statusCode', 403)
+              .having(
+                (e) => e.errorType,
+                'errorType',
+                TelecomAuthErrorType.forbidden,
+              ),
+        ),
+      );
     });
   });
 }
