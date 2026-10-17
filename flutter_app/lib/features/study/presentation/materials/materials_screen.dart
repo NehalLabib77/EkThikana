@@ -4,6 +4,8 @@
 // Actions live in each row's overflow menu — Open, Ask AI, Rename, Download,
 // Delete — rather than as six permanent buttons per card (spec §32).
 
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -14,6 +16,7 @@ import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/firestore_service.dart';
+import '../../../../services/offline_service.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
@@ -379,6 +382,11 @@ class _MaterialRow extends StatelessWidget {
           ),
         ),
         GochanoMenuAction(
+          label: GochanoLanguage.text('Download', 'ডাউনলোড'),
+          icon: Icons.download_outlined,
+          onSelected: () => _downloadOffline(context, doc, title, fileName, mimeType),
+        ),
+        GochanoMenuAction(
           label: GochanoLanguage.text('Rename', 'নাম পরিবর্তন'),
           icon: Icons.edit_outlined,
           onSelected: () => _rename(context, doc, title),
@@ -391,6 +399,64 @@ class _MaterialRow extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+Future<void> _downloadOffline(
+  BuildContext context,
+  QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  String title,
+  String fileName,
+  String mimeType,
+) async {
+  try {
+    final existing = await OfflineService.find(doc.id);
+    if (existing != null) {
+      final f = File(existing.localPath);
+      if (await f.exists()) {
+        if (context.mounted) {
+          showGochanoMessage(
+            context,
+            GochanoLanguage.text(
+              'Already downloaded for offline reading.',
+              'ইতিমধ্যেই অফলাইন পড়ার জন্য ডাউনলোড করা আছে।',
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    if (context.mounted) {
+      showGochanoMessage(
+        context,
+        GochanoLanguage.text('Downloading material…', 'উপকরণ ডাউনলোড হচ্ছে…'),
+      );
+    }
+
+    final url = await ApiService.materialUrl(doc.id, download: true);
+    final bytes = await ApiService.downloadBytes(url);
+    await OfflineService.register(
+      materialId: doc.id,
+      title: title.isEmpty ? fileName : title,
+      fileName: fileName.isEmpty ? title : fileName,
+      bytes: bytes,
+      mimeType: mimeType,
+    );
+
+    if (context.mounted) {
+      showGochanoMessage(
+        context,
+        GochanoLanguage.text(
+          'Downloaded for offline reading.',
+          'অফলাইন পড়ার জন্য ডাউনলোড সম্পন্ন হয়েছে।',
+        ),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
+    }
   }
 }
 

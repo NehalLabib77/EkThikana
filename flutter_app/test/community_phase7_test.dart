@@ -830,9 +830,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Groups'), findsOneWidget);
-      expect(find.text('Questions'), findsOneWidget);
-      expect(find.text('Challenges'), findsOneWidget);
+      expect(find.text('Study Groups'), findsOneWidget);
+      expect(find.text('Discussions'), findsOneWidget);
+      expect(find.text('For You'), findsOneWidget);
       expect(find.text('Question Bank'), findsOneWidget);
       expect(find.text('Why does the derivative vanish here?'), findsOneWidget);
     });

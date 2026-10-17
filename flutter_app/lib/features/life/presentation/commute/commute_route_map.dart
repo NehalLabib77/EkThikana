@@ -11,6 +11,7 @@
 
 import 'dart:developer' as dev;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -59,10 +60,12 @@ class CommuteRouteMap extends StatelessWidget {
     final points = _points;
 
     if (points.isEmpty) {
-      dev.log(
-        'CommuteRouteMap: empty polyline (${polyline.length} raw entries)',
-        name: 'CommuteBD',
-      );
+      if (kDebugMode) {
+        dev.log(
+          'CommuteRouteMap: empty polyline (${polyline.length} raw entries)',
+          name: 'CommuteBD',
+        );
+      }
     }
 
     final markers = <LatLng>[?origin, ?destination, ...transfers];

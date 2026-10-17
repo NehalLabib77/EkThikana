@@ -44,6 +44,7 @@ import '../../study/presentation/memory/learning_recommendation_card.dart';
 import '../../study/presentation/rescue/exam_rescue_active_card.dart';
 import '../../study/presentation/rescue/exam_rescue_models.dart';
 import '../../study/presentation/rescue/exam_rescue_session_service.dart';
+import '../../tasks/domain/task_lifecycle.dart';
 import '../../../services/local_reminder_store.dart';
 import '../../../widgets/language_toggle.dart';
 import '../../../widgets/sync_status_indicator.dart';
@@ -500,16 +501,16 @@ class _SmartSummaryCard extends StatelessWidget {
         }
         final taskDocs = [...?taskSnap.data?.docs];
         final now = DateTime.now();
-        final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
         var todayCount = 0;
         var overdueCount = 0;
         for (final doc in taskDocs) {
           final data = doc.data();
-          if (data['done'] == true) continue;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-          if (due == null) continue;
-          if (due.isBefore(now)) overdueCount++;
-          if (due.isBefore(endOfToday)) todayCount++;
+          if (!TaskLifecycle.belongsToToday(data, now)) continue;
+          todayCount++;
+          final due = TaskLifecycle.parseDateTime(data['dueAt']);
+          if (due != null && due.isBefore(now)) {
+            overdueCount++;
+          }
         }
 
         return StreamBuilder<List<FinancialTransactionModel>>(
@@ -735,29 +736,18 @@ class _TodaysTasksCard extends StatelessWidget {
             }
 
             final now = DateTime.now();
-            final endOfToday = DateTime(
-              now.year,
-              now.month,
-              now.day,
-              23,
-              59,
-              59,
-            );
             final open = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
             var overdue = 0;
 
             final docs = snapshot.data?.docs ?? const [];
             for (final doc in docs) {
               final data = doc.data();
-              if (data['done'] == true) continue;
-              final due = (data['dueAt'] as Timestamp?)?.toDate();
-              if (due == null) continue;
-              // Canonical missed rule: incomplete task whose deadline has passed.
-              if (!due.isAfter(now)) {
+              if (!TaskLifecycle.belongsToToday(data, now)) continue;
+              open.add(doc);
+              final due = TaskLifecycle.parseDateTime(data['dueAt']);
+              if (due != null && due.isBefore(now)) {
                 overdue++;
-                continue;
               }
-              if (!due.isAfter(endOfToday)) open.add(doc);
             }
             open.sort(_byDueAtAsc);
 

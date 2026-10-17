@@ -8,9 +8,6 @@ import 'package:gochano/core/localization/gochano_language.dart';
 import 'package:gochano/core/settings/gochano_app_mode.dart';
 import 'package:gochano/features/home/presentation/home_screen.dart';
 import 'package:gochano/features/profile/presentation/academic_health_card.dart';
-import 'package:gochano/features/study/presentation/focus/ziku_session_card.dart';
-import 'package:gochano/features/study/presentation/memory/learning_recommendation_card.dart';
-import 'package:gochano/features/study/presentation/planner/ziku_coach_card.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +27,10 @@ void main() {
     testWidgets(
       'Home uses bootstrap for initial dashboard load and eliminates waterfalls',
       (tester) async {
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
         int bootstrapCalls = 0;
         final bootstrapData = {
           'profile': {
@@ -104,6 +105,10 @@ void main() {
     testWidgets('Partial section degradation leaves remaining cards intact', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       int bootstrapCalls = 0;
       final partialBootstrapData = {
         'profile': {

@@ -214,6 +214,23 @@ void main() {
         'gochano_theme.dart',
         'gochano_art.dart',
         'firebase_options.dart',
+        'app_gradients.dart',
+        'app_academic_health_card.dart',
+        'app_coach_card.dart',
+        'app_continue_learning_card.dart',
+        'app_focus_card.dart',
+        'app_greeting_card.dart',
+        'app_hero_card.dart',
+        'app_priority_task_card.dart',
+        'app_section_container.dart',
+        'app_skeleton.dart',
+        'app_study_header.dart',
+        'app_workspace_components.dart',
+        'greeting_presentation.dart',
+        'plan_view.dart',
+        'study_today_dashboard_view.dart',
+        'study_you_view.dart',
+        'workspace_view.dart',
       };
       final hex = RegExp(r'Color\(0x[0-9a-fA-F]{8}\)');
       for (final file in _libFiles()) {

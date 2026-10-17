@@ -20,6 +20,7 @@ Flow:
 """
 
 import logging
+import os
 import re
 
 import httpx
@@ -34,7 +35,9 @@ router = APIRouter()
 
 BDAPPS_BASE_URL = "https://www.bdappsdigitalapps.com/NADB26122_Final"
 CHECK_SUBSCRIPTION_URL = f"{BDAPPS_BASE_URL}/check_subscription.php"
-CHECK_SUBSCRIPTION_TIMEOUT = 10  # seconds
+CHECK_SUBSCRIPTION_TIMEOUT = float(
+    os.environ.get("CHECK_SUBSCRIPTION_TIMEOUT", "20.0")
+)  # seconds
 
 # Phone normalization: must match Flutter's TelecomAuthService.normalize()
 _PHONE_RE = re.compile(r"^01(?:6|8)\d{8}$")
@@ -70,6 +73,28 @@ class ExchangeResponse(BaseModel):
     uid: str
 
 
+def _extract_subscription_status(body: object) -> str:
+    """Safely extract subscriptionStatus from bdApps response.
+
+    Supports both top-level and nested under 'data':
+      {"subscriptionStatus": "..."}
+      {"data": {"subscriptionStatus": "..."}}
+    Handles absent, null, or incorrectly typed bodies/fields safely.
+    """
+    if not isinstance(body, dict):
+        return ""
+
+    candidates = [body.get("subscriptionStatus")]
+    data_field = body.get("data")
+    if isinstance(data_field, dict):
+        candidates.append(data_field.get("subscriptionStatus"))
+
+    for c in candidates:
+        if isinstance(c, str) and c.strip():
+            return c.strip()
+    return ""
+
+
 async def _verify_subscription_with_bdapps(phone: str) -> str | None:
     """Call bdApps check_subscription.php server-to-server.
 
@@ -91,12 +116,7 @@ async def _verify_subscription_with_bdapps(phone: str) -> str | None:
                 )
                 return None
             body = resp.json()
-            status = (
-                body.get("subscriptionStatus", "")
-                if isinstance(body, dict)
-                else ""
-            )
-            return status.strip() if isinstance(status, str) else ""
+            return _extract_subscription_status(body)
     except Exception:
         logger.exception("Failed to reach bdApps for phone=%s", phone)
         return None

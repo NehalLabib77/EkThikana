@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gochano/core/navigation.dart';
 import 'package:gochano/features/study/presentation/exam_ecosystem/exam_ecosystem_models.dart';
-import 'package:gochano/features/study/presentation/exam_ecosystem/exam_hub_screen.dart';
 import 'package:gochano/shared/widgets/gochano_controls.dart';
 
 void main() {
@@ -177,10 +176,10 @@ void main() {
       expect(studySrc, contains('const ExamHubScreen()'));
     });
 
-    test('WorkspaceView source exposes Exam Prep Quick Access item linking to ExamHubScreen', () {
+    test('WorkspaceView source exposes Mock Tests Quick Access item linking to ExamHubScreen', () {
       final workspaceSrc = File('lib/features/study/presentation/workspace/workspace_view.dart').readAsStringSync();
       expect(workspaceSrc, contains('ExamHubScreen'));
-      expect(workspaceSrc, contains("'Exam Prep'"));
+      expect(workspaceSrc, contains("'Mock Tests'"));
       expect(workspaceSrc, contains('const ExamHubScreen()'));
     });
 
@@ -201,7 +200,7 @@ void main() {
         r"label:\s*GochanoLanguage\.text\('([^']+)'",
       ).allMatches(studySection).map((m) => m.group(1)).toList();
       expect(studentDestinations.length, 5);
-      expect(studentDestinations, equals(['Today', 'Workspace', 'Plan', 'Community', 'Profile']));
+      expect(studentDestinations, equals(['Today', 'Workspace', 'Plan', 'Community', 'You']));
     });
 
     testWidgets('Tapping Exam Prep IconActionButton triggers navigation', (tester) async {

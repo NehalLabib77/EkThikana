@@ -9,6 +9,8 @@
 // membership. It is short-lived by design, so the reader refetches rather
 // than caching it.
 
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
@@ -76,6 +78,18 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
       _error = '';
     });
     try {
+      final offline = await OfflineService.find(widget.materialId);
+      if (offline != null) {
+        final f = File(offline.localPath);
+        if (await f.exists()) {
+          if (!mounted) return;
+          setState(() {
+            _signedUrl = f.uri.toString();
+            _loading = false;
+          });
+          return;
+        }
+      }
       final url = await ApiService.materialUrl(widget.materialId);
       if (!mounted) return;
       setState(() {
@@ -111,20 +125,64 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
     }
   }
 
-  /// Downloads the file and hands it to the platform.
-  ///
-  /// Goes through the backend's signed download URL (which sets
-  /// Content-Disposition: attachment) and then through the existing
-  /// `OfflineService.writeTemp` + `OpenFilex` path, so this reuses the app's
-  /// one way of putting a file in front of the OS rather than adding a second.
+  /// Downloads the file for offline reading or hands it to the platform.
   Future<void> _openExternally({bool download = false}) async {
     setState(() => _saving = true);
     try {
+      final offline = await OfflineService.find(widget.materialId);
+      if (offline != null) {
+        final f = File(offline.localPath);
+        if (await f.exists()) {
+          if (download) {
+            if (!mounted) return;
+            showGochanoMessage(
+              context,
+              GochanoLanguage.text(
+                'Already downloaded for offline reading.',
+                'ইতিমধ্যেই অফলাইন পড়ার জন্য ডাউনলোড করা আছে।',
+              ),
+            );
+            return;
+          }
+          final result = await OpenFilex.open(f.path);
+          if (!mounted) return;
+          if (result.type != ResultType.done) {
+            showGochanoMessage(
+              context,
+              GochanoLanguage.text(
+                'No app on this phone can open this file type.',
+                'এই ফোনে এই ধরনের ফাইল খোলার কোনো অ্যাপ নেই।',
+              ),
+              isError: true,
+            );
+          }
+          return;
+        }
+      }
+
       final url = await ApiService.materialUrl(
         widget.materialId,
         download: download,
       );
       final bytes = await ApiService.downloadBytes(url);
+      if (download) {
+        await OfflineService.register(
+          materialId: widget.materialId,
+          title: widget.title.isEmpty ? widget.fileName : widget.title,
+          fileName: widget.fileName.isEmpty ? widget.title : widget.fileName,
+          bytes: bytes,
+          mimeType: widget.mimeType,
+        );
+        if (!mounted) return;
+        showGochanoMessage(
+          context,
+          GochanoLanguage.text(
+            'Downloaded for offline reading.',
+            'অফলাইন পড়ার জন্য ডাউনলোড সম্পন্ন হয়েছে।',
+          ),
+        );
+        return;
+      }
       final file = await OfflineService.writeTemp(
         materialId: widget.materialId,
         bytes: bytes,
@@ -315,7 +373,28 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
       );
     }
 
+    final parsedUri = Uri.tryParse(url);
+    final isLocal = parsedUri != null && parsedUri.isScheme('file');
+    final localFilePath = isLocal ? parsedUri.toFilePath() : url;
+
     if (_isPdf) {
+      if (isLocal) {
+        return PdfViewer.file(
+          localFilePath,
+          controller: _pdfController,
+          initialPageNumber: _page,
+          params: PdfViewerParams(
+            onViewerReady: (document, _) {
+              if (!mounted) return;
+              setState(() => _pageCount = document.pages.length);
+            },
+            onPageChanged: (page) {
+              if (page != null) _rememberPage(page);
+            },
+            textSelectionParams: const PdfTextSelectionParams(enabled: true),
+          ),
+        );
+      }
       return PdfViewer.uri(
         Uri.parse(url),
         controller: _pdfController,
@@ -334,38 +413,47 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
     }
 
     if (_isImage) {
+      final imageWidget = isLocal
+          ? Image.file(
+              File(localFilePath),
+              cacheWidth: MediaQuery.of(context).size.width.round() * 2,
+              fit: BoxFit.contain,
+              semanticLabel: widget.title,
+            )
+          : Image.network(
+              url,
+              // Bound the decode to the screen so a phone-camera-sized scan
+              // does not blow up the image cache (spec §83).
+              cacheWidth: MediaQuery.of(context).size.width.round() * 2,
+              fit: BoxFit.contain,
+              semanticLabel: widget.title,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                final total = progress.expectedTotalBytes;
+                return StaticLoadingState(
+                  message: GochanoLanguage.text(
+                    'Loading image…',
+                    'ছবি লোড হচ্ছে…',
+                  ),
+                  progress: total == null
+                      ? null
+                      : progress.cumulativeBytesLoaded / total,
+                );
+              },
+              errorBuilder: (context, error, stack) => ErrorState(
+                message: GochanoLanguage.text(
+                  'Could not display this image.',
+                  'ছবিটি দেখানো যায়নি।',
+                ),
+                onRetry: _loadUrl,
+              ),
+            );
+
       return InteractiveViewer(
         minScale: 0.5,
         maxScale: 5,
         child: Center(
-          child: Image.network(
-            url,
-            // Bound the decode to the screen so a phone-camera-sized scan
-            // does not blow up the image cache (spec §83).
-            cacheWidth: MediaQuery.of(context).size.width.round() * 2,
-            fit: BoxFit.contain,
-            semanticLabel: widget.title,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              final total = progress.expectedTotalBytes;
-              return StaticLoadingState(
-                message: GochanoLanguage.text(
-                  'Loading image…',
-                  'ছবি লোড হচ্ছে…',
-                ),
-                progress: total == null
-                    ? null
-                    : progress.cumulativeBytesLoaded / total,
-              );
-            },
-            errorBuilder: (context, error, stack) => ErrorState(
-              message: GochanoLanguage.text(
-                'Could not display this image.',
-                'ছবিটি দেখানো যায়নি।',
-              ),
-              onRetry: _loadUrl,
-            ),
-          ),
+          child: imageWidget,
         ),
       );
     }

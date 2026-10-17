@@ -253,64 +253,108 @@ void main() {
   });
 
   group('Study Workspace', () {
-    test('body has Quick Access grid and Recent Materials', () {
-      final source = _read(
+    late String source;
+
+    setUpAll(
+      () => source = _read(
         'lib/features/study/presentation/workspace/workspace_view.dart',
-      );
-      // Quick Access navigation grid lives in the body.
-      expect(source, contains('_QuickAccess'));
-      expect(source, contains('_QuickAccessCell'));
-      expect(source, contains('SliverGridDelegateWithFixedCrossAxisCount'));
-      expect(source, contains('crossAxisCount: 4'));
-      expect(source, contains('AiAssistantScreen'));
+      ),
+    );
+
+    test('has NO ExamRescueTile in Workspace', () {
+      expect(source, isNot(contains('ExamRescueTile')));
+    });
+
+    test('has NO _QuickAccess or _QuickAccessCell in Workspace', () {
+      expect(source, isNot(contains('_QuickAccess')));
+      expect(source, isNot(contains('_QuickAccessCell')));
+    });
+
+    test('has NO See more / See less drawer in Workspace', () {
+      expect(source, isNot(contains("'See more'")));
+      expect(source, isNot(contains("'See less'")));
+    });
+
+    test('has NO crossAxisCount: 4 in Workspace', () {
+      expect(source, isNot(contains('crossAxisCount: 4')));
+    });
+
+    test('has exactly 6 primary study tools', () {
+      expect(source, contains("'My Notes'"));
+      expect(source, contains("'Flashcards'"));
+      expect(source, contains("'Past Papers'"));
+      expect(source, contains("'Mock Tests'"));
+      expect(source, contains("'Study Materials'"));
+      expect(source, contains("'Question Bank'"));
+    });
+
+    test('primary tools route to correct screens', () {
       expect(source, contains('NotesScreen'));
-      expect(source, contains('SemesterListScreen'));
-      expect(source, contains('SharedBoxScreen'));
-      // Recent Materials stays in the body.
-      expect(source, contains('_RecentMaterials()'));
+      expect(source, contains('FlashcardScreen'));
+      expect(source, contains('PastPaperScreen'));
+      expect(source, contains('ExamHubScreen'));
+      expect(source, contains('MaterialsScreen'));
+      expect(source, contains('QuizGeneratorScreen'));
     });
 
-    test('shows primary Workspace destinations with expandable panel', () {
-      final source = _read(
-        'lib/features/study/presentation/workspace/workspace_view.dart',
-      );
-      expect(source, contains("GochanoLanguage.text('Docs'"));
+    test('Question Bank routes to QuizGeneratorScreen not ExamHubScreen (order matters)', () {
+      final qbIdx = source.indexOf("'Question Bank'");
+      final quizIdx = source.indexOf('QuizGeneratorScreen');
+      expect(qbIdx, isNot(-1));
+      expect(quizIdx, isNot(-1));
+      expect(quizIdx, greaterThan(qbIdx));
+    });
+
+    test('has Resource Vaults section with Saved Items and Shared Box', () {
+      expect(source, contains('Resource Vaults'));
       expect(source, contains('SavedMaterialsScreen'));
-      expect(source, contains('_expanded'));
-      expect(source, contains('AnimatedSize'));
+      expect(source, contains('SharedBoxScreen'));
     });
 
-    test('uses a grid with fixed mainAxisExtent', () {
-      final source = _read(
-        'lib/features/study/presentation/workspace/workspace_view.dart',
-      );
-      expect(source, contains('GridView.builder'));
-      expect(source, contains('crossAxisCount: 4'));
-      final match = RegExp(r'mainAxisExtent:\s*(\d+)').firstMatch(source);
-      expect(
-        match,
-        isNotNull,
-        reason: 'Quick Access grid must declare a finite mainAxisExtent',
-      );
-      final value = int.parse(match!.group(1)!);
-      expect(value, greaterThanOrEqualTo(80));
-      expect(
-        value,
-        lessThanOrEqualTo(96),
-        reason:
-            'mainAxisExtent should be between 80-96px for overflow-safe tiles',
-      );
+    test('Saved Items and Shared Box are VaultButtons not primary tool cards', () {
+      expect(source, contains('_VaultButton'));
+      expect(source, isNot(contains("categoryTag: 'Saved'")));
     });
 
-    test('every existing destination is still reachable', () {
-      final source = _read(
-        'lib/features/study/presentation/workspace/workspace_view.dart',
+    test('header search is hidden on Workspace (showSearch: false)', () {
+      expect(source, contains('showSearch: false'));
+    });
+
+    test('body search field is present', () {
+      expect(source, contains('AppWorkspaceSearchField'));
+    });
+
+    test('Recently Opened uses horizontal carousel not shrinkWrap list', () {
+      expect(source, contains('_RecentMaterialsCarousel'));
+      expect(source, contains('scrollDirection: Axis.horizontal'));
+      final recentSection = source.substring(
+        source.indexOf('class _RecentMaterialsCarousel'),
       );
+      expect(recentSection, isNot(contains('shrinkWrap: true')));
+    });
+
+    test('Saved filter hides primary grid and shows Resource Vaults', () {
+      expect(source, contains('_isSavedFilter'));
+      expect(source, contains('if (!_isSavedFilter)'));
+    });
+
+    test('is a StatefulWidget', () {
+      expect(source, contains('StatefulWidget'));
+    });
+
+    test('has no childAspectRatio (overflow-safe design)', () {
+      expect(source, isNot(contains('childAspectRatio')));
+    });
+
+    test('every canonical destination is reachable', () {
       for (final destination in const [
-        'AiAssistantScreen',
         'NotesScreen',
+        'FlashcardScreen',
+        'PastPaperScreen',
+        'ExamHubScreen',
         'MaterialsScreen',
-        'SemesterListScreen',
+        'QuizGeneratorScreen',
+        'SavedMaterialsScreen',
         'SharedBoxScreen',
       ]) {
         expect(
@@ -320,57 +364,6 @@ void main() {
         );
       }
     });
-
-    test('is a StatefulWidget for expand/collapse state', () {
-      final source = _read(
-        'lib/features/study/presentation/workspace/workspace_view.dart',
-      );
-      expect(source, contains('StatefulWidget'));
-      expect(source, contains('State<_QuickAccess>'));
-    });
-
-    test('has no childAspectRatio (overflow-safe design)', () {
-      final source = _read(
-        'lib/features/study/presentation/workspace/workspace_view.dart',
-      );
-      // The old design used childAspectRatio: 2.8 which caused overflow.
-      // The new design uses mainAxisExtent instead.
-      expect(
-        source,
-        isNot(contains('childAspectRatio')),
-        reason: 'Must not use childAspectRatio which caused the overflow',
-      );
-    });
-
-    test(
-      'supports vertical drag down/up gestures on the expand/collapse handle',
-      () {
-        final source = _read(
-          'lib/features/study/presentation/workspace/workspace_view.dart',
-        );
-        expect(source, contains('onVerticalDragEnd'));
-        expect(source, contains('onVerticalDragUpdate'));
-        expect(source, contains('vy > 100'));
-        expect(source, contains('vy < -100'));
-        expect(source, contains('details.primaryDelta! > 8'));
-        expect(source, contains('details.primaryDelta! < -8'));
-        expect(source, contains("'See more'"));
-        expect(source, contains("'See less'"));
-      },
-    );
-
-    test(
-      'renders prominent 24px icons in 44px circular container with centered labels',
-      () {
-        final source = _read(
-          'lib/features/study/presentation/workspace/workspace_view.dart',
-        );
-        expect(source, contains('width: 44'));
-        expect(source, contains('height: 44'));
-        expect(source, contains('size: 24'));
-        expect(source, contains('TextAlign.center'));
-      },
-    );
   });
 
   group('Home bento layout', () {

@@ -59,12 +59,17 @@ abstract final class GochanoRadius {
   /// 16 — cards, the default surface radius.
   static const double lg = 16;
 
+  /// 18 — compact inset floating app-bar surface.
+  static const double appBarSurface = 18;
+
   /// 24 — bottom sheets and full-width hero surfaces.
   static const double xl = 24;
 
   static const BorderRadius smAll = BorderRadius.all(Radius.circular(sm));
   static const BorderRadius mdAll = BorderRadius.all(Radius.circular(md));
   static const BorderRadius lgAll = BorderRadius.all(Radius.circular(lg));
+  static const BorderRadius appBarSurfaceAll =
+      BorderRadius.all(Radius.circular(appBarSurface));
   static const BorderRadius xlAll = BorderRadius.all(Radius.circular(xl));
 
   /// Sheet radius: rounded on top only.

@@ -20,8 +20,8 @@ void main() {
     taskForm = _read('lib/features/tasks/presentation/add_task_sheet.dart');
   });
 
-  test('Study root exposes exactly Workspace and Plan tabs', () {
-    expect(study, contains('TabController(length: 2'));
+  test('Study root exposes Workspace, Plan, and Community tabs', () {
+    expect(study, contains('TabController(length: 3'));
     expect(study, contains("'Workspace'"));
     expect(study, contains("'Plan'"));
     expect(study, isNot(contains('FocusView')));
@@ -30,25 +30,26 @@ void main() {
     expect(study, isNot(contains("'Distraction'")));
   });
 
-  test('Workspace Quick Access includes all required destinations', () {
-    for (final label in const [
-      'AI Assistant',
-      'Notes',
-      'PDFs',
-      'Saved Images',
-      'Docs',
-      'Semester',
-      'Shared Box',
-    ]) {
-      expect(workspace, contains("'$label'"));
-    }
-    expect(workspace, contains('constraints.maxWidth < 360 ? 3 : 4'));
+  test('Workspace has 6 primary tools + 2 resource vaults (no Quick Access)', () {
+    // 6 primary tools
+    expect(workspace, contains("'My Notes'"));
+    expect(workspace, contains("'Flashcards'"));
+    expect(workspace, contains("'Past Papers'"));
+    expect(workspace, contains("'Mock Tests'"));
+    expect(workspace, contains("'Study Materials'"));
+    expect(workspace, contains("'Question Bank'"));
+    // 2 resource vaults
     expect(workspace, contains('SavedMaterialsScreen'));
-    expect(workspace, isNot(contains('_collapsedCount')));
+    expect(workspace, contains('SharedBoxScreen'));
+    // No Quick Access
+    expect(workspace, isNot(contains('_QuickAccess')));
+    expect(workspace, isNot(contains('constraints.maxWidth < 360 ? 3 : 4')));
+    // No Exam Rescue
+    expect(workspace, isNot(contains('ExamRescueTile')));
   });
 
-  test('DOCX reader path preserves the original file name', () {
-    expect(workspace, contains('fileName: doc.data()[\'fileName\']'));
+  test('Material reader path preserves the original file name', () {
+    expect(workspace, contains("fileName: doc['fileName']"));
     expect(workspace, contains('MaterialReaderScreen'));
   });
 

@@ -36,7 +36,6 @@ import 'package:gochano/features/study/presentation/ai/quiz_result_screen.dart';
 import 'package:gochano/features/study/presentation/planner/plan_view.dart';
 import 'package:gochano/features/study/presentation/rescue/exam_rescue_active_card.dart';
 import 'package:gochano/features/study/presentation/rescue/exam_rescue_session_service.dart';
-import 'package:gochano/services/api_service.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes for Firestore Document Snapshot & Reference

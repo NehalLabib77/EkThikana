@@ -33,9 +33,9 @@ const String kPostSortPopular = 'popular';
 const List<String> kPostSorts = <String>[kPostSortRecent, kPostSortPopular];
 
 const List<String> kCommunitySegments = <String>[
+  'for_you',
+  'discussions',
   'groups',
-  'questions',
-  'challenges',
 ];
 
 /// '' is the "no category" option a student can clear back to.
@@ -84,12 +84,16 @@ String postSortLabel(String sort) {
 
 String communitySegmentLabel(String segment) {
   switch (segment) {
+    case 'for_you':
+      return GochanoLanguage.text('For You', 'আপনার জন্য');
+    case 'discussions':
     case 'questions':
-      return GochanoLanguage.text('Questions', 'প্রশ্ন');
+      return GochanoLanguage.text('Discussions', 'আলোচনা');
     case 'challenges':
       return GochanoLanguage.text('Challenges', 'চ্যালেঞ্জ');
+    case 'groups':
     default:
-      return GochanoLanguage.text('Groups', 'গ্রুপ');
+      return GochanoLanguage.text('Study Groups', 'স্টাডি গ্রুপ');
   }
 }
 

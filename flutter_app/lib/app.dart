@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -5,9 +6,13 @@ import 'core/app_config.dart';
 import 'core/design_system/gochano_theme.dart';
 import 'core/localization/gochano_language.dart';
 import 'core/navigation.dart';
+import 'core/page_route.dart';
 import 'core/settings/gochano_appearance.dart';
 import 'features/auth/presentation/auth_gate.dart';
+import 'features/exams/presentation/exam_setup_screen.dart';
 import 'features/shell/presentation/splash_screen.dart';
+import 'features/study/presentation/adaptive/revision_queue_screen.dart';
+import 'features/study/presentation/ai/quiz_generator_screen.dart';
 import 'widgets/notification_action_host.dart';
 import 'widgets/offline_banner.dart';
 
@@ -32,7 +37,9 @@ class GochanoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('[Boot] app:build');
+    if (kDebugMode) {
+      debugPrint('[Boot] app:build');
+    }
     return GochanoAppearanceScope(
       builder: (context, themeMode) => GochanoLanguageScope(
         builder: (context, locale) => MaterialApp(
@@ -57,6 +64,7 @@ class GochanoApp extends StatelessWidget {
             for (final value in GochanoLocale.values) value.locale,
           ],
           home: const _BootRouter(),
+          onGenerateRoute: onGenerateAppRoute,
           // `builder:` wraps every route (including dialogs) so the offline
           // banner and the notification action host layer above any screen
           // without per-screen wiring.
@@ -79,6 +87,41 @@ class GochanoApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Resolves registered named routes for Gochano.
+Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
+  switch (settings.name) {
+    case '/exams':
+      return GochanoRoute.to(
+        builder: (_) => const ExamSetupScreen(),
+        settings: settings,
+      );
+    case '/mistakes':
+      return GochanoRoute.to(
+        builder: (_) => const RevisionQueueScreen(),
+        settings: settings,
+      );
+    case '/quiz-generate':
+      final args = settings.arguments;
+      if (args is Map<String, dynamic>) {
+        return GochanoRoute.to(
+          builder: (_) => QuizGeneratorScreen(
+            preselectedMaterialId: args['materialId'] as String?,
+            preselectedMaterialTitle: args['materialTitle'] as String?,
+            initialTopic: args['topic'] as String?,
+            initialQuestionCount: args['questionCount'] as int?,
+          ),
+          settings: settings,
+        );
+      }
+      return GochanoRoute.to(
+        builder: (_) => const QuizGeneratorScreen(),
+        settings: settings,
+      );
+    default:
+      return null;
   }
 }
 
@@ -116,7 +159,9 @@ class _BootRouterState extends State<_BootRouter> {
   @override
   Widget build(BuildContext context) {
     if (_ready) {
-      debugPrint('[Boot] authGate:mount');
+      if (kDebugMode) {
+        debugPrint('[Boot] authGate:mount');
+      }
       return const AuthGate();
     }
     return GochanoSplashScreen(onReady: _handleReady);

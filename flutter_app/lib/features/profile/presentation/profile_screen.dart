@@ -854,10 +854,7 @@ class _SettingsCardState extends State<_SettingsCard>
                     if (widget.isStudent) ...[
                       _SettingsRow(
                         icon: Icons.account_balance_wallet_outlined,
-                        title: GochanoLanguage.text(
-                          'Monthly money',
-                          'মাসিক টাকা',
-                        ),
+                        title: GochanoLanguage.text('Monthly money', 'মাসিক টাকা'),
                         // The amount itself, not a description of it. A row that
                         // only said "how much you have to spend this month" gave
                         // a student no way to tell whether what they set had

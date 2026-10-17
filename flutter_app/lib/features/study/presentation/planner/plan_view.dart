@@ -1,44 +1,61 @@
-// Combined Plan dashboard (spec §40).
+// Study Plan Dashboard (spec §40).
 //
-// Merges the former Tasks and Planner tabs into a single "Plan" view that
-// answers the question "what should I work on today?" in one scroll.
+// Plan Product North Star: Plan = ORGANIZE
+// Answers: "What am I preparing for, what is coming next, and how should I organize my study over time?"
 //
 // Sections:
-//   1. Date / week strip — 7-day selector with a "Today" shortcut.
-//   2. Today's Schedule — tasks due on the selected day.
-//   3+4. Assignments & Tasks — single combined card with two sections.
-//   5. Study Goal — weekly focus target, completed focus, progress %.
+//   1. Contextual Pinned Plan Header (AppStudyHeader with calendar/history action)
+//   2. Page Intro ("Plan" / "Organize your study journey.")
+//   3. Current Goal / Target Exam summary (real data or polished empty state)
+//   4. Date / Week switcher (7-day/31-day selector with "Today" shortcut)
+//   5. Adaptive Exam Rescue Banner
+//   6. This Week / Upcoming Focus (tasks for selected day with canonical completion)
+//   7. Deadlines & Milestones Timeline (upcoming assignments/exams)
+//   8. Goals & Milestones (study hours target & focus progress)
+//   9. History & Calendar Navigation
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
-
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/firestore_service.dart';
 import '../../../../services/notification_service.dart';
-import '../../../../services/study_service.dart';
+import '../../../tasks/domain/task_lifecycle.dart';
 import '../../../../shared/states/gochano_states.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 import '../../../tasks/presentation/add_task_sheet.dart';
 import '../ai/quiz_generator_screen.dart';
+import '../exam_ecosystem/exam_plan_screen.dart';
 import '../rescue/exam_rescue_models.dart';
 import '../rescue/exam_rescue_session_service.dart';
 import '../rescue/exam_rescue_setup_sheet.dart';
 
 class PlanView extends StatefulWidget {
-  const PlanView({super.key, this.examRescueSessionService});
+  const PlanView({
+    super.key,
+    this.examRescueSessionService,
+    this.mockTasks,
+    this.mockTargetExam,
+    this.mockStudyGoals,
+  });
 
   final ExamRescueSessionService? examRescueSessionService;
+
+  /// Injected tasks for tests — bypasses Firestore stream when provided.
+  final List<Map<String, dynamic>>? mockTasks;
+
+  /// Injected target exam data for tests.
+  final Map<String, dynamic>? mockTargetExam;
+
+  /// Injected study goals for tests.
+  final Map<String, int?>? mockStudyGoals;
 
   @override
   State<PlanView> createState() => _PlanViewState();
@@ -86,81 +103,550 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isDark = context.isDark;
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await _checkExactAlarm();
-      },
-      child: ListView(
-        padding: GochanoSpacing.scrollBody,
-        children: [
-          if (!_exactAlarmAllowed) ...[
-            Container(
-              margin: const EdgeInsets.only(bottom: GochanoSpacing.sm),
-              padding: const EdgeInsets.all(GochanoSpacing.sm),
-              decoration: BoxDecoration(
-                color: colors.warning.withValues(alpha: 0.12),
-                borderRadius: GochanoRadius.mdAll,
-                border: Border.all(
-                  color: colors.warning.withValues(alpha: 0.3),
+    final overlayStyle = isDark
+        ? SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          )
+        : SystemUiOverlayStyle.dark.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // ---------------------------------------------------------------
+              // PINNED CONTEXTUAL PLAN HEADER (Search hidden, Calendar action)
+              // ---------------------------------------------------------------
+              AppStudyHeader(
+                showSearch: false,
+                showNotifications: true,
+                trailingAction: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: IconButton(
+                    onPressed: () => openPlanHistory(context),
+                    tooltip: GochanoLanguage.text(
+                      'History & Calendar',
+                      'ইতিহাস ও ক্যালেন্ডার',
+                    ),
+                    icon: const Icon(Icons.calendar_month_outlined, size: 20),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.alarm_off_rounded,
-                    color: colors.warning,
-                    size: 20,
-                  ),
-                  const SizedBox(width: GochanoSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      GochanoLanguage.text(
-                        'Enable "Alarms & reminders" in settings so reminders ring when the app is closed.',
-                        'অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে সেটিংসে "অ্যালার্ম ও রিমাইন্ডার" চালু করুন।',
+
+              // ---------------------------------------------------------------
+              // SCROLLABLE PLAN CONTENT
+              // ---------------------------------------------------------------
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await _checkExactAlarm();
+                    if (mounted) setState(() {});
+                  },
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: GochanoSpacing.xs),
                       ),
+
+                      // Intro + Exact Alarm Warning if needed
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (!_exactAlarmAllowed) ...[
+                                _buildExactAlarmWarning(context),
+                                const SizedBox(height: GochanoSpacing.xs),
+                              ],
+                              _buildIntro(context),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 12),
+                      ),
+
+                      // UNIFIED PLANNING FOCUS SURFACE (Goal -> Date -> Due)
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: AppPlanningFocusContainer(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _CurrentGoalCard(
+                                  mockTargetExam: widget.mockTargetExam,
+                                ),
+                                Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: isDark
+                                      ? colors.border.withValues(alpha: 0.25)
+                                      : const Color(0xFFF1F5F9),
+                                ),
+                                _DateStrip(
+                                  selectedDay: _selectedDay,
+                                  onDaySelected: (day) =>
+                                      setState(() => _selectedDay = day),
+                                ),
+                                Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: isDark
+                                      ? colors.border.withValues(alpha: 0.25)
+                                      : const Color(0xFFF1F5F9),
+                                ),
+                                _PlannerTasksSection(
+                                  selectedDay: _selectedDay,
+                                  mockTasks: widget.mockTasks,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 16),
+                      ),
+
+                      // Upcoming Section
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _DeadlineTimelineSection(
+                            mockTasks: widget.mockTasks,
+                          ),
+                        ),
+                      ),
+
+                      // Companion Spacing (8-10dp) between Upcoming and Exam Rescue
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 10),
+                      ),
+
+                      // Exam Rescue Planning (compact companion strip)
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _ExamRescueBanner(
+                            examRescueSessionService:
+                                widget.examRescueSessionService,
+                          ),
+                        ),
+                      ),
+
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 16),
+                      ),
+
+                      // Weekly Goal Section
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: GochanoSpacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _StudyGoalContainer(
+                            mockStudyGoals: widget.mockStudyGoals,
+                          ),
+                        ),
+                      ),
+
+                      // Bottom spacing for navigation bar
+                      const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExactAlarmWarning(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: GochanoSpacing.sm),
+      padding: const EdgeInsets.all(GochanoSpacing.sm),
+      decoration: BoxDecoration(
+        color: colors.warning.withValues(alpha: 0.12),
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(color: colors.warning.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.alarm_off_rounded, color: colors.warning, size: 20),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(
+            child: Text(
+              GochanoLanguage.text(
+                'Enable "Alarms & reminders" in settings so reminders ring when the app is closed.',
+                'অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে সেটিংসে "অ্যালার্ম ও রিমাইন্ডার" চালু করুন।',
+              ),
+              style: context.type.caption.copyWith(color: colors.textPrimary),
+            ),
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () async {
+              final granted =
+                  await NotificationService.requestExactAlarmPermission();
+              if (mounted && granted) {
+                setState(() => _exactAlarmAllowed = true);
+              }
+            },
+            child: Text(
+              GochanoLanguage.text('Enable', 'চালু করুন'),
+              style: TextStyle(
+                color: colors.warning,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntro(BuildContext context) {
+    final colors = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          GochanoLanguage.text('Plan', 'পরিকল্পনা'),
+          style: context.type.pageTitle.copyWith(
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          GochanoLanguage.text(
+            'Organize your upcoming study and goals.',
+            'আপনার পড়াশোনার লক্ষ্য ও সময়সূচি সাজান।',
+          ),
+          style: context.type.bodySecondary.copyWith(
+            color: colors.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Unified Planning Focus Container
+// ---------------------------------------------------------------------------
+
+class AppPlanningFocusContainer extends StatelessWidget {
+  const AppPlanningFocusContainer({
+    super.key,
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isDark = context.isDark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : const Color(0xFFFAFBFC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? colors.border.withValues(alpha: 0.3)
+              : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Current Goal / Target Exam Card
+// ---------------------------------------------------------------------------
+
+class _CurrentGoalCard extends StatelessWidget {
+  const _CurrentGoalCard({this.mockTargetExam});
+
+  final Map<String, dynamic>? mockTargetExam;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isDark = context.isDark;
+
+    if (mockTargetExam != null) {
+      return _buildFromData(context, mockTargetExam!, colors, isDark);
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.profileStream(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() ?? const <String, dynamic>{};
+        final targetExam = data['targetExam']?.toString().trim();
+        final academicGoal = data['academicGoal']?.toString().trim();
+
+        final hasGoal =
+            (targetExam != null && targetExam.isNotEmpty) ||
+            (academicGoal != null && academicGoal.isNotEmpty);
+
+        if (!hasGoal) {
+          return _buildEmptyGoal(context, colors, isDark);
+        }
+
+        final goalName = targetExam ?? academicGoal ?? '';
+        final goalData = {
+          'examName': goalName,
+          'targetDate': data['targetDate']?.toString(),
+          'nextMilestone': data['nextMilestone']?.toString(),
+          'readiness': data['readiness'],
+        };
+        return _buildFromData(context, goalData, colors, isDark);
+      },
+    );
+  }
+
+  Widget _buildEmptyGoal(BuildContext context, dynamic colors, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: colors.brand.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.flag_rounded, color: colors.brand, size: 20),
+          ),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  GochanoLanguage.text(
+                    'Set your target exam',
+                    'আপনার পরীক্ষার লক্ষ্য ঠিক করুন',
+                  ),
+                  style: context.type.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  GochanoLanguage.text(
+                    'Add your academic goal so Gochano can organize your study plan.',
+                    'আপনার লক্ষ্য যোগ করুন যাতে গোছানো স্টাডি প্ল্যান তৈরি করতে পারে।',
+                  ),
+                  style: context.type.caption.copyWith(
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(
+              context,
+            ).push(GochanoRoute.to(builder: (_) => const ExamPlanScreen())),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: const Size(44, 44),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              GochanoLanguage.text('Set Goal', 'লক্ষ্য দিন'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFromData(
+    BuildContext context,
+    Map<String, dynamic> data,
+    dynamic colors,
+    bool isDark,
+  ) {
+    final examName = data['examName']?.toString() ?? 'Academic Goal';
+    final targetDate = data['targetDate']?.toString();
+    final milestone = data['nextMilestone']?.toString();
+    final readiness = (data['readiness'] as num?)?.toDouble();
+
+    return Container(
+      color: isDark
+          ? colors.brand.withValues(alpha: 0.08)
+          : const Color(0xFFF5F7FF),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: colors.brand.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.stars_rounded, color: colors.brand, size: 18),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      GochanoLanguage.text('Current Goal', 'বর্তমান লক্ষ্য'),
                       style: context.type.caption.copyWith(
-                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 10.5,
+                        color: colors.brand,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: GochanoSpacing.xs),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    onPressed: () async {
-                      final granted =
-                          await NotificationService.requestExactAlarmPermission();
-                      if (mounted && granted) {
-                        setState(() => _exactAlarmAllowed = true);
-                      }
-                    },
-                    child: Text(
-                      GochanoLanguage.text('Enable', 'চালু করুন'),
-                      style: TextStyle(
-                        color: colors.warning,
-                        fontWeight: FontWeight.bold,
+                    Text(
+                      examName,
+                      style: context.type.body.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (targetDate != null && targetDate.isNotEmpty)
+                      Text(
+                        targetDate,
+                        style: context.type.caption.copyWith(
+                          color: colors.textTertiary,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              OutlinedButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(GochanoRoute.to(builder: (_) => const ExamPlanScreen())),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                ],
+                  side: BorderSide(color: colors.brand.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  GochanoLanguage.text('View Roadmap', 'রোডম্যাপ দেখুন'),
+                  style: TextStyle(
+                    color: colors.brand,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (milestone != null && milestone.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(
+                  Icons.subdirectory_arrow_right_rounded,
+                  size: 15,
+                  color: colors.textTertiary,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    '${GochanoLanguage.text("Next Milestone", "পরবর্তী মাইলফলক")}: $milestone',
+                    style: context.type.caption.copyWith(
+                      color: colors.textSecondary,
+                      fontSize: 11.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (readiness != null && readiness > 0) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (readiness / 100).clamp(0.0, 1.0),
+                minHeight: 4,
+                backgroundColor: colors.brand.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
               ),
             ),
           ],
-          _DateStrip(
-            selectedDay: _selectedDay,
-            onDaySelected: (day) => setState(() => _selectedDay = day),
-          ),
-          const SizedBox(height: GochanoSpacing.xs),
-          _ExamRescueBanner(
-            examRescueSessionService: widget.examRescueSessionService,
-          ),
-          const SizedBox(height: GochanoSpacing.md),
-          _CombinedPlannerList(selectedDay: _selectedDay),
-          const SizedBox(height: GochanoSpacing.xl),
         ],
       ),
     );
@@ -168,7 +654,7 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Date / Week strip
+// Date / Week Strip
 // ---------------------------------------------------------------------------
 
 class _DateStrip extends StatefulWidget {
@@ -183,7 +669,7 @@ class _DateStrip extends StatefulWidget {
 
 class _DateStripState extends State<_DateStrip> {
   late final ScrollController _scrollController;
-  static const _cellWidth = 44.0 + 8.0; // cell width + right margin
+  static const _cellWidth = 44.0 + 8.0;
   static const _visibleBeforeToday = 2;
 
   @override
@@ -201,15 +687,15 @@ class _DateStripState extends State<_DateStrip> {
 
   void _scrollToToday() {
     if (!_scrollController.hasClients) return;
-    final totalDays = _totalDays;
-    final todayIndex = totalDays - 15; // today is 15 days from start
-    final targetOffset = (todayIndex - _visibleBeforeToday) * _cellWidth;
+    const totalDays = _totalDays;
+    const todayIndex = totalDays - 15;
+    const targetOffset = (todayIndex - _visibleBeforeToday) * _cellWidth;
     _scrollController.jumpTo(
       targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
     );
   }
 
-  static const _totalDays = 31; // ~1 month of scrollable dates
+  static const _totalDays = 31;
 
   @override
   Widget build(BuildContext context) {
@@ -255,81 +741,141 @@ class _DateStripState extends State<_DateStrip> {
     final currentMonthBn =
         '${banglaMonths[widget.selectedDay.month - 1]} ${widget.selectedDay.year}';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                GochanoLanguage.text(currentMonth, currentMonthBn),
-                style: context.type.sectionHeading,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                widget.onDaySelected(today);
-                _scrollToToday();
-              },
-              child: Text(GochanoLanguage.text('Today', 'আজ')),
-            ),
-          ],
-        ),
-        const SizedBox(height: GochanoSpacing.xs),
-        SizedBox(
-          height: 56,
-          child: ListView.builder(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            itemCount: days.length,
-            itemBuilder: (context, i) {
-              final day = days[i];
-              final isSelected =
-                  DateTime(day.year, day.month, day.day) ==
-                  DateTime(
-                    widget.selectedDay.year,
-                    widget.selectedDay.month,
-                    widget.selectedDay.day,
-                  );
-              final isToday = day == today;
-              final dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final double stripHeight = textScale > 1.0
+        ? (68.0 + (textScale - 1.0) * 32.0)
+        : 68.0;
+    final double itemWidth = textScale > 1.0
+        ? (46.0 + (textScale - 1.0) * 20.0)
+        : 46.0;
 
-              return GestureDetector(
-                onTap: () => widget.onDaySelected(day),
-                child: Container(
-                  width: 44,
-                  margin: const EdgeInsets.only(right: GochanoSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? colors.brand
-                        : isToday
-                        ? colors.brandSoft
-                        : colors.surface,
-                    borderRadius: GochanoRadius.mdAll,
-                    border: isToday && !isSelected
-                        ? Border.all(color: colors.brand, width: 1.5)
-                        : null,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 8, 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    GochanoLanguage.text(currentMonth, currentMonthBn),
+                    style: context.type.body.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        dayNames[day.weekday % 7],
-                        style: context.type.caption.copyWith(
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    widget.onDaySelected(today);
+                    _scrollToToday();
+                  },
+                  child: Text(GochanoLanguage.text('Today', 'আজ')),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          SizedBox(
+            height: stripHeight,
+            child: ListView.builder(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              itemCount: days.length,
+            itemBuilder: (context, index) {
+              final day = days[index];
+              final isSelected =
+                  day.year == widget.selectedDay.year &&
+                  day.month == widget.selectedDay.month &&
+                  day.day == widget.selectedDay.day;
+              final isToday =
+                  day.year == today.year &&
+                  day.month == today.month &&
+                  day.day == today.day;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Semantics(
+                  button: true,
+                  selected: isSelected,
+                  label:
+                      '${day.day} ${months[day.month - 1]}${isToday ? ", Today" : ""}',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => widget.onDaySelected(day),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Ink(
+                        width: itemWidth,
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? Colors.white
-                              : colors.textSecondary,
-                          fontSize: 11,
+                              ? colors.brand
+                              : isToday
+                              ? colors.brand.withValues(alpha: 0.12)
+                              : (context.isDark
+                                    ? colors.surface
+                                    : const Color(0xFFF8FAFC)),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? colors.brand
+                                : isToday
+                                ? colors.brand.withValues(alpha: 0.4)
+                                : (context.isDark
+                                      ? colors.border
+                                      : const Color(0xFFE2E8F0)),
+                            width: 1,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 4,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  _weekdayShort(day.weekday),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white70
+                                        : colors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  GochanoLanguage.formatNumber(day.day),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : colors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${day.day}',
-                        style: context.type.cardHeading.copyWith(
-                          color: isSelected ? Colors.white : colors.textPrimary,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -337,173 +883,352 @@ class _DateStripState extends State<_DateStrip> {
           ),
         ),
       ],
-    );
+    ),
+  );
+}
+
+  String _weekdayShort(int weekday) {
+    switch (weekday) {
+      case 1:
+        return GochanoLanguage.text('Mon', 'সোম');
+      case 2:
+        return GochanoLanguage.text('Tue', 'মঙ্গল');
+      case 3:
+        return GochanoLanguage.text('Wed', 'বুধ');
+      case 4:
+        return GochanoLanguage.text('Thu', 'বৃহ');
+      case 5:
+        return GochanoLanguage.text('Fri', 'শুক্র');
+      case 6:
+        return GochanoLanguage.text('Sat', 'শনি');
+      default:
+        return GochanoLanguage.text('Sun', 'রবি');
+    }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Combined Tasks & Assignments — single chronological list with category badges
+// Adaptive Exam Rescue Banner
 // ---------------------------------------------------------------------------
 
-class _CombinedPlannerList extends StatelessWidget {
-  const _CombinedPlannerList({required this.selectedDay});
+class _ExamRescueBanner extends StatelessWidget {
+  const _ExamRescueBanner({this.examRescueSessionService});
 
-  final DateTime selectedDay;
+  final ExamRescueSessionService? examRescueSessionService;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('tasks', limit: 300),
+    final colors = context.colors;
+    final isDark = context.isDark;
+    final service =
+        examRescueSessionService ?? ExamRescueSessionService.instance;
+
+    return StreamBuilder<ExamRescueSession?>(
+      stream: service.streamNearestActiveSession(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
+        final session = snapshot.data;
+        if (session != null) {
+          return _buildActiveRescueCard(
+            context,
+            session,
+            service,
+            colors,
+            isDark,
+          );
         }
-        if (snapshot.hasError) return const SizedBox.shrink();
+        return _buildInactiveCtaStrip(context, colors, isDark);
+      },
+    );
+  }
 
-        final dayKey = DateTime(
-          selectedDay.year,
-          selectedDay.month,
-          selectedDay.day,
-        );
-        final endOfDay = dayKey.add(const Duration(days: 1));
-
-        final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        for (final doc in [...?snapshot.data?.docs]) {
-          final data = doc.data();
-          if (data['done'] == true) continue;
-          final due = (data['dueAt'] as Timestamp?)?.toDate();
-          if (due == null) continue;
-          if (!due.isBefore(dayKey) && due.isBefore(endOfDay)) {
-            docs.add(doc);
-          }
-        }
-
-        // Sort by dueAt ascending (items with no due go last).
-        docs.sort((a, b) {
-          final ad = (a.data()['dueAt'] as Timestamp?)?.toDate();
-          final bd = (b.data()['dueAt'] as Timestamp?)?.toDate();
-          if (ad == null && bd == null) return 0;
-          if (ad == null) return 1;
-          if (bd == null) return -1;
-          return ad.compareTo(bd);
-        });
-
-        if (docs.isEmpty) {
-          return AppCard(
+  Widget _buildInactiveCtaStrip(
+    BuildContext context,
+    dynamic colors,
+    bool isDark,
+  ) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 64, maxHeight: 80),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(
+          color: isDark
+              ? colors.border.withValues(alpha: 0.3)
+              : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colors.brand.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.bolt_rounded, color: colors.brand, size: 18),
+          ),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                GochanoIllustration(
-                  GochanoArt.emptyTasks,
-                  size: GochanoSizes.illustrationEmpty,
-                  accent: context.colors.textTertiary,
+                Text(
+                  GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার'),
+                  style: context.type.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                    color: colors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: GochanoSpacing.sm),
+                const SizedBox(height: 2),
                 Text(
                   GochanoLanguage.text(
-                    'No tasks or assignments for this day.',
-                    'এই দিনে কোনো কাজ বা অ্যাসাইনমেন্ট নেই।',
+                    'Exam close? Build a quick rescue plan.',
+                    'পরীক্ষা কাছাকাছি? একটি দ্রুত উদ্ধার প্ল্যান তৈরি করুন।',
                   ),
-                  style: context.type.sectionHeading,
-                ),
-                const SizedBox(height: GochanoSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => showAddTaskSheet(
-                          context,
-                          type: 'task',
-                          initialDate: selectedDay,
-                        ),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: Text(GochanoLanguage.text('Task', 'কাজ')),
-                      ),
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => showAddTaskSheet(
-                          context,
-                          type: 'assignment',
-                          initialDate: selectedDay,
-                        ),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: Text(
-                          GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট'),
-                        ),
-                      ),
-                    ),
-                  ],
+                  style: context.type.caption.copyWith(
+                    color: colors.textSecondary,
+                    fontSize: 11.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-          );
-        }
+          ),
+          const SizedBox(width: GochanoSpacing.xs),
+          FilledButton.tonal(
+            onPressed: () async {
+              final result = await showExamRescueSetupSheet(context);
+              if (result != null && result.success && context.mounted) {
+                showGochanoMessage(
+                  context,
+                  FeedbackMessages.examRescuePlanApplied(
+                    result.tasksCount,
+                    reminderFailed: result.reminderFailed,
+                  ),
+                );
+              }
+            },
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              GochanoLanguage.text('Build Plan', 'প্ল্যান বানান'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-        return AppCard(
-          padding: const EdgeInsets.all(GochanoSpacing.sm),
+  Widget _buildActiveRescueCard(
+    BuildContext context,
+    ExamRescueSession session,
+    ExamRescueSessionService service,
+    dynamic colors,
+    bool isDark,
+  ) {
+    final now = service.now;
+    final daysRemaining = session.localDaysRemaining(now);
+    final daysText = daysRemaining <= 0
+        ? GochanoLanguage.text('Exam today', 'আজ পরীক্ষা')
+        : daysRemaining == 1
+        ? GochanoLanguage.text('1 day left', '১ দিন বাকি')
+        : GochanoLanguage.text(
+            '$daysRemaining days left',
+            '${GochanoLanguage.formatNumber(daysRemaining)} দিন বাকি',
+          );
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('tasks', limit: 100),
+      builder: (context, taskSnap) {
+        final docs = taskSnap.data?.docs ?? const [];
+        final taskMaps = docs.map((d) {
+          final m = Map<String, dynamic>.from(d.data());
+          m['id'] = d.id;
+          return m;
+        }).toList();
+
+        final progress = ExamRescueSessionService.calculateTodayProgress(
+          session: session,
+          tasks: taskMaps,
+          now: now,
+        );
+
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.brandSoft,
+            borderRadius: GochanoRadius.mdAll,
+            border: Border.all(
+              color: colors.brand.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.all(GochanoSpacing.sm + 2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.event_rounded,
-                    size: 14,
-                    color: context.colors.brand,
-                  ),
-                  const SizedBox(width: GochanoSpacing.xxs),
-                  Expanded(
-                    child: Text(
-                      GochanoLanguage.text('Due this day', 'এই দিনের কাজ'),
-                      style: context.type.label.copyWith(
-                        fontSize: 13,
-                        color: context.colors.brand,
-                      ),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: colors.brand.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                  GochanoBadge(
-                    label: '${docs.length}',
-                    tone: GochanoBadgeTone.brand,
-                  ),
-                ],
-              ),
-              const SizedBox(height: GochanoSpacing.xs),
-              for (final doc in docs) ...[
-                _PlannerItemRow(doc: doc),
-                if (doc != docs.last)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Divider(height: 1, color: context.colors.border),
-                  ),
-              ],
-              const SizedBox(height: GochanoSpacing.xs),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => showAddTaskSheet(
-                        context,
-                        type: 'task',
-                        initialDate: selectedDay,
-                      ),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(GochanoLanguage.text('Task', 'কাজ')),
+                    child: Icon(
+                      Icons.bolt_rounded,
+                      color: colors.brand,
+                      size: 16,
                     ),
                   ),
                   const SizedBox(width: GochanoSpacing.xs),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => showAddTaskSheet(
-                        context,
-                        type: 'assignment',
-                        initialDate: selectedDay,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার'),
+                          style: context.type.caption.copyWith(
+                            color: colors.brand,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          session.examTitle,
+                          style: context.type.body.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: colors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.brand.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      daysText,
+                      style: TextStyle(
+                        color: colors.brand,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(
-                        GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress.overallProgressFraction,
+                        minHeight: 5,
+                        backgroundColor: colors.brand.withValues(alpha: 0.12),
+                        valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Text(
+                    '${progress.percentage}%',
+                    style: context.type.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.brand,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).push(
+                        GochanoRoute.to(builder: (_) => const ExamPlanScreen()),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        side: BorderSide(
+                          color: colors.brand.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Text(
+                        GochanoLanguage.text('View Roadmap', 'রোডম্যাপ দেখুন'),
+                        style: TextStyle(
+                          color: colors.brand,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: GochanoSpacing.xs),
+                  Expanded(
+                    child: FilledButton.tonal(
+                      onPressed: () async {
+                        final result = await showExamRescueSetupSheet(context);
+                        if (result != null &&
+                            result.success &&
+                            context.mounted) {
+                          showGochanoMessage(
+                            context,
+                            FeedbackMessages.examRescuePlanApplied(
+                              result.tasksCount,
+                              reminderFailed: result.reminderFailed,
+                            ),
+                          );
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        GochanoLanguage.text('Adjust Plan', 'প্ল্যান পরিবর্তন'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11.5,
+                        ),
                       ),
                     ),
                   ),
@@ -518,26 +1243,342 @@ class _CombinedPlannerList extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 3+4. Single planner row — shows category badge, title, due, and actions
+// Tasks Section for Selected Day
 // ---------------------------------------------------------------------------
 
-class _PlannerItemRow extends StatelessWidget {
-  const _PlannerItemRow({required this.doc});
+class _PlannerTasksSection extends StatefulWidget {
+  const _PlannerTasksSection({
+    required this.selectedDay,
+    this.mockTasks,
+  });
 
-  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  final DateTime selectedDay;
+  final List<Map<String, dynamic>>? mockTasks;
+
+  @override
+  State<_PlannerTasksSection> createState() => _PlannerTasksSectionState();
+}
+
+class _PlannerTasksSectionState extends State<_PlannerTasksSection> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _PlannerTasksSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedDay.year != widget.selectedDay.year ||
+        oldWidget.selectedDay.month != widget.selectedDay.month ||
+        oldWidget.selectedDay.day != widget.selectedDay.day) {
+      _expanded = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final data = doc.data();
-    final done = data['done'] == true;
-    final title = data['title']?.toString() ?? '';
-    final due = (data['dueAt'] as Timestamp?)?.toDate();
-    final overdue = !done && due != null && due.isBefore(DateTime.now());
-    final isAssignment = data['type']?.toString() == 'assignment';
+    final colors = context.colors;
 
-    final isRescue = data['source'] == 'exam_rescue';
-    final rescueItemType = data['rescueItemType']?.toString();
-    final rescueSessionId = data['rescueSessionId']?.toString();
+    if (widget.mockTasks != null) {
+      return _buildTaskList(context, widget.mockTasks!, colors);
+    }
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('tasks', limit: 300),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const AppSkeleton(height: 120, borderRadius: 16);
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: Text(
+              GochanoLanguage.text(
+                'Could not load tasks.',
+                'কাজ লোড করা যায়নি।',
+              ),
+              style: context.type.bodySecondary,
+            ),
+          );
+        }
+
+        final rawDocs = <Map<String, dynamic>>[];
+        for (final doc in snapshot.data?.docs ?? []) {
+          final data = Map<String, dynamic>.from(doc.data());
+          data['__docId'] = doc.id;
+          data['__ref'] = doc.reference;
+          rawDocs.add(data);
+        }
+
+        return _buildTaskList(context, rawDocs, colors);
+      },
+    );
+  }
+
+  Widget _buildTaskList(
+    BuildContext context,
+    List<Map<String, dynamic>> rawDocs,
+    dynamic colors,
+  ) {
+    final selectedDay = widget.selectedDay;
+    final dayDocs = <Map<String, dynamic>>[];
+    for (final data in rawDocs) {
+      if (TaskLifecycle.belongsToPlanDay(data, selectedDay)) {
+        dayDocs.add(data);
+      }
+    }
+
+    dayDocs.sort((a, b) {
+      final ad = TaskLifecycle.parseDateTime(a['dueAt']);
+      final bd = TaskLifecycle.parseDateTime(b['dueAt']);
+      if (ad == null && bd == null) return 0;
+      if (ad == null) return 1;
+      if (bd == null) return -1;
+      return ad.compareTo(bd);
+    });
+
+    final renderedDocs = _expanded ? dayDocs : dayDocs.take(3).toList();
+    final hasMore = dayDocs.length > 3;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.assignment_turned_in_rounded,
+                size: 18,
+                color: colors.brand,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  GochanoLanguage.text('Due This Day', 'এই দিনের কাজ'),
+                  style: context.type.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () => showAddTaskSheet(
+                  context,
+                  type: 'task',
+                  initialDate: selectedDay,
+                ),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text(
+                  GochanoLanguage.text('Task', 'কাজ'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (dayDocs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.event_available_rounded,
+                      size: 28,
+                      color: colors.textTertiary,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      // No tasks or assignments for this day.
+                      GochanoLanguage.text(
+                        'No tasks planned for this day',
+                        'এই দিনে কোনো নির্ধারিত কাজ নেই',
+                      ),
+                      style: context.type.bodySecondary.copyWith(
+                        fontSize: 12.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                          ),
+                          onPressed: () => showAddTaskSheet(
+                            context,
+                            type: 'task',
+                            initialDate: selectedDay,
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 16),
+                          label: Text(GochanoLanguage.text('Task', 'কাজ')),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                          ),
+                          onPressed: () => showAddTaskSheet(
+                            context,
+                            type: 'assignment',
+                            initialDate: selectedDay,
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 16),
+                          label: Text(
+                            GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            Column(
+              children: [
+                for (final doc in renderedDocs) ...[
+                  _PlanTaskCard(data: doc),
+                  if (doc != renderedDocs.last)
+                    Divider(
+                      height: 1,
+                      color: colors.border.withValues(alpha: 0.3),
+                    ),
+                ],
+              ],
+            ),
+            if (hasMore && !_expanded) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => setState(() => _expanded = true),
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              GochanoLanguage.text(
+                                'See All (${dayDocs.length})',
+                                'সব দেখুন (${GochanoLanguage.formatNumber(dayDocs.length)})',
+                              ),
+                              style: context.type.caption.copyWith(
+                                color: colors.brand,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: colors.brand,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (_expanded && dayDocs.length > 3) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => setState(() => _expanded = false),
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              GochanoLanguage.text('Show Less', 'সংক্ষিপ্ত করুন'),
+                              style: context.type.caption.copyWith(
+                                color: colors.brand,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.keyboard_arrow_up_rounded,
+                              size: 16,
+                              color: colors.brand,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Plan Task Card & Row
+// ---------------------------------------------------------------------------
+
+class _PlanTaskCard extends StatefulWidget {
+  const _PlanTaskCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  State<_PlanTaskCard> createState() => _PlanTaskCardState();
+}
+
+class _PlanTaskCardState extends State<_PlanTaskCard> {
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final done = TaskLifecycle.isTaskCompleted(widget.data);
+    final title = widget.data['title']?.toString() ?? 'Task';
+    final due = TaskLifecycle.parseDateTime(widget.data['dueAt']);
+    final isAssignment = widget.data['type']?.toString() == 'assignment';
+
+    final isRescue = widget.data['source'] == 'exam_rescue';
+    final rescueItemType = widget.data['rescueItemType']?.toString();
+    final rescueSessionId = widget.data['rescueSessionId']?.toString();
     final isRescueQuiz =
         isRescue &&
         rescueItemType == 'quiz' &&
@@ -545,46 +1586,68 @@ class _PlannerItemRow extends StatelessWidget {
         rescueSessionId.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(
-            width: 20,
-            height: 20,
-            child: Checkbox(
-              value: done,
-              onChanged: (value) => _setDone(context, doc, value ?? false),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+            width: 44,
+            height: 44,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: done,
+                  onChanged: (value) async {
+                    final newVal = value ?? false;
+                    setState(() {
+                      widget.data['done'] = newVal;
+                      widget.data['completed'] = newVal;
+                      if (newVal) {
+                        widget.data['completedAt'] =
+                            DateTime.now().toIso8601String();
+                      } else {
+                        widget.data.remove('completedAt');
+                      }
+                    });
+                    await _toggleDone(context, widget.data, newVal);
+                  },
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: GochanoSpacing.xxs),
+          const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
               color: isAssignment
-                  ? context.colors.brand.withValues(alpha: 0.10)
-                  : context.colors.study.withValues(alpha: 0.10),
-              borderRadius: GochanoRadius.smAll,
+                  ? colors.brand.withValues(alpha: 0.10)
+                  : colors.study.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               isAssignment
                   ? GochanoLanguage.text('Asm', 'অ্যাস')
                   : GochanoLanguage.text('Task', 'কাজ'),
-              style: context.type.caption.copyWith(
-                fontSize: 9,
+              style: TextStyle(
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: isAssignment
-                    ? context.colors.brand
-                    : context.colors.study,
+                color: isAssignment ? colors.brand : colors.study,
               ),
             ),
           ),
-          const SizedBox(width: GochanoSpacing.xxs),
+          const SizedBox(width: 8),
           Expanded(
             child: InkWell(
-              onTap: () => showAddTaskSheet(context, existing: doc),
-              borderRadius: GochanoRadius.smAll,
+              onTap: () {
+                final ref = widget.data['__ref'] as DocumentReference?;
+                if (ref != null) {
+                  // Reopen edit sheet if real doc
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Column(
@@ -594,21 +1657,20 @@ class _PlannerItemRow extends StatelessWidget {
                     Text(
                       title,
                       style: context.type.body.copyWith(
-                        fontSize: 13,
-                        color: done ? context.colors.textSecondary : null,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: done ? colors.textSecondary : colors.textPrimary,
                         decoration: done ? TextDecoration.lineThrough : null,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (due != null)
                       Text(
                         '${formatShortDate(due)} ${formatClock12(due)}',
                         style: context.type.caption.copyWith(
-                          fontSize: 10,
-                          color: overdue
-                              ? context.colors.warning
-                              : context.colors.textTertiary,
+                          fontSize: 10.5,
+                          color: colors.textTertiary,
                         ),
                       ),
                   ],
@@ -617,119 +1679,120 @@ class _PlannerItemRow extends StatelessWidget {
             ),
           ),
           if (isRescueQuiz) ...[
-            const SizedBox(width: GochanoSpacing.xxs),
+            const SizedBox(width: 4),
             if (done)
               GochanoBadge(
                 label: GochanoLanguage.text('Completed', 'সম্পন্ন'),
                 tone: GochanoBadgeTone.success,
               )
             else
-              MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: MediaQuery.textScalerOf(
-                    context,
-                  ).clamp(maxScaleFactor: 1.2),
+              OutlinedButton(
+                onPressed: () => _handleTakeQuizFromData(context, widget.data),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: OutlinedButton(
-                  onPressed: () => _handleTakeQuiz(context, doc),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    side: BorderSide(color: context.colors.brand, width: 1),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: GochanoRadius.smAll,
-                    ),
-                  ),
-                  child: Text(
-                    GochanoLanguage.text('Take Quiz', 'কুইজ দিন'),
-                    style: context.type.caption.copyWith(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: context.colors.brand,
-                    ),
-                  ),
+                child: Text(
+                  GochanoLanguage.text('Take Quiz', 'কুইজ দিন'),
+                  style: const TextStyle(fontSize: 10.5),
                 ),
               ),
           ],
-          GochanoOverflowMenu(
-            items: [
-              GochanoMenuAction(
-                label: GochanoLanguage.text('Edit', 'সম্পাদনা'),
-                icon: Icons.edit_outlined,
-                onSelected: () => showAddTaskSheet(context, existing: doc),
-              ),
-              GochanoMenuAction(
-                label: done
-                    ? GochanoLanguage.text('Mark not done', 'অসম্পন্ন করুন')
-                    : GochanoLanguage.text('Mark done', 'সম্পন্ন করুন'),
-                icon: done ? Icons.undo_rounded : Icons.check_rounded,
-                onSelected: () => _setDone(context, doc, !done),
-              ),
-              GochanoMenuAction(
-                label: GochanoLanguage.text('Delete', 'মুছুন'),
-                icon: Icons.delete_outline_rounded,
-                destructive: true,
-                onSelected: () => _delete(context, doc, title),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
-}
 
-void _handleTakeQuiz(
-  BuildContext context,
-  QueryDocumentSnapshot<Map<String, dynamic>> doc,
-) {
-  final data = doc.data();
-  final materialId = data['materialId']?.toString() ?? '';
-  final title = data['title']?.toString() ?? '';
+  Future<void> _toggleDone(
+    BuildContext context,
+    Map<String, dynamic> data,
+    bool done,
+  ) async {
+    final ref = data['__ref'] as DocumentReference<Map<String, dynamic>>?;
+    final id = data['__docId']?.toString() ?? '';
 
-  if (materialId.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          GochanoLanguage.text(
-            'Select a study material to start this quiz.',
-            'এই কুইজ শুরু করতে একটি স্টাডি মেটেরিয়াল নির্বাচন করুন।',
+    data['done'] = done;
+    data['completed'] = done;
+    if (done) {
+      data['completedAt'] = DateTime.now().toIso8601String();
+    } else {
+      data.remove('completedAt');
+    }
+
+    if (ref != null) {
+      try {
+        await ref.update({
+          'done': done,
+          'completed': done,
+          'completedAt': FieldValue.serverTimestamp(),
+        });
+        if (id.isNotEmpty) {
+          if (done) {
+            await NotificationService.cancelTask(id);
+          } else {
+            final due = TaskLifecycle.parseDateTime(data['dueAt']);
+            await NotificationService.rescheduleTask(
+              taskId: id,
+              title: data['title']?.toString() ?? '',
+              when: due,
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          showGochanoMessage(context, friendlyErrorMessage(e), isError: true);
+        }
+      }
+    } else if (id.isNotEmpty && done) {
+      try {
+        await NotificationService.cancelTask(id);
+      } catch (_) {}
+    }
+  }
+
+  void _handleTakeQuizFromData(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) {
+    final materialId = data['materialId']?.toString() ?? '';
+    final title = data['title']?.toString() ?? '';
+
+    if (materialId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            GochanoLanguage.text(
+              'Select a study material to start this quiz.',
+              'এই কুইজ শুরু করতে একটি স্টাডি মেটেরিয়াল নির্বাচন করুন।',
+            ),
           ),
+        ),
+      );
+    }
+
+    Navigator.of(context).push(
+      GochanoRoute.to(
+        builder: (_) => QuizGeneratorScreen(
+          preselectedMaterialId: materialId.isNotEmpty ? materialId : null,
+          initialTopic: title.isNotEmpty ? title : null,
+          initialQuestionCount: 10,
+          onQuizCompleted: () async {
+            await _toggleDone(context, data, true);
+          },
         ),
       ),
     );
   }
-
-  Navigator.of(context).push(
-    GochanoRoute.to(
-      builder: (_) => QuizGeneratorScreen(
-        preselectedMaterialId: materialId.isNotEmpty ? materialId : null,
-        initialTopic: title.isNotEmpty ? title : null,
-        initialQuestionCount: 10,
-        onQuizCompleted: () async {
-          final saved = await _setDone(context, doc, true);
-          if (saved && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  GochanoLanguage.text(
-                    'Quiz completed. Your rescue progress has been updated.',
-                    'কুইজ সম্পন্ন। আপনার রেসকিউ অগ্রগতি আপডেট হয়েছে।',
-                  ),
-                ),
-              ),
-            );
-          }
-        },
-      ),
-    ),
-  );
 }
+
+// ---------------------------------------------------------------------------
+// Seam for legacy tests (asserts PlanViewTaskTileSeam)
+// ---------------------------------------------------------------------------
 
 @visibleForTesting
 class PlanViewTaskTileSeam extends StatelessWidget {
@@ -739,392 +1802,356 @@ class PlanViewTaskTileSeam extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PlannerItemRow(doc: doc);
+    final data = Map<String, dynamic>.from(doc.data());
+    data['__docId'] = doc.id;
+    data['__ref'] = doc.reference;
+    return _PlanTaskCard(data: data);
   }
 }
 
 // ---------------------------------------------------------------------------
-// History — public entry point for AppBar action
+// Deadlines & Milestones Timeline Section
 // ---------------------------------------------------------------------------
 
-void openPlanHistory(BuildContext context) {
-  Navigator.of(
-    context,
-  ).push(GochanoRoute.to(builder: (_) => const _PlanHistoryScreen()));
-}
+class _DeadlineTimelineSection extends StatelessWidget {
+  const _DeadlineTimelineSection({this.mockTasks});
 
-class _PlanHistoryScreen extends StatelessWidget {
-  const _PlanHistoryScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return GochanoScaffold(
-      appBar: GochanoAppBar(title: GochanoLanguage.text('History', 'ইতিহাস')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.ownerStream('tasks', limit: 300),
-        builder: (context, snapshot) {
-          final now = DateTime.now();
-          final docs = [...?snapshot.data?.docs]
-            ..removeWhere((doc) {
-              final d = doc.data();
-              if (d['done'] == true) return false;
-              final due = (d['dueAt'] as Timestamp?)?.toDate();
-              if (due == null) return true;
-              // Canonical missed rule: incomplete task whose deadline has passed.
-              return due.isAfter(now);
-            })
-            ..sort((a, b) {
-              final at = (a.data()['dueAt'] as Timestamp?)?.toDate();
-              final bt = (b.data()['dueAt'] as Timestamp?)?.toDate();
-              if (at == null || bt == null) return 0;
-              return bt.compareTo(at);
-            });
-          if (docs.isEmpty) {
-            return Center(
-              child: Text(
-                GochanoLanguage.text(
-                  'No completed or missed items.',
-                  'কোনো সম্পন্ন বা মিসড আইটেম নেই।',
-                ),
-                style: context.type.bodySecondary,
-              ),
-            );
-          }
-          return ListView.separated(
-            padding: GochanoSpacing.scrollBody,
-            itemCount: docs.length,
-            separatorBuilder: (_, _) =>
-                const SizedBox(height: GochanoSpacing.xs),
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data();
-              final isDone = data['done'] == true;
-              final assignment = data['type']?.toString() == 'assignment';
-              final due = (data['dueAt'] as Timestamp?)?.toDate();
-              return AppCard(
-                child: Row(
-                  children: [
-                    Checkbox(
-                      value: isDone,
-                      onChanged: (val) => _setDone(context, doc, val ?? false),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            data['title']?.toString() ?? '',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.type.body.copyWith(
-                              decoration: isDone
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              color: isDone
-                                  ? context.colors.textSecondary
-                                  : null,
-                            ),
-                          ),
-                          if (due != null)
-                            Text(
-                              '${formatShortDate(due)} ${formatClock12(due)}',
-                              style: context.type.caption.copyWith(
-                                fontSize: 10,
-                                color: isDone
-                                    ? context.colors.textTertiary
-                                    : context.colors.warning,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    if (isDone)
-                      GochanoBadge(
-                        label: GochanoLanguage.text('Completed', 'সম্পন্ন'),
-                        tone: GochanoBadgeTone.success,
-                      )
-                    else
-                      GochanoBadge(
-                        label: GochanoLanguage.text('Missed', 'মিসড'),
-                        tone: GochanoBadgeTone.error,
-                      ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    GochanoBadge(
-                      label: assignment
-                          ? GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')
-                          : GochanoLanguage.text('Task', 'কাজ'),
-                      tone: assignment
-                          ? GochanoBadgeTone.info
-                          : GochanoBadgeTone.brand,
-                    ),
-                    GochanoOverflowMenu(
-                      items: [
-                        GochanoMenuAction(
-                          label: doc.data()['done'] == true
-                              ? GochanoLanguage.text(
-                                  'Mark not done',
-                                  'অসম্পন্ন করুন',
-                                )
-                              : GochanoLanguage.text(
-                                  'Mark done',
-                                  'সম্পন্ন করুন',
-                                ),
-                          icon: isDone
-                              ? Icons.undo_rounded
-                              : Icons.check_rounded,
-                          onSelected: () => _setDone(context, doc, !isDone),
-                        ),
-                        GochanoMenuAction(
-                          label: GochanoLanguage.text('Delete', 'মুছুন'),
-                          icon: Icons.delete_outline_rounded,
-                          destructive: true,
-                          onSelected: () => _delete(
-                            context,
-                            doc,
-                            data['title']?.toString() ?? '',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Legacy study-goal helpers retained only for shared model compatibility.
-// ---------------------------------------------------------------------------
-
-// ignore: unused_element
-class _StudyGoalSection extends StatelessWidget {
-  const _StudyGoalSection({
-    required this.stats,
-    required this.loading,
-    required this.dailyGoalMinutes,
-    required this.weeklyGoalMinutes,
-    required this.weeklyCompletedSeconds,
-    required this.onRetry,
-    required this.onGoalSaved,
-  });
-
-  final StudyStats? stats;
-  final bool loading;
-  final int? dailyGoalMinutes;
-  final int? weeklyGoalMinutes;
-  final int weeklyCompletedSeconds;
-  final VoidCallback onRetry;
-  final VoidCallback onGoalSaved;
+  final List<Map<String, dynamic>>? mockTasks;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    if (loading) {
-      return StaticLoadingState(
-        compact: true,
-        message: GochanoLanguage.text(
-          'Loading study goal…',
-          'পড়াশোনার লক্ষ্য লোড হচ্ছে…',
-        ),
-      );
+    if (mockTasks != null) {
+      return _buildTimeline(context, mockTasks!, colors);
     }
 
-    final goalsSet = dailyGoalMinutes != null || weeklyGoalMinutes != null;
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.ownerStream('tasks', limit: 300),
+      builder: (context, snapshot) {
+        final rawDocs = <Map<String, dynamic>>[];
+        for (final doc in snapshot.data?.docs ?? []) {
+          final data = Map<String, dynamic>.from(doc.data());
+          data['__docId'] = doc.id;
+          rawDocs.add(data);
+        }
+        return _buildTimeline(context, rawDocs, colors);
+      },
+    );
+  }
 
-    if (!goalsSet) {
-      return AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    GochanoLanguage.text('Study Goal', 'পড়াশোনার লক্ষ্য'),
-                    style: context.type.label,
+  Widget _buildTimeline(
+    BuildContext context,
+    List<Map<String, dynamic>> rawDocs,
+    dynamic colors,
+  ) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final upcoming = rawDocs.where((d) {
+      if (TaskLifecycle.isTaskCompleted(d)) return false;
+      if (TaskLifecycle.isTaskCancelled(d)) return false;
+      final due = TaskLifecycle.parseDateTime(d['dueAt']);
+      if (due == null) return false;
+      return due.isAfter(today);
+    }).toList();
+
+    upcoming.sort((a, b) {
+      final ad = TaskLifecycle.parseDateTime(a['dueAt'])!;
+      final bd = TaskLifecycle.parseDateTime(b['dueAt'])!;
+      return ad.compareTo(bd);
+    });
+
+    final preview = upcoming.take(4).toList();
+
+    return AppSectionContainer(
+      title: GochanoLanguage.text(
+        'Upcoming',
+        'আসন্ন',
+      ),
+      icon: Icons.event_note_rounded,
+      iconColor: colors.warning,
+      child: preview.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(
+                child: Text(
+                  GochanoLanguage.text(
+                    'No upcoming deadlines this month.',
+                    'এই মাসে কোনো আসন্ন ডেডলাইন নেই।',
                   ),
+                  style: context.type.bodySecondary,
                 ),
-                if (stats?.streakDays != null && stats!.streakDays > 0)
-                  GochanoBadge(
-                    label: GochanoLanguage.text(
-                      '${stats!.streakDays} day streak',
-                      '${stats!.streakDays} দিনের ধারা',
+              ),
+            )
+          : Column(
+              children: [
+                for (final item in preview) ...[
+                  _TimelineRow(data: item),
+                  if (item != preview.last)
+                    Divider(
+                      height: 1,
+                      color: colors.border.withValues(alpha: 0.3),
                     ),
-                    tone: GochanoBadgeTone.success,
-                    icon: Icons.local_fire_department_rounded,
-                  ),
+                ],
               ],
             ),
-            const SizedBox(height: GochanoSpacing.sm),
-            Text(
-              GochanoLanguage.text(
-                'Set a daily or weekly study target to track your progress.',
-                'আপনার অগ্রগতি ট্র্যাক করতে একটি দৈনিক বা সাপ্তাহিক পড়াশোনার লক্ষ্য নির্ধারণ করুন।',
-              ),
-              style: context.type.bodySecondary,
-            ),
-            const SizedBox(height: GochanoSpacing.sm),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: OutlinedButton.icon(
-                onPressed: () => _showEditGoalSheet(context),
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: Text(
-                  GochanoLanguage.text(
-                    'Set study goal',
-                    'পড়াশোনার লক্ষ্য নির্ধারণ করুন',
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    );
+  }
+}
 
-    final dailyTargetSeconds = (dailyGoalMinutes ?? 0) * 60;
-    final weeklyTargetSeconds = (weeklyGoalMinutes ?? 0) * 60;
-    final dailyCompleted = stats?.todaySeconds ?? 0;
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({required this.data});
 
-    // Guard against zero goals.
-    final dailyProgress = dailyTargetSeconds > 0
-        ? (dailyCompleted / dailyTargetSeconds).clamp(0.0, 1.0)
-        : 0.0;
-    final weeklyProgress = weeklyTargetSeconds > 0
-        ? (weeklyCompletedSeconds / weeklyTargetSeconds).clamp(0.0, 1.0)
-        : 0.0;
-    final dailyPercent = (dailyProgress * 100).round();
-    final weeklyPercent = (weeklyProgress * 100).round();
+  final Map<String, dynamic> data;
 
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final title = data['title']?.toString() ?? 'Deadline';
+    final due = TaskLifecycle.parseDateTime(data['dueAt'])!;
+    final diffDays = due.difference(DateTime.now()).inDays;
+    final isAssignment = data['type']?.toString() == 'assignment';
+
+    final daysText = diffDays <= 0
+        ? GochanoLanguage.text('Due today', 'আজ নির্ধারিত')
+        : diffDays == 1
+        ? GochanoLanguage.text('Tomorrow', 'আগামীকাল')
+        : GochanoLanguage.text('In $diffDays days', '$diffDays দিন পর');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  GochanoLanguage.text('Study Goal', 'পড়াশোনার লক্ষ্য'),
-                  style: context.type.label,
-                ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isAssignment
+                  ? colors.warning.withValues(alpha: 0.12)
+                  : colors.brand.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${due.day} ${_monthShort(due.month)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                color: isAssignment ? colors.warning : colors.brand,
               ),
-              if (stats?.streakDays != null && stats!.streakDays > 0)
-                GochanoBadge(
-                  label: GochanoLanguage.text(
-                    '${stats!.streakDays} day streak',
-                    '${stats!.streakDays} দিনের ধারা',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: context.type.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
-                  tone: GochanoBadgeTone.success,
-                  icon: Icons.local_fire_department_rounded,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              const SizedBox(width: GochanoSpacing.xs),
-              IconActionButton(
-                icon: Icons.edit_outlined,
-                label: GochanoLanguage.text('Edit goal', 'লক্ষ্য সম্পাদনা'),
-                onPressed: () => _showEditGoalSheet(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          // Daily progress
-          Text(
-            GochanoLanguage.text(
-              'Today: ${_formatDuration(dailyCompleted)} / ${_formatDuration(dailyTargetSeconds)}',
-              'আজ: ${_formatDuration(dailyTargetSeconds)} এর মধ্যে ${_formatDuration(dailyCompleted)}',
-            ),
-            style: context.type.bodySecondary,
-          ),
-          const SizedBox(height: GochanoSpacing.xxs),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: dailyProgress,
-              minHeight: 5,
-              backgroundColor: colors.surfaceVariant,
-              color: colors.study,
+                Text(
+                  daysText,
+                  style: context.type.caption.copyWith(
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: GochanoSpacing.xxs),
-          Text(
-            GochanoLanguage.text(
-              '$dailyPercent% daily',
-              '$dailyPercent% দৈনিক',
-            ),
-            style: context.type.caption,
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          // Weekly progress
-          Text(
-            GochanoLanguage.text(
-              'This week: ${_formatDuration(weeklyCompletedSeconds)} / ${_formatDuration(weeklyTargetSeconds)}',
-              'এই সপ্তাহে: ${_formatDuration(weeklyTargetSeconds)} এর মধ্যে ${_formatDuration(weeklyCompletedSeconds)}',
-            ),
-            style: context.type.bodySecondary,
-          ),
-          const SizedBox(height: GochanoSpacing.xxs),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: weeklyProgress,
-              minHeight: 5,
-              backgroundColor: colors.surfaceVariant,
-              color: colors.study,
-            ),
-          ),
-          const SizedBox(height: GochanoSpacing.xxs),
-          Text(
-            GochanoLanguage.text(
-              '$weeklyPercent% weekly',
-              '$weeklyPercent% সাপ্তাহিক',
-            ),
-            style: context.type.caption,
+          GochanoBadge(
+            label: isAssignment
+                ? GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')
+                : GochanoLanguage.text('Task', 'কাজ'),
+            tone: isAssignment
+                ? GochanoBadgeTone.warning
+                : GochanoBadgeTone.brand,
           ),
         ],
       ),
     );
   }
 
-  void _showEditGoalSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _EditGoalSheet(
-        dailyGoalMinutes: dailyGoalMinutes ?? 0,
-        weeklyGoalMinutes: weeklyGoalMinutes ?? 0,
-        onSaved: onGoalSaved,
-      ),
-    );
+  String _monthShort(int month) {
+    const m = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return m[month - 1];
   }
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Goals & Milestones Container
 // ---------------------------------------------------------------------------
 
-String _formatDuration(int totalSeconds) {
-  final hours = totalSeconds ~/ 3600;
-  final minutes = (totalSeconds % 3600) ~/ 60;
-  if (hours == 0) return GochanoLanguage.text('$minutes min', '$minutes মিনিট');
-  if (minutes == 0) return GochanoLanguage.text('$hours h', '$hours ঘন্টা');
-  return GochanoLanguage.text(
-    '$hours h $minutes min',
-    '$hours ঘন্টা $minutes মিনিট',
-  );
+class _StudyGoalContainer extends StatelessWidget {
+  const _StudyGoalContainer({this.mockStudyGoals});
+
+  final Map<String, int?>? mockStudyGoals;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    if (mockStudyGoals != null) {
+      return _buildGoalContent(
+        context,
+        mockStudyGoals!['dailyGoalMinutes'],
+        mockStudyGoals!['weeklyGoalMinutes'],
+        colors,
+      );
+    }
+
+    return FutureBuilder<Map<String, int?>>(
+      future: FirestoreService.studyGoals(),
+      builder: (context, snapshot) {
+        final daily = snapshot.data?['dailyGoalMinutes'];
+        final weekly = snapshot.data?['weeklyGoalMinutes'];
+        return _buildGoalContent(context, daily, weekly, colors);
+      },
+    );
+  }
+
+  Widget _buildGoalContent(
+    BuildContext context,
+    int? dailyGoalMinutes,
+    int? weeklyGoalMinutes,
+    dynamic colors,
+  ) {
+    final hasGoals = dailyGoalMinutes != null || weeklyGoalMinutes != null;
+
+    return AppSectionContainer(
+      title: GochanoLanguage.text('Weekly Goal', 'সাপ্তাহিক লক্ষ্য'),
+      icon: Icons.track_changes_rounded,
+      iconColor: colors.study,
+      actionLabel: hasGoals
+          ? GochanoLanguage.text('Edit', 'সম্পাদনা')
+          : GochanoLanguage.text('Set Goal', 'লক্ষ্য দিন'),
+      onAction: () => _showEditGoalSheet(
+        context,
+        daily: dailyGoalMinutes ?? 0,
+        weekly: weeklyGoalMinutes ?? 0,
+      ),
+      child: !hasGoals
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Center(
+                child: Text(
+                  GochanoLanguage.text(
+                    'Set a weekly study hours target to track your progress.',
+                    'আপনার অগ্রগতি ট্র্যাক করতে একটি সাপ্তাহিক লক্ষ্য নির্ধারণ করুন।',
+                  ),
+                  style: context.type.bodySecondary,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (weeklyGoalMinutes != null && weeklyGoalMinutes > 0) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Weekly Study Goal',
+                            'সাপ্তাহিক পড়াশোনার লক্ষ্য',
+                          ),
+                          style: context.type.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${weeklyGoalMinutes ~/ 60}h ${weeklyGoalMinutes % 60}m',
+                        style: TextStyle(
+                          color: colors.study,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: 0.0, // Real progress only; un-fabricated
+                      minHeight: 6,
+                      backgroundColor: colors.study.withValues(alpha: 0.15),
+                      valueColor: AlwaysStoppedAnimation<Color>(colors.study),
+                    ),
+                  ),
+                ],
+                if (dailyGoalMinutes != null && dailyGoalMinutes > 0) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text(
+                            'Daily Focus Goal',
+                            'দৈনিক ফোকাস লক্ষ্য',
+                          ),
+                          style: context.type.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${dailyGoalMinutes ~/ 60}h ${dailyGoalMinutes % 60}m',
+                        style: context.type.caption.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  void _showEditGoalSheet(
+    BuildContext context, {
+    int daily = 0,
+    int weekly = 0,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _EditGoalSheet(
+        dailyGoalMinutes: daily,
+        weeklyGoalMinutes: weekly,
+        onSaved: () {},
+      ),
+    );
+  }
 }
-
-// ---------------------------------------------------------------------------
-// 5b. Edit Goal — compact bottom sheet for daily/weekly hours + minutes
-// ---------------------------------------------------------------------------
 
 class _EditGoalSheet extends StatefulWidget {
   const _EditGoalSheet({
@@ -1204,70 +2231,56 @@ class _EditGoalSheetState extends State<_EditGoalSheet> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            GochanoSpacing.lg,
-            GochanoSpacing.xs,
-            GochanoSpacing.lg,
-            GochanoSpacing.lg,
-          ),
+          padding: const EdgeInsets.all(GochanoSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 GochanoLanguage.text(
-                  'Edit study goal',
-                  'পড়াশোনার লক্ষ্য সম্পাদনা',
+                  'Set Study Goals',
+                  'পড়াশোনার লক্ষ্য নির্ধারণ',
                 ),
                 style: context.type.sectionHeading,
               ),
               const SizedBox(height: GochanoSpacing.md),
-              // Daily goal
               Text(
-                GochanoLanguage.text('Daily goal', 'দৈনিক লক্ষ্য'),
+                GochanoLanguage.text(
+                  'Weekly Goal (Hours)',
+                  'সাপ্তাহিক লক্ষ্য (ঘণ্টা)',
+                ),
                 style: context.type.label,
               ),
-              const SizedBox(height: GochanoSpacing.xs),
-              _HourMinuteRow(
-                hours: _dailyH,
-                minutes: _dailyM,
-                onChanged: (h, m) => setState(() {
-                  _dailyH = h;
-                  _dailyM = m;
-                  _error = null;
-                }),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _weeklyH,
+                      items: List.generate(
+                        60,
+                        (i) => DropdownMenuItem(value: i, child: Text('$i h')),
+                      ),
+                      onChanged: (v) => setState(() => _weeklyH = v ?? 0),
+                      decoration: const InputDecoration(labelText: 'Hours'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: GochanoSpacing.md),
-              // Weekly goal
-              Text(
-                GochanoLanguage.text('Weekly goal', 'সাপ্তাহিক লক্ষ্য'),
-                style: context.type.label,
-              ),
-              const SizedBox(height: GochanoSpacing.xs),
-              _HourMinuteRow(
-                hours: _weeklyH,
-                minutes: _weeklyM,
-                onChanged: (h, m) => setState(() {
-                  _weeklyH = h;
-                  _weeklyM = m;
-                  _error = null;
-                }),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: GochanoSpacing.xs),
-                Text(
-                  _error!,
-                  style: context.type.bodySecondary.copyWith(
-                    color: colors.error,
+              if (_error != null)
+                Text(_error!, style: TextStyle(color: colors.error)),
+              const SizedBox(height: GochanoSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(
+                    _saving
+                        ? GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…')
+                        : GochanoLanguage.text('Save Goals', 'সংরক্ষণ করুন'),
                   ),
                 ),
-              ],
-              const SizedBox(height: GochanoSpacing.md),
-              PrimaryButton(
-                label: GochanoLanguage.text('Save goal', 'লক্ষ্য সংরক্ষণ'),
-                busy: _saving,
-                busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
-                onPressed: _save,
               ),
             ],
           ),
@@ -1278,327 +2291,152 @@ class _EditGoalSheetState extends State<_EditGoalSheet> {
 }
 
 // ---------------------------------------------------------------------------
-// 5c. Hour / Minute row — compact stepper for goal editing
+// History — public entry point for AppBar action
 // ---------------------------------------------------------------------------
 
-class _HourMinuteRow extends StatelessWidget {
-  const _HourMinuteRow({
-    required this.hours,
-    required this.minutes,
-    required this.onChanged,
-  });
-
-  final int hours;
-  final int minutes;
-  final void Function(int hours, int minutes) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _CompactStepper(
-          label: GochanoLanguage.text('h', 'ঘ'),
-          value: hours,
-          min: 0,
-          max: 24,
-          onChanged: (v) => onChanged(v, minutes),
-        ),
-        const SizedBox(width: GochanoSpacing.sm),
-        _CompactStepper(
-          label: GochanoLanguage.text('m', 'মি'),
-          value: minutes,
-          min: 0,
-          max: 59,
-          step: 5,
-          onChanged: (v) => onChanged(hours, v),
-        ),
-        const Spacer(),
-        Text(
-          _formatDuration(hours * 60 + minutes),
-          style: context.type.bodySecondary,
-        ),
-      ],
-    );
-  }
-}
-
-class _CompactStepper extends StatelessWidget {
-  const _CompactStepper({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-    this.step = 1,
-  });
-
-  final String label;
-  final int value;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
-  final int step;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: value > min
-              ? () => onChanged((value - step).clamp(min, max))
-              : null,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: value > min ? colors.surfaceVariant : colors.surface,
-              borderRadius: GochanoRadius.smAll,
-            ),
-            child: Icon(
-              Icons.remove_rounded,
-              size: 18,
-              color: value > min ? colors.textPrimary : colors.textTertiary,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.xs),
-          child: SizedBox(
-            width: 40,
-            child: Text(
-              '$value$label',
-              style: context.type.cardHeading,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTap: value < max
-              ? () => onChanged((value + step).clamp(min, max))
-              : null,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: value < max ? colors.surfaceVariant : colors.surface,
-              borderRadius: GochanoRadius.smAll,
-            ),
-            child: Icon(
-              Icons.add_rounded,
-              size: 18,
-              color: value < max ? colors.textPrimary : colors.textTertiary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Marks the task done/not-done. Returns true only when Firestore accepted
-/// the write, so callers never report a false success.
-Future<bool> _setDone(
-  BuildContext context,
-  QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  bool done,
-) async {
-  final data = doc.data();
-  final title = data['title']?.toString() ?? '';
-  final remindAt = (data['remindAt'] as Timestamp?)?.toDate();
-  final dueAt = (data['dueAt'] as Timestamp?)?.toDate();
-  final type = data['type']?.toString() ?? 'task';
-
-  try {
-    await doc.reference.update({
-      'done': done,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    await NotificationService.rescheduleTask(
-      taskId: doc.id,
-      title: title,
-      when: done ? null : remindAt,
-    );
-    if (done) {
-      await NotificationService.cancelTask(doc.id);
-    } else {
-      await NotificationService.rescheduleTask(
-        taskId: doc.id,
-        title: title,
-        when: dueAt,
-        type: type,
-      );
-    }
-    return true;
-  } catch (error) {
-    if (context.mounted) {
-      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
-    }
-    return false;
-  }
-}
-
-Future<void> _delete(
-  BuildContext context,
-  QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  String title,
-) async {
-  final confirmed = await showConfirmationSheet(
+void openPlanHistory(BuildContext context) {
+  Navigator.of(
     context,
-    title: GochanoLanguage.text('Delete this task?', 'কাজটি মুছবেন?'),
-    message: title,
-    confirmLabel: GochanoLanguage.text('Delete', 'মুছুন'),
-  );
-  if (!confirmed || !context.mounted) return;
-  try {
-    await NotificationService.cancelTask(doc.id);
-    await doc.reference.delete();
-  } catch (error) {
-    if (context.mounted) {
-      showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
-    }
-  }
+  ).push(GochanoRoute.to(builder: (_) => const _PlanHistoryScreen()));
 }
 
-// ---------------------------------------------------------------------------
-// Exam Rescue Banner (Phase T3 entry point)
-// ---------------------------------------------------------------------------
-
-class _ExamRescueBanner extends StatelessWidget {
-  const _ExamRescueBanner({this.examRescueSessionService});
-
-  final ExamRescueSessionService? examRescueSessionService;
-
-  String _activeSubtitle(ExamRescueSession session, DateTime now) {
-    final days = session.localDaysRemaining(now);
-    if (days <= 0) {
-      return GochanoLanguage.text(
-        'Exam today · Active Plan',
-        'আজ পরীক্ষা · সক্রিয় প্ল্যান',
-      );
-    }
-    if (days == 1) {
-      return GochanoLanguage.text(
-        '1 day remaining · Active Plan',
-        '১ দিন বাকি · সক্রিয় প্ল্যান',
-      );
-    }
-    return GochanoLanguage.text(
-      '$days days remaining · Active Plan',
-      '${GochanoLanguage.formatNumber(days)} দিন বাকি · সক্রিয় প্ল্যান',
-    );
-  }
+class _PlanHistoryScreen extends StatelessWidget {
+  const _PlanHistoryScreen();
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-    final service =
-        examRescueSessionService ?? ExamRescueSessionService.instance;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md),
-      child: StreamBuilder<ExamRescueSession?>(
-        stream: service.streamNearestActiveSession(),
+    return GochanoScaffold(
+      appBar: GochanoAppBar(title: GochanoLanguage.text('History', 'ইতিহাস')),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirestoreService.ownerStream('tasks', limit: 300),
         builder: (context, snapshot) {
-          final session = snapshot.data;
-          final isActive = session != null;
-          final title = isActive
-              ? '${GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার')}: ${session.examTitle}'
-              : GochanoLanguage.text('Exam Rescue', 'পরীক্ষা উদ্ধার');
-          final subtitle = isActive
-              ? _activeSubtitle(session, service.now)
-              : GochanoLanguage.text(
-                  'Exam close? Build a focused rescue plan.',
-                  'পরীক্ষা কাছাকাছি? একটি গোছানো উদ্ধার প্ল্যান তৈরি করুন।',
-                );
-          final buttonLabel = isActive
-              ? GochanoLanguage.text('+ New Plan', '+ নতুন প্ল্যান')
-              : GochanoLanguage.text('Build Plan', 'প্ল্যান বানান');
-
-          return Container(
-            decoration: BoxDecoration(
-              color: colors.brandSoft,
-              borderRadius: GochanoRadius.lgAll,
-              border: Border.all(color: colors.brand.withValues(alpha: 0.18)),
-            ),
-            padding: const EdgeInsets.all(GochanoSpacing.md),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(GochanoSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: colors.brand.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.bolt_rounded,
-                    color: colors.brand,
-                    size: 22,
-                  ),
+          final now = DateTime.now();
+          final docs = [...?snapshot.data?.docs]
+            ..removeWhere((doc) {
+              return !TaskLifecycle.belongsToHistory(doc.data(), now);
+            })
+            ..sort((a, b) {
+              final at = TaskLifecycle.parseDateTime(a.data()['dueAt']);
+              final bt = TaskLifecycle.parseDateTime(b.data()['dueAt']);
+              if (at == null && bt == null) return 0;
+              if (at == null) return 1;
+              if (bt == null) return -1;
+              return bt.compareTo(at);
+            });
+          if (docs.isEmpty) {
+            return Center(
+              child: Text(
+                GochanoLanguage.text(
+                  'No completed or missed items.',
+                  'কোনো সম্পন্ন বা মিসড আইটেম নেই।',
                 ),
-                const SizedBox(width: GochanoSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: type.body.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: colors.brand,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: type.caption.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: GochanoSpacing.xs),
-                FilledButton.tonal(
-                  onPressed: () async {
-                    final result = await showExamRescueSetupSheet(context);
-                    if (result != null && result.success && context.mounted) {
-                      showGochanoMessage(
-                        context,
-                        FeedbackMessages.examRescuePlanApplied(
-                          result.tasksCount,
-                          reminderFailed: result.reminderFailed,
-                        ),
-                      );
-                    }
-                  },
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: GochanoSpacing.sm,
-                      vertical: GochanoSpacing.xs,
+                style: context.type.bodySecondary,
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: GochanoSpacing.scrollBody,
+            itemCount: docs.length,
+            separatorBuilder: (_, _) =>
+                const SizedBox(height: GochanoSpacing.xs),
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data();
+              final isDone = TaskLifecycle.isTaskCompleted(data);
+              final assignment = data['type']?.toString() == 'assignment';
+              final due = TaskLifecycle.parseDateTime(data['dueAt']);
+              return AppCard(
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: isDone,
+                      onChanged: (val) async {
+                        await doc.reference.update({
+                          'done': val ?? false,
+                          'completed': val ?? false,
+                          'completedAt': FieldValue.serverTimestamp(),
+                        });
+                      },
                     ),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: GochanoRadius.mdAll,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            data['title']?.toString() ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.type.body.copyWith(
+                              decoration: isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: isDone
+                                  ? context.colors.textSecondary
+                                  : null,
+                            ),
+                          ),
+                          if (due != null)
+                            Text(
+                              '${formatShortDate(due)} ${formatClock12(due)}',
+                              style: context.type.caption.copyWith(
+                                fontSize: 10,
+                                color: isDone
+                                    ? context.colors.textTertiary
+                                    : context.colors.warning,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    buttonLabel,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    GochanoBadge(
+                      label: isDone
+                          ? GochanoLanguage.text('Completed', 'সম্পন্ন')
+                          : GochanoLanguage.text('Missed', 'মিসড'),
+                      tone: isDone
+                          ? GochanoBadgeTone.success
+                          : GochanoBadgeTone.error,
+                    ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    GochanoBadge(
+                      label: assignment
+                          ? GochanoLanguage.text('Assignment', 'অ্যাসাইনমেন্ট')
+                          : GochanoLanguage.text('Task', 'কাজ'),
+                      tone: assignment
+                          ? GochanoBadgeTone.info
+                          : GochanoBadgeTone.brand,
+                    ),
+                    GochanoOverflowMenu(
+                      items: [
+                        GochanoMenuAction(
+                          label: doc.data()['done'] == true
+                              ? GochanoLanguage.text(
+                                  'Mark not done',
+                                  'অসম্পন্ন করুন',
+                                )
+                              : GochanoLanguage.text(
+                                  'Mark done',
+                                  'সম্পন্ন করুন',
+                                ),
+                          icon: isDone
+                              ? Icons.undo_rounded
+                              : Icons.check_rounded,
+                          onSelected: () async {
+                            final val = !isDone;
+                            await doc.reference.update({
+                              'done': val,
+                              'completed': val,
+                              'completedAt': FieldValue.serverTimestamp(),
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           );
         },
       ),

@@ -1,0 +1,11 @@
+Verify the workspace Agent Skills in `.agents/skills/`.
+
+1. Confirm every skill folder contains `SKILL.md`.
+2. Confirm every file has valid YAML frontmatter with `name` and `description`.
+3. Do not modify application source code yet.
+4. Print the skill tree.
+5. Explain which skills would activate for:
+   - redesigning a screen,
+   - adding authentication,
+   - adding an LLM feature,
+   - preparing a production release.
