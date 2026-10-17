@@ -2072,7 +2072,7 @@ adb shell uiautomator dump /sdcard/win.xml && adb shell cat /sdcard/win.xml
 - **B-4 Accessibility — FULLY RESOLVED**:
   - Raw `IconButton` at `document_intelligence_screen.dart:252` now carries `tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন')`.
   - Static accessibility guard test `test/a11y/accessibility_audit_test.dart` passes completely with **9 passed / 0 failed** (all checks green: Image.asset semanticLabels, Image.network semanticLabels, IconButton tooltips, touch targets >= 48dp, no decorative animations, no raw hex colors, themes registered).
-- **Physical Device**: Infinix X665E verified connected via ADB (`transport_id:1`); app process PID 7676 running in background.
+- **Physical Device**: Infinix X665E is currently disconnected from ADB (0 devices attached). Interactive physical verification of Document Intelligence modal dismiss/tooltip is PENDING device reconnection. Automated accessibility guards and static analysis are 100% verified (9/9).
 
 ### Study Mode Integration Status
 - **STUDY MODE UI REDESIGN — B-1, B-2, B-3 & B-4 RECONCILIATION COMPLETE**
