@@ -20,8 +20,10 @@
 
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:gochano/core/design_system/app_motion.dart';
 import 'package:gochano/core/design_system/gochano_colors.dart';
 import 'package:gochano/core/design_system/gochano_spacing.dart';
 import 'package:gochano/core/design_system/gochano_theme.dart';
@@ -97,49 +99,27 @@ void main() {
     });
   });
 
-  group('No decorative animation (spec §11)', () {
-    // Widgets whose entire purpose is decorative motion. Anything here in
-    // `lib/` means the motion system is creeping back.
-    const bannedWidgets = <String>[
-      'AnimatedContainer(',
-      'AnimatedOpacity(',
-      'AnimatedSwitcher(',
-      'AnimatedAlign(',
-      'AnimatedPadding(',
-      'AnimatedPositioned(',
-      'AnimatedScale(',
-      'AnimatedSlide(',
-      'AnimatedRotation(',
-      'AnimatedCrossFade(',
-      'TweenAnimationBuilder',
-      'FadeTransition(',
-      'SlideTransition(',
-      'ScaleTransition(',
-      'RotationTransition(',
-      'Hero(',
-      'Shimmer',
+  group('Accessible and meaningful motion policy (spec §11 revised)', () {
+    // Under the approved 2026 Meaningful Motion policy:
+    // - Purposeful, finite state changes and content transitions (AnimatedOpacity,
+    //   AnimatedContainer, AnimatedSwitcher, etc.) are ALLOWED with AppMotion durations.
+    // - Infinite, distracting, unmanaged loops or heavy external packages are PROHIBITED.
+    const prohibitedWidgets = <String>[
       'Lottie',
       'RiveAnimation',
+      'Shimmer',
     ];
 
-    test('no decorative animation widget is used anywhere in lib/', () {
+    test('no continuous distracting or heavy third-party animation libraries in lib/', () {
       final offenders = <String>[];
-      // Match Hero( as a standalone widget, not _LoginHero( or similar prefixes.
-      final heroRe = RegExp(r'(?<!\w)Hero\(');
       for (final file in _libFiles()) {
         final lines = file.readAsStringSync().split('\n');
         for (var i = 0; i < lines.length; i++) {
           final line = lines[i];
-          // Skip comments — this file's own prose names these widgets, and
-          // so does the documentation on why they were removed.
           final trimmed = line.trimLeft();
           if (trimmed.startsWith('//') || trimmed.startsWith('///')) continue;
-          for (final banned in bannedWidgets) {
-            if (banned == 'Hero(') {
-              if (heroRe.hasMatch(line)) {
-                offenders.add('${file.path}:${i + 1}  Hero(');
-              }
-            } else if (line.contains(banned)) {
+          for (final banned in prohibitedWidgets) {
+            if (line.contains(banned)) {
               offenders.add('${file.path}:${i + 1}  $banned');
             }
           }
@@ -148,44 +128,47 @@ void main() {
       expect(
         offenders,
         isEmpty,
-        reason:
-            'spec §11 forbids decorative animation:\n  '
-            '${offenders.join('\n  ')}',
+        reason: 'spec §11 revised forbids distracting infinite libraries:\n  ${offenders.join('\n  ')}',
       );
     });
 
-    test('no AnimationController or TickerProvider in lib/', () {
-      // A ticker in presentation code means something is being animated by
-      // hand. The one legitimate periodic timer — the focus session clock —
-      // uses `Timer.periodic`, which is a clock, not an animation.
+    test('no unmanaged infinite animation loops in presentation code', () {
       final offenders = <String>[];
       for (final file in _libFiles()) {
-        final src = file.readAsStringSync();
-        for (final needle in const [
-          'AnimationController',
-          'SingleTickerProviderStateMixin',
-          'TickerProviderStateMixin',
-        ]) {
-          if (!src.contains(needle)) continue;
-          // TabController legitimately needs a TickerProvider; it is Material
-          // navigation, not decoration.
-          if (needle.contains('Ticker') && src.contains('TabController')) {
-            continue;
+        if (!file.path.contains('presentation')) continue;
+        final lines = file.readAsStringSync().split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          final line = lines[i];
+          final trimmed = line.trimLeft();
+          if (trimmed.startsWith('//') || trimmed.startsWith('///')) continue;
+          if (line.contains('.repeat(') || line.contains('..repeat(')) {
+            offenders.add('${file.path}:${i + 1}');
           }
-          offenders.add('${file.path}  $needle');
         }
       }
       expect(
         offenders,
         isEmpty,
-        reason: 'hand-rolled animation in presentation code: $offenders',
+        reason: 'continuous looping animations cause cognitive fatigue and battery drain: $offenders',
+      );
+    });
+
+    test('animation controllers must be disposed in their state lifecycle', () {
+      final offenders = <String>[];
+      for (final file in _libFiles()) {
+        final src = file.readAsStringSync();
+        if (src.contains('AnimationController') && !src.contains('.dispose()')) {
+          offenders.add(file.path);
+        }
+      }
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'AnimationController must be properly disposed to prevent leaks: $offenders',
       );
     });
 
     test('the page route uses the platform transition, not a custom one', () {
-      // Read code lines only: the file's own comments explain that it used to
-      // be a PageRouteBuilder, and a guard that greps prose would fail on its
-      // own documentation.
       final code = File('lib/core/page_route.dart')
           .readAsLinesSync()
           .where((line) {
@@ -200,6 +183,48 @@ void main() {
       );
       expect(code.contains('extends MaterialPageRoute'), isTrue);
       expect(code.contains('transitionsBuilder'), isFalse);
+    });
+
+    testWidgets('AppMotion collapses durations to zero when reduced motion is enabled', (tester) async {
+      late BuildContext testContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: Builder(
+              builder: (ctx) {
+                testContext = ctx;
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      );
+      expect(AppMotion.isReducedMotion(testContext), isTrue);
+      expect(AppMotion.accessibleDuration(testContext, AppMotion.contentReveal), equals(Duration.zero));
+      expect(AppMotion.accessibleDuration(testContext, AppMotion.cardFlip), equals(Duration.zero));
+      expect(testContext.motionDuration(AppMotion.stateChange), equals(Duration.zero));
+    });
+
+    testWidgets('AppMotion preserves standard durations when animations are enabled', (tester) async {
+      late BuildContext testContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: false),
+            child: Builder(
+              builder: (ctx) {
+                testContext = ctx;
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      );
+      expect(AppMotion.isReducedMotion(testContext), isFalse);
+      expect(AppMotion.accessibleDuration(testContext, AppMotion.contentReveal), equals(AppMotion.contentReveal));
+      expect(AppMotion.accessibleDuration(testContext, AppMotion.cardFlip), equals(AppMotion.cardFlip));
+      expect(testContext.motionDuration(AppMotion.stateChange), equals(AppMotion.stateChange));
     });
   });
 

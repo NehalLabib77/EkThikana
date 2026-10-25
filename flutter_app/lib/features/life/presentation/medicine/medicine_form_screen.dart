@@ -16,11 +16,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
@@ -457,8 +455,10 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
         busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
         onPressed: _save,
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 96),
+      body: AppPageBackground(
+        gradient: AppGradients.academicHealth,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 96),
         children: [
           if (widget.ocrSuggested) ...[
             const _OcrReviewNotice(),
@@ -752,8 +752,9 @@ class _MedicineFormScreenState extends State<MedicineFormScreen> {
           ],
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Shown when the form was reached from a prescription scan (spec §58).

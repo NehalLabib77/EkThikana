@@ -7,10 +7,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/firestore_service.dart';
@@ -29,8 +27,10 @@ class MedicineHistoryScreen extends StatelessWidget {
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Medicine history', 'ওষুধের ইতিহাস'),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.ownerStream('medicine_doses', limit: 500),
+      body: AppPageBackground(
+        gradient: AppGradients.academicHealth,
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirestoreService.ownerStream('medicine_doses', limit: 500),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return StaticLoadingState(
@@ -111,8 +111,9 @@ class MedicineHistoryScreen extends StatelessWidget {
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _HistoryRow extends StatelessWidget {

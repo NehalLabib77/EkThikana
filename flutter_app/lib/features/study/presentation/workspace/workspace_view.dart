@@ -94,135 +94,170 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayStyle,
       child: Scaffold(
-        backgroundColor: colors.background,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              // -----------------------------------------------------------------
-              // PINNED CONTEXTUAL STUDY HEADER — search HIDDEN (body has search)
-              // -----------------------------------------------------------------
-              const AppStudyHeader(showSearch: false),
+        backgroundColor:
+            isDark ? colors.background : const Color(0xFFF7F8FA),
+        body: Stack(
+          children: [
+            // ---------------------------------------------------------------
+            // Colorful top gradient wash (light mode only)
+            // ---------------------------------------------------------------
+            if (!isDark)
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 280,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFEEF2FF), Color(0xFFF7F8FA)],
+                      stops: [0.0, 1.0],
+                    ),
+                  ),
+                ),
+              ),
 
-              // -----------------------------------------------------------------
-              // SCROLLABLE WORKSPACE CONTENT
-              // -----------------------------------------------------------------
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async => setState(() {}),
-                  child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: GochanoSpacing.xs),
-                      ),
+            // ---------------------------------------------------------------
+            // Main scrollable content with entrance animation
+            // ---------------------------------------------------------------
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                      // -----------------------------------------------------------
+                      // PINNED CONTEXTUAL STUDY HEADER — search HIDDEN (body has search)
+                      // -----------------------------------------------------------
+                      const AppStudyHeader(showSearch: false),
 
-                      // Intro + Search + Filters
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: GochanoSpacing.md,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildIntro(context),
-                              const SizedBox(height: GochanoSpacing.sm),
-                              AppWorkspaceSearchField(
-                                controller: _searchController,
-                                onChanged: (q) =>
-                                    setState(() => _searchQuery = q.trim()),
-                                onSubmitted: (q) {
-                                  if (q.trim().isNotEmpty) {
-                                    Navigator.of(context).push(
-                                      GochanoRoute.to(
-                                        builder: (_) => UniversalSearchScreen(
-                                          initialQuery: q.trim(),
+                      // -----------------------------------------------------------
+                      // SCROLLABLE WORKSPACE CONTENT
+                      // -----------------------------------------------------------
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () async => setState(() {}),
+                          child: CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: GochanoSpacing.xs),
+                              ),
+
+                              // Intro + Search + Filters
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: GochanoSpacing.md,
+                                ),
+                                sliver: SliverToBoxAdapter(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildIntro(context),
+                                      const SizedBox(height: GochanoSpacing.sm),
+                                      AppWorkspaceSearchField(
+                                        controller: _searchController,
+                                        onChanged: (q) => setState(
+                                          () => _searchQuery = q.trim(),
                                         ),
+                                        onSubmitted: (q) {
+                                          if (q.trim().isNotEmpty) {
+                                            Navigator.of(context).push(
+                                              GochanoRoute.to(
+                                                builder: (_) =>
+                                                    UniversalSearchScreen(
+                                                      initialQuery: q.trim(),
+                                                    ),
+                                              ),
+                                            );
+                                          }
+                                        },
                                       ),
-                                    );
-                                  }
-                                },
+                                      const SizedBox(height: GochanoSpacing.sm),
+                                      AppWorkspaceFilterChips(
+                                        categories: _filterCategories,
+                                        selectedCategory:
+                                            _selectedCategory == 'All'
+                                                ? _filterCategories[0]
+                                                : _selectedCategory,
+                                        onSelect: (cat) {
+                                          setState(() {
+                                            if (cat == _filterCategories[0]) {
+                                              _selectedCategory = 'All';
+                                            } else {
+                                              _selectedCategory = cat;
+                                            }
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: GochanoSpacing.md),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: GochanoSpacing.sm),
-                              AppWorkspaceFilterChips(
-                                categories: _filterCategories,
-                                selectedCategory: _selectedCategory == 'All'
-                                    ? _filterCategories[0]
-                                    : _selectedCategory,
-                                onSelect: (cat) {
-                                  setState(() {
-                                    if (cat == _filterCategories[0]) {
-                                      _selectedCategory = 'All';
-                                    } else {
-                                      _selectedCategory = cat;
-                                    }
-                                  });
-                                },
+
+                              // Study Tools Grid — hidden when Saved filter is active
+                              if (!_isSavedFilter)
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: GochanoSpacing.md,
+                                  ),
+                                  sliver: SliverToBoxAdapter(
+                                    child: _buildStudyToolsSection(context),
+                                  ),
+                                ),
+
+                              // Resource Vaults
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: GochanoSpacing.md,
+                                ),
+                                sliver: SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: GochanoSpacing.sm,
+                                    ),
+                                    child: _buildResourceVaults(context),
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: GochanoSpacing.md),
+
+                              // Recently Opened — compact horizontal carousel
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: GochanoSpacing.md,
+                                ),
+                                sliver: SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: GochanoSpacing.sm,
+                                    ),
+                                    child: widget.mockRecentMaterials != null
+                                        ? _RecentMaterialsCarousel(
+                                            searchQuery: _searchQuery,
+                                            mockRecentMaterials:
+                                                widget.mockRecentMaterials,
+                                          )
+                                        : _RecentMaterialsCarousel(
+                                            searchQuery: _searchQuery,
+                                          ),
+                                  ),
+                                ),
+                              ),
+
+                              // Bottom spacing for navigation bar
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: 80),
+                              ),
                             ],
                           ),
                         ),
                       ),
-
-                      // Study Tools Grid — hidden when Saved filter is active
-                      if (!_isSavedFilter)
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: GochanoSpacing.md,
-                          ),
-                          sliver: SliverToBoxAdapter(
-                            child: _buildStudyToolsSection(context),
-                          ),
-                        ),
-
-                      // Resource Vaults
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: GochanoSpacing.md,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.sm,
-                            ),
-                            child: _buildResourceVaults(context),
-                          ),
-                        ),
-                      ),
-
-                      // Recently Opened — compact horizontal carousel
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: GochanoSpacing.md,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.sm,
-                            ),
-                            child: widget.mockRecentMaterials != null
-                                ? _RecentMaterialsCarousel(
-                                    searchQuery: _searchQuery,
-                                    mockRecentMaterials:
-                                        widget.mockRecentMaterials,
-                                  )
-                                : _RecentMaterialsCarousel(
-                                    searchQuery: _searchQuery,
-                                  ),
-                          ),
-                        ),
-                      ),
-
-                      // Bottom spacing for navigation bar
-                      const SliverToBoxAdapter(child: SizedBox(height: 80)),
                     ],
                   ),
                 ),
-              ),
             ],
-          ),
         ),
       ),
     );
@@ -276,58 +311,68 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       return true;
     }).toList();
 
+    final transitionDuration = context.motionDuration(AppMotion.selectionTransition);
+    final motionCurve = context.motionCurve(AppMotion.easeInOut);
+
     return AppSectionContainer(
       title: GochanoLanguage.text('Study Tools', 'স্টাডি টুলস'),
       icon: Icons.grid_view_rounded,
       iconColor: colors.brand,
-      child: filteredTools.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Center(
-                child: Text(
-                  GochanoLanguage.text(
-                    'No tools match your filter.',
-                    'কোনো টুলস খুঁজে পাওয়া যায়নি।',
+      child: AnimatedSwitcher(
+        duration: transitionDuration,
+        switchInCurve: motionCurve,
+        switchOutCurve: motionCurve,
+        child: filteredTools.isEmpty
+            ? Padding(
+                key: const ValueKey('tools_empty'),
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Center(
+                  child: Text(
+                    GochanoLanguage.text(
+                      'No tools match your filter.',
+                      'কোনো টুলস খুঁজে পাওয়া যায়নি।',
+                    ),
+                    style: context.type.bodySecondary,
                   ),
-                  style: context.type.bodySecondary,
                 ),
-              ),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-                final isNarrow = constraints.maxWidth < 340;
-                final double baseExtent = isNarrow ? 128.0 : 124.0;
-                final double dynamicExtent = textScale > 1.0
-                    ? baseExtent + (textScale - 1.0) * 44.0
-                    : baseExtent;
-                final int crossAxisCount = constraints.maxWidth >= 600 ? 3 : 2;
+              )
+            : LayoutBuilder(
+                key: ValueKey('tools_grid_${_selectedCategory}_${_searchQuery.isNotEmpty}'),
+                builder: (context, constraints) {
+                  final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+                  final isNarrow = constraints.maxWidth < 340;
+                  final double baseExtent = isNarrow ? 128.0 : 124.0;
+                  final double dynamicExtent = textScale > 1.0
+                      ? baseExtent + (textScale - 1.0) * 44.0
+                      : baseExtent;
+                  final int crossAxisCount = constraints.maxWidth >= 600 ? 3 : 2;
 
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: filteredTools.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    mainAxisExtent: dynamicExtent,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                  ),
-                  itemBuilder: (context, index) {
-                    final tool = filteredTools[index];
-                    return AppWorkspaceToolCard(
-                      icon: tool.icon,
-                      title: tool.title,
-                      subtitle: tool.subtitle,
-                      accent: tool.accent,
-                      gradient: tool.gradient,
-                      onTap: tool.onTap,
-                    );
-                  },
-                );
-              },
-            ),
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemCount: filteredTools.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      mainAxisExtent: dynamicExtent,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemBuilder: (context, index) {
+                      final tool = filteredTools[index];
+                      return AppWorkspaceToolCard(
+                        icon: tool.icon,
+                        title: tool.title,
+                        subtitle: tool.subtitle,
+                        accent: tool.accent,
+                        gradient: tool.gradient,
+                        onTap: tool.onTap,
+                      );
+                    },
+                  );
+                },
+              ),
+      ),
     );
   }
 
@@ -406,7 +451,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           'Exam trends & past questions',
           'বোর্ড ও পরীক্ষার প্রশ্ন বিশ্লেষণ',
         ),
-        accent: const Color(0xFFD97706),
+        accent: AppGradients.emeraldDark,
         gradient: AppGradients.toolPastPapers,
         categoryTag: 'Past Papers',
         onTap: () => Navigator.of(
@@ -434,7 +479,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           'PDFs, slides & document library',
           'পিডিএফ, লেকচার স্লাইড ও বই',
         ),
-        accent: const Color(0xFF059669),
+        accent: AppGradients.skyAccent,
         gradient: AppGradients.toolMaterials,
         categoryTag: 'Materials',
         onTap: () => Navigator.of(

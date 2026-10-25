@@ -12,9 +12,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/feedback_messages.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
@@ -151,7 +149,20 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       final replace = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text(label),
+          shape: RoundedRectangleBorder(
+            borderRadius: GochanoRadius.lgAll,
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                color: context.colors.brand,
+                size: 22,
+              ),
+              const SizedBox(width: GochanoSpacing.xs),
+              Expanded(child: Text(label)),
+            ],
+          ),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -166,6 +177,10 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               ),
             ),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: context.colors.brand,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
               child: Text(
                 GochanoLanguage.text('Use this instead', 'এটি ব্যবহার করুন'),
@@ -186,16 +201,146 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     }
   }
 
+  Widget _buildAiToolsRow(BuildContext context) {
+    final colors = context.colors;
+    final isDark = context.isDark;
+
+    final actions = [
+      (
+        'cleanup',
+        Icons.auto_fix_high_rounded,
+        GochanoLanguage.text('Clean up', 'গুছিয়ে দাও'),
+        GochanoLanguage.text('Cleaned up', 'গোছানো হয়েছে'),
+      ),
+      (
+        'summary',
+        Icons.short_text_rounded,
+        GochanoLanguage.text('Summarise', 'সারাংশ'),
+        GochanoLanguage.text('Summary', 'সারাংশ'),
+      ),
+      (
+        'explain',
+        Icons.school_rounded,
+        GochanoLanguage.text('Explain', 'ব্যাখ্যা'),
+        GochanoLanguage.text('Explanation', 'ব্যাখ্যা'),
+      ),
+      (
+        'key_topics',
+        Icons.format_list_bulleted_rounded,
+        GochanoLanguage.text('Key points', 'মূল পয়েন্ট'),
+        GochanoLanguage.text('Key points', 'মূল পয়েন্ট'),
+      ),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: GochanoSpacing.sm),
+      padding: const EdgeInsets.all(GochanoSpacing.sm),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(
+          color: colors.brand.withValues(alpha: 0.18),
+          width: 0.8,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                size: 16,
+                color: colors.brand,
+              ),
+              const SizedBox(width: GochanoSpacing.xs),
+              Text(
+                GochanoLanguage.text('AI Note Assistant', 'এআই নোট অ্যাসিস্ট্যান্ট'),
+                style: context.type.caption.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colors.brand,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: GochanoSpacing.xs),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final item in actions) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: GochanoSpacing.xs),
+                    child: ActionChip(
+                      avatar: Icon(
+                        item.$2,
+                        size: 16,
+                        color: _thinking ? colors.textTertiary : colors.brand,
+                      ),
+                      label: Text(
+                        item.$3,
+                        style: context.type.caption.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: _thinking
+                              ? colors.textTertiary
+                              : colors.textPrimary,
+                        ),
+                      ),
+                      backgroundColor: isDark
+                          ? colors.surfaceVariant
+                          : colors.brandSoft.withValues(alpha: 0.5),
+                      side: BorderSide(
+                        color: colors.border,
+                        width: 0.5,
+                      ),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: GochanoRadius.smAll,
+                      ),
+                      onPressed: _thinking
+                          ? null
+                          : () => _runAi(item.$1, item.$4),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isDark = context.isDark;
+
+    final subtitle = _visibility == 'group'
+        ? (widget.initialGroupName != null
+            ? GochanoLanguage.text(
+                'Group: ${widget.initialGroupName}',
+                'গ্রুপ: ${widget.initialGroupName}',
+              )
+            : GochanoLanguage.text(
+                'Shared with group',
+                'গ্রুপে শেয়ার করা',
+              ))
+        : (_isEdit
+            ? GochanoLanguage.text(
+                'Update lecture note',
+                'লেকচার নোট আপডেট করুন',
+              )
+            : GochanoLanguage.text(
+                'Capture study thoughts & summaries',
+                'পড়ার মূল বিষয় ও লেকচার নোট লিখুন',
+              ));
 
     return GochanoScaffold(
       appBar: GochanoAppBar(
         title: _isEdit
             ? GochanoLanguage.text('Edit note', 'নোট সম্পাদনা')
             : GochanoLanguage.text('New note', 'নতুন নোট'),
-        subtitle: _visibility == 'group' ? widget.initialGroupName : null,
+        subtitle: subtitle,
         actions: [
           GochanoOverflowMenu(
             tooltip: GochanoLanguage.text('AI tools', 'এআই টুল'),
@@ -252,152 +397,206 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         busyLabel: GochanoLanguage.text('Saving…', 'সংরক্ষণ হচ্ছে…'),
         onPressed: _save,
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 96),
-        children: [
-          TextField(
-            controller: _title,
-            autofocus: !_isEdit,
-            textInputAction: TextInputAction.next,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              labelText: GochanoLanguage.text('Title', 'শিরোনাম'),
-              hintText: GochanoLanguage.text(
-                'Normalization — 1NF to BCNF',
-                'নরমালাইজেশন — ১এনএফ থেকে বিসিএনএফ',
+      body: AppPageBackground(
+        height: 220,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [colors.surface, colors.background],
+              )
+            : AppGradients.notesPage,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 96),
+          children: [
+            TextField(
+              controller: _title,
+              autofocus: !_isEdit,
+              textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.sentences,
+              style: context.type.cardHeading.copyWith(
+                fontWeight: FontWeight.w700,
               ),
-            ),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          TextField(
-            controller: _content,
-            minLines: 8,
-            maxLines: null,
-            textCapitalization: TextCapitalization.sentences,
-            keyboardType: TextInputType.multiline,
-            style: context.type.body,
-            decoration: InputDecoration(
-              labelText: GochanoLanguage.text('Note', 'নোট'),
-              alignLabelWithHint: true,
-            ),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-
-          // More options toggle (progressive disclosure)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              key: const ValueKey('note_more_options_toggle'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                minimumSize: const Size(0, GochanoSizes.minTouchTarget),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () =>
-                  setState(() => _showMoreOptions = !_showMoreOptions),
-              icon: Icon(
-                _showMoreOptions
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
-                size: 20,
-              ),
-              label: Text(
-                GochanoLanguage.text('More options', 'আরও অপশন'),
-                style: context.type.bodySecondary.copyWith(
-                  fontWeight: FontWeight.w600,
+              decoration: InputDecoration(
+                labelText: GochanoLanguage.text('Title', 'শিরোনাম'),
+                hintText: GochanoLanguage.text(
+                  'Normalization — 1NF to BCNF',
+                  'নরমালাইজেশন — ১এনএফ থেকে বিসিএনএফ',
+                ),
+                prefixIcon: Icon(
+                  Icons.title_rounded,
+                  size: 20,
                   color: colors.brand,
                 ),
+                filled: true,
+                fillColor: isDark ? colors.surface : Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: GochanoRadius.mdAll,
+                  borderSide: BorderSide(color: colors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: GochanoRadius.mdAll,
+                  borderSide: BorderSide(color: colors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: GochanoRadius.mdAll,
+                  borderSide: BorderSide(color: colors.brand, width: 1.5),
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: GochanoSpacing.sm),
+            _buildAiToolsRow(context),
+            TextField(
+              controller: _content,
+              minLines: 8,
+              maxLines: null,
+              textCapitalization: TextCapitalization.sentences,
+              keyboardType: TextInputType.multiline,
+              style: context.type.body,
+              decoration: InputDecoration(
+                labelText: GochanoLanguage.text('Note', 'নোট'),
+                hintText: GochanoLanguage.text(
+                  'Write lecture notes, formulas, or summaries…',
+                  'এখানে আপনার লেকচার নোট, সূত্র বা সারসংক্ষেপ লিখুন…',
+                ),
+                alignLabelWithHint: true,
+                filled: true,
+                fillColor: isDark ? colors.surface : Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: GochanoRadius.mdAll,
+                  borderSide: BorderSide(color: colors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: GochanoRadius.mdAll,
+                  borderSide: BorderSide(color: colors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: GochanoRadius.mdAll,
+                  borderSide: BorderSide(color: colors.brand, width: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: GochanoSpacing.sm),
 
-          if (_showMoreOptions) ...[
-            const SizedBox(height: GochanoSpacing.xs),
-            Text(
-              GochanoLanguage.text('Visibility', 'দৃশ্যমানতা'),
-              style: context.type.label,
-            ),
-            const SizedBox(height: GochanoSpacing.xs),
-            SegmentedButton<String>(
-              segments: [
-                ButtonSegment(
-                  value: 'private',
-                  label: Text(GochanoLanguage.text('Private', 'ব্যক্তিগত')),
-                  icon: const Icon(Icons.lock_outline_rounded, size: 16),
-                ),
-                ButtonSegment(
-                  value: 'group',
-                  label: Text(
-                    GochanoLanguage.text('Share to group', 'গ্রুপে শেয়ার'),
+            // More options toggle (progressive disclosure)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey('note_more_options_toggle'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
                   ),
-                  icon: const Icon(Icons.group_outlined, size: 16),
+                  minimumSize: const Size(0, GochanoSizes.minTouchTarget),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-              ],
-              selected: {_visibility},
-              onSelectionChanged: (val) {
-                setState(() => _visibility = val.first);
-              },
+                onPressed: () =>
+                    setState(() => _showMoreOptions = !_showMoreOptions),
+                icon: Icon(
+                  _showMoreOptions
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 20,
+                ),
+                label: Text(
+                  GochanoLanguage.text('More options', 'আরও অপশন'),
+                  style: context.type.bodySecondary.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colors.brand,
+                  ),
+                ),
+              ),
             ),
-            if (_visibility == 'group') ...[
+
+            if (_showMoreOptions) ...[
               const SizedBox(height: GochanoSpacing.xs),
               Text(
-                widget.initialGroupName != null
-                    ? GochanoLanguage.text(
-                        'Sharing with: ${widget.initialGroupName}',
-                        'শেয়ার হচ্ছে: ${widget.initialGroupName}',
-                      )
-                    : GochanoLanguage.text(
-                        'Shared with your study group',
-                        'আপনার স্টাডি গ্রুপে শেয়ার করা হবে',
+                GochanoLanguage.text('Visibility', 'দৃশ্যমানতা'),
+                style: context.type.label,
+              ),
+              const SizedBox(height: GochanoSpacing.xs),
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'private',
+                    label: Text(GochanoLanguage.text('Private', 'ব্যক্তিগত')),
+                    icon: const Icon(Icons.lock_outline_rounded, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: 'group',
+                    label: Text(
+                      GochanoLanguage.text('Share to group', 'গ্রুপে শেয়ার'),
+                    ),
+                    icon: const Icon(Icons.group_outlined, size: 16),
+                  ),
+                ],
+                selected: {_visibility},
+                onSelectionChanged: (val) {
+                  setState(() => _visibility = val.first);
+                },
+              ),
+              if (_visibility == 'group') ...[
+                const SizedBox(height: GochanoSpacing.xs),
+                Text(
+                  widget.initialGroupName != null
+                      ? GochanoLanguage.text(
+                          'Sharing with: ${widget.initialGroupName}',
+                          'শেয়ার হচ্ছে: ${widget.initialGroupName}',
+                        )
+                      : GochanoLanguage.text(
+                          'Shared with your study group',
+                          'আপনার স্টাডি গ্রুপে শেয়ার করা হবে',
+                        ),
+                  style: context.type.caption.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ],
+
+            if (_thinking) ...[
+              const SizedBox(height: GochanoSpacing.md),
+              StaticLoadingState(
+                compact: true,
+                message: GochanoLanguage.text(
+                  'Reading your note…',
+                  'আপনার নোট পড়া হচ্ছে…',
+                ),
+              ),
+            ],
+
+            if (_error != null) ...[
+              const SizedBox(height: GochanoSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(GochanoSpacing.sm),
+                decoration: BoxDecoration(
+                  color: colors.errorSoft,
+                  borderRadius: GochanoRadius.mdAll,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: GochanoSizes.iconSm,
+                      color: colors.error,
+                    ),
+                    const SizedBox(width: GochanoSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        _error!,
+                        style: context.type.bodySecondary.copyWith(
+                          color: colors.error,
+                        ),
                       ),
-                style: context.type.caption.copyWith(
-                  color: colors.textSecondary,
+                    ),
+                  ],
                 ),
               ),
             ],
           ],
-
-          if (_thinking) ...[
-            const SizedBox(height: GochanoSpacing.md),
-            StaticLoadingState(
-              compact: true,
-              message: GochanoLanguage.text(
-                'Reading your note…',
-                'আপনার নোট পড়া হচ্ছে…',
-              ),
-            ),
-          ],
-
-          if (_error != null) ...[
-            const SizedBox(height: GochanoSpacing.md),
-            Container(
-              padding: const EdgeInsets.all(GochanoSpacing.sm),
-              decoration: BoxDecoration(
-                color: colors.errorSoft,
-                borderRadius: GochanoRadius.mdAll,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    size: GochanoSizes.iconSm,
-                    color: colors.error,
-                  ),
-                  const SizedBox(width: GochanoSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      _error!,
-                      style: context.type.bodySecondary.copyWith(
-                        color: colors.error,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

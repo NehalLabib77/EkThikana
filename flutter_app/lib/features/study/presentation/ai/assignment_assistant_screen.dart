@@ -10,9 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -150,57 +148,104 @@ class _AssignmentAssistantScreenState extends State<AssignmentAssistantScreen> {
           'এসাইনমেন্ট সহকারী',
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          GochanoSpacing.md,
-          GochanoSpacing.sm,
-          GochanoSpacing.md,
-          120,
-        ),
-        children: [
-          // Mode selector
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  GochanoLanguage.text('What do you need help with?', 'আপনার কী সাহায্য দরকার?'),
-                  style: context.type.cardHeading,
-                ),
-                const SizedBox(height: GochanoSpacing.sm),
-                _ModeChip(
-                  label: GochanoLanguage.text('Explain', 'ব্যাখ্যা'),
-                  icon: Icons.lightbulb_outline_rounded,
-                  selected: _mode == _AssignmentMode.explain,
-                  onTap: () => setState(() => _mode = _AssignmentMode.explain),
-                ),
-                _ModeChip(
-                  label: GochanoLanguage.text('Breakdown', 'বিশ্লেষণ'),
-                  icon: Icons.list_alt_rounded,
-                  selected: _mode == _AssignmentMode.breakdown,
-                  onTap: () => setState(() => _mode = _AssignmentMode.breakdown),
-                ),
-                _ModeChip(
-                  label: GochanoLanguage.text('Study Plan', 'পড়ার পরিকল্পনা'),
-                  icon: Icons.calendar_today_rounded,
-                  selected: _mode == _AssignmentMode.plan,
-                  onTap: () => setState(() => _mode = _AssignmentMode.plan),
-                ),
-              ],
-            ),
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.md,
+            GochanoSpacing.sm,
+            GochanoSpacing.md,
+            120,
           ),
+          children: [
+            // Mode selector
+            AppCard(
+              accent: colors.ai,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: colors.ai.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Icon(
+                          Icons.psychology_rounded,
+                          size: 18,
+                          color: colors.ai,
+                        ),
+                      ),
+                      const SizedBox(width: GochanoSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text('What do you need help with?', 'আপনার কী সাহায্য দরকার?'),
+                          style: context.type.cardHeading,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: GochanoSpacing.sm),
+                  _ModeChip(
+                    label: GochanoLanguage.text('Explain', 'ব্যাখ্যা'),
+                    icon: Icons.lightbulb_outline_rounded,
+                    activeColor: AppGradients.amberOrange,
+                    selected: _mode == _AssignmentMode.explain,
+                    onTap: () => setState(() => _mode = _AssignmentMode.explain),
+                  ),
+                  _ModeChip(
+                    label: GochanoLanguage.text('Breakdown', 'বিশ্লেষণ'),
+                    icon: Icons.list_alt_rounded,
+                    activeColor: AppGradients.skyAccent,
+                    selected: _mode == _AssignmentMode.breakdown,
+                    onTap: () => setState(() => _mode = _AssignmentMode.breakdown),
+                  ),
+                  _ModeChip(
+                    label: GochanoLanguage.text('Study Plan', 'পড়ার পরিকল্পনা'),
+                    icon: Icons.calendar_today_rounded,
+                    activeColor: AppGradients.indigoAccent,
+                    selected: _mode == _AssignmentMode.plan,
+                    onTap: () => setState(() => _mode = _AssignmentMode.plan),
+                  ),
+                ],
+              ),
+            ),
 
-          const SizedBox(height: GochanoSpacing.sm),
+            const SizedBox(height: GochanoSpacing.sm),
 
-          // Input fields
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  GochanoLanguage.text('Assignment Details', 'এসাইনমেন্টের বিবরণ'),
-                  style: context.type.cardHeading,
-                ),
+            // Input fields
+            AppCard(
+              accent: colors.brand,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: colors.brand.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Icon(
+                          Icons.assignment_rounded,
+                          size: 18,
+                          color: colors.brand,
+                        ),
+                      ),
+                      const SizedBox(width: GochanoSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text('Assignment Details', 'এসাইনমেন্টের বিবরণ'),
+                          style: context.type.cardHeading,
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: GochanoSpacing.sm),
                 TextField(
                   controller: _titleCtrl,
@@ -321,7 +366,8 @@ class _AssignmentAssistantScreenState extends State<AssignmentAssistantScreen> {
           ],
         ],
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -331,16 +377,19 @@ class _ModeChip extends StatelessWidget {
     required this.icon,
     required this.selected,
     required this.onTap,
+    this.activeColor,
   });
 
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
+  final Color? activeColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final tint = activeColor ?? colors.ai;
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
       child: InkWell(
@@ -352,20 +401,20 @@ class _ModeChip extends StatelessWidget {
             vertical: GochanoSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: selected ? colors.ai.withValues(alpha: 0.12) : colors.surfaceVariant,
+            color: selected ? tint.withValues(alpha: 0.12) : colors.surfaceVariant,
             borderRadius: GochanoRadius.mdAll,
             border: Border.all(
-              color: selected ? colors.ai : Colors.transparent,
+              color: selected ? tint : Colors.transparent,
             ),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: selected ? colors.ai : colors.textSecondary),
+              Icon(icon, size: 18, color: selected ? tint : colors.textSecondary),
               const SizedBox(width: GochanoSpacing.xs),
               Text(
                 label,
                 style: context.type.body.copyWith(
-                  color: selected ? colors.ai : colors.textPrimary,
+                  color: selected ? tint : colors.textPrimary,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),

@@ -6,9 +6,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
@@ -278,9 +276,11 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(GochanoSpacing.md),
-        child: Column(
+      body: AppPageBackground(
+        gradient: AppGradients.examRescue,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(GochanoSpacing.md),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Fallback transparency banner
@@ -519,67 +519,68 @@ class _ExamRescuePreviewScreenState extends State<ExamRescuePreviewScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(GochanoSpacing.md),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          border: Border(top: BorderSide(color: colors.border)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PrimaryButton(
-                label: GochanoLanguage.text(
-                  'Confirm & Apply Plan',
-                  'নিশ্চিত করে প্ল্যান যোগ করুন',
-                ),
-                busy: _isApplying,
-                busyLabel: GochanoLanguage.text(
-                  'Applying Plan…',
-                  'প্ল্যান যোগ হচ্ছে…',
-                ),
-                onPressed: (_isApplying || _isRegenerating) ? null : _applyPlan,
+    ),
+    bottomNavigationBar: Container(
+      padding: const EdgeInsets.all(GochanoSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.border)),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PrimaryButton(
+              label: GochanoLanguage.text(
+                'Confirm & Apply Plan',
+                'নিশ্চিত করে প্ল্যান যোগ করুন',
               ),
-              const SizedBox(height: GochanoSpacing.xs),
-              Row(
-                children: [
-                  Expanded(
-                    child: SecondaryButton(
-                      label: GochanoLanguage.text(
-                        'Edit / Back',
-                        'এডিট / ফিরে যান',
-                      ),
-                      onPressed: (_isApplying || _isRegenerating)
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: GochanoSpacing.sm),
-                  Expanded(
-                    child: SecondaryButton(
-                      label: _isRegenerating
-                          ? GochanoLanguage.text(
-                              'Regenerating…',
-                              'পুনরায় তৈরি হচ্ছে…',
-                            )
-                          : GochanoLanguage.text(
-                              'Regenerate',
-                              'আবার তৈরি করুন',
-                            ),
-                      onPressed: (_isApplying || _isRegenerating)
-                          ? null
-                          : _regeneratePlan,
-                    ),
-                  ),
-                ],
+              busy: _isApplying,
+              busyLabel: GochanoLanguage.text(
+                'Applying Plan…',
+                'প্ল্যান যোগ হচ্ছে…',
               ),
-            ],
-          ),
+              onPressed: (_isApplying || _isRegenerating) ? null : _applyPlan,
+            ),
+            const SizedBox(height: GochanoSpacing.xs),
+            Row(
+              children: [
+                Expanded(
+                  child: SecondaryButton(
+                    label: GochanoLanguage.text(
+                      'Edit / Back',
+                      'এডিট / ফিরে যান',
+                    ),
+                    onPressed: (_isApplying || _isRegenerating)
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    ),
+                ),
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: SecondaryButton(
+                    label: _isRegenerating
+                        ? GochanoLanguage.text(
+                            'Regenerating…',
+                            'পুনরায় তৈরি হচ্ছে…',
+                          )
+                        : GochanoLanguage.text(
+                            'Regenerate',
+                            'আবার তৈরি করুন',
+                          ),
+                    onPressed: (_isApplying || _isRegenerating)
+                        ? null
+                        : _regeneratePlan,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeroStatChip(IconData icon, String text, Color color, Color bg) {
     final type = context.type;

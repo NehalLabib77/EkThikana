@@ -11,10 +11,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/study_service.dart';
@@ -110,13 +108,10 @@ class _FocusViewState extends State<FocusView> {
     if (groups.isEmpty) {
       return AiEmptyState(
         icon: Icons.timer_outlined,
-        title: GochanoLanguage.text(
-          'No deep work yet',
-          'এখনো গভীর পড়া হয়নি',
-        ),
+        title: GochanoLanguage.text('No deep work yet', 'এখনো গভীর পড়া হয়নি'),
         message: GochanoLanguage.text(
           'Start a 25-minute session — finished sessions are grouped here by '
-          'subject.',
+              'subject.',
           '২৫ মিনিটের সেশন শুরু করুন — শেষ হওয়া সেশন বিষয় অনুযায়ী এখানে দেখা যাবে।',
         ),
       );
@@ -125,26 +120,39 @@ class _FocusViewState extends State<FocusView> {
     final totalMinutes =
         groups.fold<int>(0, (sum, g) => sum + g.totalSeconds) ~/ 60;
 
+    final colors = context.colors;
+    final isDark = context.isDark;
+
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: GochanoSpacing.scrollBody,
-        children: [
-          SectionHeader(
-            title: GochanoLanguage.text(
-              'Recent focus sessions',
-              'সাম্প্রতিক ফোকাস সেশন',
+      child: AppPageBackground(
+        height: 240,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [colors.surface, colors.background],
+              )
+            : AppGradients.focusSession,
+        child: ListView(
+          padding: GochanoSpacing.scrollBody,
+          children: [
+            SectionHeader(
+              title: GochanoLanguage.text(
+                'Recent focus sessions',
+                'সাম্প্রতিক ফোকাস সেশন',
+              ),
+              subtitle: GochanoLanguage.text(
+                '$totalMinutes minutes across ${groups.length} subjects',
+                '$totalMinutes মিনিট, ${groups.length}টি বিষয়',
+              ),
             ),
-            subtitle: GochanoLanguage.text(
-              '$totalMinutes minutes across ${groups.length} subjects',
-              '$totalMinutes মিনিট, ${groups.length}টি বিষয়',
+            CardGroup(
+              children: [for (final group in groups) _groupRow(context, group)],
             ),
-          ),
-          CardGroup(
-            children: [for (final group in groups) _groupRow(context, group)],
-          ),
-          const SizedBox(height: GochanoSpacing.lg),
-        ],
+            const SizedBox(height: GochanoSpacing.lg),
+          ],
+        ),
       ),
     );
   }
@@ -160,12 +168,12 @@ class _FocusViewState extends State<FocusView> {
         'Last on ${group.latestDayKey}',
         'সর্বশেষ ${group.latestDayKey}',
       ),
-      metadata: [
-        GochanoLanguage.text('$minutes min', '$minutes মিনিট'),
-      ],
+      metadata: [GochanoLanguage.text('$minutes min', '$minutes মিনিট')],
       trailing: Text(
         '$minutes',
-        style: context.type.statisticSmall.copyWith(color: context.colors.study),
+        style: context.type.statisticSmall.copyWith(
+          color: context.colors.study,
+        ),
       ),
     );
   }

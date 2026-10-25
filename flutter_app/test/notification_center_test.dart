@@ -26,7 +26,11 @@ Widget _buildWrapper({
         size: Size(width, height),
         textScaler: TextScaler.linear(textScaleFactor),
       ),
-      child: child,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: child,
+      ),
     ),
   );
 }
@@ -243,7 +247,47 @@ void main() {
       );
     });
 
-    testWidgets('renders cleanly with 2.0x font scaling without overflow', (
+    testWidgets(
+      'renders cleanly without overflow across 320dp, 360dp, 390dp, and 412dp widths in English and Bengali',
+      (tester) async {
+        final now = DateTime.now();
+        final items = [
+          LocalReminder(
+            id: 'resp_task',
+            ownerItemId: 'resp_task',
+            type: LocalReminderType.task,
+            title: 'Responsive Layout Verification',
+            scheduledAt: now.add(const Duration(hours: 1)),
+            status: LocalReminderStatus.pending,
+            createdAt: now,
+          ),
+        ];
+        LocalReminderStore.instance.resetForTesting(items);
+
+        for (final locale in [GochanoLocale.english, GochanoLocale.bangla]) {
+          GochanoLanguage.current.value = locale;
+          for (final width in [320.0, 360.0, 390.0, 412.0]) {
+            await tester.pumpWidget(
+              _buildWrapper(
+                width: width,
+                height: 844,
+                child: const NotificationCenterScreen(),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: 'Overflow occurred at width $width in locale $locale',
+            );
+            expect(find.byType(NotificationCenterScreen), findsOneWidget);
+          }
+        }
+      },
+    );
+
+    testWidgets('renders cleanly with 2.0x font scaling without overflow at 390dp and 320dp', (
       tester,
     ) async {
       final now = DateTime.now();
@@ -261,16 +305,24 @@ void main() {
       ];
       LocalReminderStore.instance.resetForTesting(items);
 
-      await tester.pumpWidget(
-        _buildWrapper(
-          textScaleFactor: 2.0,
-          child: const NotificationCenterScreen(),
-        ),
-      );
-      await tester.pumpAndSettle();
+      for (final width in [320.0, 390.0]) {
+        await tester.pumpWidget(
+          _buildWrapper(
+            width: width,
+            height: 844,
+            textScaleFactor: 2.0,
+            child: const NotificationCenterScreen(),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.text('Algorithm Assignment'), findsOneWidget);
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'Overflow occurred with 2.0x text scaling at width $width',
+        );
+        expect(find.text('Algorithm Assignment'), findsOneWidget);
+      }
     });
   });
 

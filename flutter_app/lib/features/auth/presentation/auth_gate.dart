@@ -35,9 +35,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
+import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
-import '../../../shared/widgets/gochano_surfaces.dart';
 import '../../shell/presentation/gochano_shell.dart';
 import 'login_screen.dart';
 import 'profile_setup_screen.dart';
@@ -151,9 +152,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (!_checked) {
-      return const GochanoScaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const AuthGateLoadingView();
     }
 
     if (_loggedIn && FirebaseAuth.instance.currentUser != null) {
@@ -172,5 +171,140 @@ class _AuthGateState extends State<AuthGate> {
       return GochanoShell(role: 'student', displayName: displayName);
     }
     return LoginScreen();
+  }
+}
+
+/// Visual presentation displayed while AuthGate resolves the local session,
+/// verifies the Firebase identity, and checks profile state.
+///
+/// Exposed for non-destructive widget testing of theme adaptation,
+/// localization, 320dp responsiveness, and reduced-motion compliance.
+@visibleForTesting
+class AuthGateLoadingView extends StatelessWidget {
+  const AuthGateLoadingView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = context.colors;
+    final type = context.type;
+    final isReducedMotion = AppMotion.isReducedMotion(context);
+
+    return Scaffold(
+      backgroundColor: colors.background,
+      body: AppPageBackground(
+        gradient: AppGradients.todayAppBarFor(isDark: isDark),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth <= 340;
+              final compact = isNarrow || constraints.maxHeight < 500;
+              final avatarSize = compact ? 64.0 : 76.0;
+              final logoSize = compact ? 38.0 : 46.0;
+
+              return Center(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal:
+                        isNarrow ? GochanoSpacing.md : GochanoSpacing.lg,
+                    vertical: GochanoSpacing.md,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: avatarSize,
+                        height: avatarSize,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? colors.surfaceVariant
+                              : colors.brandSoft,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: colors.brand.withValues(
+                              alpha: isDark ? 0.35 : 0.18,
+                            ),
+                            width: 2.0,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.brand.withValues(
+                                alpha: isDark ? 0.25 : 0.10,
+                              ),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Image.asset(
+                          'assets/branding/gochano1.png',
+                          width: logoSize,
+                          height: logoSize,
+                          fit: BoxFit.contain,
+                          semanticLabel: 'Gochano logo',
+                          errorBuilder: (_, _, _) => Icon(
+                            Icons.school_rounded,
+                            size: compact ? 30.0 : 38.0,
+                            color: colors.brand,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: compact
+                            ? GochanoSpacing.xs + 2
+                            : GochanoSpacing.sm,
+                      ),
+                      Text(
+                        'Gochano',
+                        style: (compact ? type.cardHeading : type.pageTitle)
+                            .copyWith(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        GochanoLanguage.text(
+                          'Starting Gochano…',
+                          'Gochano শুরু হচ্ছে…',
+                        ),
+                        style: type.bodySecondary.copyWith(
+                          color: colors.textSecondary,
+                          fontSize: compact ? 12.5 : 13.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(
+                        height: compact ? GochanoSpacing.md : GochanoSpacing.lg,
+                      ),
+                      Semantics(
+                        label: GochanoLanguage.text(
+                          'Loading Gochano',
+                          'Gochano লোড হচ্ছে',
+                        ),
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            value: isReducedMotion ? 0.75 : null,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              colors.brand,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -23,6 +23,8 @@ void main() {
         TelecomAuthService.isSupportedPhone('01512345678'),
         isFalse,
       ); // Teletalk
+      expect(TelecomAuthService.isSupportedPhone('01312345678'), isFalse); // Skitto
+      expect(TelecomAuthService.isSupportedPhone('01412345678'), isFalse); // BL
       expect(TelecomAuthService.isSupportedPhone('invalid'), isFalse);
     });
   });

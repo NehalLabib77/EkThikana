@@ -61,7 +61,8 @@ class PlanView extends StatefulWidget {
   State<PlanView> createState() => _PlanViewState();
 }
 
-class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
+class _PlanViewState extends State<PlanView>
+    with WidgetsBindingObserver {
   DateTime _selectedDay = DateTime.now();
   bool _exactAlarmAllowed = true;
 
@@ -96,6 +97,7 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
     super.dispose();
   }
 
+
   void _onLanguageChange() {
     if (mounted) setState(() {});
   }
@@ -120,11 +122,38 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayStyle,
       child: Scaffold(
-        backgroundColor: colors.background,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
+        backgroundColor:
+            isDark ? colors.background : const Color(0xFFF7F8FA),
+        body: Stack(
+          children: [
+            // ---------------------------------------------------------------
+            // Soft mint/teal gradient top wash (light mode only)
+            // ---------------------------------------------------------------
+            if (!isDark)
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 260,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFECFDF5), Color(0xFFF7F8FA)],
+                      stops: [0.0, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+
+            // ---------------------------------------------------------------
+            // Main content with entrance animation
+            // ---------------------------------------------------------------
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
               // ---------------------------------------------------------------
               // PINNED CONTEXTUAL PLAN HEADER (Search hidden, Calendar action)
               // ---------------------------------------------------------------
@@ -288,8 +317,10 @@ class _PlanViewState extends State<PlanView> with WidgetsBindingObserver {
             ],
           ),
         ),
-      ),
-    );
+    ],
+  ),
+  ),
+);
   }
 
   Widget _buildExactAlarmWarning(BuildContext context) {
@@ -814,7 +845,9 @@ class _DateStripState extends State<_DateStrip> {
                     child: InkWell(
                       onTap: () => widget.onDaySelected(day),
                       borderRadius: BorderRadius.circular(12),
-                      child: Ink(
+                      child: AnimatedContainer(
+                        duration: context.motionDuration(AppMotion.selectionTransition),
+                        curve: context.motionCurve(AppMotion.easeInOut),
                         width: itemWidth,
                         decoration: BoxDecoration(
                           color: isSelected

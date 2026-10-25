@@ -25,9 +25,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../services/api_service.dart';
@@ -385,24 +383,28 @@ class _RealExamScreenState extends State<RealExamScreen> {
 
     if (hall == null) {
       return GochanoScaffold(
+        padBody: false,
         appBar: GochanoAppBar(title: GochanoLanguage.text('Exam', 'পরীক্ষা')),
-        body: _error == null
-            ? examLoading(
-                GochanoLanguage.text(
-                  'Opening your paper…',
-                  'প্রশ্নপত্র খোলা হচ্ছে…',
-                ),
-              )
-            : Column(
-                children: [
-                  examErrorBox(context, _error!),
-                  const SizedBox(height: GochanoSpacing.md),
-                  SecondaryButton(
-                    label: GochanoLanguage.text('Try again', 'আবার চেষ্টা করুন'),
-                    onPressed: _open,
+        body: AppPageBackground(
+          gradient: AppGradients.toolMockTests,
+          child: _error == null
+              ? examLoading(
+                  GochanoLanguage.text(
+                    'Opening your paper…',
+                    'প্রশ্নপত্র খোলা হচ্ছে…',
                   ),
-                ],
-              ),
+                )
+              : Column(
+                  children: [
+                    examErrorBox(context, _error!),
+                    const SizedBox(height: GochanoSpacing.md),
+                    SecondaryButton(
+                      label: GochanoLanguage.text('Try again', 'আবার চেষ্টা করুন'),
+                      onPressed: _open,
+                    ),
+                  ],
+                ),
+        ),
       );
     }
 
@@ -410,6 +412,7 @@ class _RealExamScreenState extends State<RealExamScreen> {
     final urgent = !_paused && _remaining <= 60;
 
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: widget.title.isEmpty
             ? GochanoLanguage.text('Exam in progress', 'পরীক্ষা চলছে')
@@ -418,7 +421,9 @@ class _RealExamScreenState extends State<RealExamScreen> {
         automaticallyImplyLeading: !_submitting,
       ),
       bottomBar: _bottomBar(hall),
-      body: ListView(
+      body: AppPageBackground(
+        gradient: AppGradients.toolMockTests,
+        child: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
           if (_paused) ...[
@@ -658,7 +663,8 @@ class _RealExamScreenState extends State<RealExamScreen> {
           const SizedBox(height: GochanoSpacing.xl),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _bottomBar(ExamHall hall) {
@@ -733,6 +739,9 @@ class _RealExamScreenState extends State<RealExamScreen> {
       'প্রশ্ন ${index + 1}',
     );
 
+    final motionDuration = context.motionDuration(AppMotion.selectionTransition);
+    final motionCurve = context.motionCurve(AppMotion.easeInOut);
+
     return Semantics(
       button: true,
       selected: isCurrent,
@@ -740,7 +749,9 @@ class _RealExamScreenState extends State<RealExamScreen> {
       child: InkWell(
         onTap: () => setState(() => _current = index),
         borderRadius: GochanoRadius.mdAll,
-        child: Container(
+        child: AnimatedContainer(
+          duration: motionDuration,
+          curve: motionCurve,
           width: GochanoSizes.minTouchTarget,
           height: GochanoSizes.minTouchTarget,
           alignment: Alignment.center,

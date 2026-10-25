@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_gradients.dart';
 import '../../../core/design_system/components/app_study_header.dart';
 import '../../../core/design_system/gochano_art.dart';
 import '../../../core/design_system/gochano_colors.dart';
@@ -296,100 +297,133 @@ class _CommunityViewState extends State<CommunityView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final isDark = context.isDark;
     final width = MediaQuery.of(context).size.width;
     final isVeryNarrow = width < 340;
 
-    if (_segment == 'challenges') {
-      return SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            if (widget.showHeader)
-              AppStudyHeader(
-                showSearch: true,
-                trailingAction: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: IconButton(
-                    key: const ValueKey('community_header_group_options_button'),
-                    icon: Icon(Icons.group_add_outlined, size: isVeryNarrow ? 19 : 20),
-                    tooltip: GochanoLanguage.text('Group options', 'গ্রুপ অপশন'),
-                    onPressed: () => showGroupActionsSheet(context),
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
+    // Shared purple top-wash background for both challenge and main views
+    final Widget topWash = isDark
+        ? const SizedBox.shrink()
+        : Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 250,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppGradients.communityPage,
               ),
-            Expanded(
-              child: ChallengeListView(challengesFn: widget.challengesFn),
             ),
-          ],
-        ),
-      );
-    }
+          );
 
-    return SafeArea(
-      bottom: false,
-      child: Column(
+    if (_segment == 'challenges') {
+      return Stack(
         children: [
-          if (widget.showHeader)
-            AppStudyHeader(
-              showSearch: true,
-              trailingAction: SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  key: const ValueKey('community_header_group_options_button'),
-                  icon: Icon(Icons.group_add_outlined, size: isVeryNarrow ? 19 : 20),
-                  tooltip: GochanoLanguage.text('Group options', 'গ্রুপ অপশন'),
-                  onPressed: () => showGroupActionsSheet(context),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _handleRefresh,
-              child: CustomScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isVeryNarrow ? 10 : 16,
-                        vertical: 6,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildIntro(context),
-                          const SizedBox(height: 10),
-                          _buildComposerCard(context),
-                          const SizedBox(height: 12),
-                          _buildSegmentSwitcher(context),
-                          if (_segment == 'discussions') ...[
-                            const SizedBox(height: 10),
-                            _buildDiscussionFilters(context),
-                          ],
-                          const SizedBox(height: 12),
-                        ],
+          topWash,
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                if (widget.showHeader)
+                  AppStudyHeader(
+                    showSearch: true,
+                    trailingAction: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: IconButton(
+                        key: const ValueKey(
+                            'community_header_group_options_button'),
+                        icon: Icon(Icons.group_add_outlined,
+                            size: isVeryNarrow ? 19 : 20),
+                        tooltip:
+                            GochanoLanguage.text('Group options', 'গ্রুপ অপশন'),
+                        onPressed: () => showGroupActionsSheet(context),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
                       ),
                     ),
                   ),
-                  ..._buildSegmentSlivers(context),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 32),
-                  ),
-                ],
-              ),
+                Expanded(
+                  child: ChallengeListView(challengesFn: widget.challengesFn),
+                ),
+              ],
             ),
           ),
         ],
-      ),
+      );
+    }
+
+    return Stack(
+      children: [
+        topWash,
+        SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              if (widget.showHeader)
+                AppStudyHeader(
+                  showSearch: true,
+                  trailingAction: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: IconButton(
+                      key: const ValueKey(
+                          'community_header_group_options_button'),
+                      icon: Icon(Icons.group_add_outlined,
+                          size: isVeryNarrow ? 19 : 20),
+                      tooltip:
+                          GochanoLanguage.text('Group options', 'গ্রুপ অপশন'),
+                      onPressed: () => showGroupActionsSheet(context),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _handleRefresh,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isVeryNarrow ? 10 : 16,
+                            vertical: 6,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildIntro(context),
+                              const SizedBox(height: 10),
+                              _buildComposerCard(context),
+                              const SizedBox(height: 12),
+                              _buildSegmentSwitcher(context),
+                              if (_segment == 'discussions') ...[
+                                const SizedBox(height: 10),
+                                _buildDiscussionFilters(context),
+                              ],
+                              const SizedBox(height: 12),
+                            ],
+                          ),
+                        ),
+                      ),
+                      ..._buildSegmentSlivers(context),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 32),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
+
 
   Widget _buildIntro(BuildContext context) {
     final colors = context.colors;

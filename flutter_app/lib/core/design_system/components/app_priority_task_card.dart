@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_gradients.dart';
+import '../app_motion.dart';
 import '../gochano_colors.dart';
 import '../gochano_spacing.dart';
 import '../gochano_typography.dart';
@@ -73,92 +74,112 @@ class _AppPriorityTaskCardState extends State<AppPriorityTaskCard> {
         ? colors.border
         : tint.border;
 
+    final stateDuration = context.motionDuration(AppMotion.stateChange);
+    final tapDuration = context.motionDuration(AppMotion.tapFeedback);
+    final motionCurve = context.motionCurve(AppMotion.easeInOut);
+
     return Semantics(
       container: true,
       label: 'Task: ${widget.title}, ${widget.subtitle ?? ""}',
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: isDark ? null : tint.gradient,
-          color: isDark ? colors.surface : null,
-          borderRadius: const BorderRadius.all(Radius.circular(18)),
-          border: Border.all(color: cardBorder, width: 1.1),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: widget.onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: 11,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Top row: Icon container + completion circle
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: isDark ? colors.surfaceVariant : Colors.white,
-                          borderRadius: const BorderRadius.all(Radius.circular(9)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: tint.accent.withValues(alpha: 0.12),
-                              blurRadius: 6,
-                              offset: const Offset(0, 1.5),
-                            ),
-                          ],
+      child: AnimatedOpacity(
+        duration: stateDuration,
+        curve: motionCurve,
+        opacity: _checked ? 0.72 : 1.0,
+        child: AnimatedContainer(
+          duration: stateDuration,
+          curve: motionCurve,
+          decoration: BoxDecoration(
+            gradient: isDark ? null : tint.gradient,
+            color: isDark ? colors.surface : null,
+            borderRadius: const BorderRadius.all(Radius.circular(18)),
+            border: Border.all(
+              color: _checked
+                  ? (isDark ? colors.border : tint.border.withValues(alpha: 0.5))
+                  : cardBorder,
+              width: 1.1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: widget.onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 11,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Top row: Icon container + completion circle
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: isDark ? colors.surfaceVariant : Colors.white,
+                            borderRadius: const BorderRadius.all(Radius.circular(9)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: tint.accent.withValues(alpha: 0.12),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1.5),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            widget.icon,
+                            size: 18,
+                            color: tint.accent,
+                          ),
                         ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          widget.icon,
-                          size: 18,
-                          color: tint.accent,
-                        ),
-                      ),
-                      Semantics(
-                        button: true,
-                        label: _checked ? 'Completed' : 'Mark task completed',
-                        child: InkWell(
-                          key: const Key('task_complete_button'),
-                          onTap: _handleComplete,
-                          borderRadius: const BorderRadius.all(Radius.circular(999)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Container(
-                              width: 25,
-                              height: 25,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _checked
-                                    ? colors.success
-                                    : (isDark ? colors.surfaceVariant : Colors.white),
-                                border: Border.all(
-                                  color: _checked ? colors.success : colors.borderStrong,
-                                  width: 1.6,
+                        Semantics(
+                          button: true,
+                          label: _checked ? 'Completed' : 'Mark task completed',
+                          child: InkWell(
+                            key: const Key('task_complete_button'),
+                            onTap: _handleComplete,
+                            borderRadius: const BorderRadius.all(Radius.circular(999)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: AnimatedContainer(
+                                duration: stateDuration,
+                                curve: motionCurve,
+                                width: 25,
+                                height: 25,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _checked
+                                      ? colors.success
+                                      : (isDark ? colors.surfaceVariant : Colors.white),
+                                  border: Border.all(
+                                    color: _checked ? colors.success : colors.borderStrong,
+                                    width: 1.6,
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: AnimatedScale(
+                                  scale: _checked ? 1.0 : 0.0,
+                                  duration: tapDuration,
+                                  curve: context.motionCurve(AppMotion.spring),
+                                  child: const Icon(
+                                    Icons.check_rounded,
+                                    size: 15,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
-                              alignment: Alignment.center,
-                              child: _checked
-                                  ? const Icon(
-                                      Icons.check_rounded,
-                                      size: 15,
-                                      color: Colors.white,
-                                    )
-                                  : null,
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: GochanoSpacing.xs + 3),
+                      ],
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs + 3),
 
                   // Title
                   Text(
@@ -239,6 +260,7 @@ class _AppPriorityTaskCardState extends State<AppPriorityTaskCard> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -6,11 +6,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../services/firestore_service.dart';
@@ -34,8 +32,10 @@ class SharedBoxScreen extends StatelessWidget {
           'আপনার স্টাডি গ্রুপে শেয়ার করা উপকরণ',
         ),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.myGroups(),
+      body: AppPageBackground(
+        gradient: AppGradients.toolMaterials,
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirestoreService.myGroups(),
         builder: (context, groupsSnapshot) {
           if (groupsSnapshot.connectionState == ConnectionState.waiting) {
             return StaticLoadingState(
@@ -96,8 +96,9 @@ class SharedBoxScreen extends StatelessWidget {
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ---------------------------------------------------------------------------

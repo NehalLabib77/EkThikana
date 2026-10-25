@@ -9,10 +9,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
@@ -73,6 +71,7 @@ class _LearningJourneyScreenState extends State<LearningJourneyScreen> {
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Your Learning Journey', 'আপনার লার্নিং যাত্রা'),
         subtitle: GochanoLanguage.text(
@@ -87,7 +86,10 @@ class _LearningJourneyScreenState extends State<LearningJourneyScreen> {
           ),
         ],
       ),
-      body: _buildBody(context),
+      body: AppPageBackground(
+        gradient: AppGradients.academicHealth,
+        child: _buildBody(context),
+      ),
     );
   }
 

@@ -8,9 +8,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
@@ -457,28 +455,45 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
             ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          GochanoSpacing.md,
-          GochanoSpacing.sm,
-          GochanoSpacing.md,
-          120,
-        ),
-        children: [
-          // Source Material Section (hidden in quiz mode)
-          if (!_quizMode) ...[
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          GochanoLanguage.text('Source Material', 'উৎস উপকরণ'),
-                          style: context.type.cardHeading,
+      body: AppPageBackground(
+        gradient: AppGradients.toolQuestionBank,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.md,
+            GochanoSpacing.sm,
+            GochanoSpacing.md,
+            120,
+          ),
+          children: [
+            // Source Material Section (hidden in quiz mode)
+            if (!_quizMode) ...[
+              AppCard(
+                accent: colors.ai,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: colors.ai.withValues(alpha: 0.12),
+                            borderRadius: GochanoRadius.smAll,
+                          ),
+                          child: Icon(
+                            Icons.source_rounded,
+                            size: 18,
+                            color: colors.ai,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: GochanoSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text('Source Material', 'উৎস উপকরণ'),
+                            style: context.type.cardHeading,
+                          ),
+                        ),
                       TextButton.icon(
                         onPressed: _pickMaterials,
                         icon: const Icon(Icons.add_rounded, size: 18),
@@ -617,12 +632,33 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
 
             // Topic and settings
             AppCard(
+              accent: colors.brand,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    GochanoLanguage.text('Quiz Settings', 'কুইজ সেটিংস'),
-                    style: context.type.cardHeading,
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: colors.brand.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Icon(
+                          Icons.tune_rounded,
+                          size: 18,
+                          color: colors.brand,
+                        ),
+                      ),
+                      const SizedBox(width: GochanoSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text('Quiz Settings', 'কুইজ সেটিংস'),
+                          style: context.type.cardHeading,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: GochanoSpacing.sm),
                   TextField(
@@ -819,7 +855,8 @@ class _QuizGeneratorScreenState extends State<QuizGeneratorScreen> {
           ],
         ],
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -931,10 +968,15 @@ class _SelectableOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final motionDuration = context.motionDuration(AppMotion.selectionTransition);
+    final motionCurve = context.motionCurve(AppMotion.easeInOut);
+
     return InkWell(
       onTap: onTap,
       borderRadius: GochanoRadius.mdAll,
-      child: Container(
+      child: AnimatedContainer(
+        duration: motionDuration,
+        curve: motionCurve,
         padding: const EdgeInsets.symmetric(
           horizontal: GochanoSpacing.sm,
           vertical: 8,
@@ -950,7 +992,9 @@ class _SelectableOption extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
+            AnimatedContainer(
+              duration: motionDuration,
+              curve: motionCurve,
               width: 24,
               height: 24,
               decoration: BoxDecoration(

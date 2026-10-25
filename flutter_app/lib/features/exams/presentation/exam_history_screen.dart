@@ -18,10 +18,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../services/api_service.dart';
@@ -193,6 +191,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('My Exams', 'আমার পরীক্ষা'),
         subtitle: GochanoLanguage.text(
@@ -200,82 +199,85 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
           'আগের প্রশ্নপত্র, নম্বর আর উন্নতি।',
         ),
       ),
-      body: _loading
-          ? examLoading(
-              GochanoLanguage.text('Loading your exams…', 'পরীক্ষা লোড হচ্ছে…'),
-            )
-          : _error != null
-              ? ErrorState(
-                  message: _error!,
-                  onRetry: _load,
-                  retryLabel: GochanoLanguage.text('Try again', 'আবার চেষ্টা'),
-                )
-              : _rows.isEmpty
-                  ? EmptyState(
-                      illustration: GochanoArt.emptyMaterials,
-                      title: GochanoLanguage.text(
-                        'No exams yet',
-                        'এখনো কোনো পরীক্ষা নেই',
-                      ),
-                      message: GochanoLanguage.text(
-                        'Finish a paper and it will show up here with its score.',
-                        'একটি পরীক্ষা দিন - নম্বরসহ এখানে দেখা যাবে।',
-                      ),
-                      actionLabel: GochanoLanguage.text(
-                        'Start an exam',
-                        'পরীক্ষা শুরু করুন',
-                      ),
-                      onAction: () => Navigator.of(context).pop(),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.only(bottom: GochanoSpacing.xl),
-                      children: [
-                        _summary(),
-                        SectionHeader(
-                          title: GochanoLanguage.text(
-                            'Past papers',
-                            'পুরোনো প্রশ্নপত্র',
+      body: AppPageBackground(
+        gradient: AppGradients.toolMockTests,
+        child: _loading
+            ? examLoading(
+                GochanoLanguage.text('Loading your exams…', 'পরীক্ষা লোড হচ্ছে…'),
+              )
+            : _error != null
+                ? ErrorState(
+                    message: _error!,
+                    onRetry: _load,
+                    retryLabel: GochanoLanguage.text('Try again', 'আবার চেষ্টা'),
+                  )
+                : _rows.isEmpty
+                    ? EmptyState(
+                        illustration: GochanoArt.emptyMaterials,
+                        title: GochanoLanguage.text(
+                          'No exams yet',
+                          'এখনো কোনো পরীক্ষা নেই',
+                        ),
+                        message: GochanoLanguage.text(
+                          'Finish a paper and it will show up here with its score.',
+                          'একটি পরীক্ষা দিন - নম্বরসহ এখানে দেখা যাবে।',
+                        ),
+                        actionLabel: GochanoLanguage.text(
+                          'Start an exam',
+                          'পরীক্ষা শুরু করুন',
+                        ),
+                        onAction: () => Navigator.of(context).pop(),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.only(bottom: GochanoSpacing.xl),
+                        children: [
+                          _summary(),
+                          SectionHeader(
+                            title: GochanoLanguage.text(
+                              'Past papers',
+                              'পুরোনো প্রশ্নপত্র',
+                            ),
                           ),
-                        ),
-                        CardGroup(
-                          children: [
-                            for (final row in _rows)
-                              GochanoListRow(
-                                illustration: GochanoArt.featurePlanner,
-                                title: '${row['title'] ?? ''}',
-                                subtitle: '${row['subject'] ?? ''}',
-                                metadata: [
-                                  _dateOf(row),
-                                  GochanoLanguage.text(
-                                    '${row['correctCount'] ?? 0} of ${row['totalQuestions'] ?? 0} correct',
-                                    '${row['totalQuestions'] ?? 0} টির মধ্যে ${row['correctCount'] ?? 0} সঠিক',
+                          CardGroup(
+                            children: [
+                              for (final row in _rows)
+                                GochanoListRow(
+                                  illustration: GochanoArt.featurePlanner,
+                                  title: '${row['title'] ?? ''}',
+                                  subtitle: '${row['subject'] ?? ''}',
+                                  metadata: [
+                                    _dateOf(row),
+                                    GochanoLanguage.text(
+                                      '${row['correctCount'] ?? 0} of ${row['totalQuestions'] ?? 0} correct',
+                                      '${row['totalQuestions'] ?? 0} টির মধ্যে ${row['correctCount'] ?? 0} সঠিক',
+                                    ),
+                                    '${row['timeManagementLabel'] ?? ''}',
+                                  ],
+                                  badge: GochanoBadge(
+                                    label: '${_percentOf(row['percentage'])}%',
+                                    tone: _scoreTone(
+                                      _percentOf(row['percentage']),
+                                    ),
                                   ),
-                                  '${row['timeManagementLabel'] ?? ''}',
-                                ],
-                                badge: GochanoBadge(
-                                  label: '${_percentOf(row['percentage'])}%',
-                                  tone: _scoreTone(
-                                    _percentOf(row['percentage']),
-                                  ),
+                                  menuItems: [
+                                    GochanoMenuAction(
+                                      label: GochanoLanguage.text(
+                                        'Share paper',
+                                        'প্রশ্নপত্র শেয়ার',
+                                      ),
+                                      icon: Icons.share_rounded,
+                                      onSelected: () => unawaited(
+                                        _sharePaper('${row['examId'] ?? ''}'),
+                                      ),
+                                    ),
+                                  ],
+                                  onTap: () => _open(row),
                                 ),
-                                menuItems: [
-                                  GochanoMenuAction(
-                                    label: GochanoLanguage.text(
-                                      'Share paper',
-                                      'প্রশ্নপত্র শেয়ার',
-                                    ),
-                                    icon: Icons.share_rounded,
-                                    onSelected: () => unawaited(
-                                      _sharePaper('${row['examId'] ?? ''}'),
-                                    ),
-                                  ),
-                                ],
-                                onTap: () => _open(row),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+                            ],
+                          ),
+                        ],
+                      ),
+      ),
     );
   }
 

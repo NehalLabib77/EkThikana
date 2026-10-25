@@ -12,9 +12,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/gochano_surfaces.dart';
@@ -121,7 +119,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           ),
         ],
       ),
-      body: _buildBody(colors, type),
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: _buildBody(colors, type),
+      ),
     );
   }
 

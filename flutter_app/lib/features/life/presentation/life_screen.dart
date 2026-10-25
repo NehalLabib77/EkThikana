@@ -8,11 +8,9 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../models/financial_transaction.dart';
@@ -46,50 +44,53 @@ class LifeScreen extends StatelessWidget {
           SizedBox(width: GochanoSpacing.xs),
         ],
       ),
-      body: ListView(
-        padding: GochanoSpacing.scrollBody,
-        children: [
-          const _MonthSummary(),
-          const SizedBox(height: GochanoSpacing.md),
-          _ModuleCard(
-            title: GochanoLanguage.text('Expense', 'খরচ'),
-            description: GochanoLanguage.text(
-              'Daily spending, grocery, Dena/Pawna and monthly overview',
-              'দৈনিক খরচ, বাজার, দেনা/পাওনা ও মাসিক সারাংশ',
+      body: AppPageBackground(
+        gradient: AppGradients.planPage,
+        child: ListView(
+          padding: GochanoSpacing.scrollBody,
+          children: [
+            const _MonthSummary(),
+            const SizedBox(height: GochanoSpacing.md),
+            _ModuleCard(
+              title: GochanoLanguage.text('Expense', 'খরচ'),
+              description: GochanoLanguage.text(
+                'Daily spending, grocery, Dena/Pawna and monthly overview',
+                'দৈনিক খরচ, বাজার, দেনা/পাওনা ও মাসিক সারাংশ',
+              ),
+              illustration: GochanoArt.featureExpense,
+              accent: colors.expense,
+              onTap: () => Navigator.of(
+                context,
+              ).push(GochanoRoute.to(builder: (_) => const ExpenseScreen())),
             ),
-            illustration: GochanoArt.featureExpense,
-            accent: colors.expense,
-            onTap: () => Navigator.of(
-              context,
-            ).push(GochanoRoute.to(builder: (_) => const ExpenseScreen())),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          _ModuleCard(
-            title: GochanoLanguage.text('Medicine', 'ওষুধ'),
-            description: GochanoLanguage.text(
-              'Reminders, doses taken and tracking',
-              'রিমাইন্ডার, ডোজ ও ট্র্যাকিং',
+            const SizedBox(height: GochanoSpacing.sm),
+            _ModuleCard(
+              title: GochanoLanguage.text('Medicine', 'ওষুধ'),
+              description: GochanoLanguage.text(
+                'Reminders, doses taken and tracking',
+                'রিমাইন্ডার, ডোজ ও ট্র্যাকিং',
+              ),
+              illustration: GochanoArt.featureMedicine,
+              accent: colors.medicine,
+              onTap: () => Navigator.of(
+                context,
+              ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
             ),
-            illustration: GochanoArt.featureMedicine,
-            accent: colors.medicine,
-            onTap: () => Navigator.of(
-              context,
-            ).push(GochanoRoute.to(builder: (_) => const MedicineScreen())),
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          _ModuleCard(
-            title: 'CommuteBD',
-            description: GochanoLanguage.text(
-              'Routes and fares across Bangladesh',
-              'বাংলাদেশ জুড়ে রুট ও ভাড়া',
+            const SizedBox(height: GochanoSpacing.sm),
+            _ModuleCard(
+              title: 'CommuteBD',
+              description: GochanoLanguage.text(
+                'Routes and fares across Bangladesh',
+                'বাংলাদেশ জুড়ে রুট ও ভাড়া',
+              ),
+              illustration: GochanoArt.featureCommute,
+              accent: colors.commute,
+              onTap: () => Navigator.of(
+                context,
+              ).push(GochanoRoute.to(builder: (_) => const CommuteScreen())),
             ),
-            illustration: GochanoArt.featureCommute,
-            accent: colors.commute,
-            onTap: () => Navigator.of(
-              context,
-            ).push(GochanoRoute.to(builder: (_) => const CommuteScreen())),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -201,18 +202,30 @@ class _MonthSummaryState extends State<_MonthSummary> {
                                 const SizedBox(height: GochanoSpacing.xs),
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
-                                  child: LinearProgressIndicator(
-                                    value: avail <= 0
-                                        ? 0.0
-                                        : ((avail - (rem ?? 0)) / avail).clamp(
-                                            0.0,
-                                            1.0,
-                                          ),
-                                    minHeight: 5,
-                                    backgroundColor: colors.surfaceVariant,
-                                    color: overspent
-                                        ? colors.error
-                                        : colors.expense,
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween<double>(
+                                      begin: 0.0,
+                                      end: avail <= 0
+                                          ? 0.0
+                                          : ((avail - (rem ?? 0)) / avail).clamp(
+                                              0.0,
+                                              1.0,
+                                            ),
+                                    ),
+                                    duration: AppMotion.duration(
+                                      context,
+                                      AppMotion.progressEmphasis,
+                                    ),
+                                    curve: AppMotion.standard,
+                                    builder: (context, val, _) =>
+                                        LinearProgressIndicator(
+                                      value: val,
+                                      minHeight: 5,
+                                      backgroundColor: colors.surfaceVariant,
+                                      color: overspent
+                                          ? colors.error
+                                          : colors.expense,
+                                    ),
                                   ),
                                 ),
                               ],

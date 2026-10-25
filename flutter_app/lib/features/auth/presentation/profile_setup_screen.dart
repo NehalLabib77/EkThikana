@@ -3,9 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../services/firestore_service.dart';
 import '../../../shared/states/gochano_states.dart';
@@ -141,176 +139,376 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GochanoScaffold(
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  GochanoSpacing.lg,
-                  GochanoSpacing.md,
-                  GochanoSpacing.lg,
-                  GochanoSpacing.lg,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight:
-                        constraints.maxHeight -
-                        GochanoSpacing.md -
-                        GochanoSpacing.lg,
+      padBody: false,
+      body: AppPageBackground(
+        gradient: AppGradients.todayAppBarFor(isDark: isDark),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth <= 340;
+                final horizontalPadding =
+                    isNarrow ? GochanoSpacing.md : GochanoSpacing.lg;
+                final verticalPadding =
+                    isNarrow ? GochanoSpacing.sm : GochanoSpacing.md;
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    verticalPadding,
+                    horizontalPadding,
+                    GochanoSpacing.lg,
                   ),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: GochanoSpacing.xs,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: (constraints.maxHeight -
+                              verticalPadding -
+                              GochanoSpacing.lg)
+                          .clamp(0.0, double.infinity),
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                top: isNarrow ? 0 : GochanoSpacing.xs,
+                                bottom: GochanoSpacing.xs,
+                              ),
+                              child: const LanguageToggle(),
                             ),
-                            child: LanguageToggle(),
                           ),
-                        ),
-                        const SizedBox(height: GochanoSpacing.xl),
-                        Text(
-                          GochanoLanguage.text(
-                            'Complete your profile',
-                            'আপনার প্রোফাইল সম্পূর্ণ করুন',
+                          SizedBox(
+                            height: isNarrow
+                                ? GochanoSpacing.sm
+                                : GochanoSpacing.md,
                           ),
-                          style: type.pageTitle.copyWith(
-                            color: colors.textPrimary,
+                          _ProfileHero(
+                            colors: colors,
+                            type: type,
+                            isDark: isDark,
+                            compact: isNarrow,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: GochanoSpacing.sm),
-                        Text(
-                          GochanoLanguage.text(
-                            'Just one quick step to get started.',
-                            'শুরু করতে শুধু একটি ছোট ধাপ।',
-                          ),
-                          style: type.body.copyWith(
-                            color: colors.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: GochanoSpacing.xl),
-                        AppCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                GochanoLanguage.text('Full name', 'পূর্ণ নাম'),
-                                style: type.cardHeading.copyWith(
-                                  color: colors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: GochanoSpacing.sm),
-                              TextFormField(
-                                controller: _nameController,
-                                textCapitalization: TextCapitalization.words,
-                                textInputAction: TextInputAction.done,
-                                onFieldSubmitted: (_) => _save(),
-                                decoration: InputDecoration(
-                                  hintText: GochanoLanguage.text(
-                                    'e.g. Rahat Hossain',
-                                    'যেমন রাহাত হোসেন',
-                                  ),
-                                ),
-                                validator: (v) {
-                                  if (v == null || v.trim().isEmpty) {
-                                    return GochanoLanguage.text(
-                                      'Please enter your name',
-                                      'আপনার নাম লিখুন',
-                                    );
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: GochanoSpacing.md),
-                        AppCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                GochanoLanguage.text(
-                                  'Account type',
-                                  'অ্যাকাউন্টের ধরন',
-                                ),
-                                style: type.cardHeading.copyWith(
-                                  color: colors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: GochanoSpacing.sm),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.school_outlined,
-                                    color: colors.textSecondary,
-                                    size: GochanoSizes.iconSm,
-                                  ),
-                                  const SizedBox(width: GochanoSpacing.sm),
-                                  Text(
-                                    GochanoLanguage.text(
-                                      'Student',
-                                      'শিক্ষার্থী',
-                                    ),
-                                    style: type.body.copyWith(
-                                      color: colors.textPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        if (_errorText != null) ...[
+                          const Spacer(),
                           AppCard(
-                            accent: colors.error,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Icon(Icons.error_outline, color: colors.error),
-                                const SizedBox(width: GochanoSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    _errorText!,
-                                    style: type.body.copyWith(
-                                      color: colors.textPrimary,
+                                Text(
+                                  GochanoLanguage.text('Full name', 'পূর্ণ নাম'),
+                                  style: type.cardHeading.copyWith(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: GochanoSpacing.sm),
+                                TextFormField(
+                                  controller: _nameController,
+                                  enabled: !_saving,
+                                  textCapitalization: TextCapitalization.words,
+                                  textInputAction: TextInputAction.done,
+                                  onFieldSubmitted: (_) => _save(),
+                                  style: TextStyle(
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: colors.textPrimary,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: GochanoLanguage.text(
+                                      'e.g. Rahat Hossain',
+                                      'যেমন রাহাত হোসেন',
+                                    ),
+                                    hintStyle: TextStyle(
+                                      color: colors.textSecondary.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                                    prefixIcon: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Icon(
+                                        Icons.person_rounded,
+                                        color: colors.brand,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    prefixIconConstraints:
+                                        const BoxConstraints(
+                                      minWidth: 44,
+                                      minHeight: 44,
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? colors.surfaceVariant
+                                        : colors.background,
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: GochanoSpacing.md,
+                                      vertical: 14,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.border,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.border,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.brand,
+                                        width: 1.8,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.error,
+                                        width: 1.4,
+                                      ),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.error,
+                                        width: 1.8,
+                                      ),
                                     ),
                                   ),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return GochanoLanguage.text(
+                                        'Please enter your name',
+                                        'আপনার নাম লিখুন',
+                                      );
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: GochanoSpacing.md),
-                        ],
-                        PrimaryButton(
-                          label: GochanoLanguage.text(
-                            'Continue',
-                            'চালিয়ে যান',
+                          AppCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  GochanoLanguage.text(
+                                    'Account type',
+                                    'অ্যাকাউন্টের ধরন',
+                                  ),
+                                  style: type.cardHeading.copyWith(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: GochanoSpacing.sm),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? colors.surfaceVariant
+                                            : colors.brandSoft,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.school_outlined,
+                                        color: colors.brand,
+                                        size: GochanoSizes.iconSm,
+                                      ),
+                                    ),
+                                    const SizedBox(width: GochanoSpacing.sm),
+                                    Expanded(
+                                      child: Text(
+                                        GochanoLanguage.text(
+                                          'Student',
+                                          'শিক্ষার্থী',
+                                        ),
+                                        style: type.body.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: colors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? colors.surfaceVariant
+                                            : colors.brandSoft,
+                                        borderRadius: GochanoRadius.smAll,
+                                        border: Border.all(
+                                          color: colors.brand.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        GochanoLanguage.text('Default', 'ডিফল্ট'),
+                                        style: type.caption.copyWith(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: colors.brand,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          icon: Icons.arrow_forward_rounded,
-                          busy: _saving,
-                          onPressed: _save,
-                        ),
-                        const SizedBox(height: GochanoSpacing.lg),
-                      ],
+                          const Spacer(),
+                          if (_errorText != null) ...[
+                            AppCard(
+                              accent: colors.error,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: colors.error,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: GochanoSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      _errorText!,
+                                      style: type.body.copyWith(
+                                        color: colors.textPrimary,
+                                        fontSize: 13.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: GochanoSpacing.md),
+                          ],
+                          PrimaryButton(
+                            label: GochanoLanguage.text(
+                              'Continue',
+                              'চালিয়ে যান',
+                            ),
+                            icon: Icons.arrow_forward_rounded,
+                            busy: _saving,
+                            busyLabel: GochanoLanguage.text(
+                              'Saving profile…',
+                              'প্রোফাইল সেভ হচ্ছে…',
+                            ),
+                            onPressed: _save,
+                          ),
+                          const SizedBox(height: GochanoSpacing.lg),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({
+    required this.colors,
+    required this.type,
+    required this.isDark,
+    this.compact = false,
+  });
+
+  final GochanoColors colors;
+  final GochanoTypography type;
+  final bool isDark;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarSize = compact ? 64.0 : 76.0;
+    final iconSize = compact ? 32.0 : 40.0;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: avatarSize,
+          height: avatarSize,
+          decoration: BoxDecoration(
+            color: isDark ? colors.surfaceVariant : colors.brandSoft,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: colors.brand.withValues(alpha: isDark ? 0.35 : 0.18),
+              width: 2.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.brand.withValues(alpha: isDark ? 0.25 : 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              Icons.person_rounded,
+              size: iconSize,
+              color: colors.brand,
+            ),
+          ),
+        ),
+        SizedBox(height: compact ? GochanoSpacing.sm : GochanoSpacing.md),
+        Text(
+          GochanoLanguage.text(
+            'Complete your profile',
+            'আপনার প্রোফাইল সম্পূর্ণ করুন',
+          ),
+          style: (compact ? type.cardHeading : type.pageTitle).copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: GochanoSpacing.xs),
+        Text(
+          GochanoLanguage.text(
+            'Just one quick step to get started.',
+            'শুরু করতে শুধু একটি ছোট ধাপ।',
+          ),
+          style: type.body.copyWith(
+            color: colors.textSecondary,
+            fontSize: compact ? 13.0 : 14.5,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

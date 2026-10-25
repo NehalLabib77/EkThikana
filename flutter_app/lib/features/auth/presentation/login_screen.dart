@@ -29,9 +29,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../services/firestore_service.dart';
@@ -189,10 +187,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       final hasProfile = await FirestoreService.hasProfile();
       if (!mounted) return;
+      String shellDisplayName = phone;
+      if (hasProfile) {
+        final profile = await FirestoreService.profile();
+        final name = profile['displayName']?.toString().trim();
+        if (name != null && name.isNotEmpty) shellDisplayName = name;
+      }
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => hasProfile
-              ? GochanoShell(role: 'student', displayName: phone)
+              ? GochanoShell(role: 'student', displayName: shellDisplayName)
               : ProfileSetupScreen(phone: phone),
         ),
         (_) => false,
@@ -327,168 +332,322 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
+    final isDark = context.isDark;
 
     return GochanoScaffold(
+      padBody: false,
       // No app bar — this is the first impression of the product; the
       // brand plate IS the header.
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  GochanoSpacing.lg,
-                  GochanoSpacing.md,
-                  GochanoSpacing.lg,
-                  GochanoSpacing.lg,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight:
-                        constraints.maxHeight -
-                        GochanoSpacing.md -
-                        GochanoSpacing.lg,
+      body: AppPageBackground(
+        gradient: AppGradients.todayAppBarFor(isDark: isDark),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth <= 340;
+                final horizontalPadding = isNarrow
+                    ? GochanoSpacing.md
+                    : GochanoSpacing.lg;
+                final verticalPadding = isNarrow
+                    ? GochanoSpacing.sm
+                    : GochanoSpacing.md;
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    verticalPadding,
+                    horizontalPadding,
+                    GochanoSpacing.lg,
                   ),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: GochanoSpacing.xs,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: (constraints.maxHeight -
+                              verticalPadding -
+                              GochanoSpacing.lg)
+                          .clamp(0.0, double.infinity),
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                top: GochanoSpacing.xs,
+                              ),
+                              child: LanguageToggle(),
                             ),
-                            child: LanguageToggle(),
                           ),
-                        ),
-                        const SizedBox(height: GochanoSpacing.lg),
-                        if (_acknowledgementMessage != null) ...[
-                          AppCard(
-                            accent: colors.brand,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.verified_user_outlined,
-                                  color: colors.brand,
-                                ),
-                                const SizedBox(width: GochanoSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    _acknowledgementMessage!,
-                                    style: type.body.copyWith(
-                                      color: colors.textPrimary,
+                          SizedBox(
+                            height: isNarrow
+                                ? GochanoSpacing.md
+                                : GochanoSpacing.lg,
+                          ),
+                          if (_acknowledgementMessage != null) ...[
+                            AppCard(
+                              accent: colors.brand,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.verified_user_outlined,
+                                    color: colors.brand,
+                                  ),
+                                  const SizedBox(width: GochanoSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      _acknowledgementMessage!,
+                                      style: type.body.copyWith(
+                                        color: colors.textPrimary,
+                                      ),
                                     ),
                                   ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: GochanoSpacing.md),
+                          ],
+                          // Brand plate + title sit a little above the
+                          // vertical centre: the Spacer pushes the form
+                          // down so the eye lands on the logo first,
+                          // then falls naturally into the phone field.
+                          _LoginBrand(
+                            colors: colors,
+                            type: type,
+                            isDark: isDark,
+                            compact: isNarrow,
+                          ),
+                          const Spacer(),
+                          AppCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      GochanoLanguage.text(
+                                        'Mobile number',
+                                        'মোবাইল নম্বর',
+                                      ),
+                                      style: type.cardHeading.copyWith(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.textPrimary,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? colors.surfaceVariant
+                                            : colors.brandSoft,
+                                        borderRadius: GochanoRadius.smAll,
+                                      ),
+                                      child: Text(
+                                        '+880',
+                                        style: type.caption.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: colors.brand,
+                                          fontSize: 11.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: GochanoSpacing.xs),
+                                TextFormField(
+                                  controller: _phoneController,
+                                  enabled: !_busy,
+                                  keyboardType: TextInputType.phone,
+                                  style: TextStyle(
+                                    fontFamily: '.SF Pro Text',
+                                    fontFamilyFallback: const [
+                                      'Roboto',
+                                      'sans-serif',
+                                    ],
+                                    letterSpacing: 1.5,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: colors.textPrimary,
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(11),
+                                  ],
+                                  decoration: InputDecoration(
+                                    hintText: '01XXXXXXXXX',
+                                    hintStyle: TextStyle(
+                                      color: colors.textSecondary.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      letterSpacing: 1.5,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                                    prefixIcon: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Icon(
+                                        Icons.phone_iphone_rounded,
+                                        color: colors.brand,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    prefixIconConstraints:
+                                        const BoxConstraints(
+                                      minWidth: 44,
+                                      minHeight: 44,
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? colors.surfaceVariant
+                                        : colors.background,
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: GochanoSpacing.md,
+                                      vertical: 14,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.border,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.border,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.brand,
+                                        width: 1.8,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.error,
+                                        width: 1.4,
+                                      ),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderRadius: GochanoRadius.mdAll,
+                                      borderSide: BorderSide(
+                                        color: colors.error,
+                                        width: 1.8,
+                                      ),
+                                    ),
+                                  ),
+                                  validator: _validatePhone,
+                                  onFieldSubmitted: (_) => _continue(),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: GochanoSpacing.md),
-                        ],
-                        // Brand plate + title sit a little above the
-                        // vertical centre: the Spacer pushes the form
-                        // down so the eye lands on the logo first,
-                        // then falls naturally into the phone field.
-                        _LoginBrand(colors: colors, type: type),
-                        const Spacer(),
-                        AppCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          const SizedBox(height: GochanoSpacing.sm),
+                          // Clear, accessible Robi (018) and Cirkle (016) carrier badges
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: GochanoSpacing.xs,
+                            runSpacing: GochanoSpacing.xs,
                             children: [
-                              Text(
-                                GochanoLanguage.text(
-                                  'Mobile number',
-                                  'মোবাইল নম্বর',
-                                ),
-                                style: type.cardHeading.copyWith(
-                                  color: colors.textPrimary,
-                                ),
+                              _CarrierBadge(
+                                carrier: 'Robi (018)',
+                                carrierBn: 'রবি (০১৮)',
+                                accentColor: AppGradients.roseAccent,
+                                backgroundColor: isDark
+                                    ? AppGradients.roseAccent.withValues(
+                                        alpha: 0.15,
+                                      )
+                                    : AppGradients.roseAccent.withValues(
+                                        alpha: 0.08,
+                                      ),
+                                borderColor: isDark
+                                    ? AppGradients.roseAccent.withValues(
+                                        alpha: 0.35,
+                                      )
+                                    : AppGradients.roseAccent.withValues(
+                                        alpha: 0.25,
+                                      ),
                               ),
-                              const SizedBox(height: GochanoSpacing.xs),
-                              TextFormField(
-                                controller: _phoneController,
-                                enabled: !_busy,
-                                keyboardType: TextInputType.phone,
-                                style: const TextStyle(
-                                  fontFamily: '.SF Pro Text',
-                                  fontFamilyFallback: ['Roboto', 'sans-serif'],
-                                  letterSpacing: 1.2,
-                                  fontSize: 16,
-                                ),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(11),
-                                ],
-                                decoration: InputDecoration(
-                                  hintText: '01XXXXXXXXX',
-                                  prefixIcon: Icon(
-                                    Icons.phone_outlined,
-                                    color: colors.brand,
-                                  ),
-                                  filled: true,
-                                  fillColor: colors.surfaceVariant,
-                                  border: const OutlineInputBorder(
-                                    borderRadius: GochanoRadius.mdAll,
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: GochanoRadius.mdAll,
-                                    borderSide: BorderSide(
-                                      color: colors.brand,
-                                      width: 1.4,
-                                    ),
-                                  ),
-                                ),
-                                validator: _validatePhone,
-                                onFieldSubmitted: (_) => _continue(),
+                              _CarrierBadge(
+                                carrier: 'Cirkle (016)',
+                                carrierBn: 'সার্কেল (০১৬)',
+                                accentColor: isDark
+                                    ? AppGradients.violetLight
+                                    : AppGradients.violetAccent,
+                                backgroundColor: isDark
+                                    ? AppGradients.violetAccent.withValues(
+                                        alpha: 0.15,
+                                      )
+                                    : AppGradients.violetSoft,
+                                borderColor: isDark
+                                    ? AppGradients.violetAccent.withValues(
+                                        alpha: 0.35,
+                                      )
+                                    : AppGradients.violetAccent.withValues(
+                                        alpha: 0.25,
+                                      ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: GochanoSpacing.md),
-                        Text(
-                          GochanoLanguage.text(
-                            'Daily charge 2.78 BDT (incl. VAT, SD & SC). '
-                                'Robi (018) and Cirkle (016) only.',
-                            'প্রতিদিন ২.৭৮ টাকা (VAT, SD ও SC সহ)। '
-                                'শুধু Robi (০১৮) ও Cirkle (০১৬)।',
+                          const SizedBox(height: GochanoSpacing.xs),
+                          Text(
+                            GochanoLanguage.text(
+                              'Daily charge 2.78 BDT (incl. VAT, SD & SC)',
+                              'প্রতিদিন ২.৭৮ টাকা (ভ্যাট, এসডি ও এসসি সহ)',
+                            ),
+                            style: type.caption.copyWith(
+                              color: colors.textSecondary,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          style: type.caption.copyWith(
-                            color: colors.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: GochanoSpacing.lg),
-                        PrimaryButton(
-                          label: _busy
-                              ? (_busyMessage ??
-                                    GochanoLanguage.text(
-                                      'Please wait…',
-                                      'অপেক্ষা করুন…',
-                                    ))
-                              : GochanoLanguage.text('Continue', 'চালিয়ে যান'),
-                          onPressed: _busy ? null : _continue,
-                          icon: Icons.arrow_forward_rounded,
-                        ),
-                        if (_developerLoginEnabled) ...[
                           const SizedBox(height: GochanoSpacing.md),
-                          const Divider(),
-                          const SizedBox(height: GochanoSpacing.sm),
-                          SecondaryButton(
-                            label: 'Developer Login',
-                            onPressed: _busy ? null : _developerLogin,
-                            icon: Icons.developer_mode_outlined,
+                          PrimaryButton(
+                            label: GochanoLanguage.text(
+                              'Continue',
+                              'চালিয়ে যান',
+                            ),
+                            busy: _busy,
+                            busyLabel: _busyMessage ??
+                                GochanoLanguage.text(
+                                  'Please wait…',
+                                  'অপেক্ষা করুন…',
+                                ),
+                            onPressed: _busy ? null : _continue,
+                            icon: Icons.arrow_forward_rounded,
                           ),
+                          if (_developerLoginEnabled) ...[
+                            const SizedBox(height: GochanoSpacing.md),
+                            const Divider(),
+                            const SizedBox(height: GochanoSpacing.sm),
+                            SecondaryButton(
+                              label: 'Developer Login',
+                              onPressed: _busy ? null : _developerLogin,
+                              icon: Icons.developer_mode_outlined,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -518,50 +677,138 @@ String authErrorMessage(Object error) => friendlyErrorMessage(error);
 /// as its own widget so this header can be reused by any "first-run"
 /// or "logged-out" experience that wants the same hero block.
 class _LoginBrand extends StatelessWidget {
-  const _LoginBrand({required this.colors, required this.type});
+  const _LoginBrand({
+    required this.colors,
+    required this.type,
+    required this.isDark,
+    this.compact = false,
+  });
 
   final GochanoColors colors;
   final GochanoTypography type;
+  final bool isDark;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final logoSize = compact ? 56.0 : 68.0;
+    final containerSize = compact ? 80.0 : 92.0;
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 100,
-          height: 100,
+          width: containerSize,
+          height: containerSize,
           decoration: BoxDecoration(
-            color: colors.brandSoft,
+            color: isDark
+                ? colors.brand.withValues(alpha: 0.12)
+                : colors.brandSoft,
             borderRadius: GochanoRadius.xlAll,
-            border: Border.all(color: colors.border),
+            border: Border.all(
+              color: isDark
+                  ? colors.brand.withValues(alpha: 0.25)
+                  : colors.border,
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.brand.withValues(alpha: isDark ? 0.2 : 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           alignment: Alignment.center,
           child: Image.asset(
             LoginScreen._kBrandAsset,
-            width: 72,
-            height: 72,
+            width: logoSize,
+            height: logoSize,
             fit: BoxFit.contain,
             semanticLabel: 'Gochano logo',
-            errorBuilder: (_, _, _) =>
-                Icon(Icons.apps_rounded, size: 48, color: colors.brand),
+            errorBuilder: (_, _, _) => Icon(
+              Icons.school_rounded,
+              size: compact ? 36 : 44,
+              color: colors.brand,
+            ),
           ),
         ),
-        const SizedBox(height: GochanoSpacing.md),
+        SizedBox(height: compact ? GochanoSpacing.xs + 2 : GochanoSpacing.sm),
         Text(
           'Gochano',
-          style: type.pageTitle.copyWith(color: colors.textPrimary),
+          style: (compact ? type.sectionHeading : type.pageTitle).copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: GochanoSpacing.xs),
+        const SizedBox(height: 2),
         Text(
           GochanoLanguage.text(
             'One place for everything',
             'এক জায়গায় সব কিছু',
           ),
-          style: type.bodySecondary.copyWith(color: colors.textSecondary),
+          style: type.bodySecondary.copyWith(
+            color: colors.textSecondary,
+            fontSize: compact ? 12.5 : 14.0,
+            height: 1.3,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+}
+
+class _CarrierBadge extends StatelessWidget {
+  const _CarrierBadge({
+    required this.carrier,
+    required this.carrierBn,
+    required this.accentColor,
+    required this.backgroundColor,
+    required this.borderColor,
+  });
+
+  final String carrier;
+  final String carrierBn;
+  final Color accentColor;
+  final Color backgroundColor;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = GochanoLanguage.text(carrier, carrierBn);
+    final type = context.type;
+
+    return Semantics(
+      label: GochanoLanguage.text(
+        'Supported carrier: $carrier',
+        'সমর্থিত অপারেটর: $carrierBn',
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: const BorderRadius.all(Radius.circular(999)),
+          border: Border.all(color: borderColor, width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sim_card_outlined, size: 13, color: accentColor),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: type.caption.copyWith(
+                fontWeight: FontWeight.w600,
+                color: accentColor,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

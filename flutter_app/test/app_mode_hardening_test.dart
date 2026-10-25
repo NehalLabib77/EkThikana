@@ -329,6 +329,12 @@ void main() {
         final isDiscovered = await GochanoAppModePreferences.isDiscovered();
         expect(isDiscovered, isTrue);
 
+        // Clear the acknowledged snackbar before testing that a new shell does not trigger it
+        ScaffoldMessenger.of(
+          tester.element(find.byType(GochanoShell)),
+        ).clearSnackBars();
+        await tester.pumpAndSettle();
+
         // Rebuilding the shell should not show the snackbar again
         await tester.pumpWidget(_buildTestShell());
         await tester.pumpAndSettle();

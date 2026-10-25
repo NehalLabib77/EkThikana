@@ -20,11 +20,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_config.dart';
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/services/telecom_auth_service.dart';
 import '../../../core/settings/gochano_appearance.dart';
@@ -64,52 +62,55 @@ class ProfileScreen extends StatelessWidget {
             title: GochanoLanguage.text('Profile', 'প্রোফাইল'),
             automaticallyImplyLeading: Navigator.of(context).canPop(),
           ),
-          body: ListView(
-            padding: GochanoSpacing.scrollBody,
-            children: [
-              _IdentityHeader(),
-              _RoleBadge(role: role),
+          body: AppPageBackground(
+            gradient: AppGradients.youPage,
+            child: ListView(
+              padding: GochanoSpacing.scrollBody,
+              children: [
+                _IdentityHeader(),
+                _RoleBadge(role: role),
 
-              const SizedBox(height: GochanoSpacing.sm),
-              const _SyncStatusCard(),
-
-              const SizedBox(height: GochanoSpacing.sm),
-              _SettingsCard(isStudent: role == 'student'),
-
-              if (role == 'student') ...[
                 const SizedBox(height: GochanoSpacing.sm),
-                const LearningBrainCard(),
+                const _SyncStatusCard(),
+
                 const SizedBox(height: GochanoSpacing.sm),
-                const AcademicHealthCard(),
-              ],
+                _SettingsCard(isStudent: role == 'student'),
 
-              if (role == 'admin') ...[
-                const SizedBox(height: GochanoSpacing.sm),
-                const _AdminAnalyticsCard(),
-              ],
+                if (role == 'student') ...[
+                  const SizedBox(height: GochanoSpacing.sm),
+                  const LearningBrainCard(),
+                  const SizedBox(height: GochanoSpacing.sm),
+                  const AcademicHealthCard(),
+                ],
 
-              const SizedBox(height: GochanoSpacing.md),
-              _DangerCard(),
+                if (role == 'admin') ...[
+                  const SizedBox(height: GochanoSpacing.sm),
+                  const _AdminAnalyticsCard(),
+                ],
 
-              const SizedBox(height: GochanoSpacing.md),
-              _AboutCard(),
+                const SizedBox(height: GochanoSpacing.md),
+                _DangerCard(),
 
-              const SizedBox(height: GochanoSpacing.lg),
-              PrimaryButton(
-                label: GochanoLanguage.text('Logout', 'লগ আউট'),
-                icon: Icons.logout_rounded,
-                onPressed: () => _logout(context),
-              ),
-              const SizedBox(height: GochanoSpacing.sm),
-              SecondaryButton(
-                label: GochanoLanguage.text(
-                  'Unsubscribe',
-                  'আনসাবস্ক্রাইব করুন',
+                const SizedBox(height: GochanoSpacing.md),
+                _AboutCard(),
+
+                const SizedBox(height: GochanoSpacing.lg),
+                PrimaryButton(
+                  label: GochanoLanguage.text('Logout', 'লগ আউট'),
+                  icon: Icons.logout_rounded,
+                  onPressed: () => _logout(context),
                 ),
-                icon: Icons.phonelink_erase_rounded,
-                onPressed: () => _unsubscribe(context),
-              ),
-            ],
+                const SizedBox(height: GochanoSpacing.sm),
+                SecondaryButton(
+                  label: GochanoLanguage.text(
+                    'Unsubscribe',
+                    'আনসাবস্ক্রাইব করুন',
+                  ),
+                  icon: Icons.phonelink_erase_rounded,
+                  onPressed: () => _unsubscribe(context),
+                ),
+              ],
+            ),
           ),
         );
       },

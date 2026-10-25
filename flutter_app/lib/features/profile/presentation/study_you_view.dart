@@ -144,9 +144,15 @@ class _StudyYouViewState extends State<StudyYouView> {
     unawaited(_loadOffline());
 
     try {
-      final healthFuture = ApiService.getAcademicHealth().catchError((_) => <String, dynamic>{});
-      final achievementsFuture = ApiService.zikuAchievements().catchError((_) => <String, dynamic>{});
-      final aiFuture = ApiService.getAiUsage().catchError((_) => <String, dynamic>{});
+      final healthFuture = ApiService.getAcademicHealth().catchError(
+        (_) => <String, dynamic>{},
+      );
+      final achievementsFuture = ApiService.zikuAchievements().catchError(
+        (_) => <String, dynamic>{},
+      );
+      final aiFuture = ApiService.getAiUsage().catchError(
+        (_) => <String, dynamic>{},
+      );
 
       final results = await Future.wait([
         healthFuture,
@@ -168,115 +174,158 @@ class _StudyYouViewState extends State<StudyYouView> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isDark = context.isDark;
 
     return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        top: true,
-        bottom: false,
-        child: Column(
-          children: [
-            if (widget.showHeader)
-              const AppStudyHeader(
-                showSearch: false, // Search hidden on You
-                showNotifications: true,
-              ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _loadAll,
-                color: colors.brand,
-                child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                  stream: widget.mockProfileData != null
-                      ? null
-                      : FirestoreService.profileStream(),
-                  builder: (context, snapshot) {
-                    final profileData = widget.mockProfileData ??
-                        snapshot.data?.data() ??
-                        <String, dynamic>{};
-
-                    return CustomScrollView(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 12),
-                                // 1. Compact Profile Identity Card
-                                _ProfileIdentityCard(
-                                  profileData: profileData,
-                                  role: widget.role,
-                                  onEdit: widget.onOpenEditProfile ??
-                                      () => _editProfile(context, profileData),
-                                ),
-                                const SizedBox(height: 14),
-
-                                // 2. Personal Study Snapshot
-                                _PersonalStudySnapshot(
-                                  profileData: profileData,
-                                  healthData: _healthData,
-                                ),
-                                const SizedBox(height: 14),
-
-                                // 3. Academic Profile & Target Exam
-                                _AcademicProfileSection(
-                                  profileData: profileData,
-                                  onOpenExamPlan: widget.onOpenExamPlan ??
-                                      () => Navigator.of(context).push(
-                                            GochanoRoute.to(
-                                              builder: (_) => const ExamPlanScreen(),
-                                            ),
-                                          ),
-                                ),
-                                const SizedBox(height: 14),
-
-                                // 4. Achievements & Progress
-                                _AchievementsSection(
-                                  achievementsData: _achievementsData,
-                                ),
-                                const SizedBox(height: 14),
-
-                                // 5. Download Center
-                                _DownloadCenterSection(
-                                  entries: _offlineEntries ?? [],
-                                  onRefresh: _loadAll,
-                                  onManage: widget.onManageDownloads,
-                                ),
-                                const SizedBox(height: 14),
-
-                                // 6. Preferences & Settings
-                                _GroupedSettingsSection(
-                                  aiUsage: _aiUsageData,
-                                  onRefreshAi: _loadAll,
-                                ),
-                                const SizedBox(height: 14),
-
-                                // 7. Help & Support
-                                const _HelpSupportSection(),
-                                const SizedBox(height: 14),
-
-                                // 8. Account Actions
-                                _AccountActionsSection(
-                                  onLogout: widget.onLogout ?? () => _logout(context),
-                                  onDeleteAccount: widget.onDeleteAccount ??
-                                      () => _deleteAccount(context),
-                                ),
-                                const SizedBox(height: 36),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+      backgroundColor: isDark ? colors.background : const Color(0xFFF7F8FA),
+      body: Stack(
+        children: [
+          // Sky-blue gradient top wash (light mode only)
+          if (!isDark)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 300,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFE0F2FE), Color(0xFFF7F8FA)],
+                    stops: [0.0, 1.0],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+
+          SafeArea(
+            top: true,
+            bottom: false,
+            child: Column(
+              children: [
+                    if (widget.showHeader)
+                      const AppStudyHeader(
+                        showSearch: false, // Search hidden on You
+                        showNotifications: true,
+                      ),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _loadAll,
+                        color: colors.brand,
+                        child:
+                            StreamBuilder<
+                              DocumentSnapshot<Map<String, dynamic>>
+                            >(
+                              stream: widget.mockProfileData != null
+                                  ? null
+                                  : FirestoreService.profileStream(),
+                              builder: (context, snapshot) {
+                                final profileData =
+                                    widget.mockProfileData ??
+                                    snapshot.data?.data() ??
+                                    <String, dynamic>{};
+
+                                return CustomScrollView(
+                                  controller: _scrollController,
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  slivers: [
+                                    SliverToBoxAdapter(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16.0,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const SizedBox(height: 12),
+                                            // 1. Compact Profile Identity Card
+                                            _ProfileIdentityCard(
+                                              profileData: profileData,
+                                              role: widget.role,
+                                              onEdit:
+                                                  widget.onOpenEditProfile ??
+                                                  () => _editProfile(
+                                                    context,
+                                                    profileData,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 14),
+
+                                            // 2. Personal Study Snapshot
+                                            _PersonalStudySnapshot(
+                                              profileData: profileData,
+                                              healthData: _healthData,
+                                            ),
+                                            const SizedBox(height: 14),
+
+                                            // 3. Academic Profile & Target Exam
+                                            _AcademicProfileSection(
+                                              profileData: profileData,
+                                              onOpenExamPlan:
+                                                  widget.onOpenExamPlan ??
+                                                  () => Navigator.of(context).push(
+                                                    GochanoRoute.to(
+                                                      builder: (_) =>
+                                                          const ExamPlanScreen(),
+                                                    ),
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 14),
+
+                                            // 4. Achievements & Progress
+                                            _AchievementsSection(
+                                              achievementsData:
+                                                  _achievementsData,
+                                            ),
+                                            const SizedBox(height: 14),
+
+                                            // 5. Download Center
+                                            _DownloadCenterSection(
+                                              entries: _offlineEntries ?? [],
+                                              onRefresh: _loadAll,
+                                              onManage:
+                                                  widget.onManageDownloads,
+                                            ),
+                                            const SizedBox(height: 14),
+
+                                            // 6. Preferences & Settings
+                                            _GroupedSettingsSection(
+                                              aiUsage: _aiUsageData,
+                                              onRefreshAi: _loadAll,
+                                            ),
+                                            const SizedBox(height: 14),
+
+                                            // 7. Help & Support
+                                            const _HelpSupportSection(),
+                                            const SizedBox(height: 14),
+
+                                            // 8. Account Actions
+                                            _AccountActionsSection(
+                                              onLogout:
+                                                  widget.onLogout ??
+                                                  () => _logout(context),
+                                              onDeleteAccount:
+                                                  widget.onDeleteAccount ??
+                                                  () => _deleteAccount(context),
+                                            ),
+                                            const SizedBox(height: 36),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
       ),
     );
   }
@@ -302,28 +351,50 @@ class _ProfileIdentityCard extends StatelessWidget {
     final colors = context.colors;
     final isDark = context.isDark;
 
-    final name = (profileData['displayName'] ?? profileData['name'])?.toString().trim() ?? '';
+    final name =
+        (profileData['displayName'] ?? profileData['name'])
+            ?.toString()
+            .trim() ??
+        '';
     final email = profileData['email']?.toString().trim() ?? '';
     final phone = profileData['phone']?.toString().trim() ?? '';
-    final institution = (profileData['institution'] ?? profileData['university'])?.toString().trim() ?? '';
+    final institution =
+        (profileData['institution'] ?? profileData['university'])
+            ?.toString()
+            .trim() ??
+        '';
     final department = profileData['department']?.toString().trim() ?? '';
     final photoUrl = profileData['photoURL']?.toString().trim() ?? '';
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
+        gradient: isDark
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFEFF6FF), // Blue 50
+                  Color(0xFFE0F2FE), // Sky 100
+                  Color(0xFFF5F3FF), // Purple 50
+                ],
+                stops: [0.0, 0.5, 1.0],
+              ),
+        color: isDark ? colors.surface : null,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colors.border.withValues(alpha: isDark ? 0.2 : 0.6),
+          color: isDark
+              ? colors.border.withValues(alpha: 0.2)
+              : const Color(0xFFBFDBFE),
           width: 1,
         ),
         boxShadow: isDark
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
       ),
@@ -406,7 +477,10 @@ class _ProfileIdentityCard extends StatelessWidget {
                       children: [
                         Text(
                           name.isEmpty
-                              ? GochanoLanguage.text('Your Account', 'আপনার অ্যাকাউন্ট')
+                              ? GochanoLanguage.text(
+                                  'Your Account',
+                                  'আপনার অ্যাকাউন্ট',
+                                )
                               : name,
                           style: context.type.body.copyWith(
                             fontWeight: FontWeight.w800,
@@ -416,7 +490,10 @@ class _ProfileIdentityCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.brand.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(10),
@@ -438,21 +515,28 @@ class _ProfileIdentityCard extends StatelessWidget {
                     if (email.isNotEmpty)
                       Text(
                         email,
-                        style: context.type.caption.copyWith(color: colors.textSecondary),
+                        style: context.type.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     if (phone.isNotEmpty)
                       Text(
                         phone,
-                        style: context.type.caption.copyWith(color: colors.textSecondary),
+                        style: context.type.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     if (institution.isNotEmpty || department.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
-                        [institution, department].where((e) => e.isNotEmpty).join(' · '),
+                        [
+                          institution,
+                          department,
+                        ].where((e) => e.isNotEmpty).join(' · '),
                         style: context.type.caption.copyWith(
                           color: colors.textTertiary,
                           fontSize: 11,
@@ -475,8 +559,13 @@ class _ProfileIdentityCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 44),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 side: BorderSide(
                   color: colors.brand.withValues(alpha: 0.35),
                   width: 1,
@@ -529,9 +618,17 @@ class _ProfileIdentityCard extends StatelessWidget {
   }
 
   String _getInitials(String str) {
-    final parts = str.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '';
-    if (parts.length == 1) return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+    final parts = str
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return '';
+    }
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+    }
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 }
@@ -541,10 +638,7 @@ class _ProfileIdentityCard extends StatelessWidget {
 // ============================================================================
 
 class _PersonalStudySnapshot extends StatelessWidget {
-  const _PersonalStudySnapshot({
-    required this.profileData,
-    this.healthData,
-  });
+  const _PersonalStudySnapshot({required this.profileData, this.healthData});
 
   final Map<String, dynamic> profileData;
   final Map<String, dynamic>? healthData;
@@ -554,11 +648,13 @@ class _PersonalStudySnapshot extends StatelessWidget {
     final colors = context.colors;
     final isDark = context.isDark;
 
-    final streak = (healthData?['streak'] as num?)?.toInt() ??
+    final streak =
+        (healthData?['streak'] as num?)?.toInt() ??
         (profileData['studyStreak'] as num?)?.toInt() ??
         0;
     final score = (healthData?['score'] as num?)?.toInt() ?? 78;
-    final tasksDone = (profileData['completedTasksCount'] as num?)?.toInt() ?? 12;
+    final tasksDone =
+        (profileData['completedTasksCount'] as num?)?.toInt() ?? 12;
 
     return Container(
       decoration: BoxDecoration(
@@ -578,7 +674,10 @@ class _PersonalStudySnapshot extends StatelessWidget {
               Icon(Icons.insights_rounded, size: 18, color: colors.study),
               Expanded(
                 child: Text(
-                  GochanoLanguage.text('Personal Study Snapshot', 'ব্যক্তিগত পড়ার পরিসংখ্যান'),
+                  GochanoLanguage.text(
+                    'Personal Study Snapshot',
+                    'ব্যক্তিগত পড়ার পরিসংখ্যান',
+                  ),
                   style: context.type.body.copyWith(
                     fontWeight: FontWeight.w800,
                     fontSize: 13.5,
@@ -604,7 +703,11 @@ class _PersonalStudySnapshot extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 2),
-                    Icon(Icons.chevron_right_rounded, size: 16, color: colors.brand),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: colors.brand,
+                    ),
                   ],
                 ),
               ),
@@ -617,7 +720,10 @@ class _PersonalStudySnapshot extends StatelessWidget {
                 child: _MetricPod(
                   icon: Icons.local_fire_department_rounded,
                   iconColor: const Color(0xFFF97316),
-                  label: GochanoLanguage.text('Study Streak', 'পড়ার ধারাবাহিকতা'),
+                  label: GochanoLanguage.text(
+                    'Study Streak',
+                    'পড়ার ধারাবাহিকতা',
+                  ),
                   value: GochanoLanguage.text('$streak Days', '$streak দিন'),
                 ),
               ),
@@ -626,7 +732,10 @@ class _PersonalStudySnapshot extends StatelessWidget {
                 child: _MetricPod(
                   icon: Icons.favorite_rounded,
                   iconColor: const Color(0xFF10B981),
-                  label: GochanoLanguage.text('Academic Health', 'একাডেমিক হেলথ'),
+                  label: GochanoLanguage.text(
+                    'Academic Health',
+                    'একাডেমিক হেলথ',
+                  ),
                   value: '$score / 100',
                 ),
               ),
@@ -672,10 +781,7 @@ class _MetricPod extends StatelessWidget {
             ? colors.surfaceVariant
             : iconColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: iconColor.withValues(alpha: 0.15),
-          width: 1,
-        ),
+        border: Border.all(color: iconColor.withValues(alpha: 0.15), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,13 +832,16 @@ class _AcademicProfileSection extends StatelessWidget {
     final colors = context.colors;
     final isDark = context.isDark;
 
-    final targetExam = profileData['targetExam']?.toString().trim() ??
+    final targetExam =
+        profileData['targetExam']?.toString().trim() ??
         profileData['academicGoal']?.toString().trim();
-    final academicClass = profileData['class']?.toString().trim() ??
+    final academicClass =
+        profileData['class']?.toString().trim() ??
         profileData['academicClass']?.toString().trim() ??
         'HSC 2026';
     final board = profileData['board']?.toString().trim() ?? 'Dhaka Board';
-    final stream = profileData['stream']?.toString().trim() ??
+    final stream =
+        profileData['stream']?.toString().trim() ??
         profileData['group']?.toString().trim() ??
         'Science';
 
@@ -798,7 +907,11 @@ class _AcademicProfileSection extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: colors.brand.withValues(alpha: 0.15),
                   ),
-                  child: Icon(Icons.stars_rounded, color: colors.brand, size: 20),
+                  child: Icon(
+                    Icons.stars_rounded,
+                    color: colors.brand,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -835,14 +948,26 @@ class _AcademicProfileSection extends StatelessWidget {
                   onPressed: onOpenExamPlan,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(44, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
                     hasExam
-                        ? GochanoLanguage.text('Change Target', 'লক্ষ্য পরিবর্তন')
-                        : GochanoLanguage.text('Set Target Exam', 'লক্ষ্য পরীক্ষা দিন'),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ? GochanoLanguage.text(
+                            'Change Target',
+                            'লক্ষ্য পরিবর্তন',
+                          )
+                        : GochanoLanguage.text(
+                            'Set Target Exam',
+                            'লক্ষ্য পরীক্ষা দিন',
+                          ),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -904,17 +1029,27 @@ class _AchievementsSection extends StatelessWidget {
     final colors = context.colors;
     final isDark = context.isDark;
 
-    final stamps = (achievementsData?['badges'] as List<dynamic>?) ??
+    final stamps =
+        (achievementsData?['badges'] as List<dynamic>?) ??
         (achievementsData?['stamps'] as List<dynamic>?) ??
         (achievementsData?['achievements'] as List<dynamic>?) ??
         [];
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
+        gradient: isDark
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFFDF5), Color(0xFFFFFBEB)],
+              ),
+        color: isDark ? colors.surface : null,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colors.border.withValues(alpha: isDark ? 0.2 : 0.6),
+          color: isDark
+              ? colors.border.withValues(alpha: 0.2)
+              : const Color(0xFFFDE68A),
           width: 1,
         ),
       ),
@@ -924,11 +1059,18 @@ class _AchievementsSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.emoji_events_rounded, size: 18, color: const Color(0xFFEAB308)),
+              Icon(
+                Icons.emoji_events_rounded,
+                size: 18,
+                color: const Color(0xFFEAB308),
+              ),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  GochanoLanguage.text('Achievements & Progress', 'অর্জন ও অগ্রগতি'),
+                  GochanoLanguage.text(
+                    'Achievements & Progress',
+                    'অর্জন ও অগ্রগতি',
+                  ),
                   style: context.type.body.copyWith(
                     fontWeight: FontWeight.w800,
                     fontSize: 13.5,
@@ -945,7 +1087,11 @@ class _AchievementsSection extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Row(
                 children: [
-                  Icon(Icons.workspace_premium_outlined, color: colors.textTertiary, size: 28),
+                  Icon(
+                    Icons.workspace_premium_outlined,
+                    color: colors.textTertiary,
+                    size: 28,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -953,7 +1099,9 @@ class _AchievementsSection extends StatelessWidget {
                         'No badges unlocked yet. Keep studying!',
                         'এখনও কোনো ব্যাজ আনলক হয়নি। পড়াশোনা চালিয়ে যান!',
                       ),
-                      style: context.type.caption.copyWith(color: colors.textSecondary),
+                      style: context.type.caption.copyWith(
+                        color: colors.textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -966,16 +1114,26 @@ class _AchievementsSection extends StatelessWidget {
               children: [
                 for (final stamp in stamps.take(3))
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFEF9C3),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFDE047), width: 1),
+                      border: Border.all(
+                        color: const Color(0xFFFDE047),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.star_rounded, size: 15, color: Color(0xFFCA8A04)),
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 15,
+                          color: Color(0xFFCA8A04),
+                        ),
                         const SizedBox(width: 5),
                         Text(
                           stamp['title']?.toString() ?? 'Achievement',
@@ -1029,10 +1187,19 @@ class _DownloadCenterSection extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
+        gradient: isDark
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFF0FDF4), Color(0xFFECFDF5)],
+              ),
+        color: isDark ? colors.surface : null,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colors.border.withValues(alpha: isDark ? 0.2 : 0.6),
+          color: isDark
+              ? colors.border.withValues(alpha: 0.2)
+              : const Color(0xFFA7F3D0),
           width: 1,
         ),
       ),
@@ -1042,7 +1209,11 @@ class _DownloadCenterSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.download_for_offline_rounded, size: 18, color: colors.study),
+              Icon(
+                Icons.download_for_offline_rounded,
+                size: 18,
+                color: colors.study,
+              ),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
@@ -1061,12 +1232,19 @@ class _DownloadCenterSection extends StatelessWidget {
                   if (onManage != null) {
                     onManage!();
                   } else {
-                    await _showManageDownloadsSheet(context, entries, onRefresh);
+                    await _showManageDownloadsSheet(
+                      context,
+                      entries,
+                      onRefresh,
+                    );
                   }
                 },
                 style: TextButton.styleFrom(
                   minimumSize: const Size(48, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   tapTargetSize: MaterialTapTargetSize.padded,
                 ),
                 child: Text(
@@ -1086,7 +1264,11 @@ class _DownloadCenterSection extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 6.0),
               child: Row(
                 children: [
-                  Icon(Icons.offline_pin_outlined, color: colors.textTertiary, size: 24),
+                  Icon(
+                    Icons.offline_pin_outlined,
+                    color: colors.textTertiary,
+                    size: 24,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1104,7 +1286,9 @@ class _DownloadCenterSection extends StatelessWidget {
                         ),
                         Text(
                           GochanoLanguage.text('0 KB', '০ KB'),
-                          style: context.type.caption.copyWith(color: colors.textSecondary),
+                          style: context.type.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -1112,7 +1296,9 @@ class _DownloadCenterSection extends StatelessWidget {
                             'No offline study materials downloaded yet.',
                             'এখনো কোনো অফলাইন পড়ার ফাইল ডাউনলোড করা হয়নি।',
                           ),
-                          style: context.type.caption.copyWith(color: colors.textSecondary),
+                          style: context.type.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -1139,7 +1325,9 @@ class _DownloadCenterSection extends StatelessWidget {
                       ),
                       Text(
                         _formatSize(totalBytes),
-                        style: context.type.caption.copyWith(color: colors.textSecondary),
+                        style: context.type.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -1156,7 +1344,10 @@ class _DownloadCenterSection extends StatelessWidget {
                         'This will delete all offline files from your device.',
                         'এটি আপনার ডিভাইস থেকে সব অফলাইন ফাইল মুছে ফেলবে।',
                       ),
-                      confirmLabel: GochanoLanguage.text('Clear All', 'সব মুছুন'),
+                      confirmLabel: GochanoLanguage.text(
+                        'Clear All',
+                        'সব মুছুন',
+                      ),
                       destructive: true,
                     );
                     if (confirm) {
@@ -1202,7 +1393,10 @@ class _DownloadCenterSection extends StatelessWidget {
         child: StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1231,7 +1425,10 @@ class _DownloadCenterSection extends StatelessWidget {
                                 'This will delete all offline files from your device.',
                                 'এটি আপনার ডিভাইস থেকে সব অফলাইন ফাইল মুছে ফেলবে।',
                               ),
-                              confirmLabel: GochanoLanguage.text('Clear All', 'সব মুছুন'),
+                              confirmLabel: GochanoLanguage.text(
+                                'Clear All',
+                                'সব মুছুন',
+                              ),
                               destructive: true,
                             );
                             if (confirm) {
@@ -1429,7 +1626,10 @@ class _GroupedSettingsSection extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  GochanoLanguage.text('Preferences & Settings', 'পছন্দ ও সেটিংস'),
+                  GochanoLanguage.text(
+                    'Preferences & Settings',
+                    'পছন্দ ও সেটিংস',
+                  ),
                   style: context.type.body.copyWith(
                     fontWeight: FontWeight.w800,
                     fontSize: 13.5,
@@ -1447,6 +1647,7 @@ class _GroupedSettingsSection extends StatelessWidget {
             builder: (context, locale, _) {
               return _YouSettingsRow(
                 icon: Icons.language_rounded,
+                iconColor: const Color(0xFF2563EB),
                 title: GochanoLanguage.text('Language', 'ভাষা'),
                 value: locale.nativeName,
                 onTap: () => _pickLanguage(context),
@@ -1460,6 +1661,7 @@ class _GroupedSettingsSection extends StatelessWidget {
             builder: (context, mode, _) {
               return _YouSettingsRow(
                 icon: Icons.palette_outlined,
+                iconColor: const Color(0xFF7C3AED),
                 title: GochanoLanguage.text('Appearance', 'চেহারা'),
                 value: _appearanceLabel(mode),
                 onTap: () => _pickAppearance(context),
@@ -1473,6 +1675,7 @@ class _GroupedSettingsSection extends StatelessWidget {
             builder: (context, appMode, _) {
               return _YouSettingsRow(
                 icon: Icons.dashboard_customize_outlined,
+                iconColor: const Color(0xFF4F46E5),
                 title: GochanoLanguage.text('App Mode', 'অ্যাপ মোড'),
                 value: appMode == GochanoAppMode.study
                     ? GochanoLanguage.text('Study Mode', 'স্টাডি মোড')
@@ -1485,14 +1688,22 @@ class _GroupedSettingsSection extends StatelessWidget {
           // Reminders & Exact Alarm Row
           _YouSettingsRow(
             icon: Icons.alarm_rounded,
-            title: GochanoLanguage.text('Reminders & Exact Alarms', 'রিমাইন্ডার ও অ্যালার্ম'),
-            value: GochanoLanguage.text('Manage task reminder permissions', 'টাস্ক রিমাইন্ডার অনুমতি পরিচালনা করুন'),
+            iconColor: const Color(0xFFD97706),
+            title: GochanoLanguage.text(
+              'Reminders & Exact Alarms',
+              'রিমাইন্ডার ও অ্যালার্ম',
+            ),
+            value: GochanoLanguage.text(
+              'Manage task reminder permissions',
+              'টাস্ক রিমাইন্ডার অনুমতি পরিচালনা করুন',
+            ),
             onTap: () => NotificationService.openExactAlarmSettings(),
           ),
           const Divider(height: 1),
           // AI Usage Row
           _YouSettingsRow(
             icon: Icons.auto_awesome_rounded,
+            iconColor: const Color(0xFF0D9488),
             title: GochanoLanguage.text('AI Usage', 'এআই ব্যবহার'),
             value: _aiUsageLabel(aiUsage),
             onTap: () async {
@@ -1509,9 +1720,13 @@ class _GroupedSettingsSection extends StatelessWidget {
             builder: (context, syncState, _) {
               return _YouSettingsRow(
                 icon: Icons.cloud_done_rounded,
+                iconColor: const Color(0xFF0284C7),
                 title: GochanoLanguage.text('Sync Status', 'সিঙ্ক স্ট্যাটাস'),
                 value: syncState.status == SyncStatus.synced
-                    ? GochanoLanguage.text('Synced with cloud', 'ক্লাউডের সাথে সিঙ্ক সম্পন্ন')
+                    ? GochanoLanguage.text(
+                        'Synced with cloud',
+                        'ক্লাউডের সাথে সিঙ্ক সম্পন্ন',
+                      )
                     : GochanoLanguage.text('Sync active', 'সিঙ্ক সক্রিয়'),
                 onTap: () => showSyncStatusSheet(context),
               );
@@ -1524,7 +1739,10 @@ class _GroupedSettingsSection extends StatelessWidget {
 
   String _aiUsageLabel(Map<String, dynamic>? usage) {
     if (usage == null) {
-      return GochanoLanguage.text('Tap to view usage limits', 'ব্যবহার সীমা দেখতে চাপ দিন');
+      return GochanoLanguage.text(
+        'Tap to view usage limits',
+        'ব্যবহার সীমা দেখতে চাপ দিন',
+      );
     }
     final chat = usage['chat'] as Map<String, dynamic>?;
     if (chat != null) {
@@ -1542,26 +1760,37 @@ class _YouSettingsRow extends StatelessWidget {
     required this.title,
     required this.value,
     required this.onTap,
+    this.iconColor,
   });
 
   final IconData icon;
   final String title;
   final String value;
   final VoidCallback onTap;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final effectiveColor = iconColor ?? colors.brand;
 
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 10.0),
+        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
         child: Row(
           children: [
-            Icon(icon, color: colors.textSecondary, size: 20),
-            const SizedBox(width: 10),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: effectiveColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: effectiveColor, size: 17),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1589,7 +1818,11 @@ class _YouSettingsRow extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: colors.textTertiary, size: 18),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: colors.textTertiary,
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -1624,7 +1857,11 @@ class _HelpSupportSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.help_outline_rounded, size: 18, color: colors.textSecondary),
+              Icon(
+                Icons.help_outline_rounded,
+                size: 18,
+                color: colors.textSecondary,
+              ),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
@@ -1642,6 +1879,7 @@ class _HelpSupportSection extends StatelessWidget {
           const SizedBox(height: 8),
           _YouSettingsRow(
             icon: Icons.quiz_outlined,
+            iconColor: const Color(0xFF0D9488),
             title: GochanoLanguage.text('Help & FAQ', 'সাহায্য ও প্রশ্নাবলী'),
             value: GochanoLanguage.text(
               'Answers to common questions and support',
@@ -1651,7 +1889,9 @@ class _HelpSupportSection extends StatelessWidget {
               showDialog(
                 context: context,
                 builder: (dialogCtx) => AlertDialog(
-                  title: Text(GochanoLanguage.text('Help & FAQ', 'সাহায্য ও প্রশ্নাবলী')),
+                  title: Text(
+                    GochanoLanguage.text('Help & FAQ', 'সাহায্য ও প্রশ্নাবলী'),
+                  ),
                   content: Text(
                     GochanoLanguage.text(
                       'Welcome to Study Mode. For questions or support, reach out to support@gochano.com.',
@@ -1671,6 +1911,7 @@ class _HelpSupportSection extends StatelessWidget {
           const Divider(height: 1),
           _YouSettingsRow(
             icon: Icons.info_outline_rounded,
+            iconColor: const Color(0xFF6366F1),
             title: GochanoLanguage.text('About Gochano', 'গোছানো সম্পর্কে'),
             value: GochanoLanguage.text(
               'EkThikana Platform · 2.0.0',
@@ -1740,7 +1981,9 @@ class _AccountActionsSection extends StatelessWidget {
             ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(44, 46),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -1749,14 +1992,24 @@ class _AccountActionsSection extends StatelessWidget {
             onTap: onDeleteAccount,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 8.0,
+                horizontal: 4.0,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.delete_forever_outlined, size: 16, color: colors.error),
+                  Icon(
+                    Icons.delete_forever_outlined,
+                    size: 16,
+                    color: colors.error,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    GochanoLanguage.text('Delete Account', 'অ্যাকাউন্ট মুছে ফেলুন'),
+                    GochanoLanguage.text(
+                      'Delete Account',
+                      'অ্যাকাউন্ট মুছে ফেলুন',
+                    ),
                     style: TextStyle(
                       color: colors.error,
                       fontSize: 12.5,
@@ -1794,7 +2047,10 @@ Future<void> _changePhoto(BuildContext context) async {
           ListTile(
             leading: const Icon(Icons.photo_library_rounded),
             title: Text(
-              GochanoLanguage.text('Choose from gallery', 'গ্যালারি থেকে বাছুন'),
+              GochanoLanguage.text(
+                'Choose from gallery',
+                'গ্যালারি থেকে বাছুন',
+              ),
             ),
             onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
           ),
@@ -2032,7 +2288,10 @@ Future<void> _pickAppearance(BuildContext context) async {
 }
 
 String _appearanceLabel(ThemeMode mode) => switch (mode) {
-  ThemeMode.system => GochanoLanguage.text('Follow system', 'সিস্টেম অনুসরণ করে'),
+  ThemeMode.system => GochanoLanguage.text(
+    'Follow system',
+    'সিস্টেম অনুসরণ করে',
+  ),
   ThemeMode.light => GochanoLanguage.text('Light', 'উজ্জ্বল'),
   ThemeMode.dark => GochanoLanguage.text('Dark', 'অন্ধকার'),
 };
@@ -2064,7 +2323,10 @@ Future<void> _logout(BuildContext context) async {
 Future<void> _deleteAccount(BuildContext context) async {
   final confirmed = await showConfirmationSheet(
     context,
-    title: GochanoLanguage.text('Delete your account?', 'আপনার অ্যাকাউন্ট মুছবেন?'),
+    title: GochanoLanguage.text(
+      'Delete your account?',
+      'আপনার অ্যাকাউন্ট মুছবেন?',
+    ),
     message: GochanoLanguage.text(
       'This permanently removes your account, uploaded files, and study records. It cannot be undone.',
       'এটি আপনার অ্যাকাউন্ট, ফাইল ও পড়ার রেকর্ড স্থায়ীভাবে মুছে ফেলবে। এটি ফেরানো যাবে না।',

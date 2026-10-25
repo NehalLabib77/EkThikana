@@ -16,10 +16,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../shared/states/gochano_states.dart';
 import '../../../shared/widgets/gochano_controls.dart';
@@ -125,43 +123,46 @@ class _UniversalSearchScreenState extends State<UniversalSearchScreen> {
     return GochanoScaffold(
       padBody: false,
       appBar: GochanoAppBar(title: GochanoLanguage.text('Search', 'অনুসন্ধান')),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Search input bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              GochanoSpacing.md,
-              GochanoSpacing.xs,
-              GochanoSpacing.md,
-              GochanoSpacing.xs,
-            ),
-            child: SearchField(
-              controller: _controller,
-              autofocus: true,
-              hint: GochanoLanguage.text(
-                'Search tasks, notes, medicines…',
-                'কাজ, নোট, ওষুধ খুঁজুন…',
+      body: AppPageBackground(
+        gradient: AppGradients.workspacePage,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Search input bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                GochanoSpacing.md,
+                GochanoSpacing.xs,
+                GochanoSpacing.md,
+                GochanoSpacing.xs,
               ),
-              onChanged: _onQueryChanged,
-              trailing: _controller.text.isNotEmpty
-                  ? IconActionButton(
-                      icon: Icons.close_rounded,
-                      label: GochanoLanguage.text('Clear', 'মুছুন'),
-                      onPressed: _onClearQuery,
-                    )
-                  : null,
+              child: SearchField(
+                controller: _controller,
+                autofocus: true,
+                hint: GochanoLanguage.text(
+                  'Search tasks, notes, medicines…',
+                  'কাজ, নোট, ওষুধ খুঁজুন…',
+                ),
+                onChanged: _onQueryChanged,
+                trailing: _controller.text.isNotEmpty
+                    ? IconActionButton(
+                        icon: Icons.close_rounded,
+                        label: GochanoLanguage.text('Clear', 'মুছুন'),
+                        onPressed: _onClearQuery,
+                      )
+                    : null,
+              ),
             ),
-          ),
 
-          // 2. Horizontally scrollable category filter chips
-          _buildFilterChips(colors, type),
+            // 2. Horizontally scrollable category filter chips
+            _buildFilterChips(colors, type),
 
-          const SizedBox(height: GochanoSpacing.xxs),
+            const SizedBox(height: GochanoSpacing.xxs),
 
-          // 3. Search Results or Empty/Loading States
-          Expanded(child: _buildBody(results)),
-        ],
+            // 3. Search Results or Empty/Loading States
+            Expanded(child: _buildBody(results)),
+          ],
+        ),
       ),
     );
   }

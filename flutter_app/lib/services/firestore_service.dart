@@ -33,17 +33,7 @@ class FirestoreService {
   static Stream<DocumentSnapshot<Map<String, dynamic>>> profileStream() {
     final currentUid = uid;
     if (currentUid == null) {
-      // No signed-in user (or Firebase is uninitialized, which makes
-      // ``FirebaseAuth.instance`` throw and ``uid`` come back null). Resolve
-      // to an empty stream instead of raising during a widget build — the
-      // Home app bar renders '?' and never takes the screen down.
-      try {
-        return Stream<DocumentSnapshot<Map<String, dynamic>>>.fromFuture(
-          db.collection('users').limit(0).get().then((s) => s.docs.first),
-        );
-      } catch (_) {
-        return const Stream.empty();
-      }
+      return const Stream.empty();
     }
     try {
       return db.collection('users').doc(currentUid).snapshots();
@@ -145,9 +135,7 @@ class FirestoreService {
   static Stream<QuerySnapshot<Map<String, dynamic>>> myGroups() {
     final currentUid = uid;
     if (currentUid == null) {
-      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
-        db.collection('groups').limit(0).get(),
-      );
+      return const Stream.empty();
     }
     return db
         .collection('groups')
