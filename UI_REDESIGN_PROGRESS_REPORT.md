@@ -6447,3 +6447,17 @@ Following owner authorization for parallel agent execution on `ui/colorful-redes
 - **Accurate Scope Status**:
   - **Complete**: Study Mode all 5 tabs; Utility Mode Home, CommuteScreen, CommutePlacePicker, CommuteMapPicker, CommuteRouteMap, AppUtilityHeader, Notification Center overflow fix, LanguageToggle.
   - **Pending / Unfinished**: Utility Mode Money (`ExpenseScreen`), Medicine, Profile, and nested sheets (`PlanTripSheet`, `FareReportSheet`).
+
+### 38.6 Local Main Creation & Integration Merge Record
+- **Source Feature Branch**: `ui/colorful-redesign-v1`
+- **Source Integration Commit**: `89f43c3` (`feat(ui): complete Study Mode and Phase 2 Utility Mode modernization`)
+- **Legacy Main Archival**: Safely archived legacy local `main` (`ca9d37e`) to `legacy-main-ca9d37e` without data loss.
+- **Protected Stable Baseline**: `final-cleanup-release-v2` (`fd3997b`, 100% untouched).
+- **New Local Main Creation**: Branched `main` directly from `final-cleanup-release-v2`.
+- **Merge Strategy**: Non-fast-forward merge (`git merge --no-ff ui/colorful-redesign-v1`).
+- **Merge Commit**: `622bf38` (`merge: integrate Study Mode and Phase 2 Utility Mode redesign (ui/colorful-redesign-v1) into main`).
+- **Post-Merge Verification on Main**:
+  - `flutter analyze lib/`: 0 issues found (clean).
+  - `git diff --check`: 0 whitespace issues.
+  - Core & Study post-merge regressions: 247 / 247 passed (100% clean).
+- **Deployment Boundaries**: Strictly local operations; remote push, APK publishing, and production deployments remain unexecuted.
