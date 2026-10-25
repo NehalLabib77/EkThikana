@@ -102,24 +102,41 @@ async def _verify_subscription_with_bdapps(phone: str) -> str | None:
     or None on any error. Never raises — errors are logged and
     treated as "not subscribed" (safe default).
     """
-    try:
-        async with httpx.AsyncClient(timeout=CHECK_SUBSCRIPTION_TIMEOUT) as client:
-            resp = await client.post(
-                CHECK_SUBSCRIPTION_URL,
-                data={"user_mobile": phone},
-            )
-            if resp.status_code < 200 or resp.status_code >= 300:
+    headers = {
+        "User-Agent": "Gochano/1.0 (Android; TelecomAuth)",
+        "Accept": "application/json, */*",
+    }
+    # Retry once on transient connection errors/resets from carrier gateway
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(
+                timeout=CHECK_SUBSCRIPTION_TIMEOUT,
+                follow_redirects=True,
+                headers=headers,
+            ) as client:
+                resp = await client.post(
+                    CHECK_SUBSCRIPTION_URL,
+                    data={"user_mobile": phone},
+                )
+                if resp.status_code < 200 or resp.status_code >= 300:
+                    logger.warning(
+                        "bdApps check_subscription returned HTTP %d for phone=%s",
+                        resp.status_code,
+                        phone,
+                    )
+                    return None
+                body = resp.json()
+                return _extract_subscription_status(body)
+        except Exception:
+            if attempt == 0:
                 logger.warning(
-                    "bdApps check_subscription returned HTTP %d for phone=%s",
-                    resp.status_code,
+                    "Initial attempt to reach bdApps failed for phone=%s, retrying once",
                     phone,
                 )
-                return None
-            body = resp.json()
-            return _extract_subscription_status(body)
-    except Exception:
-        logger.exception("Failed to reach bdApps for phone=%s", phone)
-        return None
+                continue
+            logger.exception("Failed to reach bdApps for phone=%s", phone)
+            return None
+    return None
 
 
 def _normalise_status(raw: str) -> str:
@@ -140,7 +157,7 @@ async def exchange(req: ExchangeRequest):
     if not _is_supported_phone(phone):
         raise HTTPException(
             status_code=400,
-            detail="Only Robi (016) and Cirkle (018) numbers are supported",
+            detail="Only Robi (018) and Cirkle (016) numbers are supported",
         )
 
     logger.info("telecom exchange: phone=%s — verifying with bdApps", phone)
@@ -202,7 +219,12 @@ async def exchange(req: ExchangeRequest):
     except Exception:
         logger.exception("Failed to set telecom_verified claim for uid=%s", uid)
 
-    custom_token = firebase_auth.create_custom_token(uid)
+    # Mint custom token with developer_claims so telecom_verified is embedded
+    # directly in the initial token payload upon client signInWithCustomToken().
+    custom_token = firebase_auth.create_custom_token(
+        uid,
+        developer_claims={"telecom_verified": True},
+    )
     if isinstance(custom_token, bytes):
         custom_token = custom_token.decode("utf-8")
 

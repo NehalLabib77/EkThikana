@@ -14,6 +14,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design_system/gochano_colors.dart';
@@ -322,9 +323,11 @@ class _GochanoShellState extends State<GochanoShell> {
     final destinations = _buildDestinations(mode);
     final pages = _buildPages(mode);
     final clampedIndex = _index.clamp(0, destinations.length - 1);
+    final colors = context.colors;
+    final isDark = context.isDark;
 
     return Scaffold(
-      backgroundColor: context.colors.background,
+      backgroundColor: colors.background,
       body: IndexedStack(index: clampedIndex, children: pages),
       floatingActionButton: _isStudent
           ? Column(
@@ -349,18 +352,37 @@ class _GochanoShellState extends State<GochanoShell> {
               ],
             )
           : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: clampedIndex,
-        onDestinationSelected: _select,
-        destinations: [
-          for (final d in destinations)
-            NavigationDestination(
-              icon: d.customIcon ?? Icon(d.icon!),
-              selectedIcon: d.customSelectedIcon ?? Icon(d.selectedIcon ?? d.icon!),
-              label: d.label,
-              tooltip: d.label,
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: colors.border,
+              width: 0.5,
             ),
-        ],
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: clampedIndex,
+          onDestinationSelected: _select,
+          backgroundColor: isDark ? colors.surface : Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          indicatorColor: isDark
+              ? colors.brand.withValues(alpha: 0.2)
+              : colors.brandSoft,
+          destinations: [
+            for (final d in destinations)
+              NavigationDestination(
+                icon: d.customIcon ??
+                    Icon(d.icon!, color: colors.textSecondary),
+                selectedIcon: d.customSelectedIcon ??
+                    Icon(d.selectedIcon ?? d.icon!, color: colors.brand),
+                label: d.label,
+                tooltip: d.label,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -391,12 +413,16 @@ class _StudyProfileNavAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     String? authPhotoUrl;
     try {
-      authPhotoUrl = FirebaseAuth.instance.currentUser?.photoURL;
+      if (Firebase.apps.isNotEmpty) {
+        authPhotoUrl = FirebaseAuth.instance.currentUser?.photoURL;
+      }
     } catch (_) {}
 
     Stream<DocumentSnapshot<Map<String, dynamic>>>? stream;
     try {
-      stream = FirestoreService.profileStream();
+      if (Firebase.apps.isNotEmpty) {
+        stream = FirestoreService.profileStream();
+      }
     } catch (_) {}
 
     if (stream == null) {
@@ -406,6 +432,7 @@ class _StudyProfileNavAvatar extends StatelessWidget {
       return Icon(
         isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
         size: 24,
+        color: isSelected ? context.colors.brand : context.colors.textSecondary,
       );
     }
 
@@ -425,6 +452,8 @@ class _StudyProfileNavAvatar extends StatelessWidget {
         return Icon(
           isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
           size: 24,
+          color:
+              isSelected ? context.colors.brand : context.colors.textSecondary,
         );
       },
     );
@@ -449,6 +478,8 @@ class _StudyProfileNavAvatar extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) => Icon(
           isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
           size: 20,
+          color:
+              isSelected ? context.colors.brand : context.colors.textSecondary,
         ),
       ),
     );

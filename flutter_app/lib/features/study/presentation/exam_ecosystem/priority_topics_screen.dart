@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../services/api_service.dart';
 import 'exam_ecosystem_models.dart';
 
@@ -78,70 +79,96 @@ class _PriorityTopicsScreenState extends State<PriorityTopicsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final type = context.type;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: AppBar(
-        title: const Text('Exam Priority Topics'),
+        backgroundColor: colors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(color: colors.border, height: 0.5),
+        ),
+        title: Text(
+          'Exam Priority Topics',
+          style: type.cardHeading.copyWith(fontSize: 17),
+        ),
         actions: [
           IconButton(
             icon: _recalculating
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.refresh),
+                : Icon(Icons.refresh_rounded, color: colors.brand),
             onPressed: _recalculating ? null : _recalculate,
             tooltip: 'Recalculate Priorities',
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildFilterChips(theme),
-          _buildFormulaExplainer(theme),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_error!),
-                            const SizedBox(height: 12),
-                            FilledButton(
-                              onPressed: _loadTopics,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _topics.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No ${_selectedFilter == 'all' ? '' : '$_selectedFilter '}priority topics found.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+      body: AppPageBackground(
+        height: 240,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  colors.error.withValues(alpha: 0.12),
+                  colors.background,
+                ],
+              )
+            : AppGradients.toolMockTests,
+        child: Column(
+          children: [
+            _buildFilterChips(context),
+            _buildFormulaExplainer(context),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(_error!, style: TextStyle(color: colors.textSecondary)),
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: colors.brand),
+                                onPressed: _loadTopics,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _topics.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No ${_selectedFilter == 'all' ? '' : '$_selectedFilter '}priority topics found.',
+                                style: type.bodySecondary,
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _topics.length,
+                              itemBuilder: (context, i) => _TopicCard(
+                                topic: _topics[i],
+                                onDrill: () => _startDrill(_topics[i].topic),
                               ),
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _topics.length,
-                            itemBuilder: (context, i) => _TopicCard(
-                              topic: _topics[i],
-                              onDrill: () => _startDrill(_topics[i].topic),
-                            ),
-                          ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFilterChips(ThemeData theme) {
+  Widget _buildFilterChips(BuildContext context) {
+    final colors = context.colors;
     const filters = ['all', 'critical', 'high', 'medium', 'low'];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -154,6 +181,17 @@ class _PriorityTopicsScreenState extends State<PriorityTopicsScreen> {
             child: FilterChip(
               selected: isSelected,
               label: Text(f.toUpperCase()),
+              labelStyle: TextStyle(
+                color: isSelected ? colors.onBrand : colors.textPrimary,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+              selectedColor: colors.brand,
+              backgroundColor: colors.surface,
+              side: BorderSide(
+                color: isSelected ? colors.brand : colors.border,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: GochanoRadius.smAll),
               onSelected: (val) {
                 if (val) {
                   setState(() => _selectedFilter = f);
@@ -167,25 +205,25 @@ class _PriorityTopicsScreenState extends State<PriorityTopicsScreen> {
     );
   }
 
-  Widget _buildFormulaExplainer(ThemeData theme) {
+  Widget _buildFormulaExplainer(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
+        color: colors.surface,
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(color: colors.info.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
+          Icon(Icons.info_outline_rounded, size: 18, color: colors.info),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Scores combine past paper frequency (30%), mastery gap (25%), mistake pressure (20%), revision urgency (15%), and recent performance (10%).',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 11,
-              ),
+              style: type.caption,
             ),
           ),
         ],
@@ -226,88 +264,94 @@ class _TopicCard extends StatelessWidget {
   final PriorityTopic topic;
   final VoidCallback onDrill;
 
-  Color _badgeColor() {
+  Color _badgeColor(GochanoColors colors) {
     switch (topic.priority) {
       case 'critical':
-        return Colors.red.shade700;
+        return colors.error;
       case 'high':
-        return Colors.orange.shade700;
+        return colors.warning;
       case 'medium':
-        return Colors.amber.shade700;
+        return AppGradients.amberOrange;
       default:
-        return Colors.grey.shade600;
+        return colors.textSecondary;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final type = context.type;
+    final bColor = _badgeColor(colors);
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: GochanoRadius.lgAll,
+        border: Border.all(color: colors.border),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _badgeColor(),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    topic.priorityLabel,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: bColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: bColor.withValues(alpha: 0.3)),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    topic.topic,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${topic.priorityScore.toInt()}',
-                  style: theme.textTheme.titleMedium?.copyWith(
+                child: Text(
+                  topic.priorityLabel,
+                  style: TextStyle(
+                    color: bColor,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: _badgeColor(),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildComponentBreakdown(theme),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.tonalIcon(
-                icon: const Icon(Icons.bolt, size: 16),
-                label: const Text('Start Practice Drill'),
-                onPressed: onDrill,
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  topic.topic,
+                  style: type.cardHeading,
+                ),
+              ),
+              Text(
+                '${topic.priorityScore.toInt()}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: bColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildComponentBreakdown(context),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.brand,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: GochanoRadius.smAll),
+              ),
+              icon: const Icon(Icons.bolt_rounded, size: 16),
+              label: const Text('Start Practice Drill', style: TextStyle(fontSize: 13)),
+              onPressed: onDrill,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildComponentBreakdown(ThemeData theme) {
+  Widget _buildComponentBreakdown(BuildContext context) {
     return Column(
       children: [
         if (topic.historicalFrequency != null)
@@ -358,28 +402,29 @@ class _ComponentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final type = context.type;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           Expanded(
             flex: 4,
             child: Text(
               '$label ($weight)',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 11,
-              ),
+              style: type.caption,
             ),
           ),
           Expanded(
             flex: 3,
-            child: LinearProgressIndicator(
-              value: (value / 100).clamp(0.0, 1.0),
-              minHeight: 4,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: (value / 100).clamp(0.0, 1.0),
+                minHeight: 5,
+                backgroundColor: colors.surfaceVariant,
+                valueColor: AlwaysStoppedAnimation<Color>(colors.brand),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -388,10 +433,7 @@ class _ComponentRow extends StatelessWidget {
             child: Text(
               '${value.toInt()}',
               textAlign: TextAlign.end,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
+              style: type.caption.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
         ],

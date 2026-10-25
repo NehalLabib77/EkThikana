@@ -4,6 +4,31 @@ import 'package:flutter/material.dart';
 class AppGradients {
   AppGradients._();
 
+  // --- Semantic category & badge color tokens ---
+  static const Color amberAccent = Color(0xFFD97706);
+  static const Color amberSoft = Color(0xFFFEF3C7);
+  static const Color amberDark = Color(0xFF92400E);
+  static const Color amberOrange = Color(0xFFF59E0B);
+  static const Color amberBorder = Color(0xFFFDE68A);
+  static const Color orangeAccent = Color(0xFFF97316);
+  static const Color orangeSoft = Color(0xFFFFEDD5);
+  static const Color orangeDark = Color(0xFFB45309);
+  static const Color violetAccent = Color(0xFF7C3AED);
+  static const Color violetPrimary = Color(0xFF7048F5);
+  static const Color violetSoft = Color(0xFFEDE9FE);
+  static const Color violetLight = Color(0xFF8B5CF6);
+  static const Color skyAccent = Color(0xFF0284C7);
+  static const Color skyDark = Color(0xFF0C4A6E);
+  static const Color indigoAccent = Color(0xFF6366F1);
+  static const Color roseAccent = Color(0xFFF43F5E);
+  static const Color emeraldDark = Color(0xFF059669);
+  static const Color emeraldAccent = Color(0xFF10B981);
+  static const Color emeraldSoft = Color(0xFFECFDF5);
+  static const Color emeraldBorder = Color(0xFFA7F3D0);
+  static const Color mintAccent = Color(0xFF34D399);
+  static const Color slateBorder = Color(0xFFE2E8F0);
+  static const Color slateText = Color(0xFF475569);
+
   /// Premium Exam Rescue Gradient (spec §7):
   /// Violet (#7048F5) -> Royal Blue (#2F6BFF) -> Cyan/Soft Blue (#38BDF8)
   static const LinearGradient examRescue = LinearGradient(
@@ -142,13 +167,13 @@ class AppGradients {
     ],
   );
 
-  /// Past Papers: amber / orange
+  /// Past Papers: emerald to mint (spec §4: #059669 -> #10B981 -> #34D399)
   static const LinearGradient toolPastPapers = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFFFFBEB), // Amber 50
-      Color(0xFFFEF3C7), // Amber 100
+      Color(0xFFECFDF5), // Emerald 50
+      Color(0xFFD1FAE5), // Emerald 100
     ],
   );
 
@@ -162,13 +187,13 @@ class AppGradients {
     ],
   );
 
-  /// Study Materials: mint / emerald green
+  /// Study Materials: sky blue to cyan (spec §4: #0284C7 -> #0EA5E9 -> #38BDF8)
   static const LinearGradient toolMaterials = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFF0FDF4), // Emerald 50
-      Color(0xFFDCFCE7), // Emerald 100
+      Color(0xFFF0F9FF), // Sky 50
+      Color(0xFFE0F2FE), // Sky 100
     ],
   );
 
@@ -261,6 +286,139 @@ class AppGradients {
       Color(0xFF311042), // Dark Violet
     ],
     stops: [0.0, 0.55, 1.0],
+  );
+
+  // --- Page-level background gradient washes ---
+
+  /// Workspace page background: very subtle indigo top wash fading to neutral.
+  static const LinearGradient workspacePage = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFEEF2FF), Color(0xFFF7F8FA)],
+    stops: [0.0, 0.35],
+  );
+
+  /// Plan page background: soft mint/emerald top wash.
+  static const LinearGradient planPage = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFECFDF5), Color(0xFFF7F8FA)],
+    stops: [0.0, 0.35],
+  );
+
+  /// Community page background: soft purple/violet top wash.
+  static const LinearGradient communityPage = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFFAF5FF), Color(0xFFF7F8FA)],
+    stops: [0.0, 0.35],
+  );
+
+  /// Community Hub gradient wash
+  static const LinearGradient communityHub = communityPage;
+
+  /// You/Profile page background: soft sky blue top wash.
+  static const LinearGradient youPage = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFE0F2FE), Color(0xFFF7F8FA)],
+    stops: [0.0, 0.35],
+  );
+
+  /// Notes page background: soft blue top wash.
+  static const LinearGradient notesPage = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFEFF6FF), Color(0xFFF7F8FA)],
+    stops: [0.0, 1.0],
+  );
+
+  /// Focus page background: soft mint top wash.
+  static const LinearGradient focusPage = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFECFDF5), Color(0xFFF7F8FA)],
+    stops: [0.0, 1.0],
+  );
+
+  /// Exam hero gradient: indigo -> soft blue.
+  static const LinearGradient examHero = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFEEF2FF),
+      Color(0xFFE0E7FF),
+    ],
+  );
+
+  /// Study packs tool background: indigo -> neutral.
+  static const LinearGradient toolStudyPacks = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFEEF2FF),
+      Color(0xFFF7F8FA),
+    ],
+  );
+
+  // --- Feature card gradients ---
+
+  /// Profile identity header block: blue → sky → purple.
+  static const LinearGradient profileHeader = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFEFF6FF), Color(0xFFE0F2FE), Color(0xFFF5F3FF)],
+    stops: [0.0, 0.5, 1.0],
+  );
+
+  /// Download / offline card: emerald → teal.
+  static const LinearGradient downloadCard = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFECFDF5), Color(0xFFCCFBF1)],
+  );
+
+  /// Plan task card: calm blue.
+  static const LinearGradient planTask = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+  );
+
+  /// Plan goal card: warm teal.
+  static const LinearGradient planGoal = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF0FDFA), Color(0xFFCCFBF1)],
+  );
+
+  /// Community group card: soft purple.
+  static const LinearGradient communityGroup = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFAF5FF), Color(0xFFF3E8FF)],
+  );
+
+  /// Achievement / milestone gradient: warm amber.
+  static const LinearGradient achievement = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+  );
+
+  /// Login screen hero gradient: deep indigo → violet → blue.
+  static const LinearGradient loginHero = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFF2563EB)],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  /// Focus active session gradient: indigo → violet.
+  static const LinearGradient focusActive = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
   );
 }
 

@@ -7,10 +7,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/notification_service.dart';
@@ -58,32 +56,35 @@ class _TasksViewState extends State<TasksView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.colors.background,
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'tasks-fab',
-        onPressed: () => showAddTaskSheet(context),
-        icon: const Icon(Icons.task_alt_rounded),
-        label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ করুন')),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              GochanoSpacing.md,
-              GochanoSpacing.xs,
-              GochanoSpacing.md,
-              GochanoSpacing.xs,
+    return AppPageBackground(
+      gradient: AppGradients.planPage,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        floatingActionButton: FloatingActionButton.extended(
+          heroTag: 'tasks-fab',
+          onPressed: () => showAddTaskSheet(context),
+          icon: const Icon(Icons.task_alt_rounded),
+          label: Text(GochanoLanguage.text('Add task', 'কাজ যোগ করুন')),
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                GochanoSpacing.md,
+                GochanoSpacing.xs,
+                GochanoSpacing.md,
+                GochanoSpacing.xs,
+              ),
+              child: FilterChipBar<TaskFilter>(
+                options: TaskFilter.values,
+                selected: _filter,
+                onSelected: (value) => setState(() => _filter = value),
+                labelOf: _label,
+              ),
             ),
-            child: FilterChipBar<TaskFilter>(
-              options: TaskFilter.values,
-              selected: _filter,
-              onSelected: (value) => setState(() => _filter = value),
-              labelOf: _label,
-            ),
-          ),
-          Expanded(child: _buildList(context)),
-        ],
+            Expanded(child: _buildList(context)),
+          ],
+        ),
       ),
     );
   }
@@ -265,12 +266,14 @@ class _TaskRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      title,
+                    AnimatedDefaultTextStyle(
+                      duration: AppMotion.duration(context, AppMotion.selectionTransition),
+                      curve: AppMotion.standard,
                       style: context.type.cardHeading.copyWith(
-                        color: done ? colors.textSecondary : null,
+                        color: done ? colors.textSecondary.withValues(alpha: 0.6) : null,
                         decoration: done ? TextDecoration.lineThrough : null,
                       ),
+                      child: Text(title),
                     ),
                     if (due != null) ...[
                       const SizedBox(height: 2),

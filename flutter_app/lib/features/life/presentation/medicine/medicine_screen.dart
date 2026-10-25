@@ -16,10 +16,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_dates.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
@@ -52,7 +50,10 @@ class MedicineScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: const _MedicineBody(),
+      body: AppPageBackground(
+        gradient: AppGradients.academicHealth,
+        child: const _MedicineBody(),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'medicine-add',
         onPressed: () => Navigator.of(
@@ -309,7 +310,13 @@ class _DoseRow extends StatelessWidget {
       title: dose.medicineName,
       subtitle: dose.strength.isEmpty ? dose.instruction : dose.strength,
       metadata: [formatTime12(dose.time)],
-      badge: badge,
+      badge: AnimatedSwitcher(
+        duration: AppMotion.duration(context, AppMotion.selectionTransition),
+        child: KeyedSubtree(
+          key: ValueKey(dose.status),
+          child: badge,
+        ),
+      ),
       menuItems: dose.needsAction
           ? [
               GochanoMenuAction(

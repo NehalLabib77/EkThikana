@@ -19,6 +19,7 @@ import '../../../../core/design_system/gochano_art.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_motion.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
@@ -28,11 +29,7 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import 'focus_session_screen.dart';
 
 class ZikuSessionCard extends StatefulWidget {
-  const ZikuSessionCard({
-    super.key,
-    this.todayFn,
-    this.initialData,
-  });
+  const ZikuSessionCard({super.key, this.todayFn, this.initialData});
 
   /// Read hook, injected in tests so the widget never opens a socket.
   final FocusTodayFn? todayFn;
@@ -74,7 +71,8 @@ class _ZikuSessionCardState extends State<ZikuSessionCard> {
   @override
   void didUpdateWidget(covariant ZikuSessionCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialData != null && widget.initialData != oldWidget.initialData) {
+    if (widget.initialData != null &&
+        widget.initialData != oldWidget.initialData) {
       _applyInitialData(widget.initialData!);
     }
   }
@@ -101,9 +99,8 @@ class _ZikuSessionCardState extends State<ZikuSessionCard> {
     final ids = _activeIds;
     Navigator.of(context).push(
       GochanoRoute.to(
-        builder: (_) => FocusSessionScreen(
-          sessionId: ids.isEmpty ? null : ids.first,
-        ),
+        builder: (_) =>
+            FocusSessionScreen(sessionId: ids.isEmpty ? null : ids.first),
       ),
     );
   }
@@ -183,31 +180,31 @@ class _ZikuSessionCardState extends State<ZikuSessionCard> {
           const SizedBox(height: GochanoSpacing.xs),
           Text(minutesCopy, style: context.type.bodySecondary),
           const SizedBox(height: GochanoSpacing.xs),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 8,
-            color: colors.study,
-            backgroundColor: colors.surfaceVariant,
-            semanticsLabel: minutesCopy,
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: progress),
+            duration: AppMotion.duration(context, AppMotion.progressEmphasis),
+            curve: Curves.easeOutCubic,
+            builder: (context, val, _) => LinearProgressIndicator(
+              value: val,
+              minHeight: 8,
+              color: colors.study,
+              backgroundColor: colors.surfaceVariant,
+              semanticsLabel: minutesCopy,
+            ),
           ),
           if (nudge != null &&
               '${nudge['message'] ?? ''}'.trim().isNotEmpty) ...[
             const SizedBox(height: GochanoSpacing.xs),
             Text(
               '${nudge['message']}',
-              style: context.type.caption.copyWith(
-                color: colors.textTertiary,
-              ),
+              style: context.type.caption.copyWith(color: colors.textTertiary),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ],
           const SizedBox(height: GochanoSpacing.sm),
           PrimaryButton(
-            label: GochanoLanguage.text(
-              'Continue Session',
-              'চালিয়ে যান',
-            ),
+            label: GochanoLanguage.text('Continue Session', 'চালিয়ে যান'),
             icon: Icons.play_arrow_rounded,
             onPressed: _open,
           ),

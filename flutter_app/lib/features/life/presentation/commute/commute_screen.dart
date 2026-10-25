@@ -23,11 +23,9 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/connectivity_service.dart';
@@ -548,7 +546,10 @@ class _CommuteScreenState extends State<CommuteScreen> {
               'Plan a trip',
               'ভবিষ্যৎ যাত্রা পরিকল্পনা',
             ),
-            icon: const Icon(Icons.calendar_month_outlined),
+            icon: Icon(
+              Icons.calendar_month_outlined,
+              color: context.colors.commute,
+            ),
             onPressed: () => showPlanTripSheet(
               context,
               initialOrigin: _origin,
@@ -557,8 +558,10 @@ class _CommuteScreenState extends State<CommuteScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: GochanoSpacing.scrollBody,
+      body: AppPageBackground(
+        gradient: AppGradients.toolDownloads,
+        child: ListView(
+          padding: GochanoSpacing.scrollBody,
         children: [
           ValueListenableBuilder<bool>(
             valueListenable: ConnectivityService.instance.online,
@@ -635,25 +638,31 @@ class _CommuteScreenState extends State<CommuteScreen> {
 
           // 2. Map (Picker when no result; route map when result present)
           if (result == null)
-            CommuteMapPicker(
-              origin: _origin,
-              destination: _destination,
-              onPicked: _pickFromMap,
+            ClipRRect(
+              borderRadius: GochanoRadius.mdAll,
+              child: CommuteMapPicker(
+                origin: _origin,
+                destination: _destination,
+                onPicked: _pickFromMap,
+              ),
             )
           else ...[
-            CommuteRouteMap(
-              polyline: displayPolyline,
-              origin:
-                  point(originMap) ??
-                  (_origin?.lat != null && _origin?.lon != null
-                      ? LatLng(_origin!.lat!, _origin!.lon!)
-                      : null),
-              destination:
-                  point(destinationMap) ??
-                  (_destination?.lat != null && _destination?.lon != null
-                      ? LatLng(_destination!.lat!, _destination!.lon!)
-                      : null),
-              transfers: transferPoints,
+            ClipRRect(
+              borderRadius: GochanoRadius.mdAll,
+              child: CommuteRouteMap(
+                polyline: displayPolyline,
+                origin:
+                    point(originMap) ??
+                    (_origin?.lat != null && _origin?.lon != null
+                        ? LatLng(_origin!.lat!, _origin!.lon!)
+                        : null),
+                destination:
+                    point(destinationMap) ??
+                    (_destination?.lat != null && _destination?.lon != null
+                        ? LatLng(_destination!.lat!, _destination!.lon!)
+                        : null),
+                transfers: transferPoints,
+              ),
             ),
           ],
           const SizedBox(height: GochanoSpacing.md),
@@ -760,8 +769,9 @@ class _CommuteScreenState extends State<CommuteScreen> {
           ],
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Builds JourneyGuideFacts from the route result and passes them to the
@@ -843,8 +853,10 @@ class _TripPlanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final canSwap = origin != null || destination != null;
 
     return AppCard(
+      accent: colors.commute,
       child: Row(
         children: [
           Expanded(
@@ -857,10 +869,17 @@ class _TripPlanner extends StatelessWidget {
                   value: origin?.name,
                   onTap: onPickOrigin,
                 ),
-                Divider(height: GochanoSpacing.md, color: colors.divider),
+                Padding(
+                  padding: const EdgeInsets.only(left: 36),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: colors.divider,
+                  ),
+                ),
                 _PlaceField(
                   illustration: GochanoArt.pinDestination,
-                  accent: colors.commute,
+                  accent: colors.info,
                   label: GochanoLanguage.text('To', 'পর্যন্ত'),
                   value: destination?.name,
                   onTap: onPickDestination,
@@ -868,10 +887,12 @@ class _TripPlanner extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: GochanoSpacing.xs),
           IconActionButton(
             icon: Icons.swap_vert_rounded,
             label: GochanoLanguage.text('Swap', 'অদলবদল'),
-            onPressed: origin == null && destination == null ? null : onSwap,
+            accent: canSwap ? colors.commute : null,
+            onPressed: canSwap ? onSwap : null,
           ),
         ],
       ),
@@ -902,35 +923,57 @@ class _PlaceField extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: GochanoRadius.smAll,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.xs),
-        child: Row(
-          children: [
-            GochanoIllustration(illustration, size: 26, accent: accent),
-            const SizedBox(width: GochanoSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(label, style: context.type.caption),
-                  Text(
-                    filled
-                        ? value!
-                        : GochanoLanguage.text(
-                            'Choose a place',
-                            'একটি স্থান বাছুন',
-                          ),
-                    style: context.type.cardHeading.copyWith(
-                      color: filled ? null : colors.textTertiary,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: GochanoSpacing.xs,
+            horizontal: GochanoSpacing.xxs,
+          ),
+          child: Row(
+            children: [
+              GochanoIllustration(illustration, size: 26, accent: accent),
+              const SizedBox(width: GochanoSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: context.type.caption.copyWith(
+                        color: filled ? accent : colors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      filled
+                          ? value!
+                          : GochanoLanguage.text(
+                              'Choose a place',
+                              'একটি স্থান বাছুন',
+                            ),
+                      style: context.type.cardHeading.copyWith(
+                        color: filled
+                            ? colors.textPrimary
+                            : colors.textTertiary,
+                        fontWeight:
+                            filled ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: colors.textTertiary,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1023,6 +1066,12 @@ class _Results extends StatelessWidget {
             Expanded(
               child: StatCard(
                 compact: true,
+                accent: context.colors.commute,
+                icon: Icon(
+                  Icons.straighten_rounded,
+                  size: 16,
+                  color: context.colors.commute,
+                ),
                 label: GochanoLanguage.text('Distance', 'দূরত্ব'),
                 value: '${distanceKm.toStringAsFixed(1)} km',
               ),
@@ -1031,6 +1080,12 @@ class _Results extends StatelessWidget {
             Expanded(
               child: StatCard(
                 compact: true,
+                accent: context.colors.info,
+                icon: Icon(
+                  Icons.directions_car_rounded,
+                  size: 16,
+                  color: context.colors.info,
+                ),
                 label: GochanoLanguage.text('By road', 'সড়কপথে'),
                 value: _duration(minutes),
                 caption: provider.isEmpty ? null : provider,
@@ -1192,11 +1247,11 @@ class _TransportModeSelector extends StatelessWidget {
   final ValueChanged<String>? onModeSelected;
 
   static const _modes = [
-    ('bus', 'Bus', 'বাস'),
-    ('cng', 'CNG', 'সিএনজি'),
-    ('rickshaw', 'Rickshaw', 'রিকশা'),
-    ('auto', 'Auto', 'অটো'),
-    ('metro', 'Metro', 'মেট্রো'),
+    ('bus', 'Bus', 'বাস', Icons.directions_bus_rounded),
+    ('cng', 'CNG', 'সিএনজি', Icons.local_taxi_rounded),
+    ('rickshaw', 'Rickshaw', 'রিকশা', Icons.pedal_bike_rounded),
+    ('auto', 'Auto', 'অটো', Icons.electric_moped_rounded),
+    ('metro', 'Metro', 'মেট্রো', Icons.subway_rounded),
   ];
 
   @override
@@ -1206,33 +1261,74 @@ class _TransportModeSelector extends StatelessWidget {
       spacing: GochanoSpacing.sm,
       runSpacing: GochanoSpacing.xs,
       children: [
-        for (final (mode, label, labelBn) in _modes)
-          GestureDetector(
-            onTap: onModeSelected != null ? () => onModeSelected!(mode) : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: GochanoSpacing.md,
-                vertical: GochanoSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: selectedMode == mode
-                    ? colors.commute.withValues(alpha: 0.12)
-                    : colors.surface,
+        for (final (mode, label, labelBn, icon) in _modes)
+          Semantics(
+            button: true,
+            selected: selectedMode == mode,
+            label: GochanoLanguage.text(label, labelBn),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onModeSelected != null
+                    ? () => onModeSelected!(mode)
+                    : null,
                 borderRadius: GochanoRadius.smAll,
-                border: Border.all(
-                  color: selectedMode == mode ? colors.commute : colors.divider,
-                  width: selectedMode == mode ? 2 : 1,
-                ),
-              ),
-              child: Text(
-                GochanoLanguage.text(label, labelBn),
-                style: context.type.body.copyWith(
-                  color: selectedMode == mode
-                      ? colors.commute
-                      : colors.textPrimary,
-                  fontWeight: selectedMode == mode
-                      ? FontWeight.w600
-                      : FontWeight.normal,
+                child: AnimatedContainer(
+                  duration: AppMotion.duration(
+                    context,
+                    AppMotion.selectionTransition,
+                  ),
+                  curve: AppMotion.standard,
+                  constraints: const BoxConstraints(minHeight: 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: GochanoSpacing.md,
+                    vertical: GochanoSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selectedMode == mode
+                        ? colors.commute.withValues(alpha: 0.12)
+                        : colors.surface,
+                    borderRadius: GochanoRadius.smAll,
+                    border: Border.all(
+                      color: selectedMode == mode
+                          ? colors.commute
+                          : colors.divider,
+                      width: selectedMode == mode ? 2 : 1,
+                    ),
+                    boxShadow: selectedMode == mode
+                        ? [
+                            BoxShadow(
+                              color: colors.commute.withValues(alpha: 0.12),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 18,
+                        color: selectedMode == mode
+                            ? colors.commute
+                            : colors.textSecondary,
+                      ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      Text(
+                        GochanoLanguage.text(label, labelBn),
+                        style: context.type.body.copyWith(
+                          color: selectedMode == mode
+                              ? colors.commute
+                              : colors.textPrimary,
+                          fontWeight: selectedMode == mode
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1358,20 +1454,32 @@ class _DirectBusRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      child: Container(
+      borderRadius: GochanoRadius.smAll,
+      child: AnimatedContainer(
+        duration: AppMotion.duration(context, AppMotion.selectionTransition),
+        curve: AppMotion.standard,
         padding: const EdgeInsets.all(GochanoSpacing.sm),
         decoration: isSelected
             ? BoxDecoration(
                 color: colors.commute.withValues(alpha: 0.08),
                 borderRadius: GochanoRadius.smAll,
+                border: Border.all(
+                  color: colors.commute.withValues(alpha: 0.4),
+                  width: 1.5,
+                ),
               )
-            : null,
+            : BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: GochanoRadius.smAll,
+              ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 36,
-              height: 36,
+            AnimatedContainer(
+              duration: AppMotion.duration(context, AppMotion.selectionTransition),
+              curve: AppMotion.standard,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected
@@ -1380,7 +1488,7 @@ class _DirectBusRow extends StatelessWidget {
               ),
               child: Icon(
                 Icons.directions_bus_rounded,
-                size: 18,
+                size: 20,
                 color: isSelected ? colors.surface : colors.commute,
               ),
             ),
@@ -1424,20 +1532,30 @@ class _DirectBusRow extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Text(
-                          bus.crowdFareLow != null && bus.crowdFareHigh != null
-                              ? (bus.crowdFareLow == bus.crowdFareHigh
-                                    ? formatTaka(bus.crowdFareLow!)
-                                    : '${formatTaka(bus.crowdFareLow!)}–${formatTaka(bus.crowdFareHigh!)}')
-                              : (bus.crowdFareRecommended != null
-                                    ? formatTaka(bus.crowdFareRecommended!)
-                                    : ''),
-                          style: type.caption.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: colors.commute,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.commute.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            bus.crowdFareLow != null && bus.crowdFareHigh != null
+                                ? (bus.crowdFareLow == bus.crowdFareHigh
+                                      ? formatTaka(bus.crowdFareLow!)
+                                      : '${formatTaka(bus.crowdFareLow!)}–${formatTaka(bus.crowdFareHigh!)}')
+                                : (bus.crowdFareRecommended != null
+                                      ? formatTaka(bus.crowdFareRecommended!)
+                                      : ''),
+                            style: type.caption.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: colors.commute,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             GochanoLanguage.text(
@@ -1456,8 +1574,14 @@ class _DirectBusRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (isSelected)
-              Icon(Icons.check_circle_rounded, size: 20, color: colors.commute),
+            if (isSelected) ...[
+              const SizedBox(width: GochanoSpacing.xs),
+              Icon(
+                Icons.check_circle_rounded,
+                size: 22,
+                color: colors.commute,
+              ),
+            ],
           ],
         ),
       ),

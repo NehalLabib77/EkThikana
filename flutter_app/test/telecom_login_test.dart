@@ -35,11 +35,11 @@ String _read(String path) =>
 void main() {
   group('TelecomAuthService prefix validation', () {
     test('accepts Robi 018 numbers', () {
-      expect(TelecomAuthService.isSupportedPhone('01612345678'), isTrue);
+      expect(TelecomAuthService.isSupportedPhone('01812345678'), isTrue);
     });
 
     test('accepts Cirkle 016 numbers', () {
-      expect(TelecomAuthService.isSupportedPhone('01812345678'), isTrue);
+      expect(TelecomAuthService.isSupportedPhone('01612345678'), isTrue);
     });
 
     test('rejects unsupported 017 (GP) numbers', () {
@@ -52,6 +52,14 @@ void main() {
 
     test('rejects 015 (Teletalk) numbers', () {
       expect(TelecomAuthService.isSupportedPhone('01512345678'), isFalse);
+    });
+
+    test('rejects 013 (Skitto) numbers', () {
+      expect(TelecomAuthService.isSupportedPhone('01312345678'), isFalse);
+    });
+
+    test('rejects 014 (Banglalink) numbers', () {
+      expect(TelecomAuthService.isSupportedPhone('01412345678'), isFalse);
     });
 
     test('rejects empty input', () {

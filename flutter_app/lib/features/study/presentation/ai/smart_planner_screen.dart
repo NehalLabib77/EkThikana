@@ -7,9 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -84,23 +82,46 @@ class _SmartPlannerScreenState extends State<SmartPlannerScreen> {
           'এআই-চালিত দৈনিক সুপারিশ',
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          GochanoSpacing.md,
-          GochanoSpacing.sm,
-          GochanoSpacing.md,
-          120,
-        ),
-        children: [
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  GochanoLanguage.text('Today\'s Settings', 'আজকের সেটিংস'),
-                  style: context.type.cardHeading,
-                ),
-                const SizedBox(height: GochanoSpacing.sm),
+      body: AppPageBackground(
+        gradient: AppGradients.planPage,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            GochanoSpacing.md,
+            GochanoSpacing.sm,
+            GochanoSpacing.md,
+            120,
+          ),
+          children: [
+            AppCard(
+              accent: colors.brand,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: colors.brand.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Icon(
+                          Icons.calendar_month_rounded,
+                          size: 18,
+                          color: colors.brand,
+                        ),
+                      ),
+                      const SizedBox(width: GochanoSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          GochanoLanguage.text('Today\'s Settings', 'আজকের সেটিংস'),
+                          style: context.type.cardHeading,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: GochanoSpacing.sm),
                 Text(
                   GochanoLanguage.text(
                     'How many hours can you study today?',
@@ -117,7 +138,12 @@ class _SmartPlannerScreenState extends State<SmartPlannerScreen> {
                         child: InkWell(
                           onTap: () => setState(() => _availableHours = h),
                           borderRadius: GochanoRadius.mdAll,
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: AppMotion.duration(
+                              context,
+                              AppMotion.selectionTransition,
+                            ),
+                            curve: AppMotion.standard,
                             padding: const EdgeInsets.symmetric(vertical: GochanoSpacing.sm),
                             decoration: BoxDecoration(
                               color: _availableHours == h
@@ -179,50 +205,63 @@ class _SmartPlannerScreenState extends State<SmartPlannerScreen> {
             AiErrorBanner(message: _error),
           ],
 
-          if (_recommendation.isNotEmpty) ...[
-            const SizedBox(height: GochanoSpacing.md),
-            AppCard(
-              padding: const EdgeInsets.all(GochanoSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.auto_awesome_rounded, size: 18, color: colors.ai),
-                      const SizedBox(width: GochanoSpacing.xs),
-                      Expanded(
-                        child: Text(
-                          GochanoLanguage.text('Today\'s Plan', 'আজকের পরিকল্পনা'),
-                          style: context.type.cardHeading.copyWith(color: colors.ai),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: _recommendation));
-                          showGochanoMessage(context, GochanoLanguage.text('Copied', 'কপি হয়েছে'));
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.copy_rounded, size: 14, color: colors.textTertiary),
-                            const SizedBox(width: 4),
-                            Text(
-                              GochanoLanguage.text('Copy', 'কপি'),
-                              style: context.type.caption.copyWith(color: colors.textTertiary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: GochanoSpacing.sm),
-                  SelectableText(_recommendation, style: context.type.body),
-                ],
-              ),
+          AnimatedSwitcher(
+            duration: AppMotion.duration(
+              context,
+              AppMotion.contentReveal,
             ),
-          ],
+            switchInCurve: AppMotion.standard,
+            switchOutCurve: AppMotion.standard,
+            child: _recommendation.isNotEmpty
+                ? Padding(
+                    key: ValueKey('plan_rec_$_recommendation'),
+                    padding: const EdgeInsets.only(top: GochanoSpacing.md),
+                    child: AppCard(
+                      accent: colors.ai,
+                      padding: const EdgeInsets.all(GochanoSpacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.auto_awesome_rounded, size: 18, color: colors.ai),
+                              const SizedBox(width: GochanoSpacing.xs),
+                              Expanded(
+                                child: Text(
+                                  GochanoLanguage.text('Today\'s Plan', 'আজকের পরিকল্পনা'),
+                                  style: context.type.cardHeading.copyWith(color: colors.ai),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: _recommendation));
+                                  showGochanoMessage(context, GochanoLanguage.text('Copied', 'কপি হয়েছে'));
+                                },
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.copy_rounded, size: 14, color: colors.textTertiary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      GochanoLanguage.text('Copy', 'কপি'),
+                                      style: context.type.caption.copyWith(color: colors.textTertiary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: GochanoSpacing.sm),
+                          SelectableText(_recommendation, style: context.type.body),
+                        ],
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('plan_empty')),
+          ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -15,11 +15,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
 import '../../../core/design_system/gochano_illustration.dart';
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/states/gochano_states.dart';
@@ -199,6 +197,7 @@ class _ExamUploadScreenState extends State<ExamUploadScreen> {
         drafts == null ? 0 : drafts.where((q) => q.isComplete).length;
 
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: widget.manual
             ? GochanoLanguage.text('Write your own', 'নিজে লিখুন')
@@ -227,7 +226,9 @@ class _ExamUploadScreenState extends State<ExamUploadScreen> {
               ),
               onPressed: _accept,
             ),
-      body: ListView(
+      body: AppPageBackground(
+        gradient: AppGradients.toolMockTests,
+        child: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
           if (drafts == null) ...[
@@ -367,7 +368,8 @@ class _ExamUploadScreenState extends State<ExamUploadScreen> {
           const SizedBox(height: GochanoSpacing.xl),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _draftCard(BuildContext context, ExamDraftQuestion draft, int index) {

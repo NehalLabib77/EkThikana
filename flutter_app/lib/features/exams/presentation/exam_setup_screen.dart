@@ -12,8 +12,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../services/api_service.dart';
@@ -304,6 +303,7 @@ class _ExamSetupScreenState extends State<ExamSetupScreen> {
     final type = context.type;
 
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text(
           'Real Exam Simulator',
@@ -327,7 +327,9 @@ class _ExamSetupScreenState extends State<ExamSetupScreen> {
         busyLabel: GochanoLanguage.text('Building paper…', 'তৈরি হচ্ছে…'),
         onPressed: _start,
       ),
-      body: ListView(
+      body: AppPageBackground(
+        gradient: AppGradients.toolMockTests,
+        child: ListView(
         children: [
           SectionHeader(
             title: GochanoLanguage.text('Question source', 'প্রশ্নের উৎস'),
@@ -620,7 +622,8 @@ class _ExamSetupScreenState extends State<ExamSetupScreen> {
           const SizedBox(height: GochanoSpacing.xl),
         ],
       ),
-    );
+    ),
+  );
   }
 
   String _difficultyLabel(String value) {

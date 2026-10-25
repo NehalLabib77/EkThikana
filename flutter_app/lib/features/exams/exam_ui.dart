@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_motion.dart';
 import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_spacing.dart';
 import '../../../core/design_system/gochano_typography.dart';
@@ -99,6 +100,9 @@ class ExamChoiceTile extends StatelessWidget {
     final colors = context.colors;
     final tone = accent ?? colors.brand;
 
+    final motionDuration = context.motionDuration(AppMotion.selectionTransition);
+    final motionCurve = context.motionCurve(AppMotion.easeInOut);
+
     return Semantics(
       button: true,
       selected: selected,
@@ -106,7 +110,9 @@ class ExamChoiceTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: GochanoRadius.mdAll,
-        child: Container(
+        child: AnimatedContainer(
+          duration: motionDuration,
+          curve: motionCurve,
           padding: const EdgeInsets.all(GochanoSpacing.sm),
           decoration: BoxDecoration(
             color: selected ? tone.withValues(alpha: 0.12) : colors.surface,
@@ -118,12 +124,18 @@ class ExamChoiceTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: GochanoSizes.iconMd,
-                color: selected ? tone : colors.textTertiary,
+              AnimatedSwitcher(
+                duration: motionDuration,
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  key: ValueKey<bool>(selected),
+                  size: GochanoSizes.iconMd,
+                  color: selected ? tone : colors.textTertiary,
+                ),
               ),
               const SizedBox(width: GochanoSpacing.sm),
               Expanded(

@@ -10,9 +10,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
@@ -524,21 +522,24 @@ class _ZikuTutorScreenState extends State<ZikuTutorScreen> {
             ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildProgressBanner(colors, type),
-            if (_error != null) _buildErrorBanner(colors, type),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildDialogueStream(colors, type),
-            ),
-            if (!_completed) ...[
-              _buildQuickActions(colors, type),
-              _buildInputArea(colors, type),
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildProgressBanner(colors, type),
+              if (_error != null) _buildErrorBanner(colors, type),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildDialogueStream(colors, type),
+              ),
+              if (!_completed) ...[
+                _buildQuickActions(colors, type),
+                _buildInputArea(colors, type),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -605,13 +606,24 @@ class _ZikuTutorScreenState extends State<ZikuTutorScreen> {
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              key: const ValueKey('tutor_progress_bar'),
-              value: _understandingLevel.clamp(0.05, 1.0),
-              minHeight: 4,
-              backgroundColor: colors.border.withValues(alpha: 0.3),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                pct >= 70 ? colors.success : colors.brand,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(
+                begin: 0.05,
+                end: _understandingLevel.clamp(0.05, 1.0),
+              ),
+              duration: AppMotion.duration(
+                context,
+                AppMotion.progressEmphasis,
+              ),
+              curve: AppMotion.standard,
+              builder: (context, value, _) => LinearProgressIndicator(
+                key: const ValueKey('tutor_progress_bar'),
+                value: value,
+                minHeight: 4,
+                backgroundColor: colors.border.withValues(alpha: 0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  pct >= 70 ? colors.success : colors.brand,
+                ),
               ),
             ),
           ),

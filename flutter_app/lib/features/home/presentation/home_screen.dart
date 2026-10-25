@@ -9,12 +9,12 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../core/design_system/app_design_system.dart';
+import '../../../core/design_system/components/app_utility_header.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
@@ -182,176 +182,182 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GochanoScaffold(
-      padBody: false,
-      appBar: _HomeAppBar(
-        displayName: widget.displayName,
-        onOpenProfile: widget.onOpenProfile,
-        actions: [
-          const LanguageToggle(),
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                GochanoRoute.to(builder: (_) => const UniversalSearchScreen()),
-              );
-            },
-            tooltip: GochanoLanguage.text('Search', 'অনুসন্ধান'),
-            icon: const Icon(Icons.search_rounded),
-          ),
-          ValueListenableBuilder<int>(
-            valueListenable: LocalReminderStore.instance.unreadCountNotifier,
-            builder: (context, unreadCount, _) {
-              return Stack(
-                alignment: Alignment.center,
+    final colors = context.colors;
+
+    // Correct status-bar contrast without a Scaffold AppBar: dark icons over
+    // the pale wash in light mode, light icons in dark mode — the same
+    // treatment the approved Study Mode pinned header uses.
+    final overlayStyle = context.isDark
+        ? SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          )
+        : SystemUiOverlayStyle.dark.copyWith(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: GochanoScaffold(
+        padBody: false,
+        // Home order: _TodaysTasksCard -> _MedicineScheduleCard -> _CommuteCard -> _MoneyCard
+        body: AppPageBackground(
+          height: 260,
+          gradient: AppGradients.todayAppBarFor(isDark: context.isDark),
+          child: ValueListenableBuilder<GochanoAppMode>(
+            valueListenable: GochanoAppModePreferences.current,
+            builder: (context, mode, _) {
+              return Column(
                 children: [
-                  IconButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        GochanoRoute.to(
-                          builder: (_) => const NotificationCenterScreen(),
-                        ),
-                      );
-                    },
-                    tooltip: GochanoLanguage.text(
-                      'Notification Center',
-                      'নোটিফিকেশন সেন্টার',
-                    ),
-                    icon: const Icon(Icons.notifications_outlined),
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: IgnorePointer(
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: context.colors.brand,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          child: Text(
-                            unreadCount > 9 ? '9+' : unreadCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                  // PINNED UTILITY HEADER — inset floating surface above the
+                  // scroll view, so it never scrolls away. No Scaffold AppBar,
+                  // therefore no duplicate status-bar padding.
+                  AppUtilityHeader(
+                    accent: colors.brand,
+                    semanticLabel: GochanoLanguage.text('Home', 'হোম'),
+                    actions: [
+                      const LanguageToggle(),
+                      IconButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            GochanoRoute.to(
+                              builder: (_) => const UniversalSearchScreen(),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
+                          );
+                        },
+                        tooltip: GochanoLanguage.text('Search', 'অনুসন্ধান'),
+                        icon: const Icon(Icons.search_rounded),
+                      ),
+                      ValueListenableBuilder<int>(
+                        valueListenable:
+                            LocalReminderStore.instance.unreadCountNotifier,
+                        builder: (context, unreadCount, _) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    GochanoRoute.to(
+                                      builder: (_) =>
+                                          const NotificationCenterScreen(),
+                                    ),
+                                  );
+                                },
+                                tooltip: GochanoLanguage.text(
+                                  'Notification Center',
+                                  'নোটিফিকেশন সেন্টার',
+                                ),
+                                icon: const Icon(Icons.notifications_outlined),
+                              ),
+                              if (unreadCount > 0)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: context.colors.brand,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 16,
+                                        minHeight: 16,
+                                      ),
+                                      child: Text(
+                                        unreadCount > 9
+                                            ? '9+'
+                                            : unreadCount.toString(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                      _HeaderProfileAction(onOpenProfile: widget.onOpenProfile),
+                    ],
+                  ),
+
+                  // SCROLLABLE DASHBOARD — everything below the pinned header
+                  // still lands in the first viewport.
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: widget._isStudent
+                          ? _loadBootstrap
+                          : () async {},
+                      child: ListView(
+                        padding: GochanoSpacing.scrollBody,
+                        children: widget.buildModeCards(
+                          context,
+                          mode,
+                          _bootstrapData,
                         ),
                       ),
                     ),
+                  ),
                 ],
               );
             },
           ),
-          IconButton(
-            onPressed: widget.onOpenProfile,
-            tooltip: GochanoLanguage.text('Profile', 'প্রোফাইল'),
-            icon: const Icon(Icons.account_circle_outlined),
-          ),
-          const SizedBox(width: GochanoSpacing.xs),
-        ],
-      ),
-      // Home order: _TodaysTasksCard -> _MedicineScheduleCard -> _CommuteCard -> _MoneyCard
-      body: ValueListenableBuilder<GochanoAppMode>(
-        valueListenable: GochanoAppModePreferences.current,
-        builder: (context, mode, _) {
-          return RefreshIndicator(
-            onRefresh: widget._isStudent ? _loadBootstrap : () async {},
-            child: ListView(
-              padding: GochanoSpacing.scrollBody,
-              children: widget.buildModeCards(context, mode, _bootstrapData),
-            ),
-          );
-        },
+        ),
       ),
     );
   }
 }
 
-/// Custom AppBar for Home screen showing [circular avatar] DisplayName.
-class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _HomeAppBar({
-    this.actions,
-    required this.displayName,
-    required this.onOpenProfile,
-  });
+/// The single profile affordance in the Utility header.
+///
+/// Home used to expose the profile twice — a tappable avatar/greeting in the
+/// title *and* a trailing account icon. Both called `onOpenProfile`; they are
+/// merged into one 44dp action here so the header has a single, unambiguous
+/// target: the signed-in photo when there is one, the account mark otherwise.
+class _HeaderProfileAction extends StatelessWidget {
+  const _HeaderProfileAction({required this.onOpenProfile});
 
-  final List<Widget>? actions;
-  final String displayName;
   final VoidCallback onOpenProfile;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final type = context.type;
 
-    return AppBar(
-      backgroundColor: colors.background,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      automaticallyImplyLeading: false,
-      titleSpacing: GochanoSpacing.md,
-      title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.profileStream(),
-        builder: (context, snapshot) {
-          final data = snapshot.data?.data();
-          final photoURL = data?['photoURL'] as String?;
-          final displayName = (data?['displayName'] as String?)?.trim() ?? '';
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService.profileStream(),
+      builder: (context, snapshot) {
+        final photoURL = (snapshot.data?.data()?['photoURL'] as String?)
+            ?.trim();
 
-          return InkWell(
-            onTap: onOpenProfile,
-            borderRadius: GochanoRadius.smAll,
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: colors.brand,
-                  backgroundImage: photoURL != null && photoURL.isNotEmpty
-                      ? NetworkImage(photoURL)
-                      : null,
-                  child: photoURL == null || photoURL.isEmpty
-                      ? Text(
-                          displayName.isNotEmpty
-                              ? displayName[0].toUpperCase()
-                              : '?',
-                          style: type.pageTitle.copyWith(
-                            color: colors.onBrand,
-                            fontSize: 14,
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: GochanoSpacing.sm),
-                Expanded(
-                  child: Text(
-                    _greeting(displayName),
-                    style: type.pageTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      actions: actions,
+        return IconButton(
+          onPressed: onOpenProfile,
+          tooltip: GochanoLanguage.text('Profile', 'প্রোফাইল'),
+          icon: CircleAvatar(
+            radius: 14,
+            backgroundColor: colors.brand,
+            backgroundImage: photoURL != null && photoURL.isNotEmpty
+                ? NetworkImage(photoURL)
+                : null,
+            child: photoURL == null || photoURL.isEmpty
+                ? Icon(
+                    Icons.account_circle_outlined,
+                    size: 20,
+                    color: colors.onBrand,
+                  )
+                : null,
+          ),
+        );
+      },
     );
-  }
-
-  String _greeting(String name) {
-    final trimmed = name.trim();
-    return trimmed.isEmpty ? '?' : trimmed;
   }
 }
 
@@ -409,30 +415,50 @@ class _AccentRailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: GochanoRadius.lgAll,
-          border: Border.all(
-            color: colors.border,
-            width: GochanoBorders.hairline,
+    final isDark = context.isDark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: GochanoRadius.lgAll,
+        splashColor: accent.withValues(alpha: 0.12),
+        highlightColor: accent.withValues(alpha: 0.06),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: GochanoRadius.lgAll,
+            border: Border.all(
+              color: accent.withValues(alpha: isDark ? 0.30 : 0.22),
+              width: GochanoBorders.hairline,
+            ),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
-        ),
-        child: ClipRRect(
-          borderRadius: GochanoRadius.lgAll,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: 3, child: ColoredBox(color: accent)),
-              Expanded(
-                child: Padding(
-                  padding: padding ?? GochanoSpacing.card,
-                  child: child,
+          child: ClipRRect(
+            borderRadius: GochanoRadius.lgAll,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 3.5,
+                  child: ColoredBox(color: accent),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Padding(
+                    padding: padding ?? GochanoSpacing.card,
+                    child: child,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -695,10 +721,17 @@ class _TodaysTasksCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.today_rounded,
-                          size: 18,
-                          color: colors.brand,
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: colors.brand.withValues(alpha: 0.12),
+                            borderRadius: GochanoRadius.smAll,
+                          ),
+                          child: Icon(
+                            Icons.today_rounded,
+                            size: 18,
+                            color: colors.brand,
+                          ),
                         ),
                         const SizedBox(width: GochanoSpacing.xs),
                         Text(
@@ -775,7 +808,18 @@ class _TodaysTasksCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.today_rounded, size: 18, color: colors.brand),
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: colors.brand.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Icon(
+                          Icons.today_rounded,
+                          size: 18,
+                          color: colors.brand,
+                        ),
+                      ),
                       const SizedBox(width: GochanoSpacing.xs),
                       Expanded(
                         child: Text(
@@ -1024,7 +1068,14 @@ class _StudyProgressCardState extends State<_StudyProgressCard> {
         children: [
           Row(
             children: [
-              Icon(Icons.school_rounded, size: 18, color: colors.study),
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: colors.study.withValues(alpha: 0.12),
+                  borderRadius: GochanoRadius.smAll,
+                ),
+                child: Icon(Icons.school_rounded, size: 18, color: colors.study),
+              ),
               const SizedBox(width: GochanoSpacing.xs),
               Expanded(
                 child: Text(
@@ -1442,7 +1493,18 @@ class _MedicineScheduleCardState extends State<_MedicineScheduleCard> {
     final colors = context.colors;
     return Row(
       children: [
-        Icon(Icons.medication_rounded, size: 18, color: colors.medicine),
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: colors.medicine.withValues(alpha: 0.12),
+            borderRadius: GochanoRadius.smAll,
+          ),
+          child: Icon(
+            Icons.medication_rounded,
+            size: 18,
+            color: colors.medicine,
+          ),
+        ),
         const SizedBox(width: GochanoSpacing.xs),
         Expanded(
           child: Text(
@@ -1552,38 +1614,53 @@ class _MoneyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final valueText = showDash ? '—' : formatTaka(amount ?? 0);
-    return Row(
-      children: [
-        Icon(
-          showDash
-              ? Icons.remove_circle_outline
-              : amount != null && amount! >= 0
-              ? Icons.arrow_upward_rounded
-              : Icons.arrow_downward_rounded,
-          size: 14,
-          color: color,
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.sm,
+        vertical: GochanoSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: GochanoRadius.smAll,
+        border: Border.all(
+          color: color.withValues(alpha: 0.14),
+          width: GochanoBorders.hairline,
         ),
-        const SizedBox(width: GochanoSpacing.xs),
-        Text(
-          label,
-          style: context.type.body.copyWith(
-            color: context.colors.textSecondary,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            showDash
+                ? Icons.remove_circle_outline
+                : amount != null && amount! >= 0
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded,
+            size: 14,
+            color: color,
           ),
-        ),
-        const Spacer(),
-        Flexible(
-          child: Text(
-            valueText,
-            style: context.type.cardHeading.copyWith(
-              color: color,
-              fontFamily: '.SF Pro Text',
-              fontFamilyFallback: const ['Roboto', 'sans-serif'],
+          const SizedBox(width: GochanoSpacing.xs),
+          Text(
+            label,
+            style: context.type.body.copyWith(
+              color: context.colors.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+          const Spacer(),
+          Flexible(
+            child: Text(
+              valueText,
+              style: context.type.cardHeading.copyWith(
+                color: color,
+                fontFamily: '.SF Pro Text',
+                fontFamilyFallback: const ['Roboto', 'sans-serif'],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1637,10 +1714,17 @@ class _CommuteCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.directions_transit_rounded,
-                      size: 18,
-                      color: colors.commute,
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: colors.commute.withValues(alpha: 0.12),
+                        borderRadius: GochanoRadius.smAll,
+                      ),
+                      child: Icon(
+                        Icons.directions_transit_rounded,
+                        size: 18,
+                        color: colors.commute,
+                      ),
                     ),
                     const SizedBox(width: GochanoSpacing.xs),
                     Expanded(
@@ -1702,7 +1786,18 @@ class _CommuteCard extends StatelessWidget {
           onTap: onOpenCommute,
           child: Row(
             children: [
-              Icon(Icons.directions_transit_rounded, color: colors.commute),
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: colors.commute.withValues(alpha: 0.12),
+                  borderRadius: GochanoRadius.smAll,
+                ),
+                child: Icon(
+                  Icons.directions_transit_rounded,
+                  size: 20,
+                  color: colors.commute,
+                ),
+              ),
               const SizedBox(width: GochanoSpacing.sm),
               Expanded(
                 child: Column(
@@ -1820,10 +1915,17 @@ class _MoneyCardState extends State<_MoneyCard> {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 18,
-                          color: colors.expense,
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: colors.expense.withValues(alpha: 0.12),
+                            borderRadius: GochanoRadius.smAll,
+                          ),
+                          child: Icon(
+                            Icons.account_balance_wallet_rounded,
+                            size: 18,
+                            color: colors.expense,
+                          ),
                         ),
                         const SizedBox(width: GochanoSpacing.xs),
                         Text(
@@ -1856,8 +1958,48 @@ class _MoneyCardState extends State<_MoneyCard> {
                 ),
               );
             }
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const _SectionSkeleton();
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return _AccentRailCard(
+                accent: colors.expense,
+                onTap: widget.onOpenExpense,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: colors.expense.withValues(alpha: 0.12),
+                            borderRadius: GochanoRadius.smAll,
+                          ),
+                          child: Icon(
+                            Icons.account_balance_wallet_rounded,
+                            size: 18,
+                            color: colors.expense,
+                          ),
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text('Money', 'টাকা'),
+                            style: context.type.sectionHeading,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs),
+                    Text(
+                      GochanoLanguage.text('Loading…', 'লোড হচ্ছে…'),
+                      style: context.type.bodySecondary,
+                    ),
+                  ],
+                ),
+              );
             }
 
             final items = snapshot.data ?? const <FinancialTransactionModel>[];
@@ -1884,10 +2026,17 @@ class _MoneyCardState extends State<_MoneyCard> {
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 18,
-                        color: colors.expense,
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: colors.expense.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 18,
+                          color: colors.expense,
+                        ),
                       ),
                       const SizedBox(width: GochanoSpacing.xs),
                       Expanded(
@@ -1897,6 +2046,11 @@ class _MoneyCardState extends State<_MoneyCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: colors.textTertiary,
                       ),
                     ],
                   ),
@@ -1975,7 +2129,14 @@ class _RecentMaterialsCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: colors.study.withValues(alpha: 0.12),
+                        borderRadius: GochanoRadius.smAll,
+                      ),
+                      child: Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                    ),
                     const SizedBox(width: GochanoSpacing.xs),
                     Text(
                       GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
@@ -2017,7 +2178,14 @@ class _RecentMaterialsCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: colors.study.withValues(alpha: 0.12),
+                        borderRadius: GochanoRadius.smAll,
+                      ),
+                      child: Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                    ),
                     const SizedBox(width: GochanoSpacing.xs),
                     Text(
                       GochanoLanguage.text('Recent', 'সাম্প্রতিক'),
@@ -2047,7 +2215,14 @@ class _RecentMaterialsCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: colors.study.withValues(alpha: 0.12),
+                      borderRadius: GochanoRadius.smAll,
+                    ),
+                    child: Icon(Icons.schedule_rounded, size: 18, color: colors.study),
+                  ),
                   const SizedBox(width: GochanoSpacing.xs),
                   Text(
                     GochanoLanguage.text('Recent', 'সাম্প্রতিক'),

@@ -16,11 +16,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/firestore_service.dart';
@@ -160,6 +158,8 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
     final type = context.type;
     final hasFile = _bytes != null;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GochanoScaffold(
       appBar: GochanoAppBar(
         title: _isGroupUpload
@@ -175,11 +175,24 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
         busyLabel: GochanoLanguage.text('Uploading…', 'আপলোড হচ্ছে…'),
         onPressed: hasFile ? _upload : null,
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 96),
-        children: [
-          AppCard(
-            onTap: _uploading ? null : _pick,
+      body: AppPageBackground(
+        height: 220,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  colors.study.withValues(alpha: 0.12),
+                  colors.background,
+                ],
+              )
+            : AppGradients.toolMaterials,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 96),
+          children: [
+            AppCard(
+              accent: colors.study,
+              onTap: _uploading ? null : _pick,
             child: Row(
               children: [
                 GochanoIllustration(
@@ -288,6 +301,7 @@ class _MaterialUploadScreenState extends State<MaterialUploadScreen> {
             ),
           ],
         ],
+      ),
       ),
     );
   }

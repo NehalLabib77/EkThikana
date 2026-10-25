@@ -7,9 +7,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/firestore_service.dart';
@@ -19,21 +18,53 @@ import '../../../../shared/widgets/gochano_surfaces.dart';
 import 'note_editor_screen.dart';
 
 class NotesScreen extends StatelessWidget {
-  const NotesScreen({super.key});
+  const NotesScreen({super.key, this.notesStream});
+
+  /// Optional stream override for tests or controlled previews.
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? notesStream;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isDark = context.isDark;
+
     return GochanoScaffold(
       padBody: false,
-      appBar: GochanoAppBar(title: GochanoLanguage.text('Notes', 'নোট')),
+      appBar: GochanoAppBar(
+        title: GochanoLanguage.text('My Notes', 'আমার নোট'),
+        subtitle: GochanoLanguage.text(
+          'Create & organize lecture notes',
+          'লেকচার নোট তৈরি ও সাজান',
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
+        elevation: 2,
+        highlightElevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        backgroundColor: colors.brand,
+        foregroundColor: Colors.white,
         onPressed: () => Navigator.of(
           context,
         ).push(GochanoRoute.to(builder: (_) => const NoteEditorScreen())),
         icon: const Icon(Icons.edit_note_rounded),
-        label: Text(GochanoLanguage.text('New note', 'নতুন নোট')),
+        label: Text(
+          GochanoLanguage.text('New note', 'নতুন নোট'),
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
-      body: const NotesList(),
+      body: AppPageBackground(
+        height: 240,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [colors.surface, colors.background],
+              )
+            : AppGradients.notesPage,
+        child: NotesList(notesStream: notesStream),
+      ),
     );
   }
 }
@@ -41,15 +72,18 @@ class NotesScreen extends StatelessWidget {
 /// The note list, reusable inside the Study workspace as well as on its own
 /// screen.
 class NotesList extends StatelessWidget {
-  const NotesList({super.key, this.limit});
+  const NotesList({super.key, this.limit, this.notesStream});
 
   /// Caps how many notes are shown, for the workspace preview.
   final int? limit;
 
+  /// Optional stream override for testing or custom bindings.
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? notesStream;
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('notes', limit: 200),
+      stream: notesStream ?? FirestoreService.ownerStream('notes', limit: 200),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return StaticLoadingState(
@@ -69,7 +103,8 @@ class NotesList extends StatelessWidget {
           });
 
         if (docs.isEmpty) {
-          return EmptyState(
+          final emptyWidget = EmptyState(
+            key: const ValueKey('notes_empty'),
             compact: limit != null,
             illustration: GochanoArt.fileNote,
             title: GochanoLanguage.text('No notes yet', 'এখনো কোনো নোট নেই'),
@@ -78,26 +113,48 @@ class NotesList extends StatelessWidget {
               '+ বোতামে ট্যাপ করে আপনার প্রথম নোট লিখুন।',
             ),
           );
+          return AnimatedSwitcher(
+            duration: AppMotion.duration(
+              context,
+              AppMotion.contentReveal,
+            ),
+            switchInCurve: AppMotion.standard,
+            switchOutCurve: AppMotion.standard,
+            child: emptyWidget,
+          );
         }
 
         final shown = limit == null ? docs : docs.take(limit!).toList();
 
+        final Widget contentWidget;
         if (limit != null) {
-          return CardGroup(
+          contentWidget = CardGroup(
+            key: const ValueKey('notes_card_group'),
             children: [for (final doc in shown) _NoteRow(doc: doc)],
+          );
+        } else {
+          contentWidget = ListView.builder(
+            key: const ValueKey('notes_list'),
+            padding: GochanoSpacing.scrollBody,
+            itemCount: shown.length,
+            itemBuilder: (context, i) => Padding(
+              padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+              child: AppCard(
+                padding: EdgeInsets.zero,
+                child: _NoteRow(doc: shown[i]),
+              ),
+            ),
           );
         }
 
-        return ListView.builder(
-          padding: GochanoSpacing.scrollBody,
-          itemCount: shown.length,
-          itemBuilder: (context, i) => Padding(
-            padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
-            child: AppCard(
-              padding: EdgeInsets.zero,
-              child: _NoteRow(doc: shown[i]),
-            ),
+        return AnimatedSwitcher(
+          duration: AppMotion.duration(
+            context,
+            AppMotion.contentReveal,
           ),
+          switchInCurve: AppMotion.standard,
+          switchOutCurve: AppMotion.standard,
+          child: contentWidget,
         );
       },
     );
@@ -168,6 +225,23 @@ class _NoteRow extends StatelessWidget {
 String _updatedAt(Object? value) {
   if (value is! Timestamp) return '';
   final when = value.toDate();
+  if (GochanoLanguage.isBangla) {
+    const bnMonths = [
+      'জানু',
+      'ফেব',
+      'মার্চ',
+      'এপ্রিল',
+      'মে',
+      'জুন',
+      'জুলাই',
+      'আগস্ট',
+      'সেপ্টে',
+      'অক্টো',
+      'নভে',
+      'ডিসে',
+    ];
+    return '${GochanoLanguage.toBanglaDigits(when.day)} ${bnMonths[when.month - 1]}, ${GochanoLanguage.toBanglaDigits(when.year)}';
+  }
   const months = [
     'Jan',
     'Feb',

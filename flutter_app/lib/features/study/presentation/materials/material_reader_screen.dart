@@ -16,11 +16,9 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
@@ -263,9 +261,13 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: colors.background,
+        backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(color: colors.border, height: 0.5),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -452,45 +454,58 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
       return InteractiveViewer(
         minScale: 0.5,
         maxScale: 5,
-        child: Center(
-          child: imageWidget,
-        ),
+        child: Center(child: imageWidget),
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     // Anything the app cannot render inline — DOC/DOCX, slides — is handed
     // to the platform rather than refused (spec §45).
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(GochanoSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GochanoIllustration(
-              GochanoArt.fileIdFor(
-                fileName: widget.fileName,
-                mimeType: widget.mimeType,
+    return AppPageBackground(
+      height: 240,
+      gradient: isDark
+          ? LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                context.colors.study.withValues(alpha: 0.12),
+                context.colors.background,
+              ],
+            )
+          : AppGradients.toolMaterials,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(GochanoSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GochanoIllustration(
+                GochanoArt.fileIdFor(
+                  fileName: widget.fileName,
+                  mimeType: widget.mimeType,
+                ),
+                size: GochanoSizes.illustrationEmpty,
+                accent: context.colors.study,
               ),
-              size: GochanoSizes.illustrationEmpty,
-              accent: context.colors.study,
-            ),
-            const SizedBox(height: GochanoSpacing.md),
-            Text(
-              GochanoLanguage.text(
-                'This file type opens in another app.',
-                'এই ধরনের ফাইল অন্য অ্যাপে খুলবে।',
+              const SizedBox(height: GochanoSpacing.md),
+              Text(
+                GochanoLanguage.text(
+                  'This file type opens in another app.',
+                  'এই ধরনের ফাইল অন্য অ্যাপে খুলবে।',
+                ),
+                style: context.type.bodySecondary,
+                textAlign: TextAlign.center,
               ),
-              style: context.type.bodySecondary,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: GochanoSpacing.lg),
-            PrimaryButton(
-              label: GochanoLanguage.text('Open file', 'ফাইল খুলুন'),
-              icon: Icons.open_in_new_rounded,
-              expand: false,
-              onPressed: _saving ? null : _openExternally,
-            ),
-          ],
+              const SizedBox(height: GochanoSpacing.lg),
+              PrimaryButton(
+                label: GochanoLanguage.text('Open file', 'ফাইল খুলুন'),
+                icon: Icons.open_in_new_rounded,
+                expand: false,
+                onPressed: _saving ? null : _openExternally,
+              ),
+            ],
+          ),
         ),
       ),
     );

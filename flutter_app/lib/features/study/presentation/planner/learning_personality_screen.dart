@@ -7,10 +7,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/ai_widgets.dart';
@@ -67,6 +65,7 @@ class _LearningPersonalityScreenState extends State<LearningPersonalityScreen> {
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text(
           'Student Learning Profile',
@@ -84,7 +83,10 @@ class _LearningPersonalityScreenState extends State<LearningPersonalityScreen> {
           ),
         ],
       ),
-      body: _buildBody(context),
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: _buildBody(context),
+      ),
     );
   }
 

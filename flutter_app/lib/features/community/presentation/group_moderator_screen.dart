@@ -16,10 +16,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/states/gochano_states.dart';
@@ -73,6 +71,7 @@ class _GroupModeratorScreenState extends State<GroupModeratorScreen> {
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Ziku Moderator', 'জিকু মডারেটর'),
         subtitle: widget.groupName.isEmpty
@@ -82,18 +81,24 @@ class _GroupModeratorScreenState extends State<GroupModeratorScreen> {
               )
             : widget.groupName,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilterChipBar<String>(
-            options: kModeratorSections,
-            selected: _section,
-            onSelected: (value) => setState(() => _section = value),
-            labelOf: moderatorSectionLabel,
-          ),
-          const SizedBox(height: GochanoSpacing.sm),
-          Expanded(child: _buildSection(context)),
-        ],
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: GochanoSpacing.md, vertical: GochanoSpacing.xs),
+              child: FilterChipBar<String>(
+                options: kModeratorSections,
+                selected: _section,
+                onSelected: (value) => setState(() => _section = value),
+                labelOf: moderatorSectionLabel,
+              ),
+            ),
+            const SizedBox(height: GochanoSpacing.xs),
+            Expanded(child: _buildSection(context)),
+          ],
+        ),
       ),
     );
   }

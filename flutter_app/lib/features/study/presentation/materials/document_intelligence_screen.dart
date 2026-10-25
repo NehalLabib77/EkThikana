@@ -12,10 +12,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
@@ -43,15 +41,14 @@ class DocumentIntelligenceScreen extends StatefulWidget {
     required String materialTitle,
     String mimeType = '',
     String subject = '',
-  }) =>
-      GochanoRoute.to<void>(
-        builder: (_) => DocumentIntelligenceScreen(
-          materialId: materialId,
-          materialTitle: materialTitle,
-          mimeType: mimeType,
-          subject: subject,
-        ),
-      );
+  }) => GochanoRoute.to<void>(
+    builder: (_) => DocumentIntelligenceScreen(
+      materialId: materialId,
+      materialTitle: materialTitle,
+      mimeType: mimeType,
+      subject: subject,
+    ),
+  );
 
   @override
   State<DocumentIntelligenceScreen> createState() =>
@@ -83,8 +80,7 @@ _DocStatus _parseStatus(String? s) {
 // State
 // ---------------------------------------------------------------------------
 
-class _DocumentIntelligenceScreenState
-    extends State<DocumentIntelligenceScreen>
+class _DocumentIntelligenceScreenState extends State<DocumentIntelligenceScreen>
     with TickerProviderStateMixin {
   TabController? _tabController;
 
@@ -101,7 +97,13 @@ class _DocumentIntelligenceScreenState
   bool _generatingQuiz = false;
   bool _generatingExam = false;
 
-  static const _tabs = ['Overview', 'Summary', 'Concept Map', 'Study Tools', 'Tutor'];
+  static const _tabs = [
+    'Overview',
+    'Summary',
+    'Concept Map',
+    'Study Tools',
+    'Tutor',
+  ];
 
   @override
   void initState() {
@@ -125,8 +127,8 @@ class _DocumentIntelligenceScreenState
     });
     try {
       final data = await ApiService.getMaterialIntelligence(widget.materialId);
-      final statusStr = data['status'] as String? ??
-          (data['intelligenceStatus'] as String?);
+      final statusStr =
+          data['status'] as String? ?? (data['intelligenceStatus'] as String?);
       setState(() {
         _status = _parseStatus(statusStr);
         if (_status == _DocStatus.ready) {
@@ -182,11 +184,16 @@ class _DocumentIntelligenceScreenState
       if (!mounted) return;
       setState(() {
         switch (type) {
-          case 'flashcards': _generatingFlashcards = v;
-          case 'revision': _generatingRevision = v;
-          case 'study_pack': _generatingStudyPack = v;
-          case 'quiz': _generatingQuiz = v;
-          case 'exam': _generatingExam = v;
+          case 'flashcards':
+            _generatingFlashcards = v;
+          case 'revision':
+            _generatingRevision = v;
+          case 'study_pack':
+            _generatingStudyPack = v;
+          case 'quiz':
+            _generatingQuiz = v;
+          case 'exam':
+            _generatingExam = v;
         }
       });
     }
@@ -197,15 +204,30 @@ class _DocumentIntelligenceScreenState
       Map<String, dynamic> result;
       switch (type) {
         case 'flashcards':
-          result = await ApiService.documentFlashcards(widget.materialId, topic: title);
+          result = await ApiService.documentFlashcards(
+            widget.materialId,
+            topic: title,
+          );
         case 'revision':
-          result = await ApiService.documentRevisionSheet(widget.materialId, topic: title);
+          result = await ApiService.documentRevisionSheet(
+            widget.materialId,
+            topic: title,
+          );
         case 'study_pack':
-          result = await ApiService.documentStudyPack(widget.materialId, topic: title);
+          result = await ApiService.documentStudyPack(
+            widget.materialId,
+            topic: title,
+          );
         case 'quiz':
-          result = await ApiService.documentQuiz(widget.materialId, topic: title);
+          result = await ApiService.documentQuiz(
+            widget.materialId,
+            topic: title,
+          );
         case 'exam':
-          result = await ApiService.documentExam(widget.materialId, topic: title);
+          result = await ApiService.documentExam(
+            widget.materialId,
+            topic: title,
+          );
         default:
           return;
       }
@@ -214,9 +236,9 @@ class _DocumentIntelligenceScreenState
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       setFlag(false);
@@ -246,9 +268,7 @@ class _DocumentIntelligenceScreenState
               padding: const EdgeInsets.all(GochanoSpacing.md),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(label, style: ctx.type.sectionHeading),
-                  ),
+                  Expanded(child: Text(label, style: ctx.type.sectionHeading)),
                   IconButton(
                     icon: const Icon(Icons.close),
                     tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন'),
@@ -278,7 +298,8 @@ class _DocumentIntelligenceScreenState
 
   void _launchTutor() {
     final intel = _intelligence;
-    final subject = intel?['overview']?['subject'] as String? ??
+    final subject =
+        intel?['overview']?['subject'] as String? ??
         (widget.subject.isNotEmpty ? widget.subject : 'General');
     final topic = widget.materialTitle;
 
@@ -312,27 +333,56 @@ class _DocumentIntelligenceScreenState
               )
             : null,
       ),
-      body: _buildBody(),
+      body: AppPageBackground(
+        gradient: AppGradients.toolMaterials,
+        child: _buildBody(),
+      ),
     );
   }
 
   Widget _buildBody() {
+    final Widget child;
     if (_loading) {
-      return const StaticLoadingState(message: 'Loading intelligence…');
+      child = const StaticLoadingState(
+        key: ValueKey('intel_loading'),
+        message: 'Loading intelligence…',
+      );
+    } else {
+      switch (_status) {
+        case _DocStatus.unknown:
+        case _DocStatus.uploaded:
+          child = KeyedSubtree(
+            key: const ValueKey('intel_uploaded'),
+            child: _buildUploadedState(),
+          );
+        case _DocStatus.extracting:
+        case _DocStatus.processing:
+          child = KeyedSubtree(
+            key: const ValueKey('intel_processing'),
+            child: _buildProcessingState(),
+          );
+        case _DocStatus.ready:
+          child = KeyedSubtree(
+            key: const ValueKey('intel_ready'),
+            child: _buildReadyState(),
+          );
+        case _DocStatus.failed:
+          child = KeyedSubtree(
+            key: const ValueKey('intel_failed'),
+            child: _buildFailedState(),
+          );
+      }
     }
 
-    switch (_status) {
-      case _DocStatus.unknown:
-      case _DocStatus.uploaded:
-        return _buildUploadedState();
-      case _DocStatus.extracting:
-      case _DocStatus.processing:
-        return _buildProcessingState();
-      case _DocStatus.ready:
-        return _buildReadyState();
-      case _DocStatus.failed:
-        return _buildFailedState();
-    }
+    return AnimatedSwitcher(
+      duration: AppMotion.duration(
+        context,
+        AppMotion.contentReveal,
+      ),
+      switchInCurve: AppMotion.standard,
+      switchOutCurve: AppMotion.standard,
+      child: child,
+    );
   }
 
   // --- State UIs ---
@@ -347,7 +397,10 @@ class _DocumentIntelligenceScreenState
             Icon(Icons.auto_awesome, size: 64, color: context.colors.study),
             const SizedBox(height: GochanoSpacing.md),
             Text(
-              GochanoLanguage.text('Analyze Document', 'ডকুমেন্ট বিশ্লেষণ করুন'),
+              GochanoLanguage.text(
+                'Analyze Document',
+                'ডকুমেন্ট বিশ্লেষণ করুন',
+              ),
               style: context.type.sectionHeading,
               textAlign: TextAlign.center,
             ),
@@ -355,9 +408,9 @@ class _DocumentIntelligenceScreenState
             Text(
               GochanoLanguage.text(
                 'Ziku will extract key concepts, generate a concept map, '
-                'and prepare study tools from "${widget.materialTitle}".',
+                    'and prepare study tools from "${widget.materialTitle}".',
                 '"${widget.materialTitle}" থেকে মূল ধারণা, concept map এবং '
-                'study tools তৈরি করতে Analyze করুন।',
+                    'study tools তৈরি করতে Analyze করুন।',
               ),
               style: context.type.bodySecondary,
               textAlign: TextAlign.center,
@@ -365,16 +418,21 @@ class _DocumentIntelligenceScreenState
             const SizedBox(height: GochanoSpacing.lg),
             PrimaryButton(
               label: GochanoLanguage.text(
-                'Analyze Document', 'বিশ্লেষণ শুরু করুন'),
+                'Analyze Document',
+                'বিশ্লেষণ শুরু করুন',
+              ),
               icon: Icons.auto_awesome,
               onPressed: _processing ? null : _processDocument,
               busy: _processing,
             ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: GochanoSpacing.sm),
-              Text(_error,
-                  style: context.type.bodySecondary
-                      .copyWith(color: context.colors.error)),
+              Text(
+                _error,
+                style: context.type.bodySecondary.copyWith(
+                  color: context.colors.error,
+                ),
+              ),
             ],
           ],
         ),
@@ -420,13 +478,19 @@ class _DocumentIntelligenceScreenState
             Icon(Icons.error_outline, size: 56, color: context.colors.error),
             const SizedBox(height: GochanoSpacing.md),
             Text(
-              GochanoLanguage.text('Processing Failed', 'প্রক্রিয়া ব্যর্থ হয়েছে'),
+              GochanoLanguage.text(
+                'Processing Failed',
+                'প্রক্রিয়া ব্যর্থ হয়েছে',
+              ),
               style: context.type.sectionHeading,
             ),
             const SizedBox(height: GochanoSpacing.sm),
             if (_error.isNotEmpty)
-              Text(_error,
-                  style: context.type.bodySecondary, textAlign: TextAlign.center),
+              Text(
+                _error,
+                style: context.type.bodySecondary,
+                textAlign: TextAlign.center,
+              ),
             const SizedBox(height: GochanoSpacing.lg),
             SecondaryButton(
               label: GochanoLanguage.text('Retry', 'আবার চেষ্টা করুন'),
@@ -444,17 +508,30 @@ class _DocumentIntelligenceScreenState
     return TabBarView(
       controller: _tabController,
       children: [
-        _OverviewTab(intelligence: intel, truncated: intel['truncated'] == true),
+        _OverviewTab(
+          intelligence: intel,
+          truncated: intel['truncated'] == true,
+        ),
         _SummaryTab(intelligence: intel),
         _ConceptMapTab(intelligence: intel),
         _StudyToolsTab(
-          onFlashcards: _generatingFlashcards ? null : () => _generateContent('flashcards'),
-          onRevision: _generatingRevision ? null : () => _generateContent('revision'),
-          onStudyPack: _generatingStudyPack ? null : () => _generateContent('study_pack'),
+          onFlashcards: _generatingFlashcards
+              ? null
+              : () => _generateContent('flashcards'),
+          onRevision: _generatingRevision
+              ? null
+              : () => _generateContent('revision'),
+          onStudyPack: _generatingStudyPack
+              ? null
+              : () => _generateContent('study_pack'),
           onQuiz: _generatingQuiz ? null : () => _generateContent('quiz'),
           onExam: _generatingExam ? null : () => _generateContent('exam'),
-          generating: _generatingFlashcards || _generatingRevision ||
-              _generatingStudyPack || _generatingQuiz || _generatingExam,
+          generating:
+              _generatingFlashcards ||
+              _generatingRevision ||
+              _generatingStudyPack ||
+              _generatingQuiz ||
+              _generatingExam,
         ),
         _TutorTab(
           intelligence: intel,
@@ -545,7 +622,9 @@ class _OverviewTab extends StatelessWidget {
                   children: [
                     const Icon(Icons.circle, size: 6),
                     const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(child: Text(s.toString(), style: context.type.body)),
+                    Expanded(
+                      child: Text(s.toString(), style: context.type.body),
+                    ),
                   ],
                 ),
               ),
@@ -558,7 +637,11 @@ class _OverviewTab extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
   final IconData icon;
   final String label;
   final String value;
@@ -597,7 +680,8 @@ class _SummaryTabState extends State<_SummaryTab> {
 
   @override
   Widget build(BuildContext context) {
-    final summary = (widget.intelligence['summary'] as Map<String, dynamic>?) ?? {};
+    final summary =
+        (widget.intelligence['summary'] as Map<String, dynamic>?) ?? {};
     final labels = [
       GochanoLanguage.text('Short', 'সংক্ষিপ্ত'),
       GochanoLanguage.text('Detailed', 'বিস্তারিত'),
@@ -629,7 +713,10 @@ class _SummaryTabState extends State<_SummaryTab> {
             child: Text(
               contents[_selected].isNotEmpty
                   ? contents[_selected]
-                  : GochanoLanguage.text('No summary available.', 'সারসংক্ষেপ পাওয়া যায়নি।'),
+                  : GochanoLanguage.text(
+                      'No summary available.',
+                      'সারসংক্ষেপ পাওয়া যায়নি।',
+                    ),
               style: context.type.body,
             ),
           ),
@@ -649,8 +736,7 @@ class _ConceptMapTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final concepts =
-        (intelligence['conceptMap'] as List<dynamic>?) ?? [];
+    final concepts = (intelligence['conceptMap'] as List<dynamic>?) ?? [];
     final topics = (intelligence['importantTopics'] as List<dynamic>?) ?? [];
 
     if (concepts.isEmpty && topics.isEmpty) {
@@ -682,22 +768,36 @@ class _ConceptMapTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(m['name']?.toString() ?? '', style: context.type.label),
+                      Text(
+                        m['name']?.toString() ?? '',
+                        style: context.type.label,
+                      ),
                       if ((m['description'] ?? '').toString().isNotEmpty)
-                        Text(m['description'].toString(), style: context.type.bodySecondary),
+                        Text(
+                          m['description'].toString(),
+                          style: context.type.bodySecondary,
+                        ),
                       if (prereqs.isNotEmpty) ...[
                         const SizedBox(height: GochanoSpacing.xs),
                         Wrap(
                           spacing: 4,
                           children: prereqs
-                              .map((p) => Chip(label: Text(p.toString(), style: context.type.caption)))
+                              .map(
+                                (p) => Chip(
+                                  label: Text(
+                                    p.toString(),
+                                    style: context.type.caption,
+                                  ),
+                                ),
+                              )
                               .toList(),
                         ),
                       ],
                       if (formulas.isNotEmpty) ...[
                         const SizedBox(height: GochanoSpacing.xs),
                         ...formulas.map(
-                          (f) => Text('📐 $f', style: context.type.bodySecondary),
+                          (f) =>
+                              Text('📐 $f', style: context.type.bodySecondary),
                         ),
                       ],
                     ],
@@ -727,9 +827,15 @@ class _ConceptMapTab extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(m['topic']?.toString() ?? '', style: context.type.label),
+                            Text(
+                              m['topic']?.toString() ?? '',
+                              style: context.type.label,
+                            ),
                             if ((m['keyInsight'] ?? '').toString().isNotEmpty)
-                              Text(m['keyInsight'].toString(), style: context.type.bodySecondary),
+                              Text(
+                                m['keyInsight'].toString(),
+                                style: context.type.bodySecondary,
+                              ),
                             if (pages.isNotEmpty)
                               Wrap(
                                 spacing: 4,
@@ -822,11 +928,56 @@ class _StudyToolsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tools = [
-      (Icons.style, GochanoLanguage.text('Flashcards', 'ফ্ল্যাশকার্ড'), onFlashcards),
-      (Icons.edit_note, GochanoLanguage.text('Revision Sheet', 'রিভিশন শিট'), onRevision),
-      (Icons.menu_book, GochanoLanguage.text('Study Pack', 'স্টাডি প্যাক'), onStudyPack),
-      (Icons.quiz, GochanoLanguage.text('Practice Quiz', 'কুইজ'), onQuiz),
-      (Icons.assignment, GochanoLanguage.text('Mock Exam', 'মক পরীক্ষা'), onExam),
+      (
+        icon: Icons.style_rounded,
+        title: GochanoLanguage.text('Flashcards', 'ফ্ল্যাশকার্ড'),
+        desc: GochanoLanguage.text(
+          'Active recall cards generated from concepts',
+          'ধারণা থেকে তৈরি ফ্ল্যাশকার্ড',
+        ),
+        color: AppGradients.violetLight,
+        onTap: onFlashcards,
+      ),
+      (
+        icon: Icons.edit_note_rounded,
+        title: GochanoLanguage.text('Revision Sheet', 'রিভিশন শিট'),
+        desc: GochanoLanguage.text(
+          'High-yield bulleted review with key formulas',
+          'মূল সূত্র ও গুরুত্বপূর্ণ পয়েন্টের শিট',
+        ),
+        color: AppGradients.amberOrange,
+        onTap: onRevision,
+      ),
+      (
+        icon: Icons.menu_book_rounded,
+        title: GochanoLanguage.text('Study Pack', 'স্টাডি প্যাক'),
+        desc: GochanoLanguage.text(
+          'Complete multi-format bundle for mastery',
+          'সম্পূর্ণ মাল্টি-ফরম্যাট স্টাডি বান্ডেল',
+        ),
+        color: AppGradients.skyAccent,
+        onTap: onStudyPack,
+      ),
+      (
+        icon: Icons.quiz_rounded,
+        title: GochanoLanguage.text('Practice Quiz', 'কুইজ অনুশীলন'),
+        desc: GochanoLanguage.text(
+          'Targeted MCQs and short answers',
+          'নির্দিষ্ট এমসিকিউ ও ছোট প্রশ্ন',
+        ),
+        color: AppGradients.indigoAccent,
+        onTap: onQuiz,
+      ),
+      (
+        icon: Icons.assignment_rounded,
+        title: GochanoLanguage.text('Mock Exam', 'মক পরীক্ষা'),
+        desc: GochanoLanguage.text(
+          'Timed assessment simulation with evaluation',
+          'সময় নির্ধারিত মূল্যায়ন পরীক্ষা',
+        ),
+        color: AppGradients.roseAccent,
+        onTap: onExam,
+      ),
     ];
 
     return SingleChildScrollView(
@@ -842,11 +993,46 @@ class _StudyToolsTab extends StatelessWidget {
             (t) => Padding(
               padding: const EdgeInsets.only(bottom: GochanoSpacing.sm),
               child: AppCard(
-                child: ListTile(
-                  leading: Icon(t.$1, color: context.colors.study),
-                  title: Text(t.$2, style: context.type.label),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: t.$3,
+                accent: t.color,
+                onTap: t.onTap,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: t.color.withValues(alpha: 0.12),
+                        borderRadius: GochanoRadius.mdAll,
+                      ),
+                      child: Icon(t.icon, color: t.color, size: 22),
+                    ),
+                    const SizedBox(width: GochanoSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t.title,
+                            style: context.type.cardHeading.copyWith(
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            t.desc,
+                            style: context.type.caption.copyWith(
+                              color: context.colors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: t.color,
+                      size: 20,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -891,16 +1077,19 @@ class _TutorTab extends StatelessWidget {
             Text(
               GochanoLanguage.text(
                 'Ziku will ask Socratic questions about "$materialTitle" '
-                'and guide your understanding with document citations.',
+                    'and guide your understanding with document citations.',
                 '"$materialTitle" থেকে Socratic প্রশ্ন করে Ziku তোমাকে '
-                'বুঝতে সাহায্য করবে।',
+                    'বুঝতে সাহায্য করবে।',
               ),
               style: context.type.bodySecondary,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: GochanoSpacing.lg),
             PrimaryButton(
-              label: GochanoLanguage.text('Start Tutor Session', 'Tutor শুরু করুন'),
+              label: GochanoLanguage.text(
+                'Start Tutor Session',
+                'Tutor শুরু করুন',
+              ),
               icon: Icons.chat,
               onPressed: onLaunch,
             ),

@@ -9,9 +9,8 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
@@ -33,6 +32,7 @@ class MaterialsScreen extends StatefulWidget {
     this.subjectFilter,
     this.mimeFilter,
     this.documentFilter = false,
+    this.materialsStream,
   });
 
   /// When set, only materials filed under this subject are shown.
@@ -43,6 +43,9 @@ class MaterialsScreen extends StatefulWidget {
 
   /// When true, shows only document materials (PDF, DOC, DOCX, TXT).
   final bool documentFilter;
+
+  /// Optional stream override for tests or controlled fixtures.
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? materialsStream;
 
   @override
   State<MaterialsScreen> createState() => _MaterialsScreenState();
@@ -67,14 +70,28 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         title: widget.documentFilter
             ? GochanoLanguage.text('Documents', 'ডকুমেন্ট')
             : widget.subjectFilter ??
-                (widget.mimeFilter != null
-                    ? _mimeFilterTitle(widget.mimeFilter!)
-                    : GochanoLanguage.text('Materials', 'উপকরণ')),
+                  (widget.mimeFilter != null
+                      ? _mimeFilterTitle(widget.mimeFilter!)
+                      : GochanoLanguage.text(
+                          'Study Materials',
+                          'অধ্যয়ন উপকরণ',
+                        )),
         subtitle: widget.documentFilter
-            ? GochanoLanguage.text('All document materials', 'সমস্ত ডকুমেন্ট উপকরণ')
-            : widget.subjectFilter == null && widget.mimeFilter == null
-                ? null
-                : GochanoLanguage.text('Subject materials', 'বিষয়ের উপকরণ'),
+            ? GochanoLanguage.text(
+                'All document materials',
+                'সমস্ত ডকুমেন্ট উপকরণ',
+              )
+            : widget.subjectFilter != null
+                ? GochanoLanguage.text('Subject materials', 'বিষয়ের উপকরণ')
+                : widget.mimeFilter != null
+                    ? GochanoLanguage.text(
+                        'Filtered materials',
+                        'ফিল্টার করা উপকরণ',
+                      )
+                    : GochanoLanguage.text(
+                        'PDFs, slides & document library',
+                        'পিডিএফ, স্লাইড ও ডকুমেন্ট লাইব্রেরি',
+                      ),
         actions: [
           PopupMenuButton<MaterialSort>(
             icon: const Icon(Icons.sort_rounded),
@@ -103,6 +120,8 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppGradients.skyAccent,
+        foregroundColor: Colors.white,
         onPressed: () => Navigator.of(context).push(
           GochanoRoute.to(
             builder: (_) =>
@@ -112,43 +131,54 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         icon: const Icon(Icons.upload_file_rounded),
         label: Text(GochanoLanguage.text('Add material', 'উপকরণ যোগ')),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              GochanoSpacing.md,
-              GochanoSpacing.xs,
-              GochanoSpacing.md,
-              GochanoSpacing.sm,
-            ),
-            child: SearchField(
-              controller: _search,
-              hint: GochanoLanguage.text(
-                'Search your materials',
-                'আপনার উপকরণ খুঁজুন',
+      body: AppPageBackground(
+        height: 240,
+        gradient: context.isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [context.colors.surface, context.colors.background],
+              )
+            : AppGradients.toolMaterials,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                GochanoSpacing.md,
+                GochanoSpacing.xs,
+                GochanoSpacing.md,
+                GochanoSpacing.sm,
               ),
-              onChanged: (value) => setState(() => _query = value.trim()),
-              trailing: _query.isEmpty
-                  ? null
-                  : IconActionButton(
-                      icon: Icons.close_rounded,
-                      label: GochanoLanguage.text('Clear', 'মুছুন'),
-                      onPressed: () {
-                        _search.clear();
-                        setState(() => _query = '');
-                      },
-                    ),
+              child: SearchField(
+                controller: _search,
+                hint: GochanoLanguage.text(
+                  'Search your materials',
+                  'আপনার উপকরণ খুঁজুন',
+                ),
+                onChanged: (value) => setState(() => _query = value.trim()),
+                trailing: _query.isEmpty
+                    ? null
+                    : IconActionButton(
+                        icon: Icons.close_rounded,
+                        label: GochanoLanguage.text('Clear', 'মুছুন'),
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                      ),
+              ),
             ),
-          ),
-          Expanded(child: _buildList(context)),
-        ],
+            Expanded(child: _buildList(context)),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildList(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService.ownerStream('materials', limit: 300),
+      stream: widget.materialsStream ??
+          FirestoreService.ownerStream('materials', limit: 300),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return StaticLoadingState(
@@ -190,8 +220,15 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
             final mime = (data['mimeType'] ?? '').toString().toLowerCase();
             final name = (data['fileName'] ?? '').toString().toLowerCase();
             // Document: PDF, DOC, DOCX, TXT — any non-image file
-            if (mime.startsWith('image/')) return false;
-            if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) return false;
+            if (mime.startsWith('image/')) {
+              return false;
+            }
+            if (name.endsWith('.jpg') ||
+                name.endsWith('.jpeg') ||
+                name.endsWith('.png') ||
+                name.endsWith('.webp')) {
+              return false;
+            }
             return true;
           }).toList();
         }
@@ -292,16 +329,27 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
             );
           }
 
-          return EmptyState(
+          final emptyWidget = EmptyState(
+            key: const ValueKey('materials_empty'),
             illustration: GochanoArt.emptyMaterials,
             title: emptyTitle,
             message: emptyMessage,
+          );
+          return AnimatedSwitcher(
+            duration: AppMotion.duration(
+              context,
+              AppMotion.contentReveal,
+            ),
+            switchInCurve: AppMotion.standard,
+            switchOutCurve: AppMotion.standard,
+            child: emptyWidget,
           );
         }
 
         // ListView.builder so a student with 300 materials does not build
         // 300 rows at once (spec §83).
-        return ListView.builder(
+        final listWidget = ListView.builder(
+          key: ValueKey('materials_list_${_sort.name}_${_query.isEmpty}'),
           padding: GochanoSpacing.scrollBody,
           itemCount: docs.length,
           itemBuilder: (context, i) => Padding(
@@ -311,6 +359,16 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
               child: _MaterialRow(doc: docs[i]),
             ),
           ),
+        );
+
+        return AnimatedSwitcher(
+          duration: AppMotion.duration(
+            context,
+            AppMotion.contentReveal,
+          ),
+          switchInCurve: AppMotion.standard,
+          switchOutCurve: AppMotion.standard,
+          child: listWidget,
         );
       },
     );
@@ -346,7 +404,7 @@ class _MaterialRow extends StatelessWidget {
         fileName: fileName,
         mimeType: mimeType,
       ),
-      accent: context.colors.study,
+      accent: AppGradients.skyAccent,
       title: title,
       subtitle: data['subject']?.toString(),
       metadata: [_fileSize(data['sizeBytes']), _createdAt(data['createdAt'])],
@@ -366,8 +424,8 @@ class _MaterialRow extends StatelessWidget {
         ),
         GochanoMenuAction(
           label: GochanoLanguage.text(
-            'Ask AI about this',
-            'এটি নিয়ে জিজ্ঞাসা',
+            'Ask AI',
+            'এআই জিজ্ঞাসা',
           ),
           icon: Icons.auto_awesome_outlined,
           onSelected: () => Navigator.of(context).push(
@@ -384,7 +442,8 @@ class _MaterialRow extends StatelessWidget {
         GochanoMenuAction(
           label: GochanoLanguage.text('Download', 'ডাউনলোড'),
           icon: Icons.download_outlined,
-          onSelected: () => _downloadOffline(context, doc, title, fileName, mimeType),
+          onSelected: () =>
+              _downloadOffline(context, doc, title, fileName, mimeType),
         ),
         GochanoMenuAction(
           label: GochanoLanguage.text('Rename', 'নাম পরিবর্তন'),
@@ -460,39 +519,106 @@ Future<void> _downloadOffline(
   }
 }
 
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initialText});
+  final String initialText;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: GochanoRadius.lgAll),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppGradients.skyDark.withValues(alpha: 0.3)
+                  : const Color(0xFFE0F2FE),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.edit_note_rounded,
+              size: 20,
+              color: AppGradients.skyAccent,
+            ),
+          ),
+          const SizedBox(width: GochanoSpacing.sm),
+          Expanded(
+            child: Text(
+              GochanoLanguage.text('Rename material', 'উপকরণের নাম পরিবর্তন'),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+        ],
+      ),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: GochanoLanguage.text('Title', 'শিরোনাম'),
+          border: OutlineInputBorder(
+            borderRadius: GochanoRadius.mdAll,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: GochanoRadius.mdAll,
+            borderSide: const BorderSide(
+              color: AppGradients.skyAccent,
+              width: 1.5,
+            ),
+          ),
+        ),
+        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppGradients.skyAccent,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
+        ),
+      ],
+    );
+  }
+}
+
 Future<void> _rename(
   BuildContext context,
   QueryDocumentSnapshot<Map<String, dynamic>> doc,
   String current,
 ) async {
-  final controller = TextEditingController(text: current);
   try {
     final title = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          GochanoLanguage.text('Rename material', 'উপকরণের নাম পরিবর্তন'),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: GochanoLanguage.text('Title', 'শিরোনাম'),
-          ),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(GochanoLanguage.text('Cancel', 'বাতিল')),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: Text(GochanoLanguage.text('Save', 'সংরক্ষণ')),
-          ),
-        ],
-      ),
+      builder: (dialogContext) => _RenameDialog(initialText: current),
     );
     if (title == null || title.isEmpty || !context.mounted) return;
     // Goes through the backend so the owner check and the 1000-char limit
@@ -502,8 +628,6 @@ Future<void> _rename(
     if (context.mounted) {
       showGochanoMessage(context, friendlyErrorMessage(error), isError: true);
     }
-  } finally {
-    controller.dispose();
   }
 }
 

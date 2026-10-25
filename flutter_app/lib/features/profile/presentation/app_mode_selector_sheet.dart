@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_motion.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/settings/gochano_app_mode.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
@@ -181,77 +182,84 @@ class ModeCard extends StatelessWidget {
       selected: isSelected,
       button: true,
       label: '$title, $description',
-      child: Material(
-        color: isSelected
-            ? accentColor.withValues(alpha: 0.05)
-            : colors.surface,
-        shape: RoundedRectangleBorder(
+      child: AnimatedContainer(
+        duration: AppMotion.duration(context, AppMotion.selectionTransition),
+        curve: AppMotion.standard,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accentColor.withValues(alpha: 0.05)
+              : colors.surface,
           borderRadius: GochanoRadius.mdAll,
-          side: BorderSide(
+          border: Border.all(
             color: isSelected ? accentColor : colors.border,
             width: isSelected ? 2.0 : GochanoBorders.hairline,
           ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(GochanoSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.12),
-                        borderRadius: GochanoRadius.smAll,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: GochanoRadius.mdAll,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(GochanoSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.12),
+                          borderRadius: GochanoRadius.smAll,
+                        ),
+                        child: Icon(icon, color: accentColor, size: 22),
                       ),
-                      child: Icon(icon, color: accentColor, size: 22),
-                    ),
-                    const SizedBox(width: GochanoSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: type.body.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? accentColor
-                                  : colors.textPrimary,
+                      const SizedBox(width: GochanoSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: type.body.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? accentColor
+                                    : colors.textPrimary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            description,
-                            style: type.caption.copyWith(
-                              color: colors.textSecondary,
-                              height: 1.35,
+                            const SizedBox(height: 2),
+                            Text(
+                              description,
+                              style: type.caption.copyWith(
+                                color: colors.textSecondary,
+                                height: 1.35,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? accentColor : colors.border,
-                          width: isSelected ? 6.0 : 1.5,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: GochanoSpacing.xs),
+                      AnimatedContainer(
+                        duration: AppMotion.duration(context, AppMotion.selectionTransition),
+                        curve: AppMotion.standard,
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? accentColor : colors.border,
+                            width: isSelected ? 6.0 : 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: GochanoSpacing.sm),
                 Wrap(
                   spacing: GochanoSpacing.xs,
@@ -289,6 +297,7 @@ class ModeCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

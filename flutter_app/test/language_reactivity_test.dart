@@ -1,12 +1,23 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:gochano/core/design_system/gochano_theme.dart';
 import 'package:gochano/core/localization/gochano_language.dart';
+import 'package:gochano/core/settings/gochano_app_mode.dart';
+import 'package:gochano/features/shell/presentation/gochano_shell.dart';
 import 'package:gochano/widgets/language_toggle.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUp(() {
+    SharedPreferences.setMockInitialValues({
+      GochanoAppModePreferences.prefsKey: 'study',
+      GochanoAppModePreferences.discoveryKey: true,
+      'gochano.language': 'en',
+    });
+    GochanoAppModePreferences.current.value = GochanoAppMode.study;
     GochanoLanguage.current.value = GochanoLocale.english;
   });
 
@@ -89,38 +100,117 @@ void main() {
   });
 
   group('GochanoShell Destinations Reactivity Test', () {
-    test(
-      'GochanoShell subscribes to GochanoLanguage.current and defines localized destinations',
-      () {
-        final shellSource = File(
-          'lib/features/shell/presentation/gochano_shell.dart',
-        ).readAsStringSync();
-        expect(
-          shellSource,
-          contains('GochanoLanguage.current.addListener(_onLanguageChange)'),
+    testWidgets(
+      'GochanoShell subscribes to GochanoLanguage.current and dynamically updates Study Mode destinations',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          GochanoAppModePreferences.prefsKey: 'study',
+          GochanoAppModePreferences.discoveryKey: true,
+          'gochano.language': 'en',
+        });
+        GochanoAppModePreferences.current.value = GochanoAppMode.study;
+        GochanoLanguage.current.value = GochanoLocale.english;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GochanoTheme.light(),
+            home: GochanoShell(
+              role: 'student',
+              displayName: 'Test Student',
+              pagesBuilder: (context, mode) => const [
+                SizedBox(),
+                SizedBox(),
+                SizedBox(),
+                SizedBox(),
+                SizedBox(),
+              ],
+            ),
+          ),
         );
-        expect(
-          shellSource,
-          contains('GochanoLanguage.current.removeListener(_onLanguageChange)'),
+        await tester.pumpAndSettle();
+
+        // In Study Mode (English), verify primary destinations
+        expect(find.text('Today'), findsOneWidget);
+        expect(find.text('Workspace'), findsOneWidget);
+        expect(find.text('Plan'), findsOneWidget);
+        expect(find.text('Community'), findsOneWidget);
+        expect(find.text('You'), findsOneWidget);
+
+        // Dynamically switch language to Bangla
+        GochanoLanguage.current.value = GochanoLocale.bangla;
+        await tester.pumpAndSettle();
+
+        // Destinations dynamically update to Bangla
+        expect(find.text('আজ'), findsOneWidget);
+        expect(find.text('ওয়ার্কস্পেস'), findsOneWidget);
+        expect(find.text('পরিকল্পনা'), findsOneWidget);
+        expect(find.text('কমিউনিটি'), findsOneWidget);
+        expect(find.text('আপনি'), findsOneWidget);
+
+        // Dynamically switch language back to English
+        GochanoLanguage.current.value = GochanoLocale.english;
+        await tester.pumpAndSettle();
+
+        expect(find.text('Today'), findsOneWidget);
+        expect(find.text('Workspace'), findsOneWidget);
+        expect(find.text('Plan'), findsOneWidget);
+        expect(find.text('Community'), findsOneWidget);
+        expect(find.text('You'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'GochanoShell subscribes to GochanoLanguage.current and dynamically updates Utility Mode destinations',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          GochanoAppModePreferences.prefsKey: 'utility',
+          GochanoAppModePreferences.discoveryKey: true,
+          'gochano.language': 'en',
+        });
+        GochanoAppModePreferences.current.value = GochanoAppMode.utility;
+        GochanoLanguage.current.value = GochanoLocale.english;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GochanoTheme.light(),
+            home: GochanoShell(
+              role: 'student',
+              displayName: 'Test Student',
+              pagesBuilder: (context, mode) => const [
+                SizedBox(),
+                SizedBox(),
+                SizedBox(),
+                SizedBox(),
+              ],
+            ),
+          ),
         );
-        expect(shellSource, contains('_buildDestinations()'));
-        expect(shellSource, contains("GochanoLanguage.text('Today', 'আজ')"));
-        expect(
-          shellSource,
-          contains("GochanoLanguage.text('Study', 'পড়াশোনা')"),
-        );
-        expect(
-          shellSource,
-          contains("GochanoLanguage.text('Money', 'টাকা')"),
-        );
-        expect(
-          shellSource,
-          contains("GochanoLanguage.text('Commute', 'যাতায়াত')"),
-        );
-        expect(
-          shellSource,
-          contains("GochanoLanguage.text('Community', 'কমিউনিটি')"),
-        );
+        await tester.pumpAndSettle();
+
+        // Utility mode English destinations
+        expect(find.text('Today'), findsOneWidget);
+        expect(find.text('Commute'), findsOneWidget);
+        expect(find.text('Money'), findsOneWidget);
+        expect(find.text('Profile'), findsOneWidget);
+
+        // Switch to Bangla
+        GochanoLanguage.current.value = GochanoLocale.bangla;
+        await tester.pumpAndSettle();
+
+        // Utility mode Bangla destinations
+        expect(find.text('আজ'), findsOneWidget);
+        expect(find.text('যাতায়াত'), findsOneWidget);
+        expect(find.text('টাকা'), findsOneWidget);
+        expect(find.text('প্রোফাইল'), findsOneWidget);
+
+        // Switch back to English
+        GochanoLanguage.current.value = GochanoLocale.english;
+        await tester.pumpAndSettle();
+
+        expect(find.text('Today'), findsOneWidget);
+        expect(find.text('Commute'), findsOneWidget);
+        expect(find.text('Money'), findsOneWidget);
+        expect(find.text('Profile'), findsOneWidget);
       },
     );
 

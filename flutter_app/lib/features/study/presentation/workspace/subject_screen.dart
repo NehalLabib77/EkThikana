@@ -6,11 +6,9 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../shared/widgets/gochano_controls.dart';
@@ -50,44 +48,47 @@ class SubjectScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              GochanoSpacing.md,
-              GochanoSpacing.xs,
-              GochanoSpacing.md,
-              0,
-            ),
-            child: AppCard(
-              accent: colors.study,
-              child: Row(
-                children: [
-                  GochanoIllustration(
-                    GochanoArt.subjectIdFor(subjectName),
-                    size: 44,
-                    accent: colors.study,
-                  ),
-                  const SizedBox(width: GochanoSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(subjectName, style: context.type.sectionHeading),
-                        Text(semesterName, style: context.type.caption),
-                      ],
+      body: AppPageBackground(
+        gradient: AppGradients.toolMaterials,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                GochanoSpacing.md,
+                GochanoSpacing.xs,
+                GochanoSpacing.md,
+                0,
+              ),
+              child: AppCard(
+                accent: colors.study,
+                child: Row(
+                  children: [
+                    GochanoIllustration(
+                      GochanoArt.subjectIdFor(subjectName),
+                      size: 44,
+                      accent: colors.study,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: GochanoSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(subjectName, style: context.type.sectionHeading),
+                          Text(semesterName, style: context.type.caption),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          // The material list is the same widget the library uses, filtered
-          // to this subject — one implementation of search, sort, rename and
-          // delete rather than two that can drift (spec §84).
-          Expanded(child: MaterialsScreen(subjectFilter: subjectName)),
-        ],
+            // The material list is the same widget the library uses, filtered
+            // to this subject — one implementation of search, sort, rename and
+            // delete rather than two that can drift (spec §84).
+            Expanded(child: MaterialsScreen(subjectFilter: subjectName)),
+          ],
+        ),
       ),
     );
   }

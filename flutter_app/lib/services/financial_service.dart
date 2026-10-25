@@ -233,9 +233,7 @@ class FinancialService {
   ) {
     final currentUid = uid;
     if (currentUid == null) {
-      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
-        db.collection('bazar_items').limit(0).get(),
-      );
+      return const Stream.empty();
     }
     return db
         .collection('bazar_items')
@@ -431,9 +429,7 @@ class FinancialService {
   ) {
     final currentUid = uid;
     if (currentUid == null) {
-      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
-        db.collection('medicine_doses').limit(0).get(),
-      );
+      return const Stream.empty();
     }
     return db
         .collection('medicine_doses')
@@ -638,9 +634,7 @@ class FinancialService {
   static Stream<QuerySnapshot<Map<String, dynamic>>> denaPawnaStream() {
     final currentUid = uid;
     if (currentUid == null) {
-      return Stream<QuerySnapshot<Map<String, dynamic>>>.fromFuture(
-        db.collection('dena_pawna_items').limit(0).get(),
-      );
+      return const Stream.empty();
     }
     return db
         .collection('dena_pawna_items')

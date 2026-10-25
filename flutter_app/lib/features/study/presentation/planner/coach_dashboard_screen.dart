@@ -17,10 +17,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/api_service.dart';
@@ -161,6 +159,7 @@ class _CoachDashboardScreenState extends State<CoachDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('My AI Coach', 'আমার এআই কোচ'),
         subtitle: GochanoLanguage.text(
@@ -175,7 +174,10 @@ class _CoachDashboardScreenState extends State<CoachDashboardScreen> {
           ),
         ],
       ),
-      body: _buildBody(context),
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: _buildBody(context),
+      ),
     );
   }
 

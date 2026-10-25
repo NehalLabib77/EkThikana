@@ -18,10 +18,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -64,6 +62,7 @@ Future<CommutePlace?> showCommutePlacePicker(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    backgroundColor: Colors.transparent,
     builder: (sheetContext) => _PlacePicker(title: title),
   );
 }
@@ -260,67 +259,234 @@ class _PlacePickerState extends State<_PlacePicker> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isOrigin = widget.title.toLowerCase().contains('from') ||
+        widget.title.contains('থেকে');
 
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: DraggableScrollableSheet(
-        initialChildSize: 0.8,
+        initialChildSize: 0.82,
         minChildSize: 0.5,
         maxChildSize: 0.95,
         expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                GochanoSpacing.md,
-                GochanoSpacing.xs,
-                GochanoSpacing.md,
-                GochanoSpacing.sm,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.title, style: context.type.sectionHeading),
-                  const SizedBox(height: GochanoSpacing.sm),
-                  SearchField(
-                    controller: _query,
-                    autofocus: true,
-                    hint: GochanoLanguage.text(
-                      'Search a place, stop or station',
-                      'স্থান, স্টপ বা স্টেশন খুঁজুন',
-                    ),
-                    onChanged: _onChanged,
-                    onSubmitted: _search,
-                  ),
-                  const SizedBox(height: GochanoSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: _locating ? null : _useCurrentLocation,
-                      icon: const Icon(
-                        Icons.my_location_rounded,
-                        size: GochanoSizes.iconSm,
-                      ),
-                      label: Text(
-                        _locating
-                            ? GochanoLanguage.text(
-                                'Finding you…',
-                                'আপনাকে খোঁজা হচ্ছে…',
-                              )
-                            : GochanoLanguage.text(
-                                'Use my current location',
-                                'আমার বর্তমান লোকেশন',
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(
+              color: colors.border,
+              width: GochanoBorders.hairline,
             ),
-            Expanded(child: _buildResults(context, scrollController, colors)),
-          ],
+          ),
+          child: Column(
+            children: [
+              // Drag Handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(
+                    top: GochanoSpacing.xs,
+                    bottom: GochanoSpacing.xs,
+                  ),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.divider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Header: Contextual icon, title, subtitle, and close button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  GochanoSpacing.md,
+                  GochanoSpacing.xs,
+                  GochanoSpacing.xs,
+                  GochanoSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: isOrigin
+                            ? colors.commute.withValues(alpha: 0.12)
+                            : colors.info.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isOrigin
+                            ? Icons.trip_origin_rounded
+                            : Icons.location_on_rounded,
+                        size: 20,
+                        color: isOrigin ? colors.commute : colors.info,
+                      ),
+                    ),
+                    const SizedBox(width: GochanoSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.title,
+                            style: context.type.sectionHeading,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isOrigin
+                                ? GochanoLanguage.text(
+                                    'Choose starting location',
+                                    'শুরুর স্থান নির্বাচন করুন',
+                                  )
+                                : GochanoLanguage.text(
+                                    'Choose destination place',
+                                    'গন্তব্যের স্থান নির্বাচন করুন',
+                                  ),
+                            style: context.type.caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 22,
+                        color: colors.textSecondary,
+                      ),
+                      tooltip: GochanoLanguage.text('Close', 'বন্ধ করুন'),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Search input and Current location action
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  GochanoSpacing.md,
+                  GochanoSpacing.xs,
+                  GochanoSpacing.md,
+                  GochanoSpacing.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _query,
+                      builder: (context, value, _) {
+                        return SearchField(
+                          controller: _query,
+                          autofocus: true,
+                          hint: GochanoLanguage.text(
+                            'Search a place, stop or station',
+                            'স্থান, স্টপ বা স্টেশন খুঁজুন',
+                          ),
+                          onChanged: _onChanged,
+                          onSubmitted: _search,
+                          trailing: value.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(
+                                    Icons.clear_rounded,
+                                    size: 20,
+                                  ),
+                                  tooltip: GochanoLanguage.text(
+                                    'Clear search',
+                                    'অনুসন্ধান মুছুন',
+                                  ),
+                                  onPressed: () {
+                                    _query.clear();
+                                    _onChanged('');
+                                  },
+                                )
+                              : null,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: GochanoSpacing.xs),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: InkWell(
+                        onTap: _locating ? null : _useCurrentLocation,
+                        borderRadius: GochanoRadius.mdAll,
+                        child: AnimatedContainer(
+                          duration: AppMotion.duration(
+                            context,
+                            AppMotion.selectionTransition,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: GochanoSpacing.sm,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.commute.withValues(alpha: 0.08),
+                            borderRadius: GochanoRadius.mdAll,
+                            border: Border.all(
+                              color: colors.commute.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_locating) ...[
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: colors.commute,
+                                  ),
+                                ),
+                                const SizedBox(width: GochanoSpacing.xs),
+                              ] else ...[
+                                Icon(
+                                  Icons.my_location_rounded,
+                                  size: 16,
+                                  color: colors.commute,
+                                ),
+                                const SizedBox(width: GochanoSpacing.xs),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  _locating
+                                      ? GochanoLanguage.text(
+                                          'Finding you…',
+                                          'আপনাকে খোঁজা হচ্ছে…',
+                                        )
+                                      : GochanoLanguage.text(
+                                          'Use my current location',
+                                          'আমার বর্তমান লোকেশন',
+                                        ),
+                                  style: context.type.bodySecondary.copyWith(
+                                    color: colors.commute,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Results Area
+              Expanded(
+                child: _buildResults(context, scrollController, colors),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -429,9 +595,22 @@ class _PlaceRow extends StatelessWidget {
       illustration: place.isDatasetPlace
           ? GochanoArt.modeBus
           : GochanoArt.pinDestination,
-      accent: context.colors.commute,
+      accent: place.isDatasetPlace
+          ? context.colors.commute
+          : context.colors.info,
       title: place.name,
       subtitle: place.detail,
+      badge: place.isDatasetPlace
+          ? GochanoBadge(
+              label: GochanoLanguage.text('Official stop', 'অফিশিয়াল স্টপ'),
+              tone: GochanoBadgeTone.brand,
+            )
+          : null,
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        size: 20,
+        color: context.colors.textTertiary,
+      ),
       onTap: onTap,
     );
   }

@@ -22,11 +22,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
 import '../../../core/design_system/gochano_illustration.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
@@ -160,29 +158,32 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               ],
             ),
           ),
-          body: TabBarView(
-            controller: _tabs,
-            children: [
-              GroupChatView(
-                groupId: widget.groupId,
-                chatEnabled: chatEnabled,
-                isAdmin: isAdmin,
-              ),
-              _ProjectsTab(
-                groupId: widget.groupId,
-                isAdmin: isAdmin,
-                memberIds: memberIds,
-                adminIds: adminIds,
-              ),
-              _ResourcesTab(groupId: widget.groupId, groupName: name),
-              _OverviewTab(
-                data: data,
-                isAdmin: isAdmin,
-                memberIds: memberIds,
-                adminIds: adminIds,
-                onOpenResources: () => _tabs.animateTo(2),
-              ),
-            ],
+          body: AppPageBackground(
+            gradient: AppGradients.communityHub,
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                GroupChatView(
+                  groupId: widget.groupId,
+                  chatEnabled: chatEnabled,
+                  isAdmin: isAdmin,
+                ),
+                _ProjectsTab(
+                  groupId: widget.groupId,
+                  isAdmin: isAdmin,
+                  memberIds: memberIds,
+                  adminIds: adminIds,
+                ),
+                _ResourcesTab(groupId: widget.groupId, groupName: name),
+                _OverviewTab(
+                  data: data,
+                  isAdmin: isAdmin,
+                  memberIds: memberIds,
+                  adminIds: adminIds,
+                  onOpenResources: () => _tabs.animateTo(2),
+                ),
+              ],
+            ),
           ),
         );
       },

@@ -7,9 +7,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/ai_widgets.dart';
@@ -74,6 +72,7 @@ class _ZikuAchievementsScreenState extends State<ZikuAchievementsScreen> {
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Achievements', 'অর্জন'),
         subtitle: GochanoLanguage.text(
@@ -88,7 +87,10 @@ class _ZikuAchievementsScreenState extends State<ZikuAchievementsScreen> {
           ),
         ],
       ),
-      body: _buildBody(context),
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: _buildBody(context),
+      ),
     );
   }
 

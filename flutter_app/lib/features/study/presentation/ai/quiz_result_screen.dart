@@ -7,9 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/ai_widgets.dart';
@@ -281,16 +279,20 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     final colors = context.colors;
 
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Quiz Result', 'কুইজ ফলাফল'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(GochanoSpacing.md),
-        children: [
-          // Score card
-          AppCard(
-            padding: const EdgeInsets.all(GochanoSpacing.lg),
-            child: Column(
+      body: AppPageBackground(
+        gradient: AppGradients.toolMockTests,
+        child: ListView(
+          padding: const EdgeInsets.all(GochanoSpacing.md),
+          children: [
+            // Score card
+            AppCard(
+              accent: _scoreColor(context),
+              padding: const EdgeInsets.all(GochanoSpacing.lg),
+              child: Column(
               children: [
                 // Score circle
                 SizedBox(
@@ -299,18 +301,25 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      SizedBox(
-                        width: 120,
-                        height: 120,
-                        child: CircularProgressIndicator(
-                          value: _score / 100,
-                          strokeWidth: 10,
-                          backgroundColor: colors.surfaceVariant,
-                          valueColor: AlwaysStoppedAnimation(
-                            _scoreColor(context),
-                          ),
-                          strokeCap: StrokeCap.round,
-                        ),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0.0, end: _score / 100),
+                        duration: context.motionDuration(AppMotion.progressEmphasis),
+                        curve: context.motionCurve(AppMotion.easeInOut),
+                        builder: (context, animatedValue, _) {
+                          return SizedBox(
+                            width: 120,
+                            height: 120,
+                            child: CircularProgressIndicator(
+                              value: animatedValue,
+                              strokeWidth: 10,
+                              backgroundColor: colors.surfaceVariant,
+                              valueColor: AlwaysStoppedAnimation(
+                                _scoreColor(context),
+                              ),
+                              strokeCap: StrokeCap.round,
+                            ),
+                          );
+                        },
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
@@ -548,8 +557,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   : '',
             ),
 
-          const SizedBox(height: GochanoSpacing.xl),
-        ],
+            const SizedBox(height: GochanoSpacing.xl),
+          ],
+        ),
       ),
     );
   }
@@ -580,12 +590,25 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return AppCard(
-      padding: const EdgeInsets.all(GochanoSpacing.sm),
+      accent: color,
+      padding: const EdgeInsets.symmetric(
+        horizontal: GochanoSpacing.sm,
+        vertical: GochanoSpacing.md,
+      ),
       child: Column(
         children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(height: 4),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(height: GochanoSpacing.xs),
           Text(value, style: context.type.cardHeading.copyWith(color: color)),
+          const SizedBox(height: 2),
           Text(
             label,
             style: context.type.caption.copyWith(color: colors.textSecondary),

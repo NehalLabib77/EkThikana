@@ -66,13 +66,27 @@ class TestExtractSubscriptionStatus:
 class TestTelecomExchangeEndpoint:
     """Verify /v1/auth/telecom/exchange endpoint authorization and token issuance."""
 
-    def test_rejects_unsupported_prefix(self):
+    @pytest.mark.parametrize(
+        "invalid_phone",
+        [
+            "01712345678",  # Grameenphone
+            "01912345678",  # Banglalink
+            "01512345678",  # Teletalk
+            "01312345678",  # Skitto
+            "01412345678",  # Banglalink
+            "01812345",     # Too short
+            "016123456789", # Too long
+            "0181234567a",  # Non-digit
+            "",             # Empty
+        ],
+    )
+    def test_rejects_unsupported_prefix(self, invalid_phone):
         resp = client.post(
             "/v1/auth/telecom/exchange",
-            json={"phone": "01712345678"},  # Grameenphone prefix
+            json={"phone": invalid_phone},
         )
         assert resp.status_code == 400
-        assert "Only Robi" in resp.json()["detail"]
+        assert resp.json()["detail"] == "Only Robi (018) and Cirkle (016) numbers are supported"
 
     @patch("app.routers.telecom._verify_subscription_with_bdapps", new_callable=AsyncMock)
     def test_bdapps_unreachable_returns_502(self, mock_verify):
@@ -137,6 +151,7 @@ class TestTelecomExchangeEndpoint:
             assert data["firebase_custom_token"] == "mock_jwt_token_123"
             mock_auth.update_user.assert_called_with("telecom:01812345678", email_verified=True)
             mock_auth.set_custom_user_claims.assert_called_with("telecom:01812345678", {"telecom_verified": True})
+            mock_auth.create_custom_token.assert_called_with("telecom:01812345678", developer_claims={"telecom_verified": True})
 
     @patch("app.routers.telecom._ensure_firebase")
     @patch("app.routers.telecom._verify_subscription_with_bdapps", new_callable=AsyncMock)
@@ -155,6 +170,7 @@ class TestTelecomExchangeEndpoint:
             data = resp.json()
             assert data["uid"] == "telecom:01687654321"
             assert data["firebase_custom_token"] == "mock_jwt_token_456"
+            mock_auth.create_custom_token.assert_called_with("telecom:01687654321", developer_claims={"telecom_verified": True})
 
 
 @pytest.mark.anyio
@@ -181,3 +197,16 @@ class TestVerifySubscriptionWithBdapps:
             )
             result = await _verify_subscription_with_bdapps("01812345678")
             assert result == "REGISTERED"
+
+    async def test_retries_transient_connection_error_and_succeeds(self):
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+            mock_post.side_effect = [
+                httpx.RemoteProtocolError("Server disconnected without sending a response"),
+                MagicMock(
+                    status_code=200,
+                    json=lambda: {"data": {"subscriptionStatus": "REGISTERED"}},
+                ),
+            ]
+            result = await _verify_subscription_with_bdapps("01812345678")
+            assert result == "REGISTERED"
+            assert mock_post.call_count == 2

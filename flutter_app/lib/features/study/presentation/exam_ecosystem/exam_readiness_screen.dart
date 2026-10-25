@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../services/api_service.dart';
 import 'exam_ecosystem_models.dart';
 
@@ -59,14 +60,27 @@ class _ExamReadinessScreenState extends State<ExamReadinessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final type = context.type;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: AppBar(
-        title: const Text('Exam Readiness'),
+        backgroundColor: colors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(color: colors.border, height: 0.5),
+        ),
+        title: Text(
+          'Exam Readiness',
+          style: type.cardHeading.copyWith(fontSize: 17),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh_rounded, color: colors.brand),
             onPressed: _loadReadiness,
             tooltip: 'Recalculate',
           ),
@@ -79,9 +93,10 @@ class _ExamReadinessScreenState extends State<ExamReadinessScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(_error!),
+                      Text(_error!, style: TextStyle(color: colors.textSecondary)),
                       const SizedBox(height: 12),
                       FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: colors.brand),
                         onPressed: _loadReadiness,
                         child: const Text('Retry'),
                       ),
@@ -89,155 +104,188 @@ class _ExamReadinessScreenState extends State<ExamReadinessScreen> {
                   ),
                 )
               : _readiness == null
-                  ? const Center(child: Text('No readiness data available.'))
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildGaugeCard(theme),
-                        const SizedBox(height: 16),
-                        if (_readiness!.recommendedNextAction.isNotEmpty)
-                          _buildNextActionCard(theme),
-                        const SizedBox(height: 16),
-                        _buildComponentsBreakdown(theme),
-                        const SizedBox(height: 16),
-                        if (_readiness!.criticalTopics.isNotEmpty)
-                          _buildTopicsSection(
-                            theme,
-                            title: 'Topics Needing Attention',
-                            topics: _readiness!.criticalTopics,
-                            color: Colors.red.shade700,
-                          ),
-                        const SizedBox(height: 16),
-                        if (_readiness!.strongTopics.isNotEmpty)
-                          _buildTopicsSection(
-                            theme,
-                            title: 'Strong Topics',
-                            topics: _readiness!.strongTopics,
-                            color: Colors.green.shade700,
-                          ),
-                        const SizedBox(height: 16),
-                        if (_history.isNotEmpty) _buildHistoryCard(theme),
-                        const SizedBox(height: 16),
-                        _buildDisclaimerCard(theme),
-                      ],
+                  ? Center(child: Text('No readiness data available.', style: type.bodySecondary))
+                  : AppPageBackground(
+                      height: 240,
+                      gradient: isDark
+                          ? LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                colors.brand.withValues(alpha: 0.12),
+                                colors.background,
+                              ],
+                            )
+                          : AppGradients.academicHealth,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildGaugeCard(context),
+                          const SizedBox(height: 16),
+                          if (_readiness!.recommendedNextAction.isNotEmpty)
+                            _buildNextActionCard(context, isDark),
+                          const SizedBox(height: 16),
+                          _buildComponentsBreakdown(context),
+                          const SizedBox(height: 16),
+                          if (_readiness!.criticalTopics.isNotEmpty)
+                            _buildTopicsSection(
+                              context,
+                              title: 'Topics Needing Attention',
+                              topics: _readiness!.criticalTopics,
+                              color: colors.error,
+                            ),
+                          const SizedBox(height: 16),
+                          if (_readiness!.strongTopics.isNotEmpty)
+                            _buildTopicsSection(
+                              context,
+                              title: 'Strong Topics',
+                              topics: _readiness!.strongTopics,
+                              color: colors.success,
+                            ),
+                          const SizedBox(height: 16),
+                          if (_history.isNotEmpty) _buildHistoryCard(context),
+                          const SizedBox(height: 16),
+                          _buildDisclaimerCard(context),
+                        ],
+                      ),
                     ),
     );
   }
 
-  Widget _buildGaugeCard(ThemeData theme) {
+  Widget _buildGaugeCard(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
     final r = _readiness!;
     final score = r.overallReadiness.toInt();
     final color = score >= 85
-        ? Colors.green.shade700
+        ? colors.success
         : score >= 70
-            ? Colors.green
+            ? AppGradients.emeraldAccent
             : score >= 55
-                ? Colors.amber.shade800
+                ? colors.warning
                 : score >= 40
-                    ? Colors.orange.shade800
-                    : Colors.red.shade800;
+                    ? AppGradients.orangeAccent
+                    : colors.error;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: GochanoRadius.lgAll,
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            SizedBox(
-              width: 140,
-              height: 140,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 130,
-                    height: 130,
-                    child: CircularProgressIndicator(
-                      value: score / 100,
-                      strokeWidth: 12,
-                      backgroundColor:
-                          theme.colorScheme.surfaceContainerHighest,
-                      color: color,
-                    ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$score%',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                      Text(
-                        'Readiness',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              r.label,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 140,
+            height: 140,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Icon(
-                  r.trend > 0
-                      ? Icons.arrow_upward
-                      : r.trend < 0
-                          ? Icons.arrow_downward
-                          : Icons.remove,
-                  size: 16,
-                  color: r.trend > 0
-                      ? Colors.green
-                      : r.trend < 0
-                          ? Colors.red
-                          : Colors.grey,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  r.trend != 0
-                      ? '${r.trend > 0 ? "+" : ""}${r.trend.toInt()}% over last 7 days'
-                      : 'Stable performance trend',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                SizedBox(
+                  width: 130,
+                  height: 130,
+                  child: CircularProgressIndicator(
+                    value: score / 100,
+                    strokeWidth: 10,
+                    backgroundColor: colors.border,
+                    color: color,
                   ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$score%',
+                      style: type.display.copyWith(
+                        color: color,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Readiness',
+                      style: type.caption,
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            r.label,
+            style: type.cardHeading.copyWith(
+              color: color,
+              fontSize: 17,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                r.trend > 0
+                    ? Icons.arrow_upward_rounded
+                    : r.trend < 0
+                        ? Icons.arrow_downward_rounded
+                        : Icons.remove_rounded,
+                size: 16,
+                color: r.trend > 0
+                    ? colors.success
+                    : r.trend < 0
+                        ? colors.error
+                        : colors.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                r.trend != 0
+                    ? '${r.trend > 0 ? "+" : ""}${r.trend.toInt()}% over last 7 days'
+                    : 'Stable performance trend',
+                style: type.caption,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildNextActionCard(ThemeData theme) {
+  Widget _buildNextActionCard(BuildContext context, bool isDark) {
+    final colors = context.colors;
+    final type = context.type;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        gradient: isDark
+            ? LinearGradient(
+                colors: [
+                  colors.brand.withValues(alpha: 0.18),
+                  colors.surface,
+                ],
+              )
+            : AppGradients.examHero,
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(color: colors.brand.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.directions_run, color: theme.colorScheme.primary, size: 24),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: colors.brand.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.directions_run_rounded, color: colors.brand, size: 20),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -245,17 +293,12 @@ class _ExamReadinessScreenState extends State<ExamReadinessScreen> {
               children: [
                 Text(
                   'Recommended Next Step',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
+                  style: type.cardHeading.copyWith(color: colors.brand),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _readiness!.recommendedNextAction,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
+                  style: type.body,
                 ),
               ],
             ),
@@ -265,85 +308,92 @@ class _ExamReadinessScreenState extends State<ExamReadinessScreen> {
     );
   }
 
-  Widget _buildComponentsBreakdown(ThemeData theme) {
+  Widget _buildComponentsBreakdown(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
     final comps = _readiness!.components;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: GochanoRadius.lgAll,
+        border: Border.all(color: colors.border),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Readiness Components',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _ReadinessRow(
-              label: 'Mastery Coverage',
-              weight: '35%',
-              value: comps['masteryCoverage'] ?? 50,
-            ),
-            _ReadinessRow(
-              label: 'Mock Exam Performance',
-              weight: '25%',
-              value: comps['mockExamPerformance'] ?? 50,
-            ),
-            _ReadinessRow(
-              label: 'Recent Practice Regularity',
-              weight: '15%',
-              value: comps['recentPractice'] ?? 50,
-            ),
-            _ReadinessRow(
-              label: 'Revision Queue Coverage',
-              weight: '15%',
-              value: comps['revisionCoverage'] ?? 50,
-            ),
-            _ReadinessRow(
-              label: 'Focus Consistency',
-              weight: '10%',
-              value: comps['focusConsistency'] ?? 50,
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Readiness Components',
+            style: type.cardHeading,
+          ),
+          const SizedBox(height: 12),
+          _ReadinessRow(
+            label: 'Mastery Coverage',
+            weight: '35%',
+            value: comps['masteryCoverage'] ?? 50,
+            accentColor: colors.brand,
+          ),
+          _ReadinessRow(
+            label: 'Mock Exam Performance',
+            weight: '25%',
+            value: comps['mockExamPerformance'] ?? 50,
+            accentColor: AppGradients.roseAccent,
+          ),
+          _ReadinessRow(
+            label: 'Recent Practice Regularity',
+            weight: '15%',
+            value: comps['recentPractice'] ?? 50,
+            accentColor: colors.study,
+          ),
+          _ReadinessRow(
+            label: 'Revision Queue Coverage',
+            weight: '15%',
+            value: comps['revisionCoverage'] ?? 50,
+            accentColor: AppGradients.amberOrange,
+          ),
+          _ReadinessRow(
+            label: 'Focus Consistency',
+            weight: '10%',
+            value: comps['focusConsistency'] ?? 50,
+            accentColor: AppGradients.violetLight,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTopicsSection(
-    ThemeData theme, {
+    BuildContext context, {
     required String title,
     required List<String> topics,
     required Color color,
   }) {
+    final type = context.type;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: type.cardHeading,
         ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: topics.map((t) {
-            return Chip(
-              backgroundColor: color.withValues(alpha: 0.08),
-              side: BorderSide(color: color.withValues(alpha: 0.3)),
-              label: Text(
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: GochanoRadius.smAll,
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Text(
                 t,
-                style: theme.textTheme.bodySmall?.copyWith(
+                style: TextStyle(
                   color: color,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -354,73 +404,69 @@ class _ExamReadinessScreenState extends State<ExamReadinessScreen> {
     );
   }
 
-  Widget _buildHistoryCard(ThemeData theme) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+  Widget _buildHistoryCard(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: GochanoRadius.lgAll,
+        border: Border.all(color: colors.border),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Readiness Snapshots (${_history.length})',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Snapshots are recorded when key milestones occur (mocks completed, mastery updates, plan recalculations).',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ..._history.reversed.take(5).map((snap) {
-              final score = (snap['overallReadiness'] as num?)?.toInt() ?? 0;
-              final label = snap['label'] as String? ?? '';
-              final dateStr = (snap['calculatedAt'] as String? ?? '').split('T').first;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(dateStr, style: theme.textTheme.bodySmall),
-                    Text(label, style: theme.textTheme.bodySmall),
-                    Text(
-                      '$score%',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Readiness Snapshots (${_history.length})',
+            style: type.cardHeading,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Snapshots are recorded when key milestones occur (mocks completed, mastery updates, plan recalculations).',
+            style: type.caption,
+          ),
+          const SizedBox(height: 12),
+          ..._history.reversed.take(5).map((snap) {
+            final score = (snap['overallReadiness'] as num?)?.toInt() ?? 0;
+            final label = snap['label'] as String? ?? '';
+            final dateStr = (snap['calculatedAt'] as String? ?? '').split('T').first;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(dateStr, style: type.caption),
+                  Text(label, style: type.body),
+                  Text(
+                    '$score%',
+                    style: type.body.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colors.brand,
                     ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
 
-  Widget _buildDisclaimerCard(ThemeData theme) {
+  Widget _buildDisclaimerCard(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
+        color: colors.surfaceVariant.withValues(alpha: 0.5),
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(color: colors.border),
       ),
       child: Text(
         'Note: Exam readiness scores evaluate your study coverage, revision consistency, and practice test results. They do not predict exact exam questions or guarantee academic scores.',
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontSize: 11,
-          fontStyle: FontStyle.italic,
-        ),
+        style: type.caption.copyWith(fontStyle: FontStyle.italic),
       ),
     );
   }
@@ -431,17 +477,20 @@ class _ReadinessRow extends StatelessWidget {
     required this.label,
     required this.weight,
     required this.value,
+    required this.accentColor,
   });
 
   final String label;
   final String weight;
   final double value;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final type = context.type;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -450,22 +499,26 @@ class _ReadinessRow extends StatelessWidget {
             children: [
               Text(
                 '$label ($weight)',
-                style: theme.textTheme.bodySmall,
+                style: type.caption,
               ),
               Text(
                 '${value.toInt()}%',
-                style: theme.textTheme.bodySmall?.copyWith(
+                style: type.caption.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: accentColor,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: (value / 100).clamp(0.0, 1.0),
-            minHeight: 6,
+          ClipRRect(
             borderRadius: BorderRadius.circular(3),
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            child: LinearProgressIndicator(
+              value: (value / 100).clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: colors.surfaceVariant,
+              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+            ),
           ),
         ],
       ),

@@ -12,9 +12,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../core/page_route.dart';
 import '../../../../services/firestore_service.dart';
@@ -37,59 +36,69 @@ class SavedMaterialsScreen extends StatelessWidget {
           'আপনার বুকমার্ক করা উপকরণ',
         ),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirestoreService.db
-            .collection('users')
-            .doc(FirestoreService.uid)
-            .collection('saved_materials')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return StaticLoadingState(
-              message: GochanoLanguage.text(
-                'Loading saved materials…',
-                'সংরক্ষিত উপকরণ লোড হচ্ছে…',
+      body: AppPageBackground(
+        height: 240,
+        gradient: context.isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [context.colors.surface, context.colors.background],
+              )
+            : AppGradients.toolBookmarks,
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirestoreService.db
+              .collection('users')
+              .doc(FirestoreService.uid)
+              .collection('saved_materials')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return StaticLoadingState(
+                message: GochanoLanguage.text(
+                  'Loading saved materials…',
+                  'সংরক্ষিত উপকরণ লোড হচ্ছে…',
+                ),
+              );
+            }
+            if (snapshot.hasError) {
+              return ErrorState(message: friendlyErrorMessage(snapshot.error));
+            }
+
+            final saved = [...?snapshot.data?.docs]
+              ..sort((a, b) {
+                final at = a.data()['savedAt'];
+                final bt = b.data()['savedAt'];
+                if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
+                return 0;
+              });
+
+            if (saved.isEmpty) {
+              return EmptyState(
+                illustration: GochanoArt.emptyMaterials,
+                title: GochanoLanguage.text(
+                  'Nothing saved yet',
+                  'এখনো কিছু সংরক্ষিত নেই',
+                ),
+                message: GochanoLanguage.text(
+                  'Open a material and use "Save to library" to keep it here.',
+                  'কোনো উপকরণ খুলে "লাইব্রেরিতে সংরক্ষণ" চাপলে সেটি এখানে থাকবে।',
+                ),
+              );
+            }
+
+            return ListView.builder(
+              padding: GochanoSpacing.scrollBody,
+              itemCount: saved.length,
+              itemBuilder: (context, i) => Padding(
+                padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
+                child: AppCard(
+                  padding: EdgeInsets.zero,
+                  child: _SavedRow(bookmark: saved[i]),
+                ),
               ),
             );
-          }
-          if (snapshot.hasError) {
-            return ErrorState(message: friendlyErrorMessage(snapshot.error));
-          }
-
-          final saved = [...?snapshot.data?.docs]
-            ..sort((a, b) {
-              final at = a.data()['savedAt'];
-              final bt = b.data()['savedAt'];
-              if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
-              return 0;
-            });
-
-          if (saved.isEmpty) {
-            return EmptyState(
-              illustration: GochanoArt.emptyMaterials,
-              title: GochanoLanguage.text(
-                'Nothing saved yet',
-                'এখনো কিছু সংরক্ষিত নেই',
-              ),
-              message: GochanoLanguage.text(
-                'Open a material and use "Save to library" to keep it here.',
-                'কোনো উপকরণ খুলে "লাইব্রেরিতে সংরক্ষণ" চাপলে সেটি এখানে থাকবে।',
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: GochanoSpacing.scrollBody,
-            itemCount: saved.length,
-            itemBuilder: (context, i) => Padding(
-              padding: const EdgeInsets.only(bottom: GochanoSpacing.xs),
-              child: AppCard(
-                padding: EdgeInsets.zero,
-                child: _SavedRow(bookmark: saved[i]),
-              ),
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }

@@ -24,11 +24,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
 import '../../../../core/design_system/gochano_illustration.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -282,8 +280,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
       ),
       bottomBar: _Composer(controller: _question, busy: _busy, onSubmit: _ask),
-      body: Column(
-        children: [
+      body: AppPageBackground(
+        gradient: AppGradients.zikuCoach,
+        child: Column(
+          children: [
           if (_hasContext)
             _ContextChip(
               title: _materialTitle ?? '',
@@ -339,8 +339,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 /// "Using: `<material>`" with a remove control (spec §34).

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/design_system/gochano_art.dart';
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
 import '../../../core/localization/gochano_dates.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
@@ -203,6 +201,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     final type = context.type;
 
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text(
           'Notification Center',
@@ -228,43 +227,47 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           const SizedBox(width: GochanoSpacing.xs),
         ],
       ),
-      body: ValueListenableBuilder<List<LocalReminder>>(
-        valueListenable: LocalReminderStore.instance.remindersNotifier,
-        builder: (context, allReminders, _) {
-          final filtered = _filterReminders(allReminders);
+      body: AppPageBackground(
+        gradient: AppGradients.todayAppBar,
+        child: ValueListenableBuilder<List<LocalReminder>>(
+          valueListenable: LocalReminderStore.instance.remindersNotifier,
+          builder: (context, allReminders, _) {
+            final filtered = _filterReminders(allReminders);
 
-          return Column(
-            children: [
-              _buildFilterBar(colors, type),
-              Expanded(
-                child: filtered.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.separated(
-                        padding: GochanoSpacing.scrollBody,
-                        itemCount: filtered.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: GochanoSpacing.xs),
-                        itemBuilder: (context, index) {
-                          final item = filtered[index];
-                          return _ReminderCard(
-                            reminder: item,
-                            onTap: () => _navigateToTarget(item),
-                            onAction: (action) => _handleAction(item, action),
-                            onDismiss: () =>
-                                LocalReminderStore.instance.delete(item.id),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
+            return Column(
+              children: [
+                _buildFilterBar(colors, type),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.separated(
+                          padding: GochanoSpacing.scrollBody,
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: GochanoSpacing.xs),
+                          itemBuilder: (context, index) {
+                            final item = filtered[index];
+                            return _ReminderCard(
+                              reminder: item,
+                              onTap: () => _navigateToTarget(item),
+                              onAction: (action) => _handleAction(item, action),
+                              onDismiss: () =>
+                                  LocalReminderStore.instance.delete(item.id),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildFilterBar(GochanoColors colors, GochanoTypography type) {
-    return Container(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(
         horizontal: GochanoSpacing.md,
         vertical: GochanoSpacing.xs,

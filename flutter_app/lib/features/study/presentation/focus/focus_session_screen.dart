@@ -16,10 +16,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -27,25 +25,25 @@ import '../../../../shared/widgets/gochano_controls.dart';
 import '../../../../shared/widgets/gochano_surfaces.dart';
 
 /// Starts a block on the focus engine.
-typedef FocusStartFn = Future<Map<String, dynamic>> Function({
-  String label,
-  int plannedMinutes,
-  String subject,
-  String topic,
-});
+typedef FocusStartFn =
+    Future<Map<String, dynamic>> Function({
+      String label,
+      int plannedMinutes,
+      String subject,
+      String topic,
+    });
 
 /// Pause / resume a live block (legacy PATCH route, same store).
-typedef FocusPatchFn = Future<Map<String, dynamic>> Function(
-  String focusId,
-  String action,
-);
+typedef FocusPatchFn =
+    Future<Map<String, dynamic>> Function(String focusId, String action);
 
 /// Finishes a block; returns the session plus the fresh `today` snapshot.
-typedef FocusCompleteFn = Future<Map<String, dynamic>> Function(
-  String focusId, {
-  String? subject,
-  String? topic,
-});
+typedef FocusCompleteFn =
+    Future<Map<String, dynamic>> Function(
+      String focusId, {
+      String? subject,
+      String? topic,
+    });
 
 /// Reads today's minutes, score, streak and nudge.
 typedef FocusTodayFn = Future<Map<String, dynamic>> Function();
@@ -292,21 +290,47 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_phase == _Phase.done) return _buildDone(context);
+    final colors = context.colors;
+    final isDark = context.isDark;
+    final transitionDuration = context.motionDuration(AppMotion.stateChange);
+    final motionCurve = context.motionCurve(AppMotion.easeInOut);
 
-    return GochanoScaffold(
-      appBar: GochanoAppBar(
-        title: GochanoLanguage.text('Ziku Focus', 'জিকু ফোকাস'),
-        subtitle: _today == null
-            ? null
-            : GochanoLanguage.text(
-                '${_asInt(_today!['minutes'])}/'
-                '${_asInt(_today!['goalMinutes'])} min today',
-                'আজ ${_asInt(_today!['minutes'])}/'
-                    '${_asInt(_today!['goalMinutes'])} মিনিট',
+    return AnimatedSwitcher(
+      duration: transitionDuration,
+      switchInCurve: motionCurve,
+      switchOutCurve: motionCurve,
+      child: _phase == _Phase.done
+          ? KeyedSubtree(
+              key: const ValueKey('focus_done'),
+              child: _buildDone(context),
+            )
+          : KeyedSubtree(
+              key: const ValueKey('focus_active'),
+              child: GochanoScaffold(
+                appBar: GochanoAppBar(
+                  title: GochanoLanguage.text('Ziku Focus', 'জিকু ফোকাস'),
+                  subtitle: _today == null
+                      ? null
+                      : GochanoLanguage.text(
+                          '${_asInt(_today!['minutes'])}/'
+                              '${_asInt(_today!['goalMinutes'])} min today',
+                          'আজ ${_asInt(_today!['minutes'])}/'
+                              '${_asInt(_today!['goalMinutes'])} মিনিট',
+                        ),
+                ),
+                body: AppPageBackground(
+                  height: 280,
+                  gradient: isDark
+                      ? LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [colors.surface, colors.background],
+                        )
+                      : AppGradients.focusSession,
+                  child: _buildBody(context),
+                ),
               ),
-      ),
-      body: _buildBody(context),
+            ),
     );
   }
 
@@ -332,14 +356,14 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                 _phase == _Phase.paused
                     ? GochanoLanguage.text('Paused', 'বিরতি চলছে')
                     : _remaining == 0 && _phase == _Phase.running
-                        ? GochanoLanguage.text(
-                            'Time is up — finish when ready',
-                            'সময় শেষ — প্রস্তুত হলে শেষ করুন',
-                          )
-                        : GochanoLanguage.text(
-                            '${widget.plannedMinutes} minute block',
-                            '${widget.plannedMinutes} মিনিটের ব্লক',
-                          ),
+                    ? GochanoLanguage.text(
+                        'Time is up — finish when ready',
+                        'সময় শেষ — প্রস্তুত হলে শেষ করুন',
+                      )
+                    : GochanoLanguage.text(
+                        '${widget.plannedMinutes} minute block',
+                        '${widget.plannedMinutes} মিনিটের ব্লক',
+                      ),
                 style: type.caption,
               ),
               const SizedBox(height: GochanoSpacing.sm),
@@ -354,16 +378,28 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                 ),
               ),
               const SizedBox(height: GochanoSpacing.sm),
-              LinearProgressIndicator(
-                value: _totalSeconds == 0
-                    ? 0
-                    : (_totalSeconds - _remaining) / _totalSeconds,
-                minHeight: 8,
-                color: colors.study,
-                backgroundColor: colors.surfaceVariant,
-                semanticsLabel: GochanoLanguage.text(
-                  'Block progress',
-                  'ব্লকের অগ্রগতি',
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                    begin: 0.0,
+                    end: _totalSeconds == 0
+                        ? 0.0
+                        : ((_totalSeconds - _remaining) / _totalSeconds)
+                            .clamp(0.0, 1.0),
+                  ),
+                  duration: context.motionDuration(AppMotion.progressEmphasis),
+                  curve: context.motionCurve(AppMotion.easeInOut),
+                  builder: (context, val, _) => LinearProgressIndicator(
+                    value: val,
+                    minHeight: 8,
+                    color: colors.study,
+                    backgroundColor: colors.surfaceVariant,
+                    semanticsLabel: GochanoLanguage.text(
+                      'Block progress',
+                      'ব্লকের অগ্রগতি',
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -492,6 +528,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
 
   Widget _buildDone(BuildContext context) {
     final colors = context.colors;
+    final isDark = context.isDark;
     final type = context.type;
     final result = _result ?? const <String, dynamic>{};
     final today = _today ?? const <String, dynamic>{};
@@ -510,117 +547,127 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Ziku Focus', 'জিকু ফোকাস'),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppCard(
-              accent: colors.success,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+      body: AppPageBackground(
+        height: 260,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [colors.surface, colors.background],
+              )
+            : AppGradients.focusPage,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppCard(
+                accent: colors.success,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: colors.success,
+                          size: 22,
+                        ),
+                        const SizedBox(width: GochanoSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            GochanoLanguage.text(
+                              'Session finished',
+                              'সেশন শেষ',
+                            ),
+                            style: type.sectionHeading,
+                          ),
+                        ),
+                        if (sessionScore != null)
+                          GochanoBadge(
+                            label: GochanoLanguage.text(
+                              'Score $sessionScore',
+                              'স্কোর $sessionScore',
+                            ),
+                            tone: sessionScore >= 80
+                                ? GochanoBadgeTone.success
+                                : sessionScore >= 55
+                                ? GochanoBadgeTone.info
+                                : GochanoBadgeTone.warning,
+                            icon: Icons.bolt_rounded,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: GochanoSpacing.sm),
+                    Text(
+                      GochanoLanguage.text(
+                        '$minutes min focused',
+                        '$minutes মিনিট মনোযোগ দিয়েছেন',
+                      ),
+                      style: type.bodySecondary,
+                    ),
+                    if (score != null) ...[
+                      const SizedBox(height: GochanoSpacing.xs),
+                      Row(
+                        children: [
+                          GochanoBadge(
+                            label: GochanoLanguage.text(
+                              'Focus score ${_asInt(score['value'])}',
+                              'ফোকাস স্কোর ${_asInt(score['value'])}',
+                            ),
+                            tone: focusBandTone('${score['band'] ?? ''}'),
+                            icon: Icons.insights_rounded,
+                          ),
+                          const SizedBox(width: GochanoSpacing.xs),
+                          Flexible(
+                            child: Text(
+                              focusBandLabel('${score['band'] ?? ''}'),
+                              style: type.caption,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        GochanoLanguage.text(
+                          'Last 7 days · ${score['activeDays'] ?? 0} active days',
+                          'গত ৭ দিন · ${_asInt(score['activeDays'])} দিনে পড়া',
+                        ),
+                        style: type.caption.copyWith(
+                          color: colors.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (nudge != null) ...[
+                const SizedBox(height: GochanoSpacing.sm),
+                AppCard(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        Icons.check_circle_rounded,
-                        color: colors.success,
-                        size: 22,
+                        Icons.auto_awesome_rounded,
+                        size: 18,
+                        color: colors.ai,
                       ),
                       const SizedBox(width: GochanoSpacing.xs),
                       Expanded(
                         child: Text(
-                          GochanoLanguage.text(
-                            'Session finished',
-                            'সেশন শেষ',
-                          ),
-                          style: type.sectionHeading,
+                          '${nudge['message'] ?? ''}',
+                          style: type.bodySecondary,
                         ),
                       ),
-                      if (sessionScore != null)
-                        GochanoBadge(
-                          label: GochanoLanguage.text(
-                            'Score $sessionScore',
-                            'স্কোর $sessionScore',
-                          ),
-                          tone: sessionScore >= 80
-                              ? GochanoBadgeTone.success
-                              : sessionScore >= 55
-                                  ? GochanoBadgeTone.info
-                                  : GochanoBadgeTone.warning,
-                          icon: Icons.bolt_rounded,
-                        ),
                     ],
                   ),
-                  const SizedBox(height: GochanoSpacing.sm),
-                  Text(
-                    GochanoLanguage.text(
-                      '$minutes min focused',
-                      '$minutes মিনিট মনোযোগ দিয়েছেন',
-                    ),
-                    style: type.bodySecondary,
-                  ),
-                  if (score != null) ...[
-                    const SizedBox(height: GochanoSpacing.xs),
-                    Row(
-                      children: [
-                        GochanoBadge(
-                          label: GochanoLanguage.text(
-                            'Focus score ${_asInt(score['value'])}',
-                            'ফোকাস স্কোর ${_asInt(score['value'])}',
-                          ),
-                          tone: focusBandTone('${score['band'] ?? ''}'),
-                          icon: Icons.insights_rounded,
-                        ),
-                        const SizedBox(width: GochanoSpacing.xs),
-                        Flexible(
-                          child: Text(
-                            focusBandLabel('${score['band'] ?? ''}'),
-                            style: type.caption,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      GochanoLanguage.text(
-                        'Last 7 days · ${score['activeDays'] ?? 0} active days',
-                        'গত ৭ দিন · ${_asInt(score['activeDays'])} দিনে পড়া',
-                      ),
-                      style: type.caption.copyWith(
-                        color: colors.textTertiary,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (nudge != null) ...[
-              const SizedBox(height: GochanoSpacing.sm),
-              AppCard(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 18,
-                      color: colors.ai,
-                    ),
-                    const SizedBox(width: GochanoSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        '${nudge['message'] ?? ''}',
-                        style: type.bodySecondary,
-                      ),
-                    ),
-                  ],
                 ),
+              ],
+              const SizedBox(height: GochanoSpacing.sm),
+              PrimaryButton(
+                label: GochanoLanguage.text('Done', 'হয়ে গেছে'),
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ],
-            const SizedBox(height: GochanoSpacing.sm),
-            PrimaryButton(
-              label: GochanoLanguage.text('Done', 'হয়ে গেছে'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -660,7 +707,8 @@ class _TodayFacts extends StatelessWidget {
           child: StatCard(
             compact: true,
             label: GochanoLanguage.text('Today', 'আজ'),
-            value: '${_asInt(today['minutes'])}/${_asInt(today['goalMinutes'])}',
+            value:
+                '${_asInt(today['minutes'])}/${_asInt(today['goalMinutes'])}',
             caption: GochanoLanguage.text('minutes', 'মিনিট'),
             icon: Icon(Icons.timelapse_rounded, size: 16, color: colors.study),
             accent: colors.study,

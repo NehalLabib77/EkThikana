@@ -20,9 +20,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/design_system/gochano_colors.dart';
-import '../../../core/design_system/gochano_spacing.dart';
-import '../../../core/design_system/gochano_typography.dart';
+import '../../../core/design_system/app_design_system.dart';
 import '../../../core/localization/gochano_language.dart';
 import '../../../core/page_route.dart';
 import '../../../features/profile/presentation/academic_health_screen.dart';
@@ -147,31 +145,35 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
 
     if (data == null) {
       return GochanoScaffold(
+        padBody: false,
         appBar: GochanoAppBar(
           title: GochanoLanguage.text('Result', 'ফলাফল'),
         ),
-        body: _error == null
-            ? examLoading(
-                _loading
-                    ? GochanoLanguage.text(
-                        'Scoring your paper…',
-                        'প্রশ্নপত্র মূল্যায়ন হচ্ছে…',
-                      )
-                    : GochanoLanguage.text(
-                        'Loading your result…',
-                        'ফলাফল লোড হচ্ছে…',
-                      ),
-              )
-            : Column(
-                children: [
-                  examErrorBox(context, _error!),
-                  const SizedBox(height: GochanoSpacing.md),
-                  SecondaryButton(
-                    label: GochanoLanguage.text('Try again', 'আবার চেষ্টা করুন'),
-                    onPressed: () => _load(),
-                  ),
-                ],
-              ),
+        body: AppPageBackground(
+          gradient: AppGradients.toolMockTests,
+          child: _error == null
+              ? examLoading(
+                  _loading
+                      ? GochanoLanguage.text(
+                          'Scoring your paper…',
+                          'প্রশ্নপত্র মূল্যায়ন হচ্ছে…',
+                        )
+                      : GochanoLanguage.text(
+                          'Loading your result…',
+                          'ফলাফল লোড হচ্ছে…',
+                        ),
+                )
+              : Column(
+                  children: [
+                    examErrorBox(context, _error!),
+                    const SizedBox(height: GochanoSpacing.md),
+                    SecondaryButton(
+                      label: GochanoLanguage.text('Try again', 'আবার চেষ্টা করুন'),
+                      onPressed: () => _load(),
+                    ),
+                  ],
+                ),
+        ),
       );
     }
 
@@ -185,11 +187,14 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     final tone = _timeTone('${data['timeManagement'] ?? ''}');
 
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Result', 'ফলাফল'),
         subtitle: _str('subject').isEmpty ? null : _str('subject'),
       ),
-      body: ListView(
+      body: AppPageBackground(
+        gradient: AppGradients.toolMockTests,
+        child: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
           if (widget.autoSubmitted) ...[
@@ -227,6 +232,25 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   label: GochanoLanguage.text('Percentage', 'শতাংশ'),
                   value: '${percentage.round()}%',
                 ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: 0.0,
+                      end: (percentage / 100).clamp(0.0, 1.0),
+                    ),
+                    duration: context.motionDuration(AppMotion.progressEmphasis),
+                    curve: context.motionCurve(AppMotion.easeInOut),
+                    builder: (context, val, _) => LinearProgressIndicator(
+                      value: val,
+                      minHeight: 6,
+                      backgroundColor: colors.surfaceVariant,
+                      valueColor: AlwaysStoppedAnimation<Color>(tone),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: GochanoSpacing.xs),
                 ExamStatLine(
                   label: GochanoLanguage.text('Accuracy', 'নির্ভুলতা'),
                   value: '${accuracy.round()}%',
@@ -304,7 +328,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
           const SizedBox(height: GochanoSpacing.xl),
         ],
       ),
-    );
+    ),
+  );
   }
 
   List<Widget> _weakTopicRows(BuildContext context) {

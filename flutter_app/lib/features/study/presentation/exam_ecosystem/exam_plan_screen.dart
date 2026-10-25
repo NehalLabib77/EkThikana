@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../services/api_service.dart';
 import 'exam_ecosystem_models.dart';
 
@@ -178,26 +179,39 @@ class _ExamPlanScreenState extends State<ExamPlanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final type = context.type;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: AppBar(
-        title: Text(_plan != null ? _plan!.examName : 'Exam Study Plan'),
+        backgroundColor: colors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(color: colors.border, height: 0.5),
+        ),
+        title: Text(
+          _plan != null ? _plan!.examName : 'Exam Study Plan',
+          style: type.cardHeading.copyWith(fontSize: 17),
+        ),
         actions: [
           if (_plan != null)
             IconButton(
               icon: _recalculating
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 18,
+                      height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.sync),
+                  : Icon(Icons.sync_rounded, color: colors.brand),
               onPressed: _recalculating ? null : _recalculate,
               tooltip: 'Recalculate Plan',
             ),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: Icon(Icons.add_rounded, color: colors.brand),
             onPressed: _showCreatePlanDialog,
             tooltip: 'New Plan',
           ),
@@ -210,9 +224,10 @@ class _ExamPlanScreenState extends State<ExamPlanScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(_error!),
+                      Text(_error!, style: TextStyle(color: colors.textSecondary)),
                       const SizedBox(height: 12),
                       FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: colors.brand),
                         onPressed: _loadPlanData,
                         child: const Text('Retry'),
                       ),
@@ -226,23 +241,29 @@ class _ExamPlanScreenState extends State<ExamPlanScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.event_note, size: 64, color: Colors.grey),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: colors.brand.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.event_note_rounded, size: 48, color: colors.brand),
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'No Active Exam Plan',
-                              style: theme.textTheme.titleMedium,
+                              style: type.cardHeading,
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'Create a roadmap targeted at your upcoming exam date (3, 7, 14, 30, or 45 days).',
                               textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                              style: type.bodySecondary,
                             ),
                             const SizedBox(height: 20),
                             FilledButton.icon(
-                              icon: const Icon(Icons.add),
+                              style: FilledButton.styleFrom(backgroundColor: colors.brand),
+                              icon: const Icon(Icons.add_rounded),
                               label: const Text('Create Exam Plan'),
                               onPressed: _showCreatePlanDialog,
                             ),
@@ -250,82 +271,104 @@ class _ExamPlanScreenState extends State<ExamPlanScreen> {
                         ),
                       ),
                     )
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildPlanOverview(theme),
-                        const SizedBox(height: 16),
-                        _buildTodaySection(theme),
-                        const SizedBox(height: 16),
-                        _buildGuidanceCard(theme),
-                      ],
+                  : AppPageBackground(
+                      height: 240,
+                      gradient: isDark
+                          ? LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                colors.brand.withValues(alpha: 0.12),
+                                colors.background,
+                              ],
+                            )
+                          : AppGradients.planPage,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildPlanOverview(context),
+                          const SizedBox(height: 16),
+                          _buildTodaySection(context),
+                          const SizedBox(height: 16),
+                          _buildGuidanceCard(context, isDark),
+                        ],
+                      ),
                     ),
     );
   }
 
-  Widget _buildPlanOverview(ThemeData theme) {
+  Widget _buildPlanOverview(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
     final days = _plan!.daysRemaining;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: GochanoRadius.lgAll,
+        border: Border.all(color: colors.brand.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: colors.brand.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _plan!.examName,
-                  style: theme.textTheme.titleMedium?.copyWith(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _plan!.examName,
+                style: type.cardHeading,
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.brand.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: colors.brand.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  '$days Days Left',
+                  style: TextStyle(
+                    color: colors.brand,
                     fontWeight: FontWeight.bold,
+                    fontSize: 12,
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '$days Days Left',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _StatTile(
-                  label: 'Duration',
-                  value: '${_plan!.durationDays} days',
-                ),
-                _StatTile(
-                  label: 'Target Date',
-                  value: _plan!.examDate,
-                ),
-                _StatTile(
-                  label: 'Daily Target',
-                  value: '${_plan!.dailyMinutes} mins',
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _StatTile(
+                label: 'Duration',
+                value: '${_plan!.durationDays} days',
+              ),
+              _StatTile(
+                label: 'Target Date',
+                value: _plan!.examDate,
+              ),
+              _StatTile(
+                label: 'Daily Target',
+                value: '${_plan!.dailyMinutes} mins',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTodaySection(ThemeData theme) {
+  Widget _buildTodaySection(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -334,15 +377,11 @@ class _ExamPlanScreenState extends State<ExamPlanScreen> {
           children: [
             Text(
               "Today's Study Schedule",
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: type.cardHeading,
             ),
             Text(
               'Max 4 blocks/day',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: type.caption,
             ),
           ],
         ),
@@ -351,38 +390,51 @@ class _ExamPlanScreenState extends State<ExamPlanScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
+              color: colors.surfaceVariant.withValues(alpha: 0.5),
+              borderRadius: GochanoRadius.mdAll,
+              border: Border.all(color: colors.border),
             ),
-            child: const Center(
-              child: Text('No blocks scheduled for today.'),
+            child: Center(
+              child: Text(
+                'No blocks scheduled for today.',
+                style: type.bodySecondary,
+              ),
             ),
           )
         else
-          ..._todayBlocks.map((b) => _PlanBlockTile(block: b, theme: theme)),
+          ..._todayBlocks.map((b) => _PlanBlockTile(block: b)),
       ],
     );
   }
 
-  Widget _buildGuidanceCard(ThemeData theme) {
+  Widget _buildGuidanceCard(BuildContext context, bool isDark) {
+    final colors = context.colors;
+    final type = context.type;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
+        gradient: isDark ? null : AppGradients.zikuCoach,
+        color: isDark ? colors.ai.withValues(alpha: 0.12) : null,
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(color: colors.ai.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.lightbulb_outline, size: 18, color: theme.colorScheme.primary),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: colors.ai.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.lightbulb_outline_rounded, size: 18, color: colors.ai),
+              ),
               const SizedBox(width: 8),
               Text(
                 'Adaptive Plan Rules',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: type.cardHeading,
               ),
             ],
           ),
@@ -392,10 +444,7 @@ class _ExamPlanScreenState extends State<ExamPlanScreen> {
             '• Overdue spaced-repetition items are scheduled automatically.\n'
             '• Strong topics are included for maintenance revision.\n'
             '• Recalculate whenever you complete major practice sessions.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
+            style: type.bodySecondary.copyWith(height: 1.5),
           ),
         ],
       ),
@@ -410,24 +459,19 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final type = context.type;
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 11,
-            ),
+            style: type.caption,
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: type.body.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -436,33 +480,36 @@ class _StatTile extends StatelessWidget {
 }
 
 class _PlanBlockTile extends StatelessWidget {
-  const _PlanBlockTile({required this.block, required this.theme});
+  const _PlanBlockTile({required this.block});
   final StudyBlock block;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: colors.surface,
+        borderRadius: GochanoRadius.mdAll,
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: theme.colorScheme.secondaryContainer,
+              color: colors.brand.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: colors.brand.withValues(alpha: 0.25)),
             ),
             child: Text(
               block.blockTypeLabel,
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSecondaryContainer,
+                fontSize: 11,
+                color: colors.brand,
               ),
             ),
           ),
@@ -473,26 +520,19 @@ class _PlanBlockTile extends StatelessWidget {
               children: [
                 Text(
                   block.topic,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: type.body.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (block.reason.isNotEmpty)
                   Text(
                     block.reason,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 11,
-                    ),
+                    style: type.caption,
                   ),
               ],
             ),
           ),
           Text(
             '${block.durationMinutes} min',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: type.caption,
           ),
         ],
       ),

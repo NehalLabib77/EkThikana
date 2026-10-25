@@ -5,9 +5,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -62,40 +60,44 @@ class _QuizHistoryScreenState extends State<QuizHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return GochanoScaffold(
+      padBody: false,
       appBar: GochanoAppBar(
         title: GochanoLanguage.text('Quiz History', 'কুইজ ইতিহাস'),
       ),
-      body: _loading
-          ? const AiLoadingState()
-          : _error.isNotEmpty
-              ? ErrorState(
-                  message: _error,
-                  onRetry: _loadHistory,
-                )
-              : _results.isEmpty
-                  ? AiEmptyState(
-                      icon: Icons.quiz_outlined,
-                      title: GochanoLanguage.text(
-                        'No quiz history yet',
-                        'এখনো কুইজ ইতিহাস নেই',
+      body: AppPageBackground(
+        gradient: AppGradients.toolQuestionBank,
+        child: _loading
+            ? const AiLoadingState()
+            : _error.isNotEmpty
+                ? ErrorState(
+                    message: _error,
+                    onRetry: _loadHistory,
+                  )
+                : _results.isEmpty
+                    ? AiEmptyState(
+                        icon: Icons.quiz_outlined,
+                        title: GochanoLanguage.text(
+                          'No quiz history yet',
+                          'এখনো কুইজ ইতিহাস নেই',
+                        ),
+                        message: GochanoLanguage.text(
+                          'Generate a quiz to start building your history and track your progress.',
+                          'আপনার অগ্রগতি ট্র্যাক করতে এবং ইতিহাস তৈরি করতে একটি কুইজ তৈরি করুন।',
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadHistory,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(GochanoSpacing.md),
+                          itemCount: _results.length + 1,
+                          itemBuilder: (context, index) {
+                            if (index == 0) return _buildSummary();
+                            final result = _results[index - 1];
+                            return _buildResultCard(result);
+                          },
+                        ),
                       ),
-                      message: GochanoLanguage.text(
-                        'Generate a quiz to start building your history and track your progress.',
-                        'আপনার অগ্রগতি ট্র্যাক করতে এবং ইতিহাস তৈরি করতে একটি কুইজ তৈরি করুন।',
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadHistory,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(GochanoSpacing.md),
-                        itemCount: _results.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == 0) return _buildSummary();
-                          final result = _results[index - 1];
-                          return _buildResultCard(result);
-                        },
-                      ),
-                    ),
+      ),
     );
   }
 
@@ -123,13 +125,34 @@ class _QuizHistoryScreenState extends State<QuizHistoryScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: GochanoSpacing.md),
       child: AppCard(
+        accent: colors.ai,
         padding: const EdgeInsets.all(GochanoSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              GochanoLanguage.text('Overall Stats', 'সামগ্রিক পরিসংখ্যান'),
-              style: context.type.cardHeading,
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colors.ai.withValues(alpha: 0.12),
+                    borderRadius: GochanoRadius.smAll,
+                  ),
+                  child: Icon(
+                    Icons.insights_rounded,
+                    size: 18,
+                    color: colors.ai,
+                  ),
+                ),
+                const SizedBox(width: GochanoSpacing.sm),
+                Expanded(
+                  child: Text(
+                    GochanoLanguage.text('Overall Stats', 'সামগ্রিক পরিসংখ্যান'),
+                    style: context.type.cardHeading,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: GochanoSpacing.sm),
             Row(

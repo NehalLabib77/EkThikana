@@ -23,3 +23,4 @@ export 'components/app_section_container.dart';
 export 'components/app_skeleton.dart';
 export 'components/app_study_header.dart';
 export 'components/app_workspace_components.dart';
+export 'components/app_page_background.dart';

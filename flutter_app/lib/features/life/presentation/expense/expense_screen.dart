@@ -16,10 +16,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/app_design_system.dart';
 import '../../../../core/design_system/gochano_art.dart';
-import '../../../../core/design_system/gochano_colors.dart';
-import '../../../../core/design_system/gochano_spacing.dart';
-import '../../../../core/design_system/gochano_typography.dart';
 import '../../../../core/localization/gochano_language.dart';
 import '../../../../services/financial_service.dart';
 import '../../../../shared/states/gochano_states.dart';
@@ -138,14 +136,17 @@ class _ExpenseScreenState extends State<ExpenseScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [
-          _DailyTab(),
-          GroceryTab(),
-          DenaPawnaTab(onChanged: _onExpenseAdded),
-          OverviewTab(key: _overviewKey),
-        ],
+      body: AppPageBackground(
+        gradient: AppGradients.planPage,
+        child: TabBarView(
+          controller: _tabs,
+          children: [
+            _DailyTab(),
+            GroceryTab(),
+            DenaPawnaTab(onChanged: _onExpenseAdded),
+            OverviewTab(key: _overviewKey),
+          ],
+        ),
       ),
     );
   }
@@ -160,10 +161,21 @@ class _DailyTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUid = FinancialService.uid;
+    if (currentUid == null) {
+      return Center(
+        child: Text(
+          GochanoLanguage.text(
+            'No expenses recorded yet',
+            'এখনো কোনো খরচ রেকর্ড করা হয়নি',
+          ),
+        ),
+      );
+    }
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FinancialService.db
           .collection('daily_expenses')
-          .where('ownerId', isEqualTo: FinancialService.uid)
+          .where('ownerId', isEqualTo: currentUid)
           .where('dateKey', isEqualTo: FinancialService.dateKey(DateTime.now()))
           .snapshots(),
       builder: (context, snapshot) {
